@@ -1,0 +1,11 @@
+ -----
+ Home
+ -----
+
+Carbonado
+
+ Carbonado is an extensible, high performance persistence abstraction layer for Java
+ applications, providing a relational view to the underlying persistence technology.
+ The Carbonado project is still in the planning phases, so don't expect to find
+ anything interesting here yet.
+

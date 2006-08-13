@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>carbonado</groupId>
+  <artifactId>carbonado</artifactId>
+  <packaging>jar</packaging>
+  <name>Carbonado</name>
+  <version>1.1</version>
+  <description>
+    Extensible, high performance persistence abstraction layer for Java applications with a relational view to the underlying persistence technology.
+  </description>
+  <url>http://carbonado.sourceforge.net/</url>
+  <inceptionYear>2006</inceptionYear>
+
+  <organization>
+    <name>Amazon Technologies, Inc.</name>
+    <url>http://sourceforge.net/projects/carbonado/</url>
+  </organization>
+
+  <licenses>
+    <license>
+      <name>Apache License Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
+  <scm>
+    <connection>scm:svn:https://svn.sourceforge.net/svnroot/carbonado/trunk/Carbonado</connection>
+    <developerConnection>scm:svn:https://svn.sourceforge.net/svnroot/carbonado/trunk/Carbonado</developerConnection>
+    <url>http://svn.sourceforge.net/viewvc/carbonado/trunk/Carbonado/</url>
+  </scm>
+
+  <issueManagement>
+    <url>http://sourceforge.net/tracker/?group_id=171277</url>
+  </issueManagement>
+
+  <mailingLists>
+    <mailingList>
+      <name>Carbonado Interest list</name>
+      <subscribe>http://sourceforge.net/mail/?group_id=171277</subscribe>
+      <unsubscribe>http://sourceforge.net/mail/?group_id=171277</unsubscribe>
+    </mailingList>
+  </mailingLists>
+
+  <developers>
+    <developer>
+      <name>Brian S O'Neill</name>
+      <id>broneill</id>
+      <email>broneill@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+      <roles>
+        <role>Project Lead</role>
+      </roles>
+    </developer>
+
+    <developer>
+      <name>Don Schneider</name>
+      <id>dondo_seattle</id>
+      <email>dondo_seattle@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
+
+    <developer>
+      <name>Vidya Iyer</name>
+      <id>vidyaiyer</id>
+      <email>vidyaiyer@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
+
+    <developer>
+      <name>Nicole Deflaux</name>
+      <id>deflaux</id>
+      <email>deflaux@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
+
+    <developer>
+      <name>Justin Rudd</name>
+      <id>justrudd</id>
+      <email>justrudd@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
+  </developers>
+
+  <dependencies>
+    <!--
+    <dependency>
+      <groupId>cojen</groupId>
+      <artifactId>cojen</artifactId>
+      <version>1.1.4</version>
+    </dependency>
+    -->
+
+    <dependency>
+      <groupId>joda-time</groupId>
+      <artifactId>joda-time</artifactId>
+      <version>1.3</version>
+    </dependency>
+
+    <dependency>
+      <groupId>commons-logging</groupId>
+      <artifactId>commons-logging</artifactId>
+      <version>1.0.4</version>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <reporting>
+    <plugins>
+      <!--
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+          <configuration>
+            <aggregate>true</aggregate>
+            <links>
+              <link>http://java.sun.com/j2se/1.5.0/docs/api</link>
+            </links>
+          </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jxr-plugin</artifactId>
+        <configuration>
+          <aggregate>true</aggregate>
+        </configuration>
+      </plugin>
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>project-team</report>
+	      <report>mailing-list</report>
+              <report>issue-tracking</report>
+              <report>scm</report>
+              <report>license</report>
+	    </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+    </plugins>
+  </reporting>
+</project>

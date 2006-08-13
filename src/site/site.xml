@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<project name="Carbonado">
+  <bannerLeft>
+    <name>Carbonado</name>
+    <src>http://sourceforge.net/sflogo.php?group_id&#61;171277&#38;type&#61;2</src>
+    <href>http://sourceforge.net/projects/carbonado/</href>
+  </bannerLeft>
+  <bannerRight>
+    <src>./images/carbonado.png</src>
+  </bannerRight>
+  <publishDate format="yyyy-MM-dd"/>
+  <body>
+    <links>
+      <!-- item name="Carbonado" href="http://carbonado.sourceforge.net/"/ -->
+    </links>
+
+    <menu name="Carbonado">
+      <item name="Overview" href="index.html"/>
+      <item name="Subversion" href="http://svn.sourceforge.net/viewvc/carbonado/trunk/Carbonado/"/>
+      <item name="Sourceforge" href="http://sourceforge.net/projects/carbonado/"/>
+      <item name="License" href="license.html"/>
+    </menu>
+
+    <menu name="Project Documentation">
+      <item name="Project Info" href="project-info.html"/>
+      <!-- item name="Source Xref" href="xref/index.html"/ -->
+    </menu>
+  </body>
+</project>
