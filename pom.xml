@@ -80,6 +80,11 @@
       <email>justrudd@users.sourceforge.net</email>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
+
+    <developer>
+      <name>Doug Treder</name>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
   </developers>
 
   <dependencies>
