@@ -53,8 +53,9 @@ import com.amazon.carbonado.info.StorableIndex;
 
 import com.amazon.carbonado.cursor.MergeSortBuffer;
 
+import com.amazon.carbonado.qe.BoundaryType;
+
 import com.amazon.carbonado.spi.BaseQueryEngine;
-import com.amazon.carbonado.spi.BoundaryType;
 import com.amazon.carbonado.spi.RepairExecutor;
 import com.amazon.carbonado.spi.StorableIndexSet;
 

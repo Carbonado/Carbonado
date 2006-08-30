@@ -156,7 +156,7 @@ public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
             return new BasicSupport(mRepository, storable);
         }
 
-        public Repository getRepository() {
+        public Repository getRootRepository() {
             return mRepository;
         }
 
