@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>carbonado</groupId>
-  <artifactId>carbonado</artifactId>
+  <groupId>com.amazon.carbonado</groupId>
+  <artifactId>carbonado-core</artifactId>
   <packaging>jar</packaging>
   <name>Carbonado</name>
-  <version>1.1</version>
+  <version>1.1-SNAPSHOT</version>
   <description>
     Extensible, high performance persistence abstraction layer for Java applications with a relational view to the underlying persistence technology.
   </description>
