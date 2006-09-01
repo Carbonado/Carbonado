@@ -100,7 +100,6 @@ public final class StorableGenerator<S extends Storable> {
      * primary keys are initialized, throwing an exception otherwise.
      */
     public static final String
-        CHECK_PK_FOR_LOAD_METHOD_NAME   = "checkPkForLoad$",
         CHECK_PK_FOR_INSERT_METHOD_NAME = "checkPkForInsert$",
         CHECK_PK_FOR_UPDATE_METHOD_NAME = "checkPkForUpdate$",
         CHECK_PK_FOR_DELETE_METHOD_NAME = "checkPkForDelete$";
