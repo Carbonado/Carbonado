@@ -30,16 +30,19 @@ import java.util.Date;
 import org.joda.time.DateMidnight;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDate;
+import org.joda.time.LocalDateTime;
 import org.joda.time.ReadableInstant;
 
 import com.amazon.carbonado.adapter.AdapterDefinition;
 
 /**
  * Converts Joda-Time datetime objects to and from other forms. This adapter is
- * applied automatically for all storable properties of type {@link DateTime}
- * or {@link DateMidnight}. Explicit use allows a different time zone to be
- * used. DateTimeAdapter can also be used to support {@link Date} properties,
- * but it must be explicitly specified.
+ * applied automatically for all storable properties of type {@link DateTime},
+ * {@link DateMidnight}, {@link LocalDateTime} and {@link LocalDate}. Explicit
+ * use allows a different time zone to be used. DateTimeAdapter can also be
+ * used to support {@link Date} properties, but it must be explicitly
+ * specified.
  *
  * <p>Example:<pre>
  * public interface UserInfo extends Storable {
@@ -121,6 +124,8 @@ public @interface DateTimeAdapter {
             return date == null ? null : new DateTime(date, mZone);
         }
 
+        // Adapt to DateMidnight...
+
         public DateMidnight adaptToDateMidnight(long instant) {
             return new DateMidnight(instant, mZone);
         }
@@ -137,14 +142,50 @@ public @interface DateTimeAdapter {
             return date == null ? null : new DateMidnight(date, mZone);
         }
 
-        // Adapt from DateTime... (accept the more generic ReadableInstant)
+        // Adapt to LocalDateTime...
+
+        public LocalDateTime adaptToLocalDateTime(long instant) {
+            return new LocalDateTime(instant, mZone);
+        }
+
+        public LocalDateTime adaptToLocalDateTime(Long instant) {
+            return instant == null ? null : new LocalDateTime(instant, mZone);
+        }
+
+        public LocalDateTime adaptToLocalDateTime(String isoDateString) {
+            return isoDateString == null ? null : new LocalDateTime(isoDateString, mZone);
+        }
+
+        public LocalDateTime adaptToLocalDateTime(Date date) {
+            return date == null ? null : new LocalDateTime(date, mZone);
+        }
+
+        // Adapt to LocalDate...
+
+        public LocalDate adaptToLocalDate(long instant) {
+            return new LocalDate(instant, mZone);
+        }
+
+        public LocalDate adaptToLocalDate(Long instant) {
+            return instant == null ? null : new LocalDate(instant, mZone);
+        }
+
+        public LocalDate adaptToLocalDate(String isoDateString) {
+            return isoDateString == null ? null : new LocalDate(isoDateString, mZone);
+        }
+
+        public LocalDate adaptToLocalDate(Date date) {
+            return date == null ? null : new LocalDate(date, mZone);
+        }
+
+        // Adapt from DateTime and DateMidnight... (accept the more generic ReadableInstant)
 
         public long adaptToLong(ReadableInstant instant) {
             if (instant != null) {
                 return instant.getMillis();
             }
             throw new IllegalArgumentException
-                ("Cannot adapt null DateTime into long for property \"" +
+                ("Cannot adapt null instant into long for property \"" +
                  mPropertyName + '"');
         }
 
@@ -172,6 +213,73 @@ public @interface DateTimeAdapter {
             return instant == null ? null : new Timestamp(instant.getMillis());
         }
 
+        // Adapt from LocalDateTime...
+
+        public long adaptToLong(LocalDateTime dateTime) {
+            if (dateTime != null) {
+                return dateTime.toDateTime(mZone).getMillis();
+            }
+            throw new IllegalArgumentException
+                ("Cannot adapt null datetime into long for property \"" +
+                 mPropertyName + '"');
+        }
+
+        public Long adaptToLongObj(LocalDateTime dateTime) {
+            return dateTime == null ? null : dateTime.toDateTime(mZone).getMillis();
+        }
+
+        public String adaptToString(LocalDateTime dateTime) {
+            return dateTime == null ? null : dateTime.toString();
+        }
+
+        public Date adaptToDate(LocalDateTime dateTime) {
+            return dateTime == null ? null : dateTime.toDateTime(mZone).toDate();
+        }
+
+        public java.sql.Date adaptToSqlDate(LocalDateTime dateTime) {
+            return dateTime == null ? null
+                : new java.sql.Date(dateTime.toDateTime(mZone).getMillis());
+        }
+
+        public Time adaptToSqlTime(LocalDateTime dateTime) {
+            return dateTime == null ? null : new Time(dateTime.toDateTime(mZone).getMillis());
+        }
+
+        public Timestamp adaptToSqlTimestamp(LocalDateTime dateTime) {
+            return dateTime == null ? null : new Timestamp(dateTime.toDateTime(mZone).getMillis());
+        }
+
+        // Adapt from LocalDate...
+
+        public long adaptToLong(LocalDate date) {
+            if (date != null) {
+                return date.toDateMidnight(mZone).getMillis();
+            }
+            throw new IllegalArgumentException
+                ("Cannot adapt null date into long for property \"" +
+                 mPropertyName + '"');
+        }
+
+        public Long adaptToLongObj(LocalDate date) {
+            return date == null ? null : date.toDateMidnight(mZone).getMillis();
+        }
+
+        public String adaptToString(LocalDate date) {
+            return date == null ? null : date.toString();
+        }
+
+        public Date adaptToDate(LocalDate date) {
+            return date == null ? null : date.toDateMidnight(mZone).toDate();
+        }
+
+        public java.sql.Date adaptToSqlDate(LocalDate date) {
+            return date == null ? null : new java.sql.Date(date.toDateMidnight(mZone).getMillis());
+        }
+
+        public Timestamp adaptToSqlTimestamp(LocalDate date) {
+            return date == null ? null : new Timestamp(date.toDateMidnight(mZone).getMillis());
+        }
+
         // Adapt to Date...
 
         public Date adaptToDate(long instant) {
@@ -193,7 +301,7 @@ public @interface DateTimeAdapter {
                 return date.getTime();
             }
             throw new IllegalArgumentException
-                ("Cannot adapt null Date into long for property \"" +
+                ("Cannot adapt null date into long for property \"" +
                  mPropertyName + '"');
         }
 

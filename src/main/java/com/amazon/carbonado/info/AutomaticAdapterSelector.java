@@ -23,6 +23,8 @@ import java.lang.reflect.Method;
 
 import org.joda.time.DateMidnight;
 import org.joda.time.DateTime;
+import org.joda.time.LocalDate;
+import org.joda.time.LocalDateTime;
 
 import org.cojen.util.BeanProperty;
 
@@ -51,7 +53,9 @@ class AutomaticAdapterSelector {
         final Class propertyType = property.getType();
 
         if (DateTime.class.isAssignableFrom(propertyType) ||
-            DateMidnight.class.isAssignableFrom(propertyType))
+            DateMidnight.class.isAssignableFrom(propertyType) ||
+            LocalDate.class.isAssignableFrom(propertyType) ||
+            LocalDateTime.class.isAssignableFrom(propertyType))
         {
             return selectAdapter(property, DateTimeAdapter.class, readMethod);
         } else if (String.class.isAssignableFrom(propertyType)) {
