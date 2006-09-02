@@ -16,6 +16,7 @@
 
     <menu name="Carbonado">
       <item name="Overview" href="index.html"/>
+      <item name="Javadoc" href="apidocs/index.html"/>
       <item name="Subversion" href="http://svn.sourceforge.net/viewvc/carbonado/trunk/Carbonado/"/>
       <item name="Sourceforge" href="http://sourceforge.net/projects/carbonado/"/>
       <item name="License" href="license.html"/>
@@ -23,7 +24,7 @@
 
     <menu name="Project Documentation">
       <item name="Project Info" href="project-info.html"/>
-      <!-- item name="Source Xref" href="xref/index.html"/ -->
+      <item name="Source Xref" href="xref/index.html"/>
     </menu>
   </body>
 </project>

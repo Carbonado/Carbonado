@@ -116,17 +116,43 @@
 
   <reporting>
     <plugins>
-      <!--
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-          <configuration>
-            <aggregate>true</aggregate>
-            <links>
-              <link>http://java.sun.com/j2se/1.5.0/docs/api</link>
-            </links>
-          </configuration>
+        <configuration>
+          <aggregate>true</aggregate>
+          <links>
+            <link>http://java.sun.com/j2se/1.5.0/docs/api</link>
+            <link>http://cojen.sourceforge.net/apidocs</link>
+            <link>http://joda-time.sourceforge.net/api-release</link>
+          </links>
+          <sourcepath>${basedir}/src/main/java</sourcepath>
+          <subpackages>com.amazon.carbonado</subpackages>
+          <groups>
+            <group>
+              <title>Basic API</title>
+              <packages>com.amazon.carbonado:com.amazon.carbonado.constraint:com.amazon.carbonado.adapter</packages>
+            </group>
+            <group>
+              <title>Advanced API</title>
+              <packages>com.amazon.carbonado.cursor:com.amazon.carbonado.lob:com.amazon.carbonado.capability:com.amazon.carbonado.filter:com.amazon.carbonado.info:com.amazon.carbonado.layout</packages>
+            </group>
+            <group>
+              <title>Standard Repositories</title>
+              <packages>com.amazon.carbonado.repo.jdbc:com.amazon.carbonado.repo.replicated:com.amazon.carbonado.repo.logging</packages>
+            </group>
+            <group>
+              <title>Service Provider Interface</title>
+              <packages>com.amazon.carbonado.repo.indexed:com.amazon.carbonado.spi*:com.amazon.carbonado.synthetic:com.amazon.carbonado.qe</packages>
+            </group>
+            <group>
+              <title>Generic Utilities</title>
+              <packages>com.amazon.carbonado.util</packages>
+            </group>
+          </groups>
+        </configuration>
       </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jxr-plugin</artifactId>
@@ -134,7 +160,6 @@
           <aggregate>true</aggregate>
         </configuration>
       </plugin>
-      -->
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
