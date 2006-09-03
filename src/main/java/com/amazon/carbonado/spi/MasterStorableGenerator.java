@@ -107,7 +107,7 @@ public final class MasterStorableGenerator<S extends Storable> {
      * </pre>
      *
      * Subclasses can access the MasterSupport instance via the protected field
-     * named by MASTER_SUPPORT_FIELD_NAME.
+     * named by {@link StorableGenerator#SUPPORT_FIELD_NAME SUPPORT_FIELD_NAME}.
      *
      * @throws com.amazon.carbonado.MalformedTypeException if Storable type is not well-formed
      * @throws IllegalArgumentException if type is null

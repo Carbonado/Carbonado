@@ -144,7 +144,7 @@ public final class StorableGenerator<S extends Storable> {
     /** Constraint field names are propertyName + "$constraint$" + ordinal */
     public static final String CONSTRAINT_FIELD_ELEMENT = "$constraint$";
 
-    /** Reference to Support class */
+    /** Reference to TriggerSupport or WrappedSupport instance */
     public static final String SUPPORT_FIELD_NAME = "support$";
 
     /** Property state indicating that property has never been set, loaded, or saved */

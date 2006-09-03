@@ -70,6 +70,6 @@ public class TestUnionQueryExecutor extends TestQueryExecutor {
 
         assertEquals(primary.getOrdering(), union.getOrdering());
 
-        compareElements(union.openCursor(values), 1, 2, 3, 7, 8);
+        compareElements(union.fetch(values), 1, 2, 3, 7, 8);
     }
 }

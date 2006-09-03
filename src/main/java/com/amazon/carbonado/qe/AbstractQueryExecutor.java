@@ -40,7 +40,7 @@ public abstract class AbstractQueryExecutor<S extends Storable> implements Query
      * Counts results by opening a cursor and skipping entries.
      */
     public long count(FilterValues<S> values) throws FetchException {
-        Cursor<S> cursor = openCursor(values);
+        Cursor<S> cursor = fetch(values);
         try {
             long count = cursor.skipNext(Integer.MAX_VALUE);
             if (count == Integer.MAX_VALUE) {

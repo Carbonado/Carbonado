@@ -58,7 +58,7 @@ public class TestSortedQueryExecutor extends TestQueryExecutor {
 
         assertEquals(ordered, executor.getOrdering());
 
-        compareElements(executor.openCursor(values), 1, 2, 3, 4);
+        compareElements(executor.fetch(values), 1, 2, 3, 4);
     }
 
     public void testBasicFinisherSorting() throws Exception {
@@ -79,6 +79,6 @@ public class TestSortedQueryExecutor extends TestQueryExecutor {
         assertEquals(handled.get(0), executor.getOrdering().get(0));
         assertEquals(finisher.get(0), executor.getOrdering().get(1));
 
-        compareElements(executor.openCursor(values), 1, 2, 3, 4);
+        compareElements(executor.fetch(values), 1, 2, 3, 4);
     }
 }

@@ -46,7 +46,7 @@ public interface QueryExecutor<S extends Storable> {
     /**
      * Returns a new cursor using the given filter values.
      */
-    Cursor<S> openCursor(FilterValues<S> values) throws FetchException;
+    Cursor<S> fetch(FilterValues<S> values) throws FetchException;
 
     /**
      * Counts the query results using the given filter values.

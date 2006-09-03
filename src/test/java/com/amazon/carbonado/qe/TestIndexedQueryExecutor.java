@@ -78,7 +78,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         Mock<StorableTestBasic> executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(1, executor.mIdentityValues.length);
         assertEquals(100, executor.mIdentityValues[0]);
@@ -98,7 +98,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100).with(5));
+        executor.fetch(values.with(100).with(5));
 
         assertEquals(2, executor.mIdentityValues.length);
         assertEquals(100, executor.mIdentityValues[0]);
@@ -119,7 +119,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(200));
+        executor.fetch(values.with(200));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -142,7 +142,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         Mock<StorableTestBasic> executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -161,7 +161,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.INCLUSIVE, executor.mRangeStartBoundary);
@@ -180,7 +180,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(10).with(30));
+        executor.fetch(values.with(10).with(30));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -199,7 +199,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(10).with(30));
+        executor.fetch(values.with(10).with(30));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -218,7 +218,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(10).with(10));
+        executor.fetch(values.with(10).with(10));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -237,7 +237,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(30).with(10));
+        executor.fetch(values.with(30).with(10));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.INCLUSIVE, executor.mRangeStartBoundary);
@@ -257,7 +257,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100).with(30));
+        executor.fetch(values.with(100).with(30));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -278,7 +278,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -298,7 +298,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -318,7 +318,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -341,7 +341,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         Mock<StorableTestBasic> executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -360,7 +360,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -379,7 +379,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(10).with(30));
+        executor.fetch(values.with(10).with(30));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -398,7 +398,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(10).with(30));
+        executor.fetch(values.with(10).with(30));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -417,7 +417,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(10).with(10));
+        executor.fetch(values.with(10).with(10));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -436,7 +436,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(30).with(10));
+        executor.fetch(values.with(30).with(10));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -456,7 +456,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100).with(30));
+        executor.fetch(values.with(100).with(30));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -477,7 +477,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -497,7 +497,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -517,7 +517,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100));
+        executor.fetch(values.with(100));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.OPEN, executor.mRangeStartBoundary);
@@ -543,7 +543,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         Mock<StorableTestBasic> executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100).with(200));
+        executor.fetch(values.with(100).with(200));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -562,7 +562,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(100).with(10));
+        executor.fetch(values.with(100).with(10));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.INCLUSIVE, executor.mRangeStartBoundary);
@@ -582,7 +582,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(10).with(100).with(30));
+        executor.fetch(values.with(10).with(100).with(30));
 
         assertEquals(null, executor.mIdentityValues);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -614,7 +614,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(3).with(56.5).with(200.2));
+        executor.fetch(values.with(3).with(56.5).with(200.2));
 
         assertEquals(3, executor.mIdentityValues[0]);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -630,7 +630,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(3).with(56.5).with(200.2));
+        executor.fetch(values.with(3).with(56.5).with(200.2));
 
         assertEquals(3, executor.mIdentityValues[0]);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -646,7 +646,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(3).with(56.5).with(200.2));
+        executor.fetch(values.with(3).with(56.5).with(200.2));
 
         assertEquals(3, executor.mIdentityValues[0]);
         assertEquals(BoundaryType.EXCLUSIVE, executor.mRangeStartBoundary);
@@ -667,7 +667,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         executor = new Mock(index, score);
 
-        executor.openCursor(values.with(3).with(56.5).with("foo"));
+        executor.fetch(values.with(3).with(56.5).with("foo"));
 
         assertEquals(3, executor.mIdentityValues[0]);
         assertEquals(56.5, executor.mIdentityValues[1]);
@@ -701,14 +701,14 @@ public class TestIndexedQueryExecutor extends TestCase {
             super(index, score);
         }
 
-        protected Cursor<S> openCursor(StorableIndex<S> index,
-                                       Object[] identityValues,
-                                       BoundaryType rangeStartBoundary,
-                                       Object rangeStartValue,
-                                       BoundaryType rangeEndBoundary,
-                                       Object rangeEndValue,
-                                       boolean reverseRange,
-                                       boolean reverseOrder)
+        protected Cursor<S> fetch(StorableIndex<S> index,
+                                  Object[] identityValues,
+                                  BoundaryType rangeStartBoundary,
+                                  Object rangeStartValue,
+                                  BoundaryType rangeEndBoundary,
+                                  Object rangeEndValue,
+                                  boolean reverseRange,
+                                  boolean reverseOrder)
         {
             mIdentityValues = identityValues;
             mRangeStartBoundary = rangeStartBoundary;

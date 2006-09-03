@@ -50,6 +50,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
      * @param storage required storage object
      * @param orderings optional order-by properties
      */
+    // FIXME: remove this
     public EmptyQuery(Storage<S> storage, OrderedProperty[] orderings) {
         if (storage == null) {
             throw new IllegalArgumentException();

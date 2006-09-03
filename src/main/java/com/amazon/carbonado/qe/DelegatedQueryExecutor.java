@@ -83,7 +83,7 @@ public class DelegatedQueryExecutor<S extends Storable> implements QueryExecutor
         return mStorage.getStorableType();
     }
 
-    public Cursor<S> openCursor(FilterValues<S> values) throws FetchException {
+    public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
         return applyFilterValues(values).fetch();
     }
 

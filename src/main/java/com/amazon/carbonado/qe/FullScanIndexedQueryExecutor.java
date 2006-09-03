@@ -62,8 +62,8 @@ public abstract class FullScanIndexedQueryExecutor<S extends Storable>
     }
 
     @Override
-    public Cursor<S> openCursor(FilterValues<S> values) throws FetchException {
-        return openCursor(mIndex);
+    public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
+        return fetch(mIndex);
     }
 
     /**
@@ -74,8 +74,8 @@ public abstract class FullScanIndexedQueryExecutor<S extends Storable>
         return Collections.unmodifiableList(Arrays.asList(mIndex.getOrderedProperties()));
     }
 
-    protected Cursor<S> openCursor() throws FetchException {
-        return openCursor(mIndex);
+    protected Cursor<S> fetch() throws FetchException {
+        return fetch(mIndex);
     }
 
     /**
@@ -83,5 +83,5 @@ public abstract class FullScanIndexedQueryExecutor<S extends Storable>
      *
      * @param index index to open, which may be a primary key index
      */
-    protected abstract Cursor<S> openCursor(StorableIndex<S> index) throws FetchException;
+    protected abstract Cursor<S> fetch(StorableIndex<S> index) throws FetchException;
 }

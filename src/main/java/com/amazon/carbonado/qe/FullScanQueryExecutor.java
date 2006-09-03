@@ -58,8 +58,8 @@ public abstract class FullScanQueryExecutor<S extends Storable> extends Abstract
         return Filter.getOpenFilter(mType);
     }
 
-    public Cursor<S> openCursor(FilterValues<S> values) throws FetchException {
-        return openCursor();
+    public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
+        return fetch();
     }
 
     /**
@@ -82,5 +82,5 @@ public abstract class FullScanQueryExecutor<S extends Storable> extends Abstract
     /**
      * Return a new Cursor instance.
      */
-    protected abstract Cursor<S> openCursor() throws FetchException;
+    protected abstract Cursor<S> fetch() throws FetchException;
 }

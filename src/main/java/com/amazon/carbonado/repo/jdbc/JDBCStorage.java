@@ -641,10 +641,6 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
         protected BaseQuery<S> newInstance(FilterValues<S> values) {
             return new JDBCQuery(mCursorFactory, values, getOrderings());
         }
-
-        protected BaseQuery<S> cachedInstance(Filter<S> filter) throws FetchException {
-            return (BaseQuery<S>) JDBCStorage.this.getCompiledQuery(filter);
-        }
     }
 
     /**

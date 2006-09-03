@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.qe;
 
+import java.util.concurrent.locks.Lock;
+
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.Storable;
 
@@ -31,6 +33,7 @@ import com.amazon.carbonado.cursor.IteratorCursor;
  */
 public class IterableQueryExecutor<S extends Storable> extends FullScanQueryExecutor<S> {
     private final Iterable<S> mIterable;
+    private final Lock mLock;
 
     /**
      * @param type type of Storable
@@ -38,11 +41,22 @@ public class IterableQueryExecutor<S extends Storable> extends FullScanQueryExec
      * @throws IllegalArgumentException if type is null
      */
     public IterableQueryExecutor(Class<S> type, Iterable<S> iterable) {
-        super(type);
-        mIterable = iterable;
+        this(type, iterable, null);
     }
 
-    protected Cursor<S> openCursor() {
-        return new IteratorCursor<S>(mIterable);
+    /**
+     * @param type type of Storable
+     * @param iterable collection to iterate over, or null for empty cursor
+     * @param lock optional lock to hold while cursor is open
+     * @throws IllegalArgumentException if type is null
+     */
+    public IterableQueryExecutor(Class<S> type, Iterable<S> iterable, Lock lock) {
+        super(type);
+        mIterable = iterable;
+        mLock = lock;
+    }
+
+    protected Cursor<S> fetch() {
+        return new IteratorCursor<S>(mIterable, mLock);
     }
 }

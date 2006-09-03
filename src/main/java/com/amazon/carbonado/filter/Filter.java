@@ -132,7 +132,7 @@ public abstract class Filter<S extends Storable> implements Appender {
         synchronized (cCache) {
             Map<Object, Filter<S>> filterCache = (Map<Object, Filter<S>>) cCache.get(type);
             if (filterCache == null) {
-                filterCache = new SoftValuedHashMap(7);
+                filterCache = new SoftValuedHashMap();
                 cCache.put(type, filterCache);
             }
             return filterCache;

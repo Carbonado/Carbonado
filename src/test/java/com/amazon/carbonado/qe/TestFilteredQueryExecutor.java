@@ -52,6 +52,6 @@ public class TestFilteredQueryExecutor extends TestQueryExecutor {
 
         assertEquals(0, executor.getOrdering().size());
 
-        compareElements(executor.openCursor(values.with("country_2")), 3, 4);
+        compareElements(executor.fetch(values.with("country_2")), 3, 4);
     }
 }

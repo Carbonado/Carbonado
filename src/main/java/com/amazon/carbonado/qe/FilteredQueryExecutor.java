@@ -62,8 +62,8 @@ public class FilteredQueryExecutor<S extends Storable> extends AbstractQueryExec
         mFilter = filter.initialFilterValues().getFilter();
     }
 
-    public Cursor<S> openCursor(FilterValues<S> values) throws FetchException {
-        return FilteredCursor.applyFilter(mFilter, values, mExecutor.openCursor(values));
+    public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
+        return FilteredCursor.applyFilter(mFilter, values, mExecutor.fetch(values));
     }
 
     /**

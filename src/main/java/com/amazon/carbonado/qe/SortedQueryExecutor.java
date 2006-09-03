@@ -89,8 +89,8 @@ public abstract class SortedQueryExecutor<S extends Storable> extends AbstractQu
         mRemainderOrderings = remainderOrderings;
     }
 
-    public Cursor<S> openCursor(FilterValues<S> values) throws FetchException {
-        Cursor<S> cursor = mExecutor.openCursor(values);
+    public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
+        Cursor<S> cursor = mExecutor.fetch(values);
         SortBuffer<S> buffer = createSortBuffer();
         return new SortedCursor<S>(cursor, buffer, mHandledComparator, mFinisherComparator);
     }

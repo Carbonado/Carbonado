@@ -44,8 +44,10 @@ import com.amazon.carbonado.util.Appender;
  * @author Brian S O'Neill
  */
 public abstract class AbstractQuery<S extends Storable> implements Query<S>, Appender {
+    // FIXME: remove this
     protected static final String[] EMPTY_ORDERINGS = {};
 
+    // FIXME: remove this
     protected static String[] extractOrderingNames(OrderedProperty<?>[] orderings) {
         String[] orderingStrings;
         if (orderings == null || orderings.length == 0) {
@@ -58,8 +60,6 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
         return orderingStrings;
     }
 
-    // Note: Since constructor takes no parameters, this class is called
-    // Abstract instead of Base.
     protected AbstractQuery() {
     }
 

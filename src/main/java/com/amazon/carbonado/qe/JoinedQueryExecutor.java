@@ -141,8 +141,8 @@ public class JoinedQueryExecutor<A extends Storable, B extends Storable>
         return mBFilter;
     }
 
-    public Cursor<B> openCursor(FilterValues<B> values) throws FetchException {
-        return mFactory.join(mAExecutor.openCursor(transferValues(values)));
+    public Cursor<B> fetch(FilterValues<B> values) throws FetchException {
+        return mFactory.join(mAExecutor.fetch(transferValues(values)));
     }
 
     public List<OrderedProperty<B>> getOrdering() {

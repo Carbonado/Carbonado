@@ -21,19 +21,44 @@ package com.amazon.carbonado.cursor;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import java.util.concurrent.locks.Lock;
+
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+
 /**
  * Adapts an Iterator into a Cursor.
  *
  * @author Brian S O'Neill
  */
 public class IteratorCursor<S> extends AbstractCursor<S> {
-    private Iterator<S> mIterator;
+    private static final AtomicReferenceFieldUpdater<IteratorCursor, Lock> lockUpdater =
+        AtomicReferenceFieldUpdater.newUpdater(IteratorCursor.class, Lock.class, "mLock");
+
+    private volatile Iterator<S> mIterator;
+    private volatile Lock mLock;
 
     /**
      * @param iterable collection to iterate over, or null for empty cursor
      */
     public IteratorCursor(Iterable<S> iterable) {
-        this(iterable == null ? (Iterator<S>) null : iterable.iterator());
+        this(iterable, null);
+    }
+
+    /**
+     * @param iterable collection to iterate over, or null for empty cursor
+     * @param lock optional lock to hold while cursor is open
+     */
+    public IteratorCursor(Iterable<S> iterable, Lock lock) {
+        if (iterable == null) {
+            mIterator = null;
+            mLock = null;
+        } else {
+            if (lock != null) {
+                lock.lock();
+            }
+            mIterator = iterable.iterator();
+            mLock = lock;
+        }
     }
 
     /**
@@ -41,10 +66,17 @@ public class IteratorCursor<S> extends AbstractCursor<S> {
      */
     public IteratorCursor(Iterator<S> iterator) {
         mIterator = iterator;
+        mLock = null;
     }
 
     public void close() {
         mIterator = null;
+        // Use AtomicReferenceFieldUpdater to allow close method to be safely
+        // called multiple times without unlocking multiple times.
+        Lock lock = lockUpdater.getAndSet(this, null);
+        if (lock != null) {
+            lock.unlock();
+        }
     }
 
     public boolean hasNext() {

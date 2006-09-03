@@ -90,7 +90,7 @@ public abstract class IndexedQueryExecutor<S extends Storable> extends AbstractQ
         return mIndex.getStorableType();
     }
 
-    public Cursor<S> openCursor(FilterValues<S> values) throws FetchException {
+    public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
         Object[] identityValues = null;
         Object rangeStartValue = null;
         Object rangeEndValue = null;
@@ -147,11 +147,11 @@ public abstract class IndexedQueryExecutor<S extends Storable> extends AbstractQ
             }
         }
 
-        return openCursor(mIndex, identityValues,
-                          rangeStartBoundary, rangeStartValue,
-                          rangeEndBoundary, rangeEndValue,
-                          mReverseRange,
-                          mReverseOrder);
+        return fetch(mIndex, identityValues,
+                     rangeStartBoundary, rangeStartValue,
+                     rangeEndBoundary, rangeEndValue,
+                     mReverseRange,
+                     mReverseOrder);
     }
 
     public Filter<S> getFilter() {
@@ -254,13 +254,13 @@ public abstract class IndexedQueryExecutor<S extends Storable> extends AbstractQ
      * @param reverseOrder when true, iteration should be reversed from its
      * natural order
      */
-    protected abstract Cursor<S> openCursor(StorableIndex<S> index,
-                                            Object[] identityValues,
-                                            BoundaryType rangeStartBoundary,
-                                            Object rangeStartValue,
-                                            BoundaryType rangeEndBoundary,
-                                            Object rangeEndValue,
-                                            boolean reverseRange,
-                                            boolean reverseOrder)
+    protected abstract Cursor<S> fetch(StorableIndex<S> index,
+                                       Object[] identityValues,
+                                       BoundaryType rangeStartBoundary,
+                                       Object rangeStartValue,
+                                       BoundaryType rangeEndBoundary,
+                                       Object rangeEndValue,
+                                       boolean reverseRange,
+                                       boolean reverseOrder)
         throws FetchException;
 }

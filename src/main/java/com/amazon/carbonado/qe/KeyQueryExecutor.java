@@ -67,8 +67,8 @@ public abstract class KeyQueryExecutor<S extends Storable> extends AbstractQuery
         return mIndex.getStorableType();
     }
 
-    public Cursor<S> openCursor(FilterValues<S> values) throws FetchException {
-        return openCursor(mIndex, values.getValuesFor(mKeyFilter));
+    public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
+        return fetch(mIndex, values.getValuesFor(mKeyFilter));
     }
 
     public Filter<S> getFilter() {
@@ -106,6 +106,6 @@ public abstract class KeyQueryExecutor<S extends Storable> extends AbstractQuery
      * @param index index to open, which may be a primary key index
      * @param keyValues list of exactly matching values to apply to index
      */
-    protected abstract Cursor<S> openCursor(StorableIndex<S> index, Object[] keyValues)
+    protected abstract Cursor<S> fetch(StorableIndex<S> index, Object[] keyValues)
         throws FetchException;
 }

@@ -83,10 +83,10 @@ public class UnionQueryExecutor<S extends Storable> extends AbstractQueryExecuto
         mOrderComparator = SortedCursor.createComparator(totalOrderings);
     }
 
-    public Cursor<S> openCursor(FilterValues<S> values) throws FetchException {
+    public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
         Cursor<S> cursor = null;
         for (QueryExecutor<S> executor : mExecutors) {
-            Cursor<S> subCursor = executor.openCursor(values);
+            Cursor<S> subCursor = executor.fetch(values);
             cursor = (cursor == null) ? subCursor
                 : new UnionCursor<S>(cursor, subCursor, mOrderComparator);
         }
