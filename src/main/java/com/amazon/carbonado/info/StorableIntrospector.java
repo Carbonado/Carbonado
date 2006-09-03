@@ -1527,6 +1527,26 @@ public class StorableIntrospector {
             return mAdapter;
         }
 
+        public int hashCode() {
+            return (getName().hashCode() * 31 + getType().hashCode()) * 31
+                + getEnclosingType().hashCode();
+        }
+
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+
+            if (obj instanceof StorableProperty) {
+                StorableProperty other = (StorableProperty) obj;
+                return getName().equals(other.getName())
+                    && getType().equals(other.getType())
+                    && getEnclosingType().equals(other.getEnclosingType());
+            }
+
+            return false;
+        }
+
         public String toString() {
             StringBuilder b = new StringBuilder();
             try {

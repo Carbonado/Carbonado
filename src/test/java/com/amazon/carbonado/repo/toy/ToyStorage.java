@@ -147,11 +147,16 @@ public class ToyStorage<S extends Storable> implements Storage<S>, MasterSupport
         try {
             for (S existing : mData) {
                 if (existing.equalPrimaryKeys(storable)) {
+                    // Copy altered values to existing object.
                     existing.markAllPropertiesDirty();
                     storable.copyAllProperties(existing);
                     existing.markAllPropertiesClean();
+
+                    // Copy all values to user object, to simulate a reload.
+                    storable.markAllPropertiesDirty();
                     existing.copyAllProperties(storable);
                     storable.markAllPropertiesClean();
+
                     return true;
                 }
             }
