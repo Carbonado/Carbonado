@@ -68,12 +68,28 @@ public class OrderingScore<S extends Storable> {
      *
      * @param index index to evaluate
      * @param filter optional filter which cannot contain any logical 'or' operations.
+     * @throws IllegalArgumentException if index is null or filter is not supported
+     */
+    public static <S extends Storable> OrderingScore<S> evaluate
+        (StorableIndex<S> index,
+         Filter<S> filter)
+    {
+        return evaluate(index, filter, null);
+    }
+
+    /**
+     * Evaluates the given index for its ordering capabilities against the
+     * given filter and order-by properties.
+     *
+     * @param index index to evaluate
+     * @param filter optional filter which cannot contain any logical 'or' operations.
      * @param orderings properties which define desired ordering
      * @throws IllegalArgumentException if index is null or filter is not supported
      */
-    public static <S extends Storable> OrderingScore<S> evaluate(StorableIndex<S> index,
-                                                                 Filter<S> filter,
-                                                                 OrderedProperty<S>... orderings)
+    public static <S extends Storable> OrderingScore<S> evaluate
+        (StorableIndex<S> index,
+         Filter<S> filter,
+         List<OrderedProperty<S>> orderings)
     {
         if (index == null) {
             throw new IllegalArgumentException("Index required");
@@ -94,6 +110,25 @@ public class OrderingScore<S extends Storable> {
      * @param unique true if index is unique
      * @param clustered true if index is clustered
      * @param filter optional filter which cannot contain any logical 'or' operations.
+     * @throws IllegalArgumentException if index is null or filter is not supported
+     */
+    public static <S extends Storable> OrderingScore<S> evaluate
+        (OrderedProperty<S>[] indexProperties,
+         boolean unique,
+         boolean clustered,
+         Filter<S> filter)
+    {
+        return evaluate(indexProperties, unique, clustered, filter, null);
+    }
+
+    /**
+     * Evaluates the given index properties for its ordering capabilities
+     * against the given filter and order-by properties.
+     *
+     * @param indexProperties index properties to evaluate
+     * @param unique true if index is unique
+     * @param clustered true if index is clustered
+     * @param filter optional filter which cannot contain any logical 'or' operations.
      * @param orderings properties which define desired ordering
      * @throws IllegalArgumentException if index is null or filter is not supported
      */
@@ -102,7 +137,7 @@ public class OrderingScore<S extends Storable> {
          boolean unique,
          boolean clustered,
          Filter<S> filter,
-         OrderedProperty<S>... orderings)
+         List<OrderedProperty<S>> orderings)
     {
         if (indexProperties == null) {
             throw new IllegalArgumentException("Index properties required");
@@ -111,7 +146,7 @@ public class OrderingScore<S extends Storable> {
         // Get filter list early to detect errors.
         List<PropertyFilter<S>> filterList = PropertyFilterList.get(filter);
 
-        if (orderings == null || orderings.length == 0) {
+        if (orderings == null || orderings.size() == 0) {
             return new OrderingScore<S>(clustered, indexProperties.length, null, null, false);
         }
 
@@ -154,8 +189,8 @@ public class OrderingScore<S extends Storable> {
 
         int indexPos = 0;
         calcScore:
-        for (int i=0; i<orderings.length; i++) {
-            OrderedProperty<S> property = orderings[i];
+        for (int i=0; i<orderings.size(); i++) {
+            OrderedProperty<S> property = orderings.get(i);
             ChainedProperty<S> chained = property.getChainedProperty();
 
             if (seen.contains(chained)) {

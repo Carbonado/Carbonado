@@ -48,10 +48,11 @@ import com.amazon.carbonado.filter.FilterValues;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIntrospector;
 
+import com.amazon.carbonado.qe.ArraySortedQueryExecutor;
 import com.amazon.carbonado.qe.FilteredQueryExecutor;
 import com.amazon.carbonado.qe.IterableQueryExecutor;
+import com.amazon.carbonado.qe.OrderingList;
 import com.amazon.carbonado.qe.QueryExecutor;
-import com.amazon.carbonado.qe.SortedQueryExecutor;
 import com.amazon.carbonado.qe.StandardQuery;
 
 /**
@@ -89,7 +90,7 @@ public class ToyStorage<S extends Storable> implements Storage<S>, MasterSupport
     }
 
     public Query<S> query() throws FetchException {
-        return new ToyQuery(null);
+        return new ToyQuery(null, null);
     }
 
     public Query<S> query(String filter) throws FetchException {
@@ -97,7 +98,7 @@ public class ToyStorage<S extends Storable> implements Storage<S>, MasterSupport
     }
 
     public Query<S> query(Filter<S> filter) throws FetchException {
-        return new ToyQuery(filter.initialFilterValues());
+        return new ToyQuery(filter.initialFilterValues(), null);
     }
 
     public boolean addTrigger(Trigger<? super S> trigger) {
@@ -211,7 +212,7 @@ public class ToyStorage<S extends Storable> implements Storage<S>, MasterSupport
     }
 
     private class ToyQuery extends StandardQuery<S> {
-        ToyQuery(FilterValues<S> values, String... orderings) {
+        ToyQuery(FilterValues<S> values, OrderingList<S> orderings) {
             super(values, orderings);
         }
 
@@ -223,19 +224,21 @@ public class ToyStorage<S extends Storable> implements Storage<S>, MasterSupport
             return mRepo.enterTransaction(level);
         }
 
-        protected QueryExecutor<S> getExecutor(FilterValues<S> values, String... orderings) {
+        protected QueryExecutor<S> getExecutor(FilterValues<S> values, OrderingList<S> orderings) {
             QueryExecutor<S> executor = new IterableQueryExecutor<S>(mType, mData, mDataLock);
 
             if (values != null) {
                 executor = new FilteredQueryExecutor<S>(executor, values.getFilter());
             }
 
-            // FIXME: sorting
+            if (orderings.size() > 0) {
+                executor = new ArraySortedQueryExecutor<S>(executor, null, orderings);
+            }
 
             return executor;
         }
 
-        protected StandardQuery<S> newInstance(FilterValues<S> values, String... orderings) {
+        protected StandardQuery<S> newInstance(FilterValues<S> values, OrderingList<S> orderings) {
             return new ToyQuery(values, orderings);
         }
     }

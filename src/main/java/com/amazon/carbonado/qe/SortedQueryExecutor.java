@@ -54,6 +54,8 @@ public abstract class SortedQueryExecutor<S extends Storable> extends AbstractQu
 
     /**
      * @param executor executor to wrap
+     * @param handledOrderings optional handled orderings
+     * @param remainderOrderings required remainder orderings
      * @throws IllegalArgumentException if executor is null or if remainder
      * orderings is empty
      */

@@ -76,10 +76,19 @@ public class IndexedQueryAnalyzer<S extends Storable> {
     /**
      * @param filter optional filter which which must be {@link Filter#isBound
      * bound} and cannot contain any logical 'or' operations.
-     * @param orderings properties which define desired ordering
      * @throws IllegalArgumentException if filter is not supported
      */
-    public Result analyze(Filter<S> filter, OrderedProperty<S>... orderings) {
+    public Result analyze(Filter<S> filter) {
+        return analyze(filter, null);
+    }
+
+    /**
+     * @param filter optional filter which which must be {@link Filter#isBound
+     * bound} and cannot contain any logical 'or' operations.
+     * @param orderings optional properties which define desired ordering
+     * @throws IllegalArgumentException if filter is not supported
+     */
+    public Result analyze(Filter<S> filter, List<OrderedProperty<S>> orderings) {
         if (!filter.isBound()) {
             // Strictly speaking, this is not required, but it detects the
             // mistake of not properly calling initialFilterValues.

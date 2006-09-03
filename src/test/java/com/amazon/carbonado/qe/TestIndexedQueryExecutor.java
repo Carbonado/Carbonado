@@ -21,6 +21,7 @@ package com.amazon.carbonado.qe;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -56,7 +57,8 @@ public class TestIndexedQueryExecutor extends TestCase {
         return TestOrderingScore.makeIndex(type, props);
     }
 
-    static <S extends Storable> OrderedProperty<S>[] makeOrderings(Class<S> type, String... props)
+    static <S extends Storable> List<OrderedProperty<S>> makeOrderings(Class<S> type,
+                                                                       String... props)
     {
         return TestOrderingScore.makeOrderings(type, props);
     }
@@ -679,9 +681,9 @@ public class TestIndexedQueryExecutor extends TestCase {
         assertTrue(executor.mReverseOrder);
 
         assertEquals(values.getFilter(), executor.getFilter());
-        OrderedProperty<StorableTestBasic>[] expectedOrdering =
+        List<OrderedProperty<StorableTestBasic>> expectedOrdering =
             makeOrderings(StorableTestBasic.class, "intProp", "-doubleProp", "stringProp");
-        assertEquals(Arrays.asList(expectedOrdering), executor.getOrdering());
+        assertEquals(expectedOrdering, executor.getOrdering());
     }
 
     /**

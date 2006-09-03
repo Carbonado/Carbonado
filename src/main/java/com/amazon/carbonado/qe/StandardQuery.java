@@ -38,6 +38,7 @@ import com.amazon.carbonado.filter.FilterValues;
 import com.amazon.carbonado.filter.OpenFilter;
 import com.amazon.carbonado.filter.RelOp;
 
+import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.OrderedProperty;
 
 import com.amazon.carbonado.util.Appender;
@@ -53,27 +54,27 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     // Values for this query, which may be null.
     private final FilterValues<S> mValues;
     // Properties that this query is ordered by.
-    private final String[] mOrderings;
+    private final OrderingList<S> mOrderings;
 
     private volatile QueryExecutor<S> mExecutor;
 
     /**
      * @param values optional values object, defaults to open filter if null
-     * @param orderings optional order-by properties
      */
-    // FIXME: remove this
-    protected StandardQuery(FilterValues<S> values, OrderedProperty<S>... orderings) {
-        this(values, extractOrderingNames(orderings));
+    protected StandardQuery(FilterValues<S> values) {
+        this(values, null);
     }
 
     /**
      * @param values optional values object, defaults to open filter if null
-     * @param orderings optional order-by properties, not cloned, which may be
-     * prefixed with '+' or '-'
+     * @param orderings optional order-by properties
      */
-    protected StandardQuery(FilterValues<S> values, String... orderings) {
+    protected StandardQuery(FilterValues<S> values, OrderingList<S> orderings) {
         mValues = values;
-        mOrderings = orderings == null ? EMPTY_ORDERINGS : orderings;
+        if (orderings == null) {
+            orderings = OrderingList.emptyList();
+        }
+        mOrderings = orderings;
     }
 
     public Class<S> getStorableType() {
@@ -148,7 +149,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             newQuery = getStorage().query(values.getFilter().and(filter));
             newQuery = newQuery.withValues(values.getValues());
         }
-        return mOrderings.length == 0 ? newQuery : newQuery.orderBy(mOrderings);
+        return mOrderings.size() == 0 ? newQuery : newQuery.orderBy(mOrderings.asStringArray());
     }
 
     public Query<S> or(Filter<S> filter) throws FetchException {
@@ -158,7 +159,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
         Query<S> newQuery = getStorage().query(values.getFilter().or(filter));
         newQuery = newQuery.withValues(values.getValues());
-        return mOrderings.length == 0 ? newQuery : newQuery.orderBy(mOrderings);
+        return mOrderings.size() == 0 ? newQuery : newQuery.orderBy(mOrderings.asStringArray());
     }
 
     public Query<S> not() throws FetchException {
@@ -168,21 +169,15 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
         Query<S> newQuery = getStorage().query(values.getFilter().not());
         newQuery = newQuery.withValues(values.getSuppliedValues());
-        return mOrderings.length == 0 ? newQuery : newQuery.orderBy(mOrderings);
+        return mOrderings.size() == 0 ? newQuery : newQuery.orderBy(mOrderings.asStringArray());
     }
 
     public Query<S> orderBy(String property) throws FetchException {
-        StandardQuery<S> query = newInstance(mValues, property);
-        // Get executor to ensure order property is correct.
-        query.executor();
-        return query;
+        return newInstance(mValues, OrderingList.get(getStorableType(), property));
     }
 
     public Query<S> orderBy(String... properties) throws FetchException {
-        StandardQuery<S> query = newInstance(mValues, properties);
-        // Get executor to ensure order properties are correct.
-        query.executor();
-        return query;
+        return newInstance(mValues, OrderingList.get(getStorableType(), properties));
     }
 
     public Cursor<S> fetch() throws FetchException {
@@ -190,8 +185,8 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     public Cursor<S> fetchAfter(S start) throws FetchException {
-        String[] orderings;
-        if (start == null || (orderings = mOrderings).length == 0) {
+        OrderingList<S> orderings;
+        if (start == null || (orderings = mOrderings).size() == 0) {
             return fetch();
         }
 
@@ -200,24 +195,21 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         Filter<S> lastSubFilter = Filter.getOpenFilter(storableType);
         BeanPropertyAccessor accessor = BeanPropertyAccessor.forClass(storableType);
 
-        Object[] values = new Object[orderings.length];
+        Object[] values = new Object[orderings.size()];
 
         for (int i=0;;) {
-            String propertyName = orderings[i];
+            OrderedProperty<S> property = orderings.get(i);
             RelOp operator = RelOp.GT;
-            char c = propertyName.charAt(0);
-            if (c == '-') {
-                propertyName = propertyName.substring(1);
+            if (property.getDirection() == Direction.DESCENDING) {
                 operator = RelOp.LT;
-            } else if (c == '+') {
-                propertyName = propertyName.substring(1);
             }
+            String propertyName = property.getChainedProperty().toString();
 
             values[i] = accessor.getPropertyValue(start, propertyName);
 
             orderFilter = orderFilter.or(lastSubFilter.and(propertyName, operator));
 
-            if (++i >= orderings.length) {
+            if (++i >= orderings.size()) {
                 break;
             }
 
@@ -336,13 +328,13 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             app.append('"');
         }
 
-        if (mOrderings != null && mOrderings.length > 0) {
+        if (mOrderings != null && mOrderings.size() > 0) {
             app.append(", orderBy=[");
-            for (int i=0; i<mOrderings.length; i++) {
+            for (int i=0; i<mOrderings.size(); i++) {
                 if (i > 0) {
                     app.append(", ");
                 }
-                app.append(mOrderings[i]);
+                app.append(mOrderings.get(i).toString());
             }
             app.append(']');
         }
@@ -375,10 +367,10 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      * Return a new or cached executor.
      *
      * @param values optional values object, defaults to open filter if null
-     * @param orderings optional order-by properties, which may be prefixed
-     * with '+' or '-'
+     * @param orderings order-by properties, never null
      */
-    protected abstract QueryExecutor<S> getExecutor(FilterValues<S> values, String... orderings);
+    protected abstract QueryExecutor<S> getExecutor(FilterValues<S> values,
+                                                    OrderingList<S> orderings);
 
     /**
      * Return a new or cached instance of StandardQuery implementation, using
@@ -388,7 +380,8 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      * @param values optional values object, defaults to open filter if null
      * @param orderings order-by properties, never null
      */
-    protected abstract StandardQuery<S> newInstance(FilterValues<S> values, String... orderings);
+    protected abstract StandardQuery<S> newInstance(FilterValues<S> values,
+                                                    OrderingList<S> orderings);
 
     private StandardQuery<S> newInstance(FilterValues<S> values) {
         return newInstance(values, mOrderings);

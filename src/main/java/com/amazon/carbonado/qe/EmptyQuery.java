@@ -44,31 +44,29 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     private final Storage<S> mStorage;
 
     // Properties that this query is ordered by.
-    private final String[] mOrderings;
+    private final OrderingList<S> mOrderings;
 
     /**
      * @param storage required storage object
      * @param orderings optional order-by properties
      */
-    // FIXME: remove this
-    public EmptyQuery(Storage<S> storage, OrderedProperty[] orderings) {
+    public EmptyQuery(Storage<S> storage, OrderingList<S> orderings) {
         if (storage == null) {
             throw new IllegalArgumentException();
         }
         mStorage = storage;
-        mOrderings = extractOrderingNames(orderings);
+        if (orderings == null) {
+            orderings = OrderingList.emptyList();
+        }
+        mOrderings = orderings;
     }
 
     /**
      * @param storage required storage object
      * @param orderings optional order-by properties
      */
-    public EmptyQuery(Storage<S> storage, String[] orderings) {
-        if (storage == null) {
-            throw new IllegalArgumentException();
-        }
-        mStorage = storage;
-        mOrderings = orderings == null ? EMPTY_ORDERINGS : orderings;
+    public EmptyQuery(Storage<S> storage, String... orderings) {
+        this(storage, OrderingList.get(storage.getStorableType(), orderings));
     }
 
     public Class<S> getStorableType() {
@@ -182,9 +180,8 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
 
     public Query<S> not() throws FetchException {
         Query<S> query = mStorage.query();
-        String[] orderings = mOrderings;
-        if (orderings.length > 0) {
-            query = query.orderBy(orderings);
+        if (mOrderings.size() > 0) {
+            query = query.orderBy(mOrderings.asStringArray());
         }
         return query;
     }
@@ -246,13 +243,13 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
         app.append(", filter=");
         getFilter().appendTo(app);
 
-        if (mOrderings != null && mOrderings.length > 0) {
+        if (mOrderings != null && mOrderings.size() > 0) {
             app.append(", orderBy=[");
-            for (int i=0; i<mOrderings.length; i++) {
+            for (int i=0; i<mOrderings.size(); i++) {
                 if (i > 0) {
                     app.append(", ");
                 }
-                app.append(mOrderings[i]);
+                app.append(mOrderings.get(i).toString());
             }
             app.append(']');
         }

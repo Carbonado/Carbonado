@@ -44,22 +44,6 @@ import com.amazon.carbonado.util.Appender;
  * @author Brian S O'Neill
  */
 public abstract class AbstractQuery<S extends Storable> implements Query<S>, Appender {
-    // FIXME: remove this
-    protected static final String[] EMPTY_ORDERINGS = {};
-
-    // FIXME: remove this
-    protected static String[] extractOrderingNames(OrderedProperty<?>[] orderings) {
-        String[] orderingStrings;
-        if (orderings == null || orderings.length == 0) {
-            return EMPTY_ORDERINGS;
-        }
-        orderingStrings = new String[orderings.length];
-        for (int i=0; i<orderingStrings.length; i++) {
-            orderingStrings[i] = orderings[i].toString().intern();
-        }
-        return orderingStrings;
-    }
-
     protected AbstractQuery() {
     }
 

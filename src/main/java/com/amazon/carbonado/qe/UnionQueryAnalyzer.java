@@ -19,6 +19,7 @@
 package com.amazon.carbonado.qe;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import com.amazon.carbonado.Storable;
@@ -58,9 +59,16 @@ public class UnionQueryAnalyzer<S extends Storable> {
 
     /**
      * @param filter optional filter which must be {@link Filter#isBound bound}
-     * @param orderings properties which define desired ordering
      */
-    public Result analyze(Filter<S> filter, OrderedProperty<S>... orderings) {
+    public Result analyze(Filter<S> filter) {
+        return analyze(filter, null);
+    }
+
+    /**
+     * @param filter optional filter which must be {@link Filter#isBound bound}
+     * @param orderings optional properties which define desired ordering
+     */
+    public Result analyze(Filter<S> filter, List<OrderedProperty<S>> orderings) {
         if (!filter.isBound()) {
             // Strictly speaking, this is not required, but it detects the
             // mistake of not properly calling initialFilterValues.
@@ -87,7 +95,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
     }
 
     private List<IndexedQueryAnalyzer<S>.Result>
-        splitIntoSubResults(Filter<S> filter, OrderedProperty<S>... orderings)
+        splitIntoSubResults(Filter<S> filter, List<OrderedProperty<S>> orderings)
     {
         Splitter splitter = new Splitter(orderings);
         filter.accept(splitter, null);
@@ -174,11 +182,11 @@ public class UnionQueryAnalyzer<S extends Storable> {
      * only contain 'and' operations.
      */
     private class Splitter extends Visitor<S, Object, Object> {
-        private final OrderedProperty<S>[] mOrderings;
+        private final List<OrderedProperty<S>> mOrderings;
 
         final List<IndexedQueryAnalyzer<S>.Result> mSubResults;
 
-        Splitter(OrderedProperty<S>... orderings) {
+        Splitter(List<OrderedProperty<S>> orderings) {
             mOrderings = orderings;
             mSubResults = new ArrayList<IndexedQueryAnalyzer<S>.Result>();
         }

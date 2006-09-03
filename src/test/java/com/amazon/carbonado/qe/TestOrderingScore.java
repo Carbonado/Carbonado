@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.qe;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -53,15 +55,19 @@ public class TestOrderingScore extends TestCase {
     }
 
     static <S extends Storable> StorableIndex<S> makeIndex(Class<S> type, String... props) {
-        return new StorableIndex<S>(makeOrderings(type, props), UNSPECIFIED);
+        List<OrderedProperty<S>> list = makeOrderings(type, props);
+        OrderedProperty<S>[] array = list.toArray(new OrderedProperty[0]);
+
+        return new StorableIndex<S>(array, UNSPECIFIED);
     }
 
-    static <S extends Storable> OrderedProperty<S>[] makeOrderings(Class<S> type, String... props)
+    static <S extends Storable> List<OrderedProperty<S>> makeOrderings(Class<S> type,
+                                                                       String... props)
     {
         StorableInfo<S> info = StorableIntrospector.examine(type);
-        OrderedProperty<S>[] ops = new OrderedProperty[props.length];
+        List<OrderedProperty<S>> ops = new ArrayList<OrderedProperty<S>>(props.length);
         for (int i=0; i<props.length; i++) {
-            ops[i] = OrderedProperty.parse(info, props[i]);
+            ops.add(OrderedProperty.parse(info, props[i]));
         }
         return ops;
     }
@@ -82,7 +88,7 @@ public class TestOrderingScore extends TestCase {
 
     public void testOneProp() throws Exception {
         StorableIndex<StorableTestBasic> ix;
-        OrderedProperty<StorableTestBasic>[] ops;
+        List<OrderedProperty<StorableTestBasic>> ops;
         OrderingScore<StorableTestBasic> score;
 
         /////////////
@@ -180,7 +186,7 @@ public class TestOrderingScore extends TestCase {
 
     public void testMultipleProps() throws Exception {
         final StorableIndex<StorableTestBasic> ix;
-        OrderedProperty<StorableTestBasic>[] ops;
+        List<OrderedProperty<StorableTestBasic>> ops;
         OrderingScore<StorableTestBasic> score;
 
         ix = makeIndex(StorableTestBasic.class, "id", "intProp");
@@ -317,7 +323,7 @@ public class TestOrderingScore extends TestCase {
 
     public void testMidGap() throws Exception {
         final StorableIndex<StorableTestBasic> ix;
-        OrderedProperty<StorableTestBasic>[] ops;
+        List<OrderedProperty<StorableTestBasic>> ops;
         OrderingScore score;
         Filter<StorableTestBasic> filter;
 
@@ -401,7 +407,7 @@ public class TestOrderingScore extends TestCase {
 
     public void testComparator() throws Exception {
         StorableIndex<StorableTestBasic> ix_1, ix_2;
-        OrderedProperty<StorableTestBasic>[] ops;
+        List<OrderedProperty<StorableTestBasic>> ops;
         OrderingScore score_1, score_2;
         Filter<StorableTestBasic> filter;
         Comparator<OrderingScore<?>> comp = OrderingScore.fullComparator();
@@ -466,7 +472,7 @@ public class TestOrderingScore extends TestCase {
         // properties are filtered out. Thus the index is not needed.
 
         final StorableIndex<StorableTestBasic> ix;
-        OrderedProperty<StorableTestBasic>[] ops;
+        List<OrderedProperty<StorableTestBasic>> ops;
         OrderingScore score;
         Filter<StorableTestBasic> filter;
 
@@ -501,7 +507,7 @@ public class TestOrderingScore extends TestCase {
         // Test a unique index which has been fully specified. Ordering is not
         // needed at all.
         final StorableIndex<StorableTestBasic> ix;
-        OrderedProperty<StorableTestBasic>[] ops;
+        List<OrderedProperty<StorableTestBasic>> ops;
         OrderingScore score;
         Filter<StorableTestBasic> filter;
 

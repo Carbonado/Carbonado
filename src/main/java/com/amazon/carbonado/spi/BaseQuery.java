@@ -49,6 +49,7 @@ import com.amazon.carbonado.qe.EmptyQuery;
  * BaseQuery supports binding filters to values.
  *
  * @author Brian S O'Neill
+ * @deprecated Use {@link com.amazon.carbonado.qe.StandardQuery}
  */
 public abstract class BaseQuery<S extends Storable> extends AbstractQuery<S> implements Appender {
     /**
@@ -59,6 +60,20 @@ public abstract class BaseQuery<S extends Storable> extends AbstractQuery<S> imp
         for (int i=0; i<indentLevel; i++) {
             app.append(' ');
         }
+    }
+
+    protected static final String[] EMPTY_ORDERINGS = {};
+
+    protected static String[] extractOrderingNames(OrderedProperty<?>[] orderings) {
+        String[] orderingStrings;
+        if (orderings == null || orderings.length == 0) {
+            return EMPTY_ORDERINGS;
+        }
+        orderingStrings = new String[orderings.length];
+        for (int i=0; i<orderingStrings.length; i++) {
+            orderingStrings[i] = orderings[i].toString().intern();
+        }
+        return orderingStrings;
     }
 
     private final Repository mRepository;

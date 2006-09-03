@@ -19,6 +19,7 @@
 package com.amazon.carbonado.qe;
 
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.List;
 
 import com.amazon.carbonado.Storable;
@@ -44,12 +45,28 @@ public class CompositeScore<S extends Storable> {
      *
      * @param index index to evaluate
      * @param filter optional filter which cannot contain any logical 'or' operations.
+     * @throws IllegalArgumentException if index is null or filter is not supported
+     */
+    public static <S extends Storable> CompositeScore<S> evaluate
+        (StorableIndex<S> index,
+         Filter<S> filter)
+    {
+        return evaluate(index, filter, null);
+    }
+
+    /**
+     * Evaluates the given index for its filtering and ordering capabilities
+     * against the given filter and order-by properties.
+     *
+     * @param index index to evaluate
+     * @param filter optional filter which cannot contain any logical 'or' operations.
      * @param orderings properties which define desired ordering
      * @throws IllegalArgumentException if index is null or filter is not supported
      */
-    public static <S extends Storable> CompositeScore<S> evaluate(StorableIndex<S> index,
-                                                                  Filter<S> filter,
-                                                                  OrderedProperty<S>... orderings)
+    public static <S extends Storable> CompositeScore<S> evaluate
+        (StorableIndex<S> index,
+         Filter<S> filter,
+         List<OrderedProperty<S>> orderings)
     {
         if (index == null) {
             throw new IllegalArgumentException("Index required");
@@ -70,6 +87,25 @@ public class CompositeScore<S extends Storable> {
      * @param unique true if index is unique
      * @param clustered true if index is clustered
      * @param filter optional filter which cannot contain any logical 'or' operations.
+     * @throws IllegalArgumentException if index is null or filter is not supported
+     */
+    public static <S extends Storable> CompositeScore<S> evaluate
+        (OrderedProperty<S>[] indexProperties,
+         boolean unique,
+         boolean clustered,
+         Filter<S> filter)
+    {
+        return evaluate(indexProperties, unique, clustered, filter, null);
+    }
+
+    /**
+     * Evaluates the given index properties for its filtering and ordering
+     * capabilities against the given filter and order-by properties.
+     *
+     * @param indexProperties index properties to evaluate
+     * @param unique true if index is unique
+     * @param clustered true if index is clustered
+     * @param filter optional filter which cannot contain any logical 'or' operations.
      * @param orderings properties which define desired ordering
      * @throws IllegalArgumentException if index is null or filter is not supported
      */
@@ -78,7 +114,7 @@ public class CompositeScore<S extends Storable> {
          boolean unique,
          boolean clustered,
          Filter<S> filter,
-         OrderedProperty<S>... orderings)
+         List<OrderedProperty<S>> orderings)
     {
         FilteringScore<S> filteringScore = FilteringScore
             .evaluate(indexProperties, unique, clustered, filter);
