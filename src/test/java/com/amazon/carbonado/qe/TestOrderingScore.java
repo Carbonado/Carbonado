@@ -594,6 +594,6 @@ public class TestOrderingScore extends TestCase {
 
         assertEquals("-id", score.getHandledOrderings().get(0).toString());
         assertEquals("-intProp", score.getHandledOrderings().get(1).toString());
-        assertEquals("+longProp", score.getRemainderOrderings().get(0).toString());
+        assertEquals("~longProp", score.getRemainderOrderings().get(0).toString());
     }
 }
