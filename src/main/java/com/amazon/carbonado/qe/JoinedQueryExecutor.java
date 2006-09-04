@@ -154,6 +154,7 @@ public class JoinedQueryExecutor<A extends Storable, B extends Storable>
     {
         indent(app, indentLevel);
         app.append("join: ");
+        // FIXME: split multi-way join into more nested levels
         app.append(getStorableType().getName());
         newline(app);
         mAExecutor.printPlan(app, increaseIndent(indentLevel), transferValues(values));
