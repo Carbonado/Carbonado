@@ -68,22 +68,7 @@ public class OrderingScore<S extends Storable> {
      *
      * @param index index to evaluate
      * @param filter optional filter which cannot contain any logical 'or' operations.
-     * @throws IllegalArgumentException if index is null or filter is not supported
-     */
-    public static <S extends Storable> OrderingScore<S> evaluate
-        (StorableIndex<S> index,
-         Filter<S> filter)
-    {
-        return evaluate(index, filter, null);
-    }
-
-    /**
-     * Evaluates the given index for its ordering capabilities against the
-     * given filter and order-by properties.
-     *
-     * @param index index to evaluate
-     * @param filter optional filter which cannot contain any logical 'or' operations.
-     * @param orderings properties which define desired ordering
+     * @param orderings optional properties which define desired ordering
      * @throws IllegalArgumentException if index is null or filter is not supported
      */
     public static <S extends Storable> OrderingScore<S> evaluate
@@ -110,26 +95,7 @@ public class OrderingScore<S extends Storable> {
      * @param unique true if index is unique
      * @param clustered true if index is clustered
      * @param filter optional filter which cannot contain any logical 'or' operations.
-     * @throws IllegalArgumentException if index is null or filter is not supported
-     */
-    public static <S extends Storable> OrderingScore<S> evaluate
-        (OrderedProperty<S>[] indexProperties,
-         boolean unique,
-         boolean clustered,
-         Filter<S> filter)
-    {
-        return evaluate(indexProperties, unique, clustered, filter, null);
-    }
-
-    /**
-     * Evaluates the given index properties for its ordering capabilities
-     * against the given filter and order-by properties.
-     *
-     * @param indexProperties index properties to evaluate
-     * @param unique true if index is unique
-     * @param clustered true if index is clustered
-     * @param filter optional filter which cannot contain any logical 'or' operations.
-     * @param orderings properties which define desired ordering
+     * @param orderings optional properties which define desired ordering
      * @throws IllegalArgumentException if index is null or filter is not supported
      */
     public static <S extends Storable> OrderingScore<S> evaluate

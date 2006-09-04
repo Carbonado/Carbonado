@@ -79,7 +79,7 @@ public class TestOrderingScore extends TestCase {
     public void testEmpty() throws Exception {
         StorableIndex<StorableTestBasic> ix = makeIndex(StorableTestBasic.class, "id");
 
-        OrderingScore score = OrderingScore.evaluate(ix, null);
+        OrderingScore score = OrderingScore.evaluate(ix, null, null);
 
         assertEquals(0, score.getHandledCount());
         assertEquals(0, score.getRemainderCount());

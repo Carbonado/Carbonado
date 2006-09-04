@@ -59,13 +59,6 @@ public class UnionQueryAnalyzer<S extends Storable> {
 
     /**
      * @param filter optional filter which must be {@link Filter#isBound bound}
-     */
-    public Result analyze(Filter<S> filter) {
-        return analyze(filter, null);
-    }
-
-    /**
-     * @param filter optional filter which must be {@link Filter#isBound bound}
      * @param orderings optional properties which define desired ordering
      */
     public Result analyze(Filter<S> filter, List<OrderedProperty<S>> orderings) {

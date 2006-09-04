@@ -71,7 +71,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Address.class, IxProvider.INSTANCE);
         Filter<Address> filter = Filter.filterFor(Address.class, "addressZip = ?");
         filter = filter.bind();
-        IndexedQueryAnalyzer.Result result = iqa.analyze(filter);
+        IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
 
         assertFalse(result.handlesAnything());
         assertEquals(filter, result.getCompositeScore().getFilteringScore().getRemainderFilter());
@@ -84,7 +84,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Address.class, IxProvider.INSTANCE);
         Filter<Address> filter = Filter.filterFor(Address.class, "addressID = ?");
         filter = filter.bind();
-        IndexedQueryAnalyzer.Result result = iqa.analyze(filter);
+        IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
 
         assertTrue(result.handlesAnything());
         assertEquals(filter, result.getCompositeScore().getFilteringScore().getIdentityFilter());
@@ -97,7 +97,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, IxProvider.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class, "shipmentID = ?");
         filter = filter.bind();
-        IndexedQueryAnalyzer.Result result = iqa.analyze(filter);
+        IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
 
         assertTrue(result.handlesAnything());
         assertEquals(filter, result.getCompositeScore().getFilteringScore().getIdentityFilter());
@@ -107,7 +107,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
 
         filter = Filter.filterFor(Shipment.class, "orderID = ?");
         filter = filter.bind();
-        result = iqa.analyze(filter);
+        result = iqa.analyze(filter, null);
 
         assertTrue(result.handlesAnything());
         assertEquals(filter, result.getCompositeScore().getFilteringScore().getIdentityFilter());
@@ -120,7 +120,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, IxProvider.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class, "order.orderTotal >= ?");
         filter = filter.bind();
-        IndexedQueryAnalyzer.Result result = iqa.analyze(filter);
+        IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
 
         assertTrue(result.handlesAnything());
         assertTrue(result.getCompositeScore().getFilteringScore().hasRangeStart());
@@ -136,7 +136,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "shipmentNotes = ? & order.orderTotal >= ?");
         filter = filter.bind();
-        IndexedQueryAnalyzer.Result result = iqa.analyze(filter);
+        IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
 
         assertTrue(result.handlesAnything());
         assertTrue(result.getCompositeScore().getFilteringScore().hasRangeStart());
@@ -155,7 +155,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "orderID >= ? & order.orderTotal >= ?");
         filter = filter.bind();
-        IndexedQueryAnalyzer.Result result = iqa.analyze(filter);
+        IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
 
         assertTrue(result.handlesAnything());
         assertTrue(result.getCompositeScore().getFilteringScore().hasRangeStart());
@@ -171,7 +171,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "order.address.addressState = ?");
         filter = filter.bind();
-        IndexedQueryAnalyzer.Result result = iqa.analyze(filter);
+        IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
 
         assertTrue(result.handlesAnything());
         assertEquals(filter, result.getCompositeScore().getFilteringScore().getIdentityFilter());
@@ -189,7 +189,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
             (Shipment.class, "order.address.addressState = ? & order.address.addressZip = ?");
         FilterValues<Shipment> values = filter.initialFilterValues();
         filter = values.getFilter();
-        IndexedQueryAnalyzer.Result result = iqa.analyze(filter);
+        IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
 
         assertTrue(result.handlesAnything());
         assertEquals(Filter.filterFor(Shipment.class, "order.address.addressState = ?").bind(),

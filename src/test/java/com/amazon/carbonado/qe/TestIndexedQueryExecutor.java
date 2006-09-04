@@ -76,7 +76,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         FilterValues<StorableTestBasic> values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter);
+        CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter, null);
 
         Mock<StorableTestBasic> executor = new Mock(index, score);
 
@@ -96,7 +96,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -117,7 +117,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -140,7 +140,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         FilterValues<StorableTestBasic> values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter);
+        CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter, null);
 
         Mock<StorableTestBasic> executor = new Mock(index, score);
 
@@ -159,7 +159,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -178,7 +178,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -197,7 +197,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -216,7 +216,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -235,7 +235,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -276,7 +276,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -339,7 +339,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         FilterValues<StorableTestBasic> values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter);
+        CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter, null);
 
         Mock<StorableTestBasic> executor = new Mock(index, score);
 
@@ -358,7 +358,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -377,7 +377,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -396,7 +396,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -415,7 +415,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -434,7 +434,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -475,7 +475,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -541,7 +541,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         FilterValues<StorableTestBasic> values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter);
+        CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter, null);
 
         Mock<StorableTestBasic> executor = new Mock(index, score);
 
@@ -560,7 +560,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -580,7 +580,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
@@ -612,7 +612,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         values = filter.initialFilterValues();
         filter = values.getFilter();
 
-        score = CompositeScore.evaluate(index, filter);
+        score = CompositeScore.evaluate(index, filter, null);
 
         executor = new Mock(index, score);
 
