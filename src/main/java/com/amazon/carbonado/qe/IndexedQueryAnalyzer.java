@@ -412,17 +412,23 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         /**
          * Merges the remainder filter of this result with the given filter,
          * returning a new result. If handlesAnything return true, then it
-         * doesn't make sense to call this method.
+         * doesn't usually make sense to call this method.
          */
-        public Result mergeRemainder(Filter<S> filter) {
+        public Result mergeRemainderFilter(Filter<S> filter) {
             Filter<S> remainderFilter = getRemainderFilter();
             if (remainderFilter == null) {
                 remainderFilter = filter;
             } else if (filter != null) {
                 remainderFilter = remainderFilter.or(filter);
             }
+            return setRemainderFilter(remainderFilter);
+        }
 
-            return new Result(this, remainderFilter, getRemainderOrderings());
+        /**
+         * Returns a new result with the remainder filter replaced.
+         */
+        public Result setRemainderFilter(Filter<S> filter) {
+            return new Result(this, filter, getRemainderOrderings());
         }
 
         private boolean equals(Object a, Object b) {

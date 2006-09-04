@@ -20,7 +20,9 @@ package com.amazon.carbonado.qe;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.amazon.carbonado.Storable;
 
@@ -30,8 +32,12 @@ import com.amazon.carbonado.filter.OrFilter;
 import com.amazon.carbonado.filter.PropertyFilter;
 import com.amazon.carbonado.filter.Visitor;
 
+import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIndex;
+import com.amazon.carbonado.info.StorableInfo;
+import com.amazon.carbonado.info.StorableIntrospector;
+import com.amazon.carbonado.info.StorableKey;
 
 /**
  * Analyzes a query specification and determines how it can be executed as a
@@ -68,13 +74,26 @@ public class UnionQueryAnalyzer<S extends Storable> {
             throw new IllegalArgumentException("Filter must be bound");
         }
 
-        // Required for split to work.
-        filter = filter.disjunctiveNormalForm();
-
         List<IndexedQueryAnalyzer<S>.Result> subResults = splitIntoSubResults(filter, orderings);
 
-        if (subResults.size() > 1) {
+        if (subResults.size() > 1 && !isTotalOrdering(orderings)) {
             // If more than one, then a total ordering is required.
+
+            // The approach is to choose an index, and then augment ordering
+            // properties arranged in accordance with the index. The index is
+            // chosen from the sub-result that has the worst filtering
+            // score. Why? The other sub-results are likely to filter and sort
+            // fewer records than worst one. Imposing a total ordering may
+            // require a post-sort on the high scoring sub-results which might
+            // not see many records. Put another way, the worst scoring
+            // sub-result is already the bottleneck, so avoid making it work
+            // any harder.
+
+            // The properties to augment with are the contents of a primary or
+            // alternate key. Select the key which most closely matches the
+            // user's desired ordering. Default to primary key if none.
+
+            // 1. Results guaranteed to produce one result already have a total ordering.
 
             // FIXME
         }
@@ -82,16 +101,60 @@ public class UnionQueryAnalyzer<S extends Storable> {
         return new Result(subResults);
     }
 
-    private List<OrderedProperty<S>> isTotalOrdering() {
-        // FIXME
-        return null;
+    private boolean isTotalOrdering(List<OrderedProperty<S>> orderings) {
+        // First strip out directions, since they are not relevent here.
+        List<ChainedProperty<S>> properties = new ArrayList<ChainedProperty<S>>(orderings.size());
+        for (OrderedProperty<S> ordering : orderings) {
+            properties.add(ordering.getChainedProperty());
+        }
+
+        StorableInfo<S> info = StorableIntrospector.examine(mIndexAnalyzer.getStorableType());
+
+        if (containsKey(properties, info.getPrimaryKey())) {
+            return true;
+        }
+
+        for (StorableKey<S> altKey : info.getAlternateKeys()) {
+            if (containsKey(properties, altKey)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean containsKey(List<ChainedProperty<S>> properties, StorableKey<S> key) {
+        Set<? extends OrderedProperty<S>> orderedKeyProps = key.getProperties();
+
+        if (properties.size() < orderedKeyProps.size()) {
+            // Short-circuit.
+            return false;
+        }
+
+        // Strip out directions, since they are not relevent here.
+        Set<ChainedProperty<S>> keyProps = new HashSet<ChainedProperty<S>>(orderedKeyProps.size());
+        for (OrderedProperty<S> ordering : orderedKeyProps) {
+            keyProps.add(ordering.getChainedProperty());
+        }
+
+        for (ChainedProperty<S> property : properties) {
+            keyProps.remove(property);
+            if (keyProps.size() == 0) {
+                break;
+            }
+        }
+
+        return keyProps.size() == 0;
     }
 
     private List<IndexedQueryAnalyzer<S>.Result>
         splitIntoSubResults(Filter<S> filter, List<OrderedProperty<S>> orderings)
     {
+        // Required for split to work.
+        Filter<S> dnfFilter = filter.disjunctiveNormalForm();
+
         Splitter splitter = new Splitter(orderings);
-        filter.accept(splitter, null);
+        dnfFilter.accept(splitter, null);
 
         List<IndexedQueryAnalyzer<S>.Result> subResults = splitter.mSubResults;
 
@@ -99,7 +162,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
         // best option for the entire query and all sub-results merge into a
         // single sub-result. Any sub-results which filter anything and contain
         // a join property in the filter are exempt from the merge. This is
-        // because fewer joins are read then if a full scan is performed for
+        // because fewer joins are read than if a full scan is performed for
         // the entire query. The resulting union has both a full scan and an
         // index scan.
 
@@ -126,13 +189,34 @@ public class UnionQueryAnalyzer<S extends Storable> {
             }
 
             boolean exempt = result.getCompositeScore().getFilteringScore().hasAnyMatches();
-            // FIXME: check for joins
 
             if (exempt) {
-                subResults.add(result);
-            } else {
-                full = full.mergeRemainder(result.getFilter());
+                // Must also have a join in the filter to be exempt.
+                List<PropertyFilter<S>> subFilters = PropertyFilterList.get(result.getFilter());
+
+                joinCheck: {
+                    for (PropertyFilter<S> subFilter : subFilters) {
+                        if (subFilter.getChainedProperty().getChainCount() > 0) {
+                            // A chain implies a join was followed, so result is exempt.
+                            break joinCheck;
+                        }
+                    }
+                    // No joins found, result is not exempt from merging into full scan.
+                    exempt = false;
+                }
             }
+
+            if (exempt) {
+                mergedResults.add(result);
+            } else {
+                full = full.mergeRemainderFilter(result.getFilter());
+            }
+        }
+
+        if (mergedResults.size() == 0) {
+            // Nothing was exempt. Rather than return a result with a dnf
+            // filter, return full scan with a simpler reduced filter.
+            full.setRemainderFilter(filter.reduce());
         }
 
         mergedResults.add(full);
