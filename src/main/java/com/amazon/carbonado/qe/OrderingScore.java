@@ -224,6 +224,13 @@ public class OrderingScore<S extends Storable> {
             }
 
             // Property not handled and not an identity filter.
+
+            if (property.getDirection() == UNSPECIFIED) {
+                // Specify a direction in order for a comparator to be later
+                // created from remainder orderings.
+                property = property.direction(ASCENDING);
+            }
+
             remainderProperties.add(property);
             indexPos = Integer.MAX_VALUE;
         }
@@ -317,7 +324,9 @@ public class OrderingScore<S extends Storable> {
 
     /**
      * Returns the ordering properties that the evaluated index does not
-     * support. The list of orderings is reduced to eliminate redundancies.
+     * support. The list of orderings is reduced to eliminate redundancies. If
+     * any remainder ordering properties originally had an unspecified
+     * direction, the direction in this list is specified as ascending.
      *
      * @return remainder orderings, never null
      */

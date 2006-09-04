@@ -584,5 +584,16 @@ public class TestOrderingScore extends TestCase {
         assertEquals("-id", score.getHandledOrderings().get(0).toString());
         assertEquals("-intProp", score.getHandledOrderings().get(1).toString());
         assertEquals("-doubleProp", score.getHandledOrderings().get(2).toString());
+
+        ops = makeOrderings(StorableTestBasic.class, "~id", "-intProp", "~longProp");
+
+        score = OrderingScore.evaluate(ix, null, ops);
+        assertEquals(2, score.getHandledCount());
+        assertEquals(1, score.getRemainderCount());
+        assertEquals(true, score.shouldReverseOrder());
+
+        assertEquals("-id", score.getHandledOrderings().get(0).toString());
+        assertEquals("-intProp", score.getHandledOrderings().get(1).toString());
+        assertEquals("+longProp", score.getRemainderOrderings().get(0).toString());
     }
 }
