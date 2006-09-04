@@ -543,4 +543,46 @@ public class TestOrderingScore extends TestCase {
         assertEquals("+doubleProp", score.getHandledOrderings().get(1).toString());
         assertEquals("+longProp", score.getRemainderOrderings().get(0).toString());
     }
+
+    public void testUnspecifiedDirection() throws Exception {
+        // Tests that an originally unspecified ordering direction is determined.
+        final StorableIndex<StorableTestBasic> ix;
+        List<OrderedProperty<StorableTestBasic>> ops;
+        OrderingScore score;
+        Filter<StorableTestBasic> filter;
+
+        ix = makeIndex(StorableTestBasic.class, "id", "intProp", "doubleProp");
+        ops = makeOrderings(StorableTestBasic.class, "~intProp", "-doubleProp");
+        filter = Filter.filterFor(StorableTestBasic.class, "id = ?");
+
+        score = OrderingScore.evaluate(ix, filter, ops);
+        assertEquals(2, score.getHandledCount());
+        assertEquals(0, score.getRemainderCount());
+        assertEquals(true, score.shouldReverseOrder());
+
+        assertEquals("-intProp", score.getHandledOrderings().get(0).toString());
+        assertEquals("-doubleProp", score.getHandledOrderings().get(1).toString());
+
+        ops = makeOrderings(StorableTestBasic.class, "~id", "intProp", "~doubleProp");
+
+        score = OrderingScore.evaluate(ix, null, ops);
+        assertEquals(3, score.getHandledCount());
+        assertEquals(0, score.getRemainderCount());
+        assertEquals(false, score.shouldReverseOrder());
+
+        assertEquals("+id", score.getHandledOrderings().get(0).toString());
+        assertEquals("+intProp", score.getHandledOrderings().get(1).toString());
+        assertEquals("+doubleProp", score.getHandledOrderings().get(2).toString());
+
+        ops = makeOrderings(StorableTestBasic.class, "~id", "-intProp", "~doubleProp");
+
+        score = OrderingScore.evaluate(ix, null, ops);
+        assertEquals(3, score.getHandledCount());
+        assertEquals(0, score.getRemainderCount());
+        assertEquals(true, score.shouldReverseOrder());
+
+        assertEquals("-id", score.getHandledOrderings().get(0).toString());
+        assertEquals("-intProp", score.getHandledOrderings().get(1).toString());
+        assertEquals("-doubleProp", score.getHandledOrderings().get(2).toString());
+    }
 }

@@ -177,18 +177,32 @@ public class OrderingScore<S extends Storable> {
                 ChainedProperty<S> indexChained = indexProp.getChainedProperty();
 
                 if (chained.equals(indexChained)) {
-                    if (property.getDirection() != UNSPECIFIED) {
-                        Direction indexDir = indexProp.getDirection();
-                        if (indexDir == UNSPECIFIED) {
-                            indexDir = ASCENDING;
-                        }
+                    Direction indexDir = indexProp.getDirection();
+                    if (indexDir == UNSPECIFIED) {
+                        // Assume index natural order is ascending.
+                        indexDir = ASCENDING;
+                    }
 
-                        if (shouldReverseOrder == null) {
-                            shouldReverseOrder = indexDir != property.getDirection();
-                        } else if ((indexDir != property.getDirection()) ^ shouldReverseOrder) {
-                            // Direction mismatch, so cannot be handled.
-                            break indexPosMatch;
+                    if (shouldReverseOrder != null && shouldReverseOrder) {
+                        indexDir = indexDir.reverse();
+                    }
+
+                    if (property.getDirection() == UNSPECIFIED) {
+                        // Set handled property direction to match index.
+                        property = property.direction(indexDir);
+                    } else if (shouldReverseOrder == null) {
+                        shouldReverseOrder = indexDir != property.getDirection();
+                        // Any properies already in the list had been
+                        // originally unspecified. They might need to be
+                        // reversed now.
+                        if (shouldReverseOrder) {
+                            for (int hpi = 0; hpi < handledProperties.size(); hpi++) {
+                                handledProperties.set(hpi, handledProperties.get(hpi).reverse());
+                            }
                         }
+                    } else if (indexDir != property.getDirection()) {
+                        // Direction mismatch, so cannot be handled.
+                        break indexPosMatch;
                     }
 
                     handledProperties.add(property);
@@ -281,7 +295,9 @@ public class OrderingScore<S extends Storable> {
 
     /**
      * Returns the ordering properties that the evaluated index supports. The
-     * list of orderings is reduced to eliminate redundancies.
+     * list of orderings is reduced to eliminate redundancies. If any handled
+     * ordering properties originally had an unspecified direction, the correct
+     * direction is specified in this list.
      *
      * @return handled orderings, never null
      */

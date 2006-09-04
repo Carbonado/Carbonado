@@ -56,8 +56,8 @@ public class OrderedProperty<S extends Storable> implements Appender {
 
     /**
      * Parses an ordering property, which may start with a '+' or '-' to
-     * indicate direction. If ordering prefix not specified, default direction
-     * is ascending.
+     * indicate direction. Prefix of '~' indicates unspecified direction. If
+     * ordering prefix not specified, default direction is ascending.
      *
      * @param info Info for Storable type containing property
      * @param str string to parse
@@ -73,7 +73,7 @@ public class OrderedProperty<S extends Storable> implements Appender {
 
     /**
      * Parses an ordering property, which may start with a '+' or '-' to
-     * indicate direction.
+     * indicate direction. Prefix of '~' indicates unspecified direction.
      *
      * @param info Info for Storable type containing property
      * @param str string to parse
@@ -97,6 +97,9 @@ public class OrderedProperty<S extends Storable> implements Appender {
                 str = str.substring(1);
             } else if (str.charAt(0) == '-') {
                 direction = Direction.DESCENDING;
+                str = str.substring(1);
+            } else if (str.charAt(0) == '~') {
+                direction = Direction.UNSPECIFIED;
                 str = str.substring(1);
             }
         }
@@ -158,9 +161,6 @@ public class OrderedProperty<S extends Storable> implements Appender {
      */
     @Override
     public String toString() {
-        if (mDirection == Direction.UNSPECIFIED) {
-            return mProperty.toString();
-        }
         StringBuilder buf = new StringBuilder();
         buf.append(mDirection.toCharacter());
         try {
@@ -172,11 +172,7 @@ public class OrderedProperty<S extends Storable> implements Appender {
     }
 
     public void appendTo(Appendable app) throws IOException {
-        if (mDirection == Direction.UNSPECIFIED) {
-            mProperty.appendTo(app);
-        } else {
-            app.append(mDirection.toCharacter());
-            mProperty.appendTo(app);
-        }
+        app.append(mDirection.toCharacter());
+        mProperty.appendTo(app);
     }
 }
