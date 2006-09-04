@@ -520,4 +520,27 @@ public class TestOrderingScore extends TestCase {
         assertEquals(0, score.getRemainderCount());
         assertEquals(false, score.shouldReverseOrder());
     }
+
+    public void testReduce() throws Exception {
+        // Tests that redundant ordering properties are removed.
+        final StorableIndex<StorableTestBasic> ix;
+        List<OrderedProperty<StorableTestBasic>> ops;
+        OrderingScore score;
+        Filter<StorableTestBasic> filter;
+
+        ix = makeIndex(StorableTestBasic.class, "id", "intProp", "doubleProp");
+        ops = makeOrderings(StorableTestBasic.class, 
+                            "intProp", "intProp", "id", "doubleProp", "intProp", "doubleProp",
+                            "longProp", "longProp", "id", "intProp", "doubleProp");
+        filter = Filter.filterFor(StorableTestBasic.class, "id = ?");
+
+        score = OrderingScore.evaluate(ix, filter, ops);
+        assertEquals(2, score.getHandledCount());
+        assertEquals(1, score.getRemainderCount());
+        assertEquals(false, score.shouldReverseOrder());
+
+        assertEquals("+intProp", score.getHandledOrderings().get(0).toString());
+        assertEquals("+doubleProp", score.getHandledOrderings().get(1).toString());
+        assertEquals("+longProp", score.getRemainderOrderings().get(0).toString());
+    }
 }

@@ -272,14 +272,16 @@ public class OrderingScore<S extends Storable> {
     }
 
     /**
-     * Returns the number of desired orderings the evaluated index supports.
+     * Returns the number of desired orderings the evaluated index
+     * supports. The number of orderings is reduced to eliminate redundancies.
      */
     public int getHandledCount() {
         return mHandledOrderings.size();
     }
 
     /**
-     * Returns the ordering properties that the evaluated index supports.
+     * Returns the ordering properties that the evaluated index supports. The
+     * list of orderings is reduced to eliminate redundancies.
      *
      * @return handled orderings, never null
      */
@@ -289,8 +291,9 @@ public class OrderingScore<S extends Storable> {
 
     /**
      * Returns the number of desired orderings the evaluated index does not
-     * support. When non-zero, a query plan which uses the evaluated index must
-     * perform a sort.
+     * support. The number of orderings is reduced to eliminate redundancies.
+     * When the remainder count is non-zero, a query plan which uses the
+     * evaluated index must perform a sort.
      */
     public int getRemainderCount() {
         return mRemainderOrderings.size();
@@ -298,7 +301,7 @@ public class OrderingScore<S extends Storable> {
 
     /**
      * Returns the ordering properties that the evaluated index does not
-     * support.
+     * support. The list of orderings is reduced to eliminate redundancies.
      *
      * @return remainder orderings, never null
      */
