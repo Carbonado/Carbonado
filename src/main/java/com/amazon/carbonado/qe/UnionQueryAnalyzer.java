@@ -20,8 +20,10 @@ package com.amazon.carbonado.qe;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.amazon.carbonado.Storable;
@@ -33,6 +35,7 @@ import com.amazon.carbonado.filter.PropertyFilter;
 import com.amazon.carbonado.filter.Visitor;
 
 import com.amazon.carbonado.info.ChainedProperty;
+import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIndex;
 import com.amazon.carbonado.info.StorableInfo;
@@ -76,75 +79,142 @@ public class UnionQueryAnalyzer<S extends Storable> {
 
         List<IndexedQueryAnalyzer<S>.Result> subResults = splitIntoSubResults(filter, orderings);
 
-        if (subResults.size() > 1 && !isTotalOrdering(orderings)) {
-            // If more than one, then a total ordering is required.
+        if (subResults.size() < 1) {
+            // Total ordering not required.
+            return new Result(subResults);
+        }
 
-            // The approach is to choose an index, and then augment ordering
-            // properties arranged in accordance with the index. The index is
-            // chosen from the sub-result that has the worst filtering
-            // score. Why? The other sub-results are likely to filter and sort
-            // fewer records than worst one. Imposing a total ordering may
-            // require a post-sort on the high scoring sub-results which might
-            // not see many records. Put another way, the worst scoring
-            // sub-result is already the bottleneck, so avoid making it work
-            // any harder.
+        // FIXME: If any orderings have an unspecified direction, switch to
+        // ASCENDING or DESCENDING, depending on which is more popular. Then
+        // build new sub-results.
 
-            // The properties to augment with are the contents of a primary or
-            // alternate key. Select the key which most closely matches the
-            // user's desired ordering. Default to primary key if none.
+        // Gather all the keys available. As ordering properties touch key
+        // properties, they are removed from all key sets. When a key set size
+        // reaches zero, total ordering has been achieved.
+        List<Set<ChainedProperty<S>>> keys = getKeys();
 
-            // 1. Results guaranteed to produce one result already have a total ordering.
+        // Check if current ordering is total.
+        for (OrderedProperty<S> ordering : orderings) {
+            ChainedProperty<S> property = ordering.getChainedProperty();
+            if (pruneKeys(keys, property)) {
+                // Found a key which is fully covered, indicating total ordering.
+                return new Result(subResults);
+            }
+        }
 
-            // FIXME
+        // Create a super key which contains all the properties required for
+        // total ordering. The goal here is to append these properties to the
+        // ordering in a fashion that takes advantage of each index's natural
+        // ordering. This in turn should cause any sort operation to operate
+        // over smaller groups. Smaller groups means smaller sort buffers.
+        // Smaller sort buffers makes a merge sort happy.
+
+        // Super key could be stored simply in a set, but a map makes it
+        // convenient for tracking tallies.
+        Map<ChainedProperty<S>, Tally> superKey = new LinkedHashMap<ChainedProperty<S>, Tally>();
+        for (Set<ChainedProperty<S>> key : keys) {
+            for (ChainedProperty<S> property : key) {
+                superKey.put(property, new Tally(property));
+            }
+        }
+
+        // Prepare to augment orderings to ensure a total ordering.
+        orderings = new ArrayList<OrderedProperty<S>>(orderings);
+
+        // Keep looping until total ordering achieved.
+        while (true) {
+            // For each ordering score, find the next free property. If
+            // property is in the super key increment a tally associated with
+            // property direction. Choose the property with the best tally and
+            // augment the orderings with it and create new sub-results.
+            // Remove the property from the super key and the key set. If any
+            // key is now fully covered, a total ordering has been achieved.
+
+            for (IndexedQueryAnalyzer<S>.Result result : subResults) {
+                OrderingScore<S> score = result.getCompositeScore().getOrderingScore();
+                List<OrderedProperty<S>> free = score.getFreeOrderings();
+                if (free.size() > 0) {
+                    OrderedProperty<S> prop = free.get(0);
+                    ChainedProperty<S> chainedProp = prop.getChainedProperty();
+                    Tally tally = superKey.get(chainedProp);
+                    if (tally != null) {
+                        tally.increment(prop.getDirection());
+                    }
+                }
+            }
+
+            // Find the best tally.
+            Tally best = null;
+            for (Tally tally : superKey.values()) {
+                if (best == null || tally.compareTo(best) < 0) {
+                    best = tally;
+                }
+            }
+
+            ChainedProperty<S> bestProperty = best.getProperty();
+
+            // Now augment the orderings and create new sub-results.
+            orderings.add(OrderedProperty.get(bestProperty, best.getBestDirection()));
+            subResults = splitIntoSubResults(filter, orderings);
+
+            // Remove property from super key and key set...
+            superKey.remove(bestProperty);
+            if (superKey.size() == 0) {
+                break;
+            }
+            if (pruneKeys(keys, bestProperty)) {
+                break;
+            }
+
+            // Clear the tallies for the next run.
+            for (Tally tally : superKey.values()) {
+                tally.clear();
+            }
         }
 
         return new Result(subResults);
     }
 
-    private boolean isTotalOrdering(List<OrderedProperty<S>> orderings) {
-        // First strip out directions, since they are not relevant here.
-        List<ChainedProperty<S>> properties = new ArrayList<ChainedProperty<S>>(orderings.size());
-        for (OrderedProperty<S> ordering : orderings) {
-            properties.add(ordering.getChainedProperty());
-        }
-
+    /**
+     * Returns a list of all primary and alternate keys, stripped of ordering.
+     */
+    private List<Set<ChainedProperty<S>>> getKeys() {
         StorableInfo<S> info = StorableIntrospector.examine(mIndexAnalyzer.getStorableType());
+        List<Set<ChainedProperty<S>>> keys = new ArrayList<Set<ChainedProperty<S>>>();
 
-        if (containsKey(properties, info.getPrimaryKey())) {
-            return true;
-        }
+        keys.add(stripOrdering(info.getPrimaryKey().getProperties()));
 
         for (StorableKey<S> altKey : info.getAlternateKeys()) {
-            if (containsKey(properties, altKey)) {
-                return true;
-            }
+            keys.add(stripOrdering(altKey.getProperties()));
         }
 
-        return false;
+        return keys;
     }
 
-    private boolean containsKey(List<ChainedProperty<S>> properties, StorableKey<S> key) {
-        Set<? extends OrderedProperty<S>> orderedKeyProps = key.getProperties();
-
-        if (properties.size() < orderedKeyProps.size()) {
-            // Short-circuit.
-            return false;
+    private Set<ChainedProperty<S>> stripOrdering(Set<? extends OrderedProperty<S>> orderedProps) {
+        Set<ChainedProperty<S>> props = new HashSet<ChainedProperty<S>>(orderedProps.size());
+        for (OrderedProperty<S> ordering : orderedProps) {
+            props.add(ordering.getChainedProperty());
         }
+        return props;
+    }
 
-        // Strip out directions, since they are not relevant here.
-        Set<ChainedProperty<S>> keyProps = new HashSet<ChainedProperty<S>>(orderedKeyProps.size());
-        for (OrderedProperty<S> ordering : orderedKeyProps) {
-            keyProps.add(ordering.getChainedProperty());
-        }
+    /**
+     * Removes the given property from all keys, returning true if any key has
+     * zero properties as a result.
+     */
+    private boolean pruneKeys(List<Set<ChainedProperty<S>>> keys, ChainedProperty<S> property) {
+        boolean result = false;
 
-        for (ChainedProperty<S> property : properties) {
-            keyProps.remove(property);
-            if (keyProps.size() == 0) {
-                break;
+        for (Set<ChainedProperty<S>> key : keys) {
+            key.remove(property);
+            if (key.size() == 0) {
+                result = true;
+                continue;
             }
         }
 
-        return keyProps.size() == 0;
+        return result;
     }
 
     private List<IndexedQueryAnalyzer<S>.Result>
@@ -243,14 +313,77 @@ public class UnionQueryAnalyzer<S extends Storable> {
         public List<IndexedQueryAnalyzer<S>.Result> getSubResults() {
             return mSubResults;
         }
+    }
+
+    /**
+     * Used to track which properties should be augmented to create a total ordering.
+     */    
+    private class Tally implements Comparable<Tally> {
+        private final ChainedProperty<S> mProperty;
+
+        private int mAscendingCount;
+        private int mDescendingCount;
+
+        Tally(ChainedProperty<S> property) {
+            mProperty = property;
+        }
+
+        ChainedProperty<S> getProperty() {
+            return mProperty;
+        }
+
+        void increment(Direction dir) {
+            switch (dir) {
+            case UNSPECIFIED:
+                mAscendingCount++;
+                mDescendingCount++;
+                break;
+
+            case ASCENDING:
+                mAscendingCount++;
+                break;
+
+            case DESCENDING:
+                mDescendingCount++;
+                break;
+            }
+        }
 
         /**
-         * If more than one sub-result, then a total ordering is
-         * imposed. Otherwise, null is returned.
+         * Only returns ASCENDING or DESCENDING.
          */
-        public List<OrderedProperty<S>> getTotalOrdering() {
-            // FIXME
-            return null;
+        Direction getBestDirection() {
+            if (mAscendingCount > mDescendingCount) {
+                return Direction.ASCENDING;
+            }
+            return Direction.DESCENDING;
+        }
+
+        int getBestCount() {
+            if (mAscendingCount > mDescendingCount) {
+                return mAscendingCount;
+            }
+            return mDescendingCount;
+        }
+
+        void clear() {
+            mAscendingCount = 0;
+            mDescendingCount = 0;
+        }
+
+        /**
+         * Returns -1 if this tally is better.
+         */
+        public int compareTo(Tally other) {
+            int thisBest = getBestCount();
+            int otherBest = other.getBestCount();
+            if (thisBest < otherBest) {
+                return -1;
+            }
+            if (thisBest > otherBest) {
+                return 1;
+            }
+            return 0;
         }
     }
 
