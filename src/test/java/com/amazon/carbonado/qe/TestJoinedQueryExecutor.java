@@ -33,6 +33,7 @@ import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 
+import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
@@ -74,7 +75,7 @@ public class TestJoinedQueryExecutor extends TestQueryExecutor {
             (mRepository, UserInfo.class, "address", addressExecutor);
 
         assertEquals("address.state = ?", userExecutor.getFilter().toString());
-        assertEquals("address.country", userExecutor.getOrdering().get(0).toString());
+        assertEquals("+address.country", userExecutor.getOrdering().get(0).toString());
 
         // Create some addresses
         Storage<UserAddress> addressStorage = mRepository.storageFor(UserAddress.class);
@@ -149,7 +150,7 @@ public class TestJoinedQueryExecutor extends TestQueryExecutor {
             (mRepository, UserInfo.class, "address.neighbor", addressExecutor);
 
         assertEquals("address.neighbor.state = ?", userExecutor.getFilter().toString());
-        assertEquals("address.neighbor.country", userExecutor.getOrdering().get(0).toString());
+        assertEquals("+address.neighbor.country", userExecutor.getOrdering().get(0).toString());
 
         values = Filter
             .filterFor(UserInfo.class, "address.neighbor.state = ?")
@@ -180,7 +181,7 @@ public class TestJoinedQueryExecutor extends TestQueryExecutor {
         List<OrderedProperty<UserAddress>> orderings =
             new ArrayList<OrderedProperty<UserAddress>>();
 
-        orderings.add(OrderedProperty.get(prop, null));
+        orderings.add(OrderedProperty.get(prop, Direction.ASCENDING));
 
         addressExecutor = new ArraySortedQueryExecutor<UserAddress>
             (addressExecutor, null, orderings);
