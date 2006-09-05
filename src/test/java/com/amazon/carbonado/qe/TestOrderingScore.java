@@ -596,4 +596,88 @@ public class TestOrderingScore extends TestCase {
         assertEquals("-intProp", score.getHandledOrderings().get(1).toString());
         assertEquals("~longProp", score.getRemainderOrderings().get(0).toString());
     }
+
+    public void testFreeOrderings() throws Exception {
+        final StorableIndex<StorableTestBasic> ix;
+        List<OrderedProperty<StorableTestBasic>> ops;
+        OrderingScore score;
+        Filter<StorableTestBasic> filter = null;
+
+        ix = makeIndex(StorableTestBasic.class, "id", "intProp", "doubleProp");
+        ops = makeOrderings(StorableTestBasic.class, "~id");
+
+        score = OrderingScore.evaluate(ix, filter, ops);
+        assertEquals(1, score.getHandledCount());
+        assertEquals(0, score.getRemainderCount());
+        assertEquals(false, score.shouldReverseOrder());
+        assertEquals(2, score.getFreeOrderings().size());
+        assertEquals("~intProp", score.getFreeOrderings().get(0).toString());
+        assertEquals("~doubleProp", score.getFreeOrderings().get(1).toString());
+        assertEquals(0, score.getUnusedOrderings().size());
+
+        ops = makeOrderings(StorableTestBasic.class, "~id", "-intProp");
+
+        score = OrderingScore.evaluate(ix, filter, ops);
+        assertEquals(2, score.getHandledCount());
+        assertEquals(0, score.getRemainderCount());
+        assertEquals(true, score.shouldReverseOrder());
+        assertEquals(1, score.getFreeOrderings().size());
+        assertEquals("-doubleProp", score.getFreeOrderings().get(0).toString());
+        assertEquals(0, score.getUnusedOrderings().size());
+
+        ops = makeOrderings(StorableTestBasic.class, "~id", "-intProp", "+doubleProp");
+
+        score = OrderingScore.evaluate(ix, filter, ops);
+        assertEquals(2, score.getHandledCount());
+        assertEquals(1, score.getRemainderCount());
+        assertEquals("+doubleProp", score.getRemainderOrderings().get(0).toString());
+        assertEquals(true, score.shouldReverseOrder());
+        assertEquals(1, score.getFreeOrderings().size());
+        assertEquals("-doubleProp", score.getFreeOrderings().get(0).toString());
+        assertEquals(0, score.getUnusedOrderings().size());
+    }
+
+    public void testFreeAndUnusedOrderings() throws Exception {
+        final StorableIndex<StorableTestBasic> ix;
+        List<OrderedProperty<StorableTestBasic>> ops;
+        OrderingScore score;
+        Filter<StorableTestBasic> filter;
+
+        ix = makeIndex(StorableTestBasic.class, "stringProp", "id", "intProp", "doubleProp");
+        ops = makeOrderings(StorableTestBasic.class, "~id");
+        filter = Filter.filterFor(StorableTestBasic.class, "stringProp = ?");
+
+        score = OrderingScore.evaluate(ix, filter, ops);
+        assertEquals(1, score.getHandledCount());
+        assertEquals(0, score.getRemainderCount());
+        assertEquals(false, score.shouldReverseOrder());
+        assertEquals(2, score.getFreeOrderings().size());
+        assertEquals("~intProp", score.getFreeOrderings().get(0).toString());
+        assertEquals("~doubleProp", score.getFreeOrderings().get(1).toString());
+        assertEquals(1, score.getUnusedOrderings().size());
+        assertEquals("~stringProp", score.getUnusedOrderings().get(0).toString());
+
+        ops = makeOrderings(StorableTestBasic.class, "~id", "-intProp");
+
+        score = OrderingScore.evaluate(ix, filter, ops);
+        assertEquals(2, score.getHandledCount());
+        assertEquals(0, score.getRemainderCount());
+        assertEquals(true, score.shouldReverseOrder());
+        assertEquals(1, score.getFreeOrderings().size());
+        assertEquals("-doubleProp", score.getFreeOrderings().get(0).toString());
+        assertEquals(1, score.getUnusedOrderings().size());
+        assertEquals("~stringProp", score.getUnusedOrderings().get(0).toString());
+
+        ops = makeOrderings(StorableTestBasic.class, "~id", "-intProp", "+doubleProp");
+
+        score = OrderingScore.evaluate(ix, filter, ops);
+        assertEquals(2, score.getHandledCount());
+        assertEquals(1, score.getRemainderCount());
+        assertEquals("+doubleProp", score.getRemainderOrderings().get(0).toString());
+        assertEquals(true, score.shouldReverseOrder());
+        assertEquals(1, score.getFreeOrderings().size());
+        assertEquals("-doubleProp", score.getFreeOrderings().get(0).toString());
+        assertEquals(1, score.getUnusedOrderings().size());
+        assertEquals("~stringProp", score.getUnusedOrderings().get(0).toString());
+    }
 }

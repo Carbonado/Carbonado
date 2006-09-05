@@ -112,8 +112,8 @@ public class OrderingScore<S extends Storable> {
         // Get filter list early to detect errors.
         List<PropertyFilter<S>> filterList = PropertyFilterList.get(filter);
 
-        if (orderings == null || orderings.size() == 0) {
-            return new OrderingScore<S>(clustered, indexProperties.length, null, null, false);
+        if (orderings == null) {
+            orderings = Collections.emptyList();
         }
 
         // Ordering properties which match identity filters don't affect order
@@ -127,13 +127,25 @@ public class OrderingScore<S extends Storable> {
             }
         }
 
+        // Build up list of unused properties that were filtered out.
+        List<OrderedProperty<S>> unusedProperties = new ArrayList<OrderedProperty<S>>();
+
+        for (int i=0; i<indexProperties.length; i++) {
+            OrderedProperty<S> indexProp = indexProperties[i];
+            ChainedProperty<S> indexChained = indexProp.getChainedProperty();
+
+            if (identityPropSet.contains(indexChained)) {
+                unusedProperties.add(indexProp.direction(UNSPECIFIED));
+            }
+        }
+
         // If index is unique and every property is matched by an identity
         // filter, then there won't be any handled or remainder properties.
         uniquelyCheck:
         if (unique) {
             for (int i=0; i<indexProperties.length; i++) {
-                ChainedProperty<S> indexProp = indexProperties[i].getChainedProperty();
-                if (!identityPropSet.contains(indexProp)) {
+                ChainedProperty<S> indexChained = indexProperties[i].getChainedProperty();
+                if (!identityPropSet.contains(indexChained)) {
                     // Missed a property, so ordering is still relevent.
                     break uniquelyCheck;
                 }
@@ -143,7 +155,9 @@ public class OrderingScore<S extends Storable> {
                                         indexProperties.length,
                                         null,   // no handled properties
                                         null,   // no remainder properties
-                                        false); // no need to reverse order
+                                        false,  // no need to reverse order
+                                        null,   // no free properties
+                                        unusedProperties);
         }
 
         List<OrderedProperty<S>> handledProperties = new ArrayList<OrderedProperty<S>>();
@@ -153,6 +167,7 @@ public class OrderingScore<S extends Storable> {
 
         Set<ChainedProperty<S>> seen = new HashSet<ChainedProperty<S>>();
 
+        boolean gap = false;
         int indexPos = 0;
         calcScore:
         for (int i=0; i<orderings.size(); i++) {
@@ -172,7 +187,7 @@ public class OrderingScore<S extends Storable> {
             }
 
             indexPosMatch:
-            while (indexPos < indexProperties.length) {
+            while (!gap && indexPos < indexProperties.length) {
                 OrderedProperty<S> indexProp = indexProperties[indexPos];
                 ChainedProperty<S> indexChained = indexProp.getChainedProperty();
 
@@ -225,7 +240,33 @@ public class OrderingScore<S extends Storable> {
 
             // Property not handled and not an identity filter.
             remainderProperties.add(property);
-            indexPos = Integer.MAX_VALUE;
+            gap = true;
+        }
+
+        // Walk through all remaining index properties and list them as free.
+        List<OrderedProperty<S>> freeProperties = new ArrayList<OrderedProperty<S>>();
+
+        while (indexPos < indexProperties.length) {
+            OrderedProperty<S> freeProp = indexProperties[indexPos];
+            ChainedProperty<S> freeChained = freeProp.getChainedProperty();
+
+            // Don't list as free if already listed as unused.
+            if (!identityPropSet.contains(freeChained)) {
+                if (shouldReverseOrder == null) {
+                    freeProp = freeProp.direction(UNSPECIFIED);
+                } else {
+                    Direction freePropDir = freePropDir = freeProp.getDirection();
+                    if (freePropDir == UNSPECIFIED) {
+                        freePropDir = ASCENDING;
+                    }
+                    if (shouldReverseOrder) {
+                        freeProp = freeProp.direction(freePropDir.reverse());
+                    }
+                }
+                freeProperties.add(freeProp);
+            }
+
+            indexPos++;
         }
 
         if (shouldReverseOrder == null) {
@@ -236,7 +277,9 @@ public class OrderingScore<S extends Storable> {
                                     indexProperties.length,
                                     handledProperties,
                                     remainderProperties,
-                                    shouldReverseOrder);
+                                    shouldReverseOrder,
+                                    freeProperties,
+                                    unusedProperties);
     }
 
     /**
@@ -257,17 +300,28 @@ public class OrderingScore<S extends Storable> {
 
     private final boolean mShouldReverseOrder;
 
+    // Free and unused orderings are not relevant for index selection, but they
+    // are useful for determining a total ordering that does not adversely
+    // affect a query plan. Combining handled, free, and unused ordering lists
+    // produces all the properties of the evaluated index.
+    private final List<OrderedProperty<S>> mFreeOrderings;
+    private final List<OrderedProperty<S>> mUnusedOrderings;
+
     private OrderingScore(boolean indexClustered,
                           int indexPropertyCount,
                           List<OrderedProperty<S>> handledOrderings,
                           List<OrderedProperty<S>> remainderOrderings,
-                          boolean shouldReverseOrder)
+                          boolean shouldReverseOrder,
+                          List<OrderedProperty<S>> freeOrderings,
+                          List<OrderedProperty<S>> unusedOrderings)
     {
         mIndexClustered = indexClustered;
         mIndexPropertyCount = indexPropertyCount;
         mHandledOrderings = FilteringScore.prepareList(handledOrderings);
         mRemainderOrderings = FilteringScore.prepareList(remainderOrderings);
         mShouldReverseOrder = shouldReverseOrder;
+        mFreeOrderings = FilteringScore.prepareList(freeOrderings);
+        mUnusedOrderings = FilteringScore.prepareList(unusedOrderings);
     }
 
     /**
@@ -331,6 +385,29 @@ public class OrderingScore<S extends Storable> {
      */
     public boolean shouldReverseOrder() {
         return mShouldReverseOrder;
+    }
+
+    /**
+     * Returns potential ordering properties that the evaluated index can
+     * handle, if arranged to immediately follow the handled orderings. The
+     * direction of any free orderings may be UNSPECIFIED, which indicates that
+     * specific order is not relevent.
+     *
+     * @return free orderings, never null
+     */
+    public List<OrderedProperty<S>> getFreeOrderings() {
+        return mFreeOrderings;
+    }
+
+    /**
+     * Returns unused ordering properties of the evaluated index because they
+     * were filtered out. The direction of each unused ordering is UNSPECIFIED
+     * because specific order is not relevent.
+     *
+     * @return unused orderings, never null
+     */
+    public List<OrderedProperty<S>> getUnusedOrderings() {
+        return mUnusedOrderings;
     }
 
     /**
