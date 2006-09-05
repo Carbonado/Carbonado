@@ -146,7 +146,7 @@ public class OrderingScore<S extends Storable> {
             for (int i=0; i<indexProperties.length; i++) {
                 ChainedProperty<S> indexChained = indexProperties[i].getChainedProperty();
                 if (!identityPropSet.contains(indexChained)) {
-                    // Missed a property, so ordering is still relevent.
+                    // Missed a property, so ordering is still relevant.
                     break uniquelyCheck;
                 }
             }
@@ -391,7 +391,7 @@ public class OrderingScore<S extends Storable> {
      * Returns potential ordering properties that the evaluated index can
      * handle, if arranged to immediately follow the handled orderings. The
      * direction of any free orderings may be UNSPECIFIED, which indicates that
-     * specific order is not relevent.
+     * specific order is not relevant.
      *
      * @return free orderings, never null
      */
@@ -402,7 +402,7 @@ public class OrderingScore<S extends Storable> {
     /**
      * Returns unused ordering properties of the evaluated index because they
      * were filtered out. The direction of each unused ordering is UNSPECIFIED
-     * because specific order is not relevent.
+     * because specific order is not relevant.
      *
      * @return unused orderings, never null
      */

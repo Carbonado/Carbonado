@@ -102,7 +102,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
     }
 
     private boolean isTotalOrdering(List<OrderedProperty<S>> orderings) {
-        // First strip out directions, since they are not relevent here.
+        // First strip out directions, since they are not relevant here.
         List<ChainedProperty<S>> properties = new ArrayList<ChainedProperty<S>>(orderings.size());
         for (OrderedProperty<S> ordering : orderings) {
             properties.add(ordering.getChainedProperty());
@@ -131,7 +131,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
             return false;
         }
 
-        // Strip out directions, since they are not relevent here.
+        // Strip out directions, since they are not relevant here.
         Set<ChainedProperty<S>> keyProps = new HashSet<ChainedProperty<S>>(orderedKeyProps.size());
         for (OrderedProperty<S> ordering : orderedKeyProps) {
             keyProps.add(ordering.getChainedProperty());

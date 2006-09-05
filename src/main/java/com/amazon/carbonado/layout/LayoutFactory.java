@@ -179,7 +179,7 @@ public class LayoutFactory implements LayoutCapability {
     }
 
     /**
-     * Creates a long hash code that attempts to mix in all relevent layout
+     * Creates a long hash code that attempts to mix in all relevant layout
      * elements.
      */
     private long mixInHash(long hash, StorableInfo<?> info, int multiplier) {
@@ -195,7 +195,7 @@ public class LayoutFactory implements LayoutCapability {
     }
 
     /**
-     * Creates a long hash code that attempts to mix in all relevent layout
+     * Creates a long hash code that attempts to mix in all relevant layout
      * elements.
      */
     private long mixInHash(long hash, StorableProperty<?> property, int multiplier) {
