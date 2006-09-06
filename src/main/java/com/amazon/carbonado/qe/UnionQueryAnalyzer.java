@@ -84,9 +84,34 @@ public class UnionQueryAnalyzer<S extends Storable> {
             return new Result(subResults);
         }
 
-        // FIXME: If any orderings have an unspecified direction, switch to
-        // ASCENDING or DESCENDING, depending on which is more popular. Then
-        // build new sub-results.
+        boolean canMutateOrderings = false;
+
+        // If any orderings have an unspecified direction, switch to ASCENDING
+        // or DESCENDING, depending on which is more popular. Then build new
+        // sub-results.
+        for (int pos = 0; pos < orderings.size(); pos++) {
+            OrderedProperty<S> ordering = orderings.get(pos);
+            if (ordering.getDirection() != Direction.UNSPECIFIED) {
+                continue;
+            }
+
+            // Find out which direction is most popular for this property.
+            Tally tally = new Tally(ordering.getChainedProperty());
+            for (IndexedQueryAnalyzer<S>.Result result : subResults) {
+                tally.increment(findHandledDirection(result, ordering));
+            }
+
+            if (!canMutateOrderings) {
+                orderings = new ArrayList<OrderedProperty<S>>(orderings);
+                canMutateOrderings = true;
+            }
+
+            orderings.set(pos, ordering.direction(tally.getBestDirection()));
+
+            // Re-calc with specified direction. Only do one property at a time
+            // since one simple change might alter the query plan.
+            subResults = splitIntoSubResults(filter, orderings);
+        }
 
         // Gather all the keys available. As ordering properties touch key
         // properties, they are removed from all key sets. When a key set size
@@ -119,7 +144,10 @@ public class UnionQueryAnalyzer<S extends Storable> {
         }
 
         // Prepare to augment orderings to ensure a total ordering.
-        orderings = new ArrayList<OrderedProperty<S>>(orderings);
+        if (!canMutateOrderings) {
+            orderings = new ArrayList<OrderedProperty<S>>(orderings);
+            canMutateOrderings = true;
+        }
 
         // Keep looping until total ordering achieved.
         while (true) {
@@ -143,14 +171,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
                 }
             }
 
-            // Find the best tally.
-            Tally best = null;
-            for (Tally tally : superKey.values()) {
-                if (best == null || tally.compareTo(best) < 0) {
-                    best = tally;
-                }
-            }
-
+            Tally best = bestTally(superKey.values());
             ChainedProperty<S> bestProperty = best.getProperty();
 
             // Now augment the orderings and create new sub-results.
@@ -215,6 +236,30 @@ public class UnionQueryAnalyzer<S extends Storable> {
         }
 
         return result;
+    }
+
+    private Tally bestTally(Iterable<Tally> tallies) {
+        Tally best = null;
+        for (Tally tally : tallies) {
+            if (best == null || tally.compareTo(best) < 0) {
+                best = tally;
+            }
+        }
+        return best;
+    }
+
+    private Direction findHandledDirection(IndexedQueryAnalyzer<S>.Result result,
+                                           OrderedProperty unspecified)
+    {
+        ChainedProperty<S> chained = unspecified.getChainedProperty();
+        OrderingScore<S> score = result.getCompositeScore().getOrderingScore();
+        List<OrderedProperty<S>> handled = score.getHandledOrderings();
+        for (OrderedProperty<S> property : handled) {
+            if (chained.equals(property)) {
+                return property.getDirection();
+            }
+        }
+        return Direction.UNSPECIFIED;
     }
 
     private List<IndexedQueryAnalyzer<S>.Result>
@@ -316,7 +361,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
     }
 
     /**
-     * Used to track which properties should be augmented to create a total ordering.
+     * Used to track which property direction is most popular.
      */    
     private class Tally implements Comparable<Tally> {
         private final ChainedProperty<S> mProperty;
@@ -353,14 +398,14 @@ public class UnionQueryAnalyzer<S extends Storable> {
          * Only returns ASCENDING or DESCENDING.
          */
         Direction getBestDirection() {
-            if (mAscendingCount > mDescendingCount) {
+            if (mAscendingCount >= mDescendingCount) {
                 return Direction.ASCENDING;
             }
             return Direction.DESCENDING;
         }
 
         int getBestCount() {
-            if (mAscendingCount > mDescendingCount) {
+            if (mAscendingCount >= mDescendingCount) {
                 return mAscendingCount;
             }
             return mDescendingCount;
