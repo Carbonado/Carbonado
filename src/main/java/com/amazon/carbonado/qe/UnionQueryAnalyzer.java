@@ -111,6 +111,11 @@ public class UnionQueryAnalyzer<S extends Storable> {
             // Re-calc with specified direction. Only do one property at a time
             // since one simple change might alter the query plan.
             subResults = splitIntoSubResults(filter, orderings);
+
+            if (subResults.size() < 1) {
+                // Total ordering no longer required.
+                return new Result(subResults);
+            }
         }
 
         // Gather all the keys available. As ordering properties touch key
@@ -177,6 +182,11 @@ public class UnionQueryAnalyzer<S extends Storable> {
             // Now augment the orderings and create new sub-results.
             orderings.add(OrderedProperty.get(bestProperty, best.getBestDirection()));
             subResults = splitIntoSubResults(filter, orderings);
+
+            if (subResults.size() < 1) {
+                // Total ordering no longer required.
+                break;
+            }
 
             // Remove property from super key and key set...
             superKey.remove(bestProperty);
