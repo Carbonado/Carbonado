@@ -416,6 +416,15 @@ public abstract class Filter<S extends Storable> implements Appender {
     public abstract Filter<S> bind();
 
     /**
+     * Undoes the effect of a bind operation. The returned filter might still
+     * report itself as bound if it doesn't make a distinction between these
+     * states.
+     *
+     * @return canonical Filter instance with unbound property filters
+     */
+    public abstract Filter<S> unbind();
+
+    /**
      * Returns true if all property filters are known to be properly
      * bound. This is a side effect of calling {@link #bind}, {@link
      * #initialFilterValues}, {@link #disjunctiveNormalForm} or {@link

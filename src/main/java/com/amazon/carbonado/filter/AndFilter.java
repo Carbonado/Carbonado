@@ -53,6 +53,13 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
         return visitor.visit(this, param);
     }
 
+    public Filter<S> unbind() {
+        if (!isBound()) {
+            return this;
+        }
+        return mLeft.unbind().and(mRight.unbind());
+    }
+
     Filter<S> buildDisjunctiveNormalForm() {
         Filter<S> left = mLeft.reduce().dnf();
         Filter<S> right = mRight.reduce().dnf();

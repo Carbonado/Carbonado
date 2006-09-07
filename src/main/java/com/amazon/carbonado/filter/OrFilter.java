@@ -53,6 +53,13 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
         return visitor.visit(this, param);
     }
 
+    public Filter<S> unbind() {
+        if (!isBound()) {
+            return this;
+        }
+        return mLeft.unbind().or(mRight.unbind());
+    }
+
     Filter<S> buildDisjunctiveNormalForm() {
         return mLeft.dnf().or(mRight.dnf()).reduce();
     }

@@ -77,9 +77,13 @@ public class UnionQueryAnalyzer<S extends Storable> {
             throw new IllegalArgumentException("Filter must be bound");
         }
 
+        if (orderings == null) {
+            orderings = Collections.emptyList();
+        }
+
         List<IndexedQueryAnalyzer<S>.Result> subResults = splitIntoSubResults(filter, orderings);
 
-        if (subResults.size() < 1) {
+        if (subResults.size() <= 1) {
             // Total ordering not required.
             return new Result(subResults);
         }
@@ -112,7 +116,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
             // since one simple change might alter the query plan.
             subResults = splitIntoSubResults(filter, orderings);
 
-            if (subResults.size() < 1) {
+            if (subResults.size() <= 1) {
                 // Total ordering no longer required.
                 return new Result(subResults);
             }
@@ -183,7 +187,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
             orderings.add(OrderedProperty.get(bestProperty, best.getBestDirection()));
             subResults = splitIntoSubResults(filter, orderings);
 
-            if (subResults.size() < 1) {
+            if (subResults.size() <= 1) {
                 // Total ordering no longer required.
                 break;
             }

@@ -21,6 +21,7 @@ package com.amazon.carbonado.qe;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -32,6 +33,7 @@ import com.amazon.carbonado.info.StorableIndex;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
+import com.amazon.carbonado.filter.PropertyFilter;
 
 import com.amazon.carbonado.repo.toy.ToyRepository;
 
@@ -111,6 +113,21 @@ public class TestIndexedQueryAnalyzer extends TestCase {
 
         assertTrue(result.handlesAnything());
         assertEquals(filter, result.getCompositeScore().getFilteringScore().getIdentityFilter());
+        assertEquals(makeIndex(Shipment.class, "orderID"), result.getLocalIndex());
+        assertEquals(null, result.getForeignIndex());
+        assertEquals(null, result.getForeignProperty());
+
+        filter = Filter.filterFor(Shipment.class, "orderID > ?");
+        filter = filter.bind();
+        result = iqa.analyze(filter, null);
+
+        assertTrue(result.handlesAnything());
+        assertTrue(result.getCompositeScore().getFilteringScore().hasRangeStart());
+        assertFalse(result.getCompositeScore().getFilteringScore().hasRangeEnd());
+        List<PropertyFilter<Shipment>> rangeFilters =
+            result.getCompositeScore().getFilteringScore().getRangeStartFilters();
+        assertEquals(1, rangeFilters.size());
+        assertEquals(filter, rangeFilters.get(0));
         assertEquals(makeIndex(Shipment.class, "orderID"), result.getLocalIndex());
         assertEquals(null, result.getForeignIndex());
         assertEquals(null, result.getForeignProperty());

@@ -431,6 +431,16 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             return new Result(this, filter, getRemainderOrderings());
         }
 
+        public String toString() {
+            return "IndexedQueryAnalyzer.Result {score="
+                + getCompositeScore() + ", localIndex="
+                + getLocalIndex() + ", foreignIndex="
+                + getForeignIndex() + ", foreignProperty="
+                + getForeignProperty() + ", remainderFilter="
+                + getRemainderFilter() + ", remainderOrderings="
+                + getRemainderOrderings() + '}';
+        }
+
         private boolean equals(Object a, Object b) {
             return a == null ? (b == null) : (a.equals(b));
         }

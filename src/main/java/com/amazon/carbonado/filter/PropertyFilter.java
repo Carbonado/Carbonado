@@ -160,6 +160,10 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         return mBindID == 0 ? getCanonical(this, 1) : this;
     }
 
+    public Filter<S> unbind() {
+        return mBindID == 0 ? this : getCanonical(this, 0);
+    }
+
     public boolean isBound() {
         return mBindID != 0;
     }
@@ -428,11 +432,9 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
             app.append(String.valueOf(mConstant));
         } else {
             app.append('?');
-            /* Uncomment for testing
-            if (mBindID != 0) {
+            if (mBindID > 1) {
                 app.append('[').append(String.valueOf(mBindID)).append(']');
             }
-            */
         }
     }
 

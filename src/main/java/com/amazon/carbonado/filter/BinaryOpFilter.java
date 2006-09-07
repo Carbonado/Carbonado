@@ -49,6 +49,9 @@ public abstract class BinaryOpFilter<S extends Storable> extends Filter<S> {
         }
         mLeft = left;
         mRight = right;
+        if (left.isBound() && right.isBound()) {
+            markBound();
+        }
     }
 
     public Filter<S> getLeftFilter() {

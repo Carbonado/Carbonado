@@ -62,6 +62,10 @@ public class OpenFilter<S extends Storable> extends Filter<S> {
         return this;
     }
 
+    public Filter<S> unbind() {
+        return this;
+    }
+
     public boolean isBound() {
         return true;
     }

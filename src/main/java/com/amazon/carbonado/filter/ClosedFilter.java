@@ -66,6 +66,10 @@ public class ClosedFilter<S extends Storable> extends Filter<S> {
         return true;
     }
 
+    public Filter<S> unbind() {
+        return this;
+    }
+
     void markBound() {
     }
 
