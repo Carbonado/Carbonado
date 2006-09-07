@@ -274,4 +274,80 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(Filter.filterFor(Shipment.class, "shipmentID = ? | orderID = ?"),
                      res_0.getRemainderFilter().unbind());
     }
+
+    public void testFullScan() throws Exception {
+        // Because no indexes were selected, there's no union to perform.
+        UnionQueryAnalyzer uqa =
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+        Filter<Shipment> filter = Filter.filterFor
+            (Shipment.class, "shipmentNotes = ? | shipperID = ?");
+        filter = filter.bind();
+        UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+        List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
+
+        assertEquals(1, subResults.size());
+        IndexedQueryAnalyzer<Shipment>.Result res_0 = subResults.get(0);
+
+        assertFalse(res_0.handlesAnything());
+        assertEquals(null, res_0.getForeignIndex());
+        assertEquals(null, res_0.getForeignProperty());
+        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(Filter.filterFor(Shipment.class, "shipmentNotes = ? | shipperID = ?").bind(),
+                     res_0.getRemainderFilter());
+    }
+
+    public void testFullScanFallback() throws Exception {
+        // Because not all sub-results of union use an index, just fallback to
+        // doing a full scan.
+        UnionQueryAnalyzer uqa =
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+        Filter<Shipment> filter = Filter.filterFor
+            (Shipment.class, "shipmentNotes = ? | orderID = ?");
+        filter = filter.bind();
+        UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+        List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
+
+        assertEquals(1, subResults.size());
+        IndexedQueryAnalyzer<Shipment>.Result res_0 = subResults.get(0);
+
+        assertFalse(res_0.handlesAnything());
+        assertEquals(null, res_0.getForeignIndex());
+        assertEquals(null, res_0.getForeignProperty());
+        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(Filter.filterFor(Shipment.class, "shipmentNotes = ? | orderID = ?").bind(),
+                     res_0.getRemainderFilter());
+    }
+
+    public void testFullScanExempt() throws Exception {
+        // Although not all sub-results use an index, one that does has a join
+        // so it is exempt from folding into the full scan.
+        UnionQueryAnalyzer uqa =
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+        Filter<Shipment> filter = Filter.filterFor
+            (Shipment.class, "shipmentNotes = ? | orderID = ? & order.orderTotal > ?");
+        filter = filter.bind();
+        UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+        List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
+
+        assertEquals(2, subResults.size());
+        IndexedQueryAnalyzer<Shipment>.Result res_0 = subResults.get(0);
+        IndexedQueryAnalyzer<Shipment>.Result res_1 = subResults.get(1);
+
+        assertTrue(res_0.handlesAnything());
+        assertEquals(makeIndex(Shipment.class, "shipmentID"), res_0.getLocalIndex());
+        assertEquals(null, res_0.getForeignIndex());
+        assertEquals(null, res_0.getForeignProperty());
+        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(Filter.filterFor(Shipment.class, "shipmentNotes = ?").bind(),
+                     res_0.getRemainderFilter());
+
+        assertTrue(res_1.handlesAnything());
+        assertEquals(makeIndex(Shipment.class, "orderID"), res_1.getLocalIndex());
+        assertEquals(null, res_1.getForeignIndex());
+        assertEquals(null, res_1.getForeignProperty());
+        assertEquals(1, res_1.getRemainderOrderings().size());
+        assertEquals("+shipmentID", res_1.getRemainderOrderings().get(0).toString());
+        assertEquals(Filter.filterFor(Shipment.class, "order.orderTotal > ?").bind(),
+                     res_1.getRemainderFilter());
+    }
 }
