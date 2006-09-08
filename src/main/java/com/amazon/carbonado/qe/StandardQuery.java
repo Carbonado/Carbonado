@@ -78,7 +78,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     public Class<S> getStorableType() {
-        return getStorage().getStorableType();
+        return getRootStorage().getStorableType();
     }
 
     public Filter<S> getFilter() {
@@ -86,7 +86,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         if (values != null) {
             return values.getFilter();
         }
-        return Filter.getOpenFilter(getStorage().getStorableType());
+        return Filter.getOpenFilter(getStorableType());
     }
 
     public FilterValues<S> getFilterValues() {
@@ -144,9 +144,9 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         FilterValues<S> values = mValues;
         Query<S> newQuery;
         if (values == null) {
-            newQuery = getStorage().query(filter);
+            newQuery = getRootStorage().query(filter);
         } else {
-            newQuery = getStorage().query(values.getFilter().and(filter));
+            newQuery = getRootStorage().query(values.getFilter().and(filter));
             newQuery = newQuery.withValues(values.getValues());
         }
         return mOrdering.size() == 0 ? newQuery : newQuery.orderBy(mOrdering.asStringArray());
@@ -157,7 +157,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         if (values == null) {
             throw new IllegalStateException("Query is already guaranteed to fetch everything");
         }
-        Query<S> newQuery = getStorage().query(values.getFilter().or(filter));
+        Query<S> newQuery = getRootStorage().query(values.getFilter().or(filter));
         newQuery = newQuery.withValues(values.getValues());
         return mOrdering.size() == 0 ? newQuery : newQuery.orderBy(mOrdering.asStringArray());
     }
@@ -165,9 +165,9 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     public Query<S> not() throws FetchException {
         FilterValues<S> values = mValues;
         if (values == null) {
-            return new EmptyQuery<S>(getStorage(), mOrdering);
+            return new EmptyQuery<S>(getRootStorage(), mOrdering);
         }
-        Query<S> newQuery = getStorage().query(values.getFilter().not());
+        Query<S> newQuery = getRootStorage().query(values.getFilter().not());
         newQuery = newQuery.withValues(values.getSuppliedValues());
         return mOrdering.size() == 0 ? newQuery : newQuery.orderBy(mOrdering.asStringArray());
     }
@@ -190,7 +190,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             return fetch();
         }
 
-        Class<S> storableType = getStorage().getStorableType();
+        Class<S> storableType = getStorableType();
         Filter<S> orderFilter = Filter.getClosedFilter(storableType);
         Filter<S> lastSubFilter = Filter.getOpenFilter(storableType);
         BeanPropertyAccessor accessor = BeanPropertyAccessor.forClass(storableType);
@@ -295,7 +295,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
 
     @Override
     public int hashCode() {
-        int hash = getStorage().hashCode() * 31;
+        int hash = getRootStorage().hashCode() * 31;
         if (mValues != null) {
             hash += mValues.hashCode();
         }
@@ -309,7 +309,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
         if (obj instanceof StandardQuery) {
             StandardQuery<?> other = (StandardQuery<?>) obj;
-            return getStorage().equals(other.getStorage()) &&
+            return getRootStorage().equals(other.getRootStorage()) &&
                 (mValues == null ? (other.mValues == null) : (mValues.equals(other.mValues)));
         }
         return false;
@@ -351,9 +351,9 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     /**
-     * Return the Storage object that the query is operating on.
+     * Return the root Storage object that the query is operating on.
      */
-    protected abstract Storage<S> getStorage();
+    protected abstract Storage<S> getRootStorage();
 
     /**
      * Enter a transaction as needed by the standard delete operation, or null
