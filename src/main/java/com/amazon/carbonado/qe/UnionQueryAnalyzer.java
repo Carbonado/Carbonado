@@ -68,53 +68,46 @@ public class UnionQueryAnalyzer<S extends Storable> {
 
     /**
      * @param filter optional filter which must be {@link Filter#isBound bound}
-     * @param orderings optional properties which define desired ordering
+     * @param ordering optional properties which define desired ordering
      */
-    public Result analyze(Filter<S> filter, List<OrderedProperty<S>> orderings) {
+    public Result analyze(Filter<S> filter, OrderingList<S> ordering) {
         if (!filter.isBound()) {
             // Strictly speaking, this is not required, but it detects the
             // mistake of not properly calling initialFilterValues.
             throw new IllegalArgumentException("Filter must be bound");
         }
 
-        if (orderings == null) {
-            orderings = Collections.emptyList();
+        if (ordering == null) {
+            ordering = OrderingList.emptyList();
         }
 
-        List<IndexedQueryAnalyzer<S>.Result> subResults = splitIntoSubResults(filter, orderings);
+        List<IndexedQueryAnalyzer<S>.Result> subResults = splitIntoSubResults(filter, ordering);
 
         if (subResults.size() <= 1) {
             // Total ordering not required.
             return new Result(subResults);
         }
 
-        boolean canMutateOrderings = false;
-
         // If any orderings have an unspecified direction, switch to ASCENDING
         // or DESCENDING, depending on which is more popular. Then build new
         // sub-results.
-        for (int pos = 0; pos < orderings.size(); pos++) {
-            OrderedProperty<S> ordering = orderings.get(pos);
-            if (ordering.getDirection() != Direction.UNSPECIFIED) {
+        for (int pos = 0; pos < ordering.size(); pos++) {
+            OrderedProperty<S> op = ordering.get(pos);
+            if (op.getDirection() != Direction.UNSPECIFIED) {
                 continue;
             }
 
             // Find out which direction is most popular for this property.
-            Tally tally = new Tally(ordering.getChainedProperty());
+            Tally tally = new Tally(op.getChainedProperty());
             for (IndexedQueryAnalyzer<S>.Result result : subResults) {
-                tally.increment(findHandledDirection(result, ordering));
+                tally.increment(findHandledDirection(result, op));
             }
 
-            if (!canMutateOrderings) {
-                orderings = new ArrayList<OrderedProperty<S>>(orderings);
-                canMutateOrderings = true;
-            }
-
-            orderings.set(pos, ordering.direction(tally.getBestDirection()));
+            ordering = ordering.replace(pos, op.direction(tally.getBestDirection()));
 
             // Re-calc with specified direction. Only do one property at a time
             // since one simple change might alter the query plan.
-            subResults = splitIntoSubResults(filter, orderings);
+            subResults = splitIntoSubResults(filter, ordering);
 
             if (subResults.size() <= 1) {
                 // Total ordering no longer required.
@@ -128,8 +121,8 @@ public class UnionQueryAnalyzer<S extends Storable> {
         List<Set<ChainedProperty<S>>> keys = getKeys();
 
         // Check if current ordering is total.
-        for (OrderedProperty<S> ordering : orderings) {
-            ChainedProperty<S> property = ordering.getChainedProperty();
+        for (OrderedProperty<S> op : ordering) {
+            ChainedProperty<S> property = op.getChainedProperty();
             if (pruneKeys(keys, property)) {
                 // Found a key which is fully covered, indicating total ordering.
                 return new Result(subResults);
@@ -152,12 +145,6 @@ public class UnionQueryAnalyzer<S extends Storable> {
             }
         }
 
-        // Prepare to augment orderings to ensure a total ordering.
-        if (!canMutateOrderings) {
-            orderings = new ArrayList<OrderedProperty<S>>(orderings);
-            canMutateOrderings = true;
-        }
-
         // Keep looping until total ordering achieved.
         while (true) {
             // For each ordering score, find the next free property. If
@@ -169,7 +156,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
 
             for (IndexedQueryAnalyzer<S>.Result result : subResults) {
                 OrderingScore<S> score = result.getCompositeScore().getOrderingScore();
-                List<OrderedProperty<S>> free = score.getFreeOrderings();
+                OrderingList<S> free = score.getFreeOrdering();
                 if (free.size() > 0) {
                     OrderedProperty<S> prop = free.get(0);
                     ChainedProperty<S> chainedProp = prop.getChainedProperty();
@@ -184,8 +171,8 @@ public class UnionQueryAnalyzer<S extends Storable> {
             ChainedProperty<S> bestProperty = best.getProperty();
 
             // Now augment the orderings and create new sub-results.
-            orderings.add(OrderedProperty.get(bestProperty, best.getBestDirection()));
-            subResults = splitIntoSubResults(filter, orderings);
+            ordering = ordering.concat(OrderedProperty.get(bestProperty, best.getBestDirection()));
+            subResults = splitIntoSubResults(filter, ordering);
 
             if (subResults.size() <= 1) {
                 // Total ordering no longer required.
@@ -267,7 +254,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
     {
         ChainedProperty<S> chained = unspecified.getChainedProperty();
         OrderingScore<S> score = result.getCompositeScore().getOrderingScore();
-        List<OrderedProperty<S>> handled = score.getHandledOrderings();
+        OrderingList<S> handled = score.getHandledOrdering();
         for (OrderedProperty<S> property : handled) {
             if (chained.equals(property)) {
                 return property.getDirection();
@@ -277,12 +264,12 @@ public class UnionQueryAnalyzer<S extends Storable> {
     }
 
     private List<IndexedQueryAnalyzer<S>.Result>
-        splitIntoSubResults(Filter<S> filter, List<OrderedProperty<S>> orderings)
+        splitIntoSubResults(Filter<S> filter, OrderingList<S> ordering)
     {
         // Required for split to work.
         Filter<S> dnfFilter = filter.disjunctiveNormalForm();
 
-        Splitter splitter = new Splitter(orderings);
+        Splitter splitter = new Splitter(ordering);
         dnfFilter.accept(splitter, null);
 
         List<IndexedQueryAnalyzer<S>.Result> subResults = splitter.mSubResults;
@@ -451,12 +438,12 @@ public class UnionQueryAnalyzer<S extends Storable> {
      * only contain 'and' operations.
      */
     private class Splitter extends Visitor<S, Object, Object> {
-        private final List<OrderedProperty<S>> mOrderings;
+        private final OrderingList<S> mOrdering;
 
         final List<IndexedQueryAnalyzer<S>.Result> mSubResults;
 
-        Splitter(List<OrderedProperty<S>> orderings) {
-            mOrderings = orderings;
+        Splitter(OrderingList<S> ordering) {
+            mOrdering = ordering;
             mSubResults = new ArrayList<IndexedQueryAnalyzer<S>.Result>();
         }
 
@@ -493,7 +480,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
 
         private void subAnalyze(Filter<S> subFilter) {
             IndexedQueryAnalyzer<S>.Result subResult =
-                mIndexAnalyzer.analyze(subFilter, mOrderings);
+                mIndexAnalyzer.analyze(subFilter, mOrdering);
 
             // Rather than blindly add to mSubResults, try to merge with
             // another result. This in turn reduces the number of cursors

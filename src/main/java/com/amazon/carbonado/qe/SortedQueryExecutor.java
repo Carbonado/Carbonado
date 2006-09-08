@@ -20,10 +20,7 @@ package com.amazon.carbonado.qe;
 
 import java.io.IOException;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
@@ -107,12 +104,6 @@ public abstract class SortedQueryExecutor<S extends Storable> extends AbstractQu
     }
 
     public OrderingList<S> getOrdering() {
-        if (mHandledOrdering.size() == 0) {
-            return mRemainderOrdering;
-        }
-        if (mRemainderOrdering.size() == 0) {
-            return mHandledOrdering;
-        }
         return mHandledOrdering.concat(mRemainderOrdering);
     }
 

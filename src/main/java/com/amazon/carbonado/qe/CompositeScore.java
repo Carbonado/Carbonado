@@ -45,13 +45,13 @@ public class CompositeScore<S extends Storable> {
      *
      * @param index index to evaluate
      * @param filter optional filter which cannot contain any logical 'or' operations.
-     * @param orderings optional properties which define desired ordering
+     * @param ordering optional properties which define desired ordering
      * @throws IllegalArgumentException if index is null or filter is not supported
      */
     public static <S extends Storable> CompositeScore<S> evaluate
         (StorableIndex<S> index,
          Filter<S> filter,
-         List<OrderedProperty<S>> orderings)
+         OrderingList<S> ordering)
     {
         if (index == null) {
             throw new IllegalArgumentException("Index required");
@@ -61,7 +61,7 @@ public class CompositeScore<S extends Storable> {
                         index.isUnique(),
                         index.isClustered(),
                         filter,
-                        orderings);
+                        ordering);
     }
 
     /**
@@ -72,7 +72,7 @@ public class CompositeScore<S extends Storable> {
      * @param unique true if index is unique
      * @param clustered true if index is clustered
      * @param filter optional filter which cannot contain any logical 'or' operations.
-     * @param orderings optional properties which define desired ordering
+     * @param ordering optional properties which define desired ordering
      * @throws IllegalArgumentException if index is null or filter is not supported
      */
     public static <S extends Storable> CompositeScore<S> evaluate
@@ -80,13 +80,13 @@ public class CompositeScore<S extends Storable> {
          boolean unique,
          boolean clustered,
          Filter<S> filter,
-         List<OrderedProperty<S>> orderings)
+         OrderingList<S> ordering)
     {
         FilteringScore<S> filteringScore = FilteringScore
             .evaluate(indexProperties, unique, clustered, filter);
 
         OrderingScore<S> orderingScore = OrderingScore
-            .evaluate(indexProperties, unique, clustered, filter, orderings);
+            .evaluate(indexProperties, unique, clustered, filter, ordering);
 
         return new CompositeScore<S>(filteringScore, orderingScore);
     }
@@ -133,7 +133,7 @@ public class CompositeScore<S extends Storable> {
      */
     public boolean canMergeRemainder(CompositeScore<S> other) {
         return getFilteringScore().canMergeRemainderFilter(other.getFilteringScore())
-            && getOrderingScore().canMergeRemainderOrderings(other.getOrderingScore());
+            && getOrderingScore().canMergeRemainderOrdering(other.getOrderingScore());
     }
 
     /**
@@ -149,8 +149,8 @@ public class CompositeScore<S extends Storable> {
      * Merges the remainder orderings of this score with the one given. Call
      * canMergeRemainder first to verify if the merge makes any sense.
      */
-    public List<OrderedProperty<S>> mergeRemainderOrderings(CompositeScore<S> other) {
-        return getOrderingScore().mergeRemainderOrderings(other.getOrderingScore());
+    public OrderingList<S> mergeRemainderOrdering(CompositeScore<S> other) {
+        return getOrderingScore().mergeRemainderOrdering(other.getOrderingScore());
     }
 
     public String toString() {

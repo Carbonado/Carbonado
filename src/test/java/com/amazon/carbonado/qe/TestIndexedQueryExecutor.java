@@ -57,10 +57,8 @@ public class TestIndexedQueryExecutor extends TestCase {
         return TestOrderingScore.makeIndex(type, props);
     }
 
-    static <S extends Storable> List<OrderedProperty<S>> makeOrderings(Class<S> type,
-                                                                       String... props)
-    {
-        return TestOrderingScore.makeOrderings(type, props);
+    static <S extends Storable> OrderingList<S> makeOrdering(Class<S> type, String... props) {
+        return TestOrderingScore.makeOrdering(type, props);
     }
 
     public TestIndexedQueryExecutor(String name) {
@@ -255,7 +253,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         filter = values.getFilter();
 
         score = CompositeScore.evaluate(index, filter,
-                                        makeOrderings(StorableTestBasic.class, "-intProp"));
+                                        makeOrdering(StorableTestBasic.class, "-intProp"));
 
         executor = new Mock(index, score);
 
@@ -296,7 +294,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         filter = values.getFilter();
 
         score = CompositeScore.evaluate(index, filter,
-                                        makeOrderings(StorableTestBasic.class, "-intProp"));
+                                        makeOrdering(StorableTestBasic.class, "-intProp"));
 
         executor = new Mock(index, score);
 
@@ -316,7 +314,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         filter = values.getFilter();
 
         score = CompositeScore.evaluate(index, filter,
-                                        makeOrderings(StorableTestBasic.class, "intProp"));
+                                        makeOrdering(StorableTestBasic.class, "intProp"));
 
         executor = new Mock(index, score);
 
@@ -454,7 +452,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         filter = values.getFilter();
 
         score = CompositeScore.evaluate(index, filter,
-                                        makeOrderings(StorableTestBasic.class, "-intProp"));
+                                        makeOrdering(StorableTestBasic.class, "-intProp"));
 
         executor = new Mock(index, score);
 
@@ -495,7 +493,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         filter = values.getFilter();
 
         score = CompositeScore.evaluate(index, filter,
-                                        makeOrderings(StorableTestBasic.class, "-intProp"));
+                                        makeOrdering(StorableTestBasic.class, "-intProp"));
 
         executor = new Mock(index, score);
 
@@ -515,7 +513,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         filter = values.getFilter();
 
         score = CompositeScore.evaluate(index, filter,
-                                        makeOrderings(StorableTestBasic.class, "intProp"));
+                                        makeOrdering(StorableTestBasic.class, "intProp"));
 
         executor = new Mock(index, score);
 
@@ -628,7 +626,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         ///////
         score = CompositeScore.evaluate(index, filter,
-                                        makeOrderings(StorableTestBasic.class, "doubleProp"));
+                                        makeOrdering(StorableTestBasic.class, "doubleProp"));
 
         executor = new Mock(index, score);
 
@@ -644,7 +642,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         ///////
         score = CompositeScore.evaluate(index, filter,
-                                        makeOrderings(StorableTestBasic.class, "stringProp"));
+                                        makeOrdering(StorableTestBasic.class, "stringProp"));
 
         executor = new Mock(index, score);
 
@@ -665,7 +663,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         filter = values.getFilter();
 
         score = CompositeScore.evaluate(index, filter,
-                                        makeOrderings(StorableTestBasic.class, "-stringProp"));
+                                        makeOrdering(StorableTestBasic.class, "-stringProp"));
 
         executor = new Mock(index, score);
 
@@ -682,7 +680,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         assertEquals(values.getFilter(), executor.getFilter());
         List<OrderedProperty<StorableTestBasic>> expectedOrdering =
-            makeOrderings(StorableTestBasic.class, "intProp", "-doubleProp", "stringProp");
+            makeOrdering(StorableTestBasic.class, "intProp", "-doubleProp", "stringProp");
         assertEquals(expectedOrdering, executor.getOrdering());
     }
 

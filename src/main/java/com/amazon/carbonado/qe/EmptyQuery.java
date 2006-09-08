@@ -44,21 +44,21 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     private final Storage<S> mRootStorage;
 
     // Properties that this query is ordered by.
-    private final OrderingList<S> mOrderings;
+    private final OrderingList<S> mOrdering;
 
     /**
      * @param rootStorage required root storage object, used by 'or' and 'not' methods
-     * @param orderings optional order-by properties
+     * @param ordering optional order-by properties
      */
-    public EmptyQuery(Storage<S> rootStorage, OrderingList<S> orderings) {
+    public EmptyQuery(Storage<S> rootStorage, OrderingList<S> ordering) {
         if (rootStorage == null) {
             throw new IllegalArgumentException();
         }
         mRootStorage = rootStorage;
-        if (orderings == null) {
-            orderings = OrderingList.emptyList();
+        if (ordering == null) {
+            ordering = OrderingList.emptyList();
         }
-        mOrderings = orderings;
+        mOrdering = ordering;
     }
 
     /**
@@ -194,8 +194,8 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
      */
     public Query<S> not() throws FetchException {
         Query<S> query = mRootStorage.query();
-        if (mOrderings.size() > 0) {
-            query = query.orderBy(mOrderings.asStringArray());
+        if (mOrdering.size() > 0) {
+            query = query.orderBy(mOrdering.asStringArray());
         }
         return query;
     }
@@ -255,13 +255,13 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
         app.append(", filter=");
         getFilter().appendTo(app);
 
-        if (mOrderings != null && mOrderings.size() > 0) {
+        if (mOrdering != null && mOrdering.size() > 0) {
             app.append(", orderBy=[");
-            for (int i=0; i<mOrderings.size(); i++) {
+            for (int i=0; i<mOrdering.size(); i++) {
                 if (i > 0) {
                     app.append(", ");
                 }
-                app.append(mOrderings.get(i).toString());
+                app.append(mOrdering.get(i).toString());
             }
             app.append(']');
         }

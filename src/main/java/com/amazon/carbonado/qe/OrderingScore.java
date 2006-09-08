@@ -18,9 +18,7 @@
 
 package com.amazon.carbonado.qe;
 
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -68,13 +66,13 @@ public class OrderingScore<S extends Storable> {
      *
      * @param index index to evaluate
      * @param filter optional filter which cannot contain any logical 'or' operations.
-     * @param orderings optional properties which define desired ordering
+     * @param ordering optional properties which define desired ordering
      * @throws IllegalArgumentException if index is null or filter is not supported
      */
     public static <S extends Storable> OrderingScore<S> evaluate
         (StorableIndex<S> index,
          Filter<S> filter,
-         List<OrderedProperty<S>> orderings)
+         OrderingList<S> ordering)
     {
         if (index == null) {
             throw new IllegalArgumentException("Index required");
@@ -84,7 +82,7 @@ public class OrderingScore<S extends Storable> {
                         index.isUnique(),
                         index.isClustered(),
                         filter,
-                        orderings);
+                        ordering);
     }
 
     /**
@@ -95,7 +93,7 @@ public class OrderingScore<S extends Storable> {
      * @param unique true if index is unique
      * @param clustered true if index is clustered
      * @param filter optional filter which cannot contain any logical 'or' operations.
-     * @param orderings optional properties which define desired ordering
+     * @param ordering optional properties which define desired ordering
      * @throws IllegalArgumentException if index is null or filter is not supported
      */
     public static <S extends Storable> OrderingScore<S> evaluate
@@ -103,7 +101,7 @@ public class OrderingScore<S extends Storable> {
          boolean unique,
          boolean clustered,
          Filter<S> filter,
-         List<OrderedProperty<S>> orderings)
+         OrderingList<S> ordering)
     {
         if (indexProperties == null) {
             throw new IllegalArgumentException("Index properties required");
@@ -112,8 +110,8 @@ public class OrderingScore<S extends Storable> {
         // Get filter list early to detect errors.
         List<PropertyFilter<S>> filterList = PropertyFilterList.get(filter);
 
-        if (orderings == null) {
-            orderings = Collections.emptyList();
+        if (ordering == null) {
+            ordering = OrderingList.emptyList();
         }
 
         // Ordering properties which match identity filters don't affect order
@@ -127,15 +125,18 @@ public class OrderingScore<S extends Storable> {
             }
         }
 
-        // Build up list of unused properties that were filtered out.
-        List<OrderedProperty<S>> unusedProperties = new ArrayList<OrderedProperty<S>>();
+        OrderingList<S> handledOrdering = OrderingList.emptyList();
+        OrderingList<S> remainderOrdering = OrderingList.emptyList();
+        OrderingList<S> freeOrdering = OrderingList.emptyList();
+        OrderingList<S> unusedOrdering = OrderingList.emptyList();
 
+        // Build up list of unused properties that were filtered out.
         for (int i=0; i<indexProperties.length; i++) {
             OrderedProperty<S> indexProp = indexProperties[i];
             ChainedProperty<S> indexChained = indexProp.getChainedProperty();
 
             if (identityPropSet.contains(indexChained)) {
-                unusedProperties.add(indexProp.direction(UNSPECIFIED));
+                unusedOrdering = unusedOrdering.concat(indexProp.direction(UNSPECIFIED));
             }
         }
 
@@ -153,15 +154,12 @@ public class OrderingScore<S extends Storable> {
 
             return new OrderingScore<S>(clustered,
                                         indexProperties.length,
-                                        null,   // no handled properties
-                                        null,   // no remainder properties
-                                        false,  // no need to reverse order
-                                        null,   // no free properties
-                                        unusedProperties);
+                                        handledOrdering,   // no handled properties
+                                        remainderOrdering, // no remainder properties
+                                        false,             // no need to reverse order
+                                        freeOrdering,      // no free properties
+                                        unusedOrdering);
         }
-
-        List<OrderedProperty<S>> handledProperties = new ArrayList<OrderedProperty<S>>();
-        List<OrderedProperty<S>> remainderProperties = new ArrayList<OrderedProperty<S>>();
 
         Boolean shouldReverseOrder = null;
 
@@ -170,8 +168,8 @@ public class OrderingScore<S extends Storable> {
         boolean gap = false;
         int indexPos = 0;
         calcScore:
-        for (int i=0; i<orderings.size(); i++) {
-            OrderedProperty<S> property = orderings.get(i);
+        for (int i=0; i<ordering.size(); i++) {
+            OrderedProperty<S> property = ordering.get(i);
             ChainedProperty<S> chained = property.getChainedProperty();
 
             if (seen.contains(chained)) {
@@ -211,16 +209,14 @@ public class OrderingScore<S extends Storable> {
                         // originally unspecified. They might need to be
                         // reversed now.
                         if (shouldReverseOrder) {
-                            for (int hpi = 0; hpi < handledProperties.size(); hpi++) {
-                                handledProperties.set(hpi, handledProperties.get(hpi).reverse());
-                            }
+                            handledOrdering = handledOrdering.reverseDirections();
                         }
                     } else if (indexDir != property.getDirection()) {
                         // Direction mismatch, so cannot be handled.
                         break indexPosMatch;
                     }
 
-                    handledProperties.add(property);
+                    handledOrdering = handledOrdering.concat(property);
 
                     indexPos++;
                     continue calcScore;
@@ -239,13 +235,11 @@ public class OrderingScore<S extends Storable> {
             }
 
             // Property not handled and not an identity filter.
-            remainderProperties.add(property);
+            remainderOrdering = remainderOrdering.concat(property);
             gap = true;
         }
 
         // Walk through all remaining index properties and list them as free.
-        List<OrderedProperty<S>> freeProperties = new ArrayList<OrderedProperty<S>>();
-
         while (indexPos < indexProperties.length) {
             OrderedProperty<S> freeProp = indexProperties[indexPos];
             ChainedProperty<S> freeChained = freeProp.getChainedProperty();
@@ -263,7 +257,7 @@ public class OrderingScore<S extends Storable> {
                         freeProp = freeProp.direction(freePropDir.reverse());
                     }
                 }
-                freeProperties.add(freeProp);
+                freeOrdering = freeOrdering.concat(freeProp);
             }
 
             indexPos++;
@@ -275,11 +269,11 @@ public class OrderingScore<S extends Storable> {
 
         return new OrderingScore<S>(clustered,
                                     indexProperties.length,
-                                    handledProperties,
-                                    remainderProperties,
+                                    handledOrdering,
+                                    remainderOrdering,
                                     shouldReverseOrder,
-                                    freeProperties,
-                                    unusedProperties);
+                                    freeOrdering,
+                                    unusedOrdering);
     }
 
     /**
@@ -295,8 +289,8 @@ public class OrderingScore<S extends Storable> {
     private final boolean mIndexClustered;
     private final int mIndexPropertyCount;
 
-    private final List<OrderedProperty<S>> mHandledOrderings;
-    private final List<OrderedProperty<S>> mRemainderOrderings;
+    private final OrderingList<S> mHandledOrdering;
+    private final OrderingList<S> mRemainderOrdering;
 
     private final boolean mShouldReverseOrder;
 
@@ -304,24 +298,24 @@ public class OrderingScore<S extends Storable> {
     // are useful for determining a total ordering that does not adversely
     // affect a query plan. Combining handled, free, and unused ordering lists
     // produces all the properties of the evaluated index.
-    private final List<OrderedProperty<S>> mFreeOrderings;
-    private final List<OrderedProperty<S>> mUnusedOrderings;
+    private final OrderingList<S> mFreeOrdering;
+    private final OrderingList<S> mUnusedOrdering;
 
     private OrderingScore(boolean indexClustered,
                           int indexPropertyCount,
-                          List<OrderedProperty<S>> handledOrderings,
-                          List<OrderedProperty<S>> remainderOrderings,
+                          OrderingList<S> handledOrdering,
+                          OrderingList<S> remainderOrdering,
                           boolean shouldReverseOrder,
-                          List<OrderedProperty<S>> freeOrderings,
-                          List<OrderedProperty<S>> unusedOrderings)
+                          OrderingList<S> freeOrdering,
+                          OrderingList<S> unusedOrdering)
     {
         mIndexClustered = indexClustered;
         mIndexPropertyCount = indexPropertyCount;
-        mHandledOrderings = FilteringScore.prepareList(handledOrderings);
-        mRemainderOrderings = FilteringScore.prepareList(remainderOrderings);
+        mHandledOrdering = handledOrdering;
+        mRemainderOrdering = remainderOrdering;
         mShouldReverseOrder = shouldReverseOrder;
-        mFreeOrderings = FilteringScore.prepareList(freeOrderings);
-        mUnusedOrderings = FilteringScore.prepareList(unusedOrderings);
+        mFreeOrdering = freeOrdering;
+        mUnusedOrdering = unusedOrdering;
     }
 
     /**
@@ -344,7 +338,7 @@ public class OrderingScore<S extends Storable> {
      * supports. The number of orderings is reduced to eliminate redundancies.
      */
     public int getHandledCount() {
-        return mHandledOrderings.size();
+        return mHandledOrdering.size();
     }
 
     /**
@@ -355,8 +349,8 @@ public class OrderingScore<S extends Storable> {
      *
      * @return handled orderings, never null
      */
-    public List<OrderedProperty<S>> getHandledOrderings() {
-        return mHandledOrderings;
+    public OrderingList<S> getHandledOrdering() {
+        return mHandledOrdering;
     }
 
     /**
@@ -366,7 +360,7 @@ public class OrderingScore<S extends Storable> {
      * evaluated index must perform a sort.
      */
     public int getRemainderCount() {
-        return mRemainderOrderings.size();
+        return mRemainderOrdering.size();
     }
 
     /**
@@ -375,8 +369,8 @@ public class OrderingScore<S extends Storable> {
      *
      * @return remainder orderings, never null
      */
-    public List<OrderedProperty<S>> getRemainderOrderings() {
-        return mRemainderOrderings;
+    public OrderingList<S> getRemainderOrdering() {
+        return mRemainderOrdering;
     }
 
     /**
@@ -395,8 +389,8 @@ public class OrderingScore<S extends Storable> {
      *
      * @return free orderings, never null
      */
-    public List<OrderedProperty<S>> getFreeOrderings() {
-        return mFreeOrderings;
+    public OrderingList<S> getFreeOrdering() {
+        return mFreeOrdering;
     }
 
     /**
@@ -406,8 +400,8 @@ public class OrderingScore<S extends Storable> {
      *
      * @return unused orderings, never null
      */
-    public List<OrderedProperty<S>> getUnusedOrderings() {
-        return mUnusedOrderings;
+    public OrderingList<S> getUnusedOrdering() {
+        return mUnusedOrdering;
     }
 
     /**
@@ -415,7 +409,7 @@ public class OrderingScore<S extends Storable> {
      * one. The only allowed differences are in the count of remainder
      * orderings.
      */
-    public boolean canMergeRemainderOrderings(OrderingScore<S> other) {
+    public boolean canMergeRemainderOrdering(OrderingScore<S> other) {
         if (this == other || (getHandledCount() == 0 && other.getHandledCount() == 0)) {
             return true;
         }
@@ -423,15 +417,15 @@ public class OrderingScore<S extends Storable> {
         if (isIndexClustered() == other.isIndexClustered()
             && getIndexPropertyCount() == other.getIndexPropertyCount()
             && shouldReverseOrder() == other.shouldReverseOrder()
-            && getHandledOrderings().equals(other.getHandledOrderings()))
+            && getHandledOrdering().equals(other.getHandledOrdering()))
         {
             // The remainder orderings cannot conflict.
-            List<OrderedProperty<S>> thisRemainderOrderings = getRemainderOrderings();
-            List<OrderedProperty<S>> otherRemainderOrderings = other.getRemainderOrderings();
+            OrderingList<S> thisRemainderOrdering = getRemainderOrdering();
+            OrderingList<S> otherRemainderOrdering = other.getRemainderOrdering();
 
-            int size = Math.min(thisRemainderOrderings.size(), otherRemainderOrderings.size());
+            int size = Math.min(thisRemainderOrdering.size(), otherRemainderOrdering.size());
             for (int i=0; i<size; i++) {
-                if (!thisRemainderOrderings.get(i).equals(otherRemainderOrderings.get(i))) {
+                if (!thisRemainderOrdering.get(i).equals(otherRemainderOrdering.get(i))) {
                     return false;
                 }
             }
@@ -444,28 +438,28 @@ public class OrderingScore<S extends Storable> {
 
     /**
      * Merges the remainder orderings of this score with the one given. Call
-     * canMergeRemainderOrderings first to verify if the merge makes any sense.
+     * canMergeRemainderOrdering first to verify if the merge makes any sense.
      */
-    public List<OrderedProperty<S>> mergeRemainderOrderings(OrderingScore<S> other) {
-        List<OrderedProperty<S>> thisRemainderOrderings = getRemainderOrderings();
+    public OrderingList<S> mergeRemainderOrdering(OrderingScore<S> other) {
+        OrderingList<S> thisRemainderOrdering = getRemainderOrdering();
 
         if (this == other) {
-            return thisRemainderOrderings;
+            return thisRemainderOrdering;
         }
 
-        List<OrderedProperty<S>> otherRemainderOrderings = other.getRemainderOrderings();
+        OrderingList<S> otherRemainderOrdering = other.getRemainderOrdering();
 
         // Choose the longer list.
 
-        if (thisRemainderOrderings.size() == 0) {
-            return otherRemainderOrderings;
+        if (thisRemainderOrdering.size() == 0) {
+            return otherRemainderOrdering;
         } else {
-            if (otherRemainderOrderings.size() == 0) {
-                return thisRemainderOrderings;
-            } else if (thisRemainderOrderings.size() >= otherRemainderOrderings.size()) {
-                return thisRemainderOrderings;
+            if (otherRemainderOrdering.size() == 0) {
+                return thisRemainderOrdering;
+            } else if (thisRemainderOrdering.size() >= otherRemainderOrdering.size()) {
+                return thisRemainderOrdering;
             } else {
-                return otherRemainderOrderings;
+                return otherRemainderOrdering;
             }
         }
     }

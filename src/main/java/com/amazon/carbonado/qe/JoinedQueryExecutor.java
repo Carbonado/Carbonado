@@ -20,10 +20,6 @@ package com.amazon.carbonado.qe;
 
 import java.io.IOException;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Repository;

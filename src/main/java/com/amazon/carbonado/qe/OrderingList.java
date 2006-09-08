@@ -59,10 +59,11 @@ public class OrderingList<S extends Storable> extends AbstractList<OrderedProper
      * @throws IllegalArgumentException if ordering property is not in S
      */
     public static <S extends Storable> OrderingList<S> get(Class<S> type, String property) {
-        if (property == null) {
-            return EMPTY_LIST;
+        OrderingList<S> list = emptyList();
+        if (property != null) {
+            list = list.concat(type, property);
         }
-        return getListNode(type).nextNode(type, property);
+        return list;
     }
 
     /**
@@ -71,37 +72,29 @@ public class OrderingList<S extends Storable> extends AbstractList<OrderedProper
      * @throws IllegalArgumentException if any ordering property is not in S
      */
     public static <S extends Storable> OrderingList<S> get(Class<S> type, String... orderings) {
-        if (orderings == null || orderings.length == 0) {
-            return EMPTY_LIST;
+        OrderingList<S> list = emptyList();
+        if (orderings != null && orderings.length > 0) {
+            for (String property : orderings) {
+                list = list.concat(type, property);
+            }
         }
-
-        OrderingList<S> node = getListNode(type);
-        for (String property : orderings) {
-            node = node.nextNode(type, property);
-        }
-
-        return node;
+        return list;
     }
 
     /**
      * Returns a canonical instance composed of the given orderings.
      */
     public static <S extends Storable> OrderingList<S> get(OrderedProperty<S>... orderings) {
-        if (orderings == null || orderings.length == 0) {
-            return EMPTY_LIST;
+        OrderingList<S> list = emptyList();
+        if (orderings != null && orderings.length > 0) {
+            for (OrderedProperty<S> property : orderings) {
+                list = list.concat(property);
+            }
         }
-
-        Class<S> type = orderings[0].getChainedProperty().getPrimeProperty().getEnclosingType();
-
-        OrderingList<S> node = getListNode(type);
-        for (OrderedProperty<S> property : orderings) {
-            node = node.nextNode(property);
-        }
-
-        return node;
+        return list;
     }
 
-    private static <S extends Storable> OrderingList<S> getListNode(Class<S> type) {
+    private static <S extends Storable> OrderingList<S> getListHead(Class<S> type) {
         OrderingList<S> node;
         synchronized (cCache) {
             node = (OrderingList<S>) cCache.get(type);
@@ -146,28 +139,79 @@ public class OrderingList<S extends Storable> extends AbstractList<OrderedProper
     }
 
     /**
+     * Returns a list which concatenates this one with the given property.
+     */
+    public OrderingList<S> concat(Class<S> type, String property) {
+        OrderingList<S> newList = this;
+        if (newList == EMPTY_LIST) {
+            // Cannot concat from singleton EMPTY_LIST.
+            newList = getListHead(type);
+        }
+        return newList.nextNode(type, property);
+    }
+
+    /**
+     * Returns a list which concatenates this one with the given property.
+     */
+    public OrderingList<S> concat(OrderedProperty<S> property) {
+        OrderingList<S> newList = this;
+        if (newList == EMPTY_LIST) {
+            // Cannot concat from singleton EMPTY_LIST.
+            newList = getListHead
+                (property.getChainedProperty().getPrimeProperty().getEnclosingType());
+        }
+        return newList.nextNode(property);
+    }
+
+    /**
      * Returns a list which concatenates this one with the other one.
      */
     public OrderingList<S> concat(OrderingList<S> other) {
         if (size() == 0) {
             return other;
         }
-
-        OrderingList<S> node = this;
-
+        OrderingList<S> newList = this;
         if (other.size() > 0) {
             for (OrderedProperty<S> property : other) {
-                node = node.nextNode(property);
+                newList = newList.concat(property);
             }
         }
+        return newList;
+    }
 
-        return node;
+    /**
+     * Returns this list with all orderings in reverse.
+     */
+    public OrderingList<S> reverseDirections() {
+        if (size() == 0) {
+            return this;
+        }
+        OrderingList<S> reversedList = emptyList();
+        for (int i=0; i<size(); i++) {
+            reversedList = reversedList.concat(get(i).reverse());
+        }
+        return reversedList;
+    }
+
+    /**
+     * Returns a list with the given element replaced.
+     */
+    public OrderingList<S> replace(int index, OrderedProperty<S> property) {
+        int size = size();
+        if (index < 0 || index >= size) {
+            throw new IndexOutOfBoundsException();
+        }
+        OrderingList<S> newList = emptyList();
+        for (int i=0; i<size; i++) {
+            newList = newList.concat(i == index ? property : get(i));
+        }
+        return newList;
     }
 
     /**
      * This method is not public because the array is not a clone.
      */
-    private OrderedProperty<S>[] asArray() {
+    OrderedProperty<S>[] asArray() {
         if (mOrderings == null) {
             OrderedProperty<S>[] orderings = new OrderedProperty[mSize];
             OrderingList<S> node = this;

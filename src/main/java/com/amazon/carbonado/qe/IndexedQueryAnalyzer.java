@@ -76,10 +76,10 @@ public class IndexedQueryAnalyzer<S extends Storable> {
     /**
      * @param filter optional filter which which must be {@link Filter#isBound
      * bound} and cannot contain any logical 'or' operations.
-     * @param orderings optional properties which define desired ordering
+     * @param ordering optional properties which define desired ordering
      * @throws IllegalArgumentException if filter is not supported
      */
-    public Result analyze(Filter<S> filter, List<OrderedProperty<S>> orderings) {
+    public Result analyze(Filter<S> filter, OrderingList<S> ordering) {
         if (!filter.isBound()) {
             // Strictly speaking, this is not required, but it detects the
             // mistake of not properly calling initialFilterValues.
@@ -96,7 +96,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         if (localIndexes != null) {
             for (StorableIndex<S> index : localIndexes) {
                 CompositeScore<S> candidateScore =
-                    CompositeScore.evaluate(index, filter, orderings);
+                    CompositeScore.evaluate(index, filter, ordering);
 
                 if (bestScore == null || comparator.compare(candidateScore, bestScore) < 0) {
                     bestScore = candidateScore;
@@ -128,7 +128,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
                      index.isUnique(),
                      index.isClustered(),
                      filter,
-                     orderings);
+                     ordering);
 
                 if (bestScore == null || comparator.compare(candidateScore, bestScore) < 0) {
                     bestScore = candidateScore;
@@ -249,7 +249,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         private final ChainedProperty<S> mForeignProperty;
 
         private final Filter<S> mRemainderFilter;
-        private final List<OrderedProperty<S>> mRemainderOrderings;
+        private final OrderingList<S> mRemainderOrdering;
 
         Result(Filter<S> filter,
                CompositeScore<S> score,
@@ -263,13 +263,13 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             mForeignIndex = foreignIndex;
             mForeignProperty = foreignProperty;
             mRemainderFilter = score.getFilteringScore().getRemainderFilter();
-            mRemainderOrderings = score.getOrderingScore().getRemainderOrderings();
+            mRemainderOrdering = score.getOrderingScore().getRemainderOrdering();
         }
 
         // Called by mergeRemainder.
         private Result(Result result,
                        Filter<S> remainderFilter,
-                       List<OrderedProperty<S>> remainderOrderings)
+                       OrderingList<S> remainderOrdering)
         {
             mFilter = result.mFilter == null ? remainderFilter
                 : (remainderFilter == null ? result.mFilter : result.mFilter.or(remainderFilter));
@@ -279,7 +279,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             mForeignIndex = result.mForeignIndex;
             mForeignProperty = result.mForeignProperty;
             mRemainderFilter = remainderFilter;
-            mRemainderOrderings = remainderOrderings;
+            mRemainderOrdering = remainderOrdering;
         }
 
         /**
@@ -302,24 +302,8 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         /**
          * Returns combined handled and remainder orderings for this result.
          */
-        public List<OrderedProperty<S>> getOrderings() {
-            List<OrderedProperty<S>> handled = mScore.getOrderingScore().getHandledOrderings();
-            List<OrderedProperty<S>> remainder = getRemainderOrderings();
-
-            if (handled.size() == 0) {
-                return remainder;
-            }
-            if (remainder.size() == 0) {
-                return handled;
-            }
-
-            List<OrderedProperty<S>> combined =
-                new ArrayList<OrderedProperty<S>>(handled.size() + remainder.size());
-
-            combined.addAll(handled);
-            combined.addAll(remainder);
-
-            return combined;
+        public OrderingList<S> getOrdering() {
+            return mScore.getOrderingScore().getHandledOrdering().concat(getRemainderOrdering());
         }
 
         /**
@@ -342,8 +326,8 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         /**
          * Remainder orderings which override that in composite score.
          */
-        public List<OrderedProperty<S>> getRemainderOrderings() {
-            return mRemainderOrderings;
+        public OrderingList<S> getRemainderOrdering() {
+            return mRemainderOrdering;
         }
 
         /**
@@ -406,7 +390,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             return new Result
                 (this,
                  getCompositeScore().mergeRemainderFilter(other.getCompositeScore()),
-                 getCompositeScore().mergeRemainderOrderings(other.getCompositeScore()));
+                 getCompositeScore().mergeRemainderOrdering(other.getCompositeScore()));
         }
 
         /**
@@ -428,7 +412,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
          * Returns a new result with the remainder filter replaced.
          */
         public Result setRemainderFilter(Filter<S> filter) {
-            return new Result(this, filter, getRemainderOrderings());
+            return new Result(this, filter, getRemainderOrdering());
         }
 
         public String toString() {
@@ -437,8 +421,8 @@ public class IndexedQueryAnalyzer<S extends Storable> {
                 + getLocalIndex() + ", foreignIndex="
                 + getForeignIndex() + ", foreignProperty="
                 + getForeignProperty() + ", remainderFilter="
-                + getRemainderFilter() + ", remainderOrderings="
-                + getRemainderOrderings() + '}';
+                + getRemainderFilter() + ", remainderOrdering="
+                + getRemainderOrdering() + '}';
         }
 
         private boolean equals(Object a, Object b) {

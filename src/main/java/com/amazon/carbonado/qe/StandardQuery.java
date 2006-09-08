@@ -54,7 +54,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     // Values for this query, which may be null.
     private final FilterValues<S> mValues;
     // Properties that this query is ordered by.
-    private final OrderingList<S> mOrderings;
+    private final OrderingList<S> mOrdering;
 
     private volatile QueryExecutor<S> mExecutor;
 
@@ -67,14 +67,14 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
 
     /**
      * @param values optional values object, defaults to open filter if null
-     * @param orderings optional order-by properties
+     * @param ordering optional order-by properties
      */
-    protected StandardQuery(FilterValues<S> values, OrderingList<S> orderings) {
+    protected StandardQuery(FilterValues<S> values, OrderingList<S> ordering) {
         mValues = values;
-        if (orderings == null) {
-            orderings = OrderingList.emptyList();
+        if (ordering == null) {
+            ordering = OrderingList.emptyList();
         }
-        mOrderings = orderings;
+        mOrdering = ordering;
     }
 
     public Class<S> getStorableType() {
@@ -149,7 +149,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             newQuery = getStorage().query(values.getFilter().and(filter));
             newQuery = newQuery.withValues(values.getValues());
         }
-        return mOrderings.size() == 0 ? newQuery : newQuery.orderBy(mOrderings.asStringArray());
+        return mOrdering.size() == 0 ? newQuery : newQuery.orderBy(mOrdering.asStringArray());
     }
 
     public Query<S> or(Filter<S> filter) throws FetchException {
@@ -159,17 +159,17 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
         Query<S> newQuery = getStorage().query(values.getFilter().or(filter));
         newQuery = newQuery.withValues(values.getValues());
-        return mOrderings.size() == 0 ? newQuery : newQuery.orderBy(mOrderings.asStringArray());
+        return mOrdering.size() == 0 ? newQuery : newQuery.orderBy(mOrdering.asStringArray());
     }
 
     public Query<S> not() throws FetchException {
         FilterValues<S> values = mValues;
         if (values == null) {
-            return new EmptyQuery<S>(getStorage(), mOrderings);
+            return new EmptyQuery<S>(getStorage(), mOrdering);
         }
         Query<S> newQuery = getStorage().query(values.getFilter().not());
         newQuery = newQuery.withValues(values.getSuppliedValues());
-        return mOrderings.size() == 0 ? newQuery : newQuery.orderBy(mOrderings.asStringArray());
+        return mOrdering.size() == 0 ? newQuery : newQuery.orderBy(mOrdering.asStringArray());
     }
 
     public Query<S> orderBy(String property) throws FetchException {
@@ -186,7 +186,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
 
     public Cursor<S> fetchAfter(S start) throws FetchException {
         OrderingList<S> orderings;
-        if (start == null || (orderings = mOrderings).size() == 0) {
+        if (start == null || (orderings = mOrdering).size() == 0) {
             return fetch();
         }
 
@@ -328,13 +328,13 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             app.append('"');
         }
 
-        if (mOrderings != null && mOrderings.size() > 0) {
+        if (mOrdering != null && mOrdering.size() > 0) {
             app.append(", orderBy=[");
-            for (int i=0; i<mOrderings.size(); i++) {
+            for (int i=0; i<mOrdering.size(); i++) {
                 if (i > 0) {
                     app.append(", ");
                 }
-                app.append(mOrderings.get(i).toString());
+                app.append(mOrdering.get(i).toString());
             }
             app.append(']');
         }
@@ -384,13 +384,13 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
                                                     OrderingList<S> orderings);
 
     private StandardQuery<S> newInstance(FilterValues<S> values) {
-        return newInstance(values, mOrderings);
+        return newInstance(values, mOrdering);
     }
 
     private QueryExecutor<S> executor() {
         QueryExecutor<S> executor = mExecutor;
         if (executor == null) {
-            mExecutor = executor = getExecutor(mValues, mOrderings);
+            mExecutor = executor = getExecutor(mValues, mOrdering);
         }
         return executor;
     }

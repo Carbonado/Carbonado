@@ -60,10 +60,8 @@ public class TestUnionQueryAnalyzer extends TestCase {
         return TestOrderingScore.makeIndex(type, props);
     }
 
-    static <S extends Storable> List<OrderedProperty<S>> makeOrderings(Class<S> type,
-                                                                       String... props)
-    {
-        return TestOrderingScore.makeOrderings(type, props);
+    static <S extends Storable> OrderingList<S> makeOrdering(Class<S> type, String... props) {
+        return TestOrderingScore.makeOrdering(type, props);
     }
 
     public TestUnionQueryAnalyzer(String name) {
@@ -86,14 +84,14 @@ public class TestUnionQueryAnalyzer extends TestCase {
             new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class, "shipmentID > ?");
         filter = filter.bind();
-        List<OrderedProperty<Shipment>> orderings =
-            makeOrderings(Shipment.class, "~shipmentID", "~orderID");
+        OrderingList<Shipment> orderings =
+            makeOrdering(Shipment.class, "~shipmentID", "~orderID");
         UnionQueryAnalyzer.Result result = uqa.analyze(filter, orderings);
         List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
 
         assertEquals(1, subResults.size());
         List<OrderedProperty<Shipment>> handled = 
-            subResults.get(0).getCompositeScore().getOrderingScore().getHandledOrderings();
+            subResults.get(0).getCompositeScore().getOrderingScore().getHandledOrdering();
         assertEquals(1, handled.size());
         assertEquals("+shipmentID", handled.get(0).toString());
     }
@@ -117,7 +115,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(makeIndex(Shipment.class, "shipmentID"), res_0.getLocalIndex());
         assertEquals(null, res_0.getForeignIndex());
         assertEquals(null, res_0.getForeignProperty());
-        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(0, res_0.getRemainderOrdering().size());
 
         assertTrue(res_1.handlesAnything());
         assertEquals(Filter.filterFor(Shipment.class, "orderID = ?").bind(),
@@ -125,8 +123,8 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(makeIndex(Shipment.class, "orderID"), res_1.getLocalIndex());
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
-        assertEquals(1, res_1.getRemainderOrderings().size());
-        assertEquals("+shipmentID", res_1.getRemainderOrderings().get(0).toString());
+        assertEquals(1, res_1.getRemainderOrdering().size());
+        assertEquals("+shipmentID", res_1.getRemainderOrdering().get(0).toString());
     }
  
     public void testSimpleUnion2() throws Exception {
@@ -148,7 +146,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(makeIndex(Shipment.class, "shipmentID"), res_0.getLocalIndex());
         assertEquals(null, res_0.getForeignIndex());
         assertEquals(null, res_0.getForeignProperty());
-        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(0, res_0.getRemainderOrdering().size());
 
         // Note: index that has proper ordering is preferred because "orderId > ?"
         // filter does not specify a complete range. It is not expected to actually
@@ -159,7 +157,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(makeIndex(Shipment.class, "shipmentID"), res_1.getLocalIndex());
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
-        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(0, res_0.getRemainderOrdering().size());
         // Remainder filter exists because the "orderID" index was not chosen.
         assertEquals(Filter.filterFor(Shipment.class, "orderID > ?").bind(),
                      res_1.getRemainderFilter());
@@ -184,7 +182,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(makeIndex(Shipment.class, "shipmentID"), res_0.getLocalIndex());
         assertEquals(null, res_0.getForeignIndex());
         assertEquals(null, res_0.getForeignProperty());
-        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(0, res_0.getRemainderOrdering().size());
 
         // Note: index that has proper filtering is preferred because
         // "orderId > ? & orderID <= ?" filter specifies a complete range.
@@ -203,7 +201,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
         // Sort operation required because the "shipmentID" index was not chosen.
-        assertEquals("+shipmentID", res_1.getRemainderOrderings().get(0).toString());
+        assertEquals("+shipmentID", res_1.getRemainderOrdering().get(0).toString());
     }
 
     public void testSimpleUnionUnspecifiedDirection() throws Exception {
@@ -212,8 +210,8 @@ public class TestUnionQueryAnalyzer extends TestCase {
         Filter<Shipment> filter = Filter.filterFor(Shipment.class,
                                                    "shipmentID > ? | orderID = ?");
         filter = filter.bind();
-        List<OrderedProperty<Shipment>> orderings =
-            makeOrderings(Shipment.class, "~shipmentID", "~orderID");
+        OrderingList<Shipment> orderings =
+            makeOrdering(Shipment.class, "~shipmentID", "~orderID");
         UnionQueryAnalyzer.Result result = uqa.analyze(filter, orderings);
         List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
 
@@ -222,11 +220,11 @@ public class TestUnionQueryAnalyzer extends TestCase {
         IndexedQueryAnalyzer<Shipment>.Result res_1 = subResults.get(1);
 
         List<OrderedProperty<Shipment>> handled =
-            res_0.getCompositeScore().getOrderingScore().getHandledOrderings();
+            res_0.getCompositeScore().getOrderingScore().getHandledOrdering();
         assertEquals(1, handled.size());
         assertEquals("+shipmentID", handled.get(0).toString());
 
-        handled = res_1.getCompositeScore().getOrderingScore().getHandledOrderings();
+        handled = res_1.getCompositeScore().getOrderingScore().getHandledOrdering();
         assertEquals(0, handled.size());
 
         assertTrue(res_0.handlesAnything());
@@ -235,8 +233,8 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(makeIndex(Shipment.class, "shipmentID"), res_0.getLocalIndex());
         assertEquals(null, res_0.getForeignIndex());
         assertEquals(null, res_0.getForeignProperty());
-        assertEquals(1, res_0.getRemainderOrderings().size());
-        assertEquals("+orderID", res_0.getRemainderOrderings().get(0).toString());
+        assertEquals(1, res_0.getRemainderOrdering().size());
+        assertEquals("+orderID", res_0.getRemainderOrdering().get(0).toString());
 
         assertTrue(res_1.handlesAnything());
         assertEquals(Filter.filterFor(Shipment.class, "orderID = ?").bind(),
@@ -244,8 +242,8 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(makeIndex(Shipment.class, "orderID"), res_1.getLocalIndex());
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
-        assertEquals(1, res_1.getRemainderOrderings().size());
-        assertEquals("+shipmentID", res_1.getRemainderOrderings().get(0).toString());
+        assertEquals(1, res_1.getRemainderOrdering().size());
+        assertEquals("+shipmentID", res_1.getRemainderOrdering().get(0).toString());
     }
 
     public void testSimpleMerge() throws Exception {
@@ -270,7 +268,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(makeIndex(Shipment.class, "shipmentID"), res_0.getLocalIndex());
         assertEquals(null, res_0.getForeignIndex());
         assertEquals(null, res_0.getForeignProperty());
-        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(0, res_0.getRemainderOrdering().size());
         assertEquals(Filter.filterFor(Shipment.class, "shipmentID = ? | orderID = ?"),
                      res_0.getRemainderFilter().unbind());
     }
@@ -291,7 +289,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertFalse(res_0.handlesAnything());
         assertEquals(null, res_0.getForeignIndex());
         assertEquals(null, res_0.getForeignProperty());
-        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(0, res_0.getRemainderOrdering().size());
         assertEquals(Filter.filterFor(Shipment.class, "shipmentNotes = ? | shipperID = ?").bind(),
                      res_0.getRemainderFilter());
     }
@@ -313,7 +311,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertFalse(res_0.handlesAnything());
         assertEquals(null, res_0.getForeignIndex());
         assertEquals(null, res_0.getForeignProperty());
-        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(0, res_0.getRemainderOrdering().size());
         assertEquals(Filter.filterFor(Shipment.class, "shipmentNotes = ? | orderID = ?").bind(),
                      res_0.getRemainderFilter());
     }
@@ -337,7 +335,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(makeIndex(Shipment.class, "shipmentID"), res_0.getLocalIndex());
         assertEquals(null, res_0.getForeignIndex());
         assertEquals(null, res_0.getForeignProperty());
-        assertEquals(0, res_0.getRemainderOrderings().size());
+        assertEquals(0, res_0.getRemainderOrdering().size());
         assertEquals(Filter.filterFor(Shipment.class, "shipmentNotes = ?").bind(),
                      res_0.getRemainderFilter());
 
@@ -345,8 +343,8 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(makeIndex(Shipment.class, "orderID"), res_1.getLocalIndex());
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
-        assertEquals(1, res_1.getRemainderOrderings().size());
-        assertEquals("+shipmentID", res_1.getRemainderOrderings().get(0).toString());
+        assertEquals(1, res_1.getRemainderOrdering().size());
+        assertEquals("+shipmentID", res_1.getRemainderOrdering().get(0).toString());
         assertEquals(Filter.filterFor(Shipment.class, "order.orderTotal > ?").bind(),
                      res_1.getRemainderFilter());
     }
