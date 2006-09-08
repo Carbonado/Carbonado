@@ -351,6 +351,15 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     /**
+     * Clears any cached reference to a query executor. The next time this
+     * Query is used, it will get an executor from getExecutor and cache a
+     * reference to it.
+     */
+    protected void clearExecutorReference() {
+        mExecutor = null;
+    }
+
+    /**
      * Return the root Storage object that the query is operating on.
      */
     protected abstract Storage<S> getRootStorage();
@@ -364,7 +373,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     protected abstract Transaction enterTransactionForDelete(IsolationLevel level);
 
     /**
-     * Return a new or cached executor.
+     * Return a new or cached query executor.
      *
      * @param values optional values object, defaults to open filter if null
      * @param orderings order-by properties, never null
