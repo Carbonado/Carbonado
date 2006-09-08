@@ -51,7 +51,7 @@ public class UnionQueryExecutor<S extends Storable> extends AbstractQueryExecuto
     }
 
     private final QueryExecutor<S>[] mExecutors;
-    private final List<OrderedProperty<S>> mTotalOrderings;
+    private final OrderingList<S> mTotalOrdering;
     private final Comparator<S> mOrderComparator;
 
     /**
@@ -70,17 +70,17 @@ public class UnionQueryExecutor<S extends Storable> extends AbstractQueryExecuto
         if (executors == null || executors.size() == 0) {
             throw new IllegalArgumentException();
         }
-        List<OrderedProperty<S>> totalOrderings = executors.get(0).getOrdering();
+        OrderingList<S> totalOrdering = executors.get(0).getOrdering();
         // Compare for consistency.
         for (int i=1; i<executors.size(); i++) {
-            if (!totalOrderings.equals(executors.get(i).getOrdering())) {
+            if (!totalOrdering.equals(executors.get(i).getOrdering())) {
                 throw new IllegalArgumentException("Ordering doesn't match");
             }
         }
         mExecutors = new QueryExecutor[executors.size()];
         executors.toArray(mExecutors);
-        mTotalOrderings = totalOrderings;
-        mOrderComparator = SortedCursor.createComparator(totalOrderings);
+        mTotalOrdering = totalOrdering;
+        mOrderComparator = SortedCursor.createComparator(totalOrdering);
     }
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
@@ -105,8 +105,8 @@ public class UnionQueryExecutor<S extends Storable> extends AbstractQueryExecuto
         return filter;
     }
 
-    public List<OrderedProperty<S>> getOrdering() {
-        return mTotalOrderings;
+    public OrderingList<S> getOrdering() {
+        return mTotalOrdering;
     }
 
     public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)

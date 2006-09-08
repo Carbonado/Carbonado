@@ -47,7 +47,7 @@ public class TestSortedQueryExecutor extends TestQueryExecutor {
         QueryExecutor<Address> unsorted = createExecutor(4, 2, 3, 1);
         Filter<Address> filter = Filter.getOpenFilter(Address.class);
         FilterValues<Address> values = filter.initialFilterValues();
-        List<OrderedProperty<Address>> ordered = createOrdering("addressCountry");
+        OrderingList<Address> ordered = createOrdering("addressCountry");
 
         QueryExecutor<Address> executor =
             new ArraySortedQueryExecutor<Address>(unsorted, null, ordered);
@@ -65,8 +65,8 @@ public class TestSortedQueryExecutor extends TestQueryExecutor {
         QueryExecutor<Address> unsorted = createExecutor(1, 2, 3, 4);
         Filter<Address> filter = Filter.getOpenFilter(Address.class);
         FilterValues<Address> values = filter.initialFilterValues();
-        List<OrderedProperty<Address>> handled = createOrdering("addressCountry");
-        List<OrderedProperty<Address>> finisher = createOrdering("addressState");
+        OrderingList<Address> handled = createOrdering("addressCountry");
+        OrderingList<Address> finisher = createOrdering("addressState");
 
         QueryExecutor<Address> executor =
             new ArraySortedQueryExecutor<Address>(unsorted, handled, finisher);

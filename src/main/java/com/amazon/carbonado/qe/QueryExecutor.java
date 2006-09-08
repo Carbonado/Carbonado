@@ -65,7 +65,7 @@ public interface QueryExecutor<S extends Storable> {
      *
      * @return query ordering in an unmodifiable list
      */
-    List<OrderedProperty<S>> getOrdering();
+    OrderingList<S> getOrdering();
 
     /**
      * Prints the native query to any appendable, if applicable.

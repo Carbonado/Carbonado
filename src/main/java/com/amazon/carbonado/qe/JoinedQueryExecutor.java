@@ -57,26 +57,26 @@ import com.amazon.carbonado.info.StorableIntrospector;
 public class JoinedQueryExecutor<A extends Storable, B extends Storable>
     extends AbstractQueryExecutor<B>
 {
-    private static <A extends Storable, B extends Storable> List<OrderedProperty<B>>
+    private static <A extends Storable, B extends Storable> OrderingList<B>
         transformOrdering(Class<B> bType,
                           String bToAProperty,
                           QueryExecutor<A> aExecutor)
     {
         StorableInfo<B> bInfo = StorableIntrospector.examine(bType);
 
-        List<OrderedProperty<A>> aOrdering = aExecutor.getOrdering();
+        OrderingList<A> aOrdering = aExecutor.getOrdering();
         int size = aOrdering.size();
-        List<OrderedProperty<B>> bOrdering = new ArrayList<OrderedProperty<B>>(size);
+        OrderedProperty<B>[] bOrdering = new OrderedProperty[size];
 
         for (int i=0; i<size; i++) {
             OrderedProperty<A> aProp = aOrdering.get(i);
             String bName = bToAProperty + '.' + aProp.getChainedProperty();
             OrderedProperty<B> bProp = OrderedProperty
                 .get(ChainedProperty.parse(bInfo, bName), aProp.getDirection());
-            bOrdering.add(bProp);
+            bOrdering[i] = bProp;
         }
 
-        return Collections.unmodifiableList(bOrdering);
+        return OrderingList.get(bOrdering);
     }
 
     private final JoinedCursorFactory<A, B> mFactory;
@@ -84,7 +84,7 @@ public class JoinedQueryExecutor<A extends Storable, B extends Storable>
 
     private final FilterValues<A> mAFilterValues;
     private final Filter<B> mBFilter;
-    private final List<OrderedProperty<B>> mBOrdering;
+    private final OrderingList<B> mBOrdering;
 
     /**
      * @param repo access to storage instances for properties
@@ -145,7 +145,7 @@ public class JoinedQueryExecutor<A extends Storable, B extends Storable>
         return mFactory.join(mAExecutor.fetch(transferValues(values)));
     }
 
-    public List<OrderedProperty<B>> getOrdering() {
+    public OrderingList<B> getOrdering() {
         return mBOrdering;
     }
 

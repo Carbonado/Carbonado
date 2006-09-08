@@ -73,7 +73,7 @@ public class FilteredQueryExecutor<S extends Storable> extends AbstractQueryExec
         return mExecutor.getFilter().and(mFilter);
     }
 
-    public List<OrderedProperty<S>> getOrdering() {
+    public OrderingList<S> getOrdering() {
         return mExecutor.getOrdering();
     }
 

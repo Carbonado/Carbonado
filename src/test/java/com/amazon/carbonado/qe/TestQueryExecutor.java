@@ -83,17 +83,8 @@ public abstract class TestQueryExecutor extends TestCase {
         }
     }
 
-    protected List<OrderedProperty<Address>> createOrdering(String... properties) {
-        StorableInfo<Address> info = StorableIntrospector.examine(Address.class);
-        Map<String, ? extends StorableProperty<Address>> props = info.getAllProperties();
-
-        List<OrderedProperty<Address>> ordered = new ArrayList<OrderedProperty<Address>>();
-
-        for (String prop : properties) {
-            ordered.add(OrderedProperty.get(props.get(prop), Direction.ASCENDING));
-        }
-
-        return ordered;
+    protected OrderingList<Address> createOrdering(String... properties) {
+        return OrderingList.get(Address.class, properties);
     }
 
     static void printPlan(QueryExecutor executor) {

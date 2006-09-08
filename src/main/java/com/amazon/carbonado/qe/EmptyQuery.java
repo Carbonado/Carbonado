@@ -41,20 +41,20 @@ import com.amazon.carbonado.info.OrderedProperty;
  * @author Brian S O'Neill
  */
 public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
-    private final Storage<S> mStorage;
+    private final Storage<S> mRootStorage;
 
     // Properties that this query is ordered by.
     private final OrderingList<S> mOrderings;
 
     /**
-     * @param storage required storage object
+     * @param rootStorage required root storage object, used by 'or' and 'not' methods
      * @param orderings optional order-by properties
      */
-    public EmptyQuery(Storage<S> storage, OrderingList<S> orderings) {
-        if (storage == null) {
+    public EmptyQuery(Storage<S> rootStorage, OrderingList<S> orderings) {
+        if (rootStorage == null) {
             throw new IllegalArgumentException();
         }
-        mStorage = storage;
+        mRootStorage = rootStorage;
         if (orderings == null) {
             orderings = OrderingList.emptyList();
         }
@@ -62,22 +62,30 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     }
 
     /**
-     * @param storage required storage object
+     * @param rootStorage required root storage object, used by 'or' and 'not' methods
+     * @param ordering optional order-by property
+     */
+    public EmptyQuery(Storage<S> rootStorage, String ordering) {
+        this(rootStorage, OrderingList.get(rootStorage.getStorableType(), ordering));
+    }
+
+    /**
+     * @param rootStorage required root storage object, used by 'or' and 'not' methods
      * @param orderings optional order-by properties
      */
-    public EmptyQuery(Storage<S> storage, String... orderings) {
-        this(storage, OrderingList.get(storage.getStorableType(), orderings));
+    public EmptyQuery(Storage<S> rootStorage, String... orderings) {
+        this(rootStorage, OrderingList.get(rootStorage.getStorableType(), orderings));
     }
 
     public Class<S> getStorableType() {
-        return mStorage.getStorableType();
+        return mRootStorage.getStorableType();
     }
 
     /**
      * Always returns a {@link com.amazon.carbonado.filter.ClosedFilter ClosedFilter}.
      */
     public Filter<S> getFilter() {
-        return Filter.getClosedFilter(mStorage.getStorableType());
+        return Filter.getClosedFilter(getStorableType());
     }
 
     /**
@@ -174,12 +182,18 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
         throw new IllegalStateException("Query is already guaranteed to fetch nothing");
     }
 
+    /**
+     * Returns a query that fetches only what's specified by the given filter.
+     */
     public Query<S> or(Filter<S> filter) throws FetchException {
-        return mStorage.query(filter);
+        return mRootStorage.query(filter);
     }
 
+    /**
+     * Returns a query that fetches everything, possibly in a specified order.
+     */
     public Query<S> not() throws FetchException {
-        Query<S> query = mStorage.query();
+        Query<S> query = mRootStorage.query();
         if (mOrderings.size() > 0) {
             query = query.orderBy(mOrderings.asStringArray());
         }
@@ -187,13 +201,11 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     }
 
     public Query<S> orderBy(String property) throws FetchException {
-        // This allows property to be checked for validity.
-        return mStorage.query().orderBy(property).not();
+        return new EmptyQuery<S>(mRootStorage, property);
     }
 
     public Query<S> orderBy(String... properties) throws FetchException {
-        // This allows properties to be checked for validity.
-        return mStorage.query().orderBy(properties).not();
+        return new EmptyQuery<S>(mRootStorage, properties);
     }
 
     /**
@@ -239,7 +251,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
 
     public void appendTo(Appendable app) throws IOException {
         app.append("Query {type=");
-        app.append(mStorage.getStorableType().getName());
+        app.append(getStorableType().getName());
         app.append(", filter=");
         getFilter().appendTo(app);
 

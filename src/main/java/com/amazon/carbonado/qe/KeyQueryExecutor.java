@@ -78,8 +78,8 @@ public abstract class KeyQueryExecutor<S extends Storable> extends AbstractQuery
     /**
      * Returns an empty list.
      */
-    public List<OrderedProperty<S>> getOrdering() {
-        return Collections.emptyList();
+    public OrderingList<S> getOrdering() {
+        return OrderingList.emptyList();
     }
 
     public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)

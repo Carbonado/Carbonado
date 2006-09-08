@@ -49,46 +49,46 @@ public abstract class SortedQueryExecutor<S extends Storable> extends AbstractQu
     private final Comparator<S> mHandledComparator;
     private final Comparator<S> mFinisherComparator;
 
-    private final List<OrderedProperty<S>> mHandledOrderings;
-    private final List<OrderedProperty<S>> mRemainderOrderings;
+    private final OrderingList<S> mHandledOrdering;
+    private final OrderingList<S> mRemainderOrdering;
 
     /**
      * @param executor executor to wrap
-     * @param handledOrderings optional handled orderings
-     * @param remainderOrderings required remainder orderings
+     * @param handledOrdering optional handled ordering
+     * @param remainderOrdering required remainder ordering
      * @throws IllegalArgumentException if executor is null or if remainder
-     * orderings is empty
+     * ordering is empty
      */
     public SortedQueryExecutor(QueryExecutor<S> executor,
-                               List<OrderedProperty<S>> handledOrderings,
-                               List<OrderedProperty<S>> remainderOrderings)
+                               OrderingList<S> handledOrdering,
+                               OrderingList<S> remainderOrdering)
     {
         if (executor == null) {
             throw new IllegalArgumentException();
         }
         mExecutor = executor;
 
-        if (handledOrderings != null && handledOrderings.size() == 0) {
-            handledOrderings = null;
+        if (handledOrdering != null && handledOrdering.size() == 0) {
+            handledOrdering = null;
         }
-        if (remainderOrderings != null && remainderOrderings.size() == 0) {
-            remainderOrderings = null;
+        if (remainderOrdering != null && remainderOrdering.size() == 0) {
+            remainderOrdering = null;
         }
 
-        if (remainderOrderings == null) {
+        if (remainderOrdering == null) {
             throw new IllegalArgumentException();
         }
 
-        if (handledOrderings == null) {
+        if (handledOrdering == null) {
             mHandledComparator = null;
-            mHandledOrderings = Collections.emptyList();
+            mHandledOrdering = OrderingList.emptyList();
         } else {
-            mHandledComparator = SortedCursor.createComparator(handledOrderings);
-            mHandledOrderings = handledOrderings;
+            mHandledComparator = SortedCursor.createComparator(handledOrdering);
+            mHandledOrdering = handledOrdering;
         }
 
-        mFinisherComparator = SortedCursor.createComparator(remainderOrderings);
-        mRemainderOrderings = remainderOrderings;
+        mFinisherComparator = SortedCursor.createComparator(remainderOrdering);
+        mRemainderOrdering = remainderOrdering;
     }
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
@@ -106,32 +106,26 @@ public abstract class SortedQueryExecutor<S extends Storable> extends AbstractQu
         return mExecutor.getFilter();
     }
 
-    public List<OrderedProperty<S>> getOrdering() {
-        if (mHandledOrderings.size() == 0) {
-            return mRemainderOrderings;
+    public OrderingList<S> getOrdering() {
+        if (mHandledOrdering.size() == 0) {
+            return mRemainderOrdering;
         }
-        if (mRemainderOrderings.size() == 0) {
-            return mHandledOrderings;
+        if (mRemainderOrdering.size() == 0) {
+            return mHandledOrdering;
         }
-        List<OrderedProperty<S>> ordering = new ArrayList<OrderedProperty<S>>
-            (mHandledOrderings.size() + mRemainderOrderings.size());
-
-        ordering.addAll(mHandledOrderings);
-        ordering.addAll(mRemainderOrderings);
-
-        return ordering;
+        return mHandledOrdering.concat(mRemainderOrdering);
     }
 
     public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)
         throws IOException
     {
         indent(app, indentLevel);
-        if (mHandledOrderings.size() == 0) {
+        if (mHandledOrdering.size() == 0) {
             app.append("full sort: ");
         } else {
             app.append("finish sort: ");
         }
-        app.append(mRemainderOrderings.toString());
+        app.append(mRemainderOrdering.toString());
         newline(app);
         mExecutor.printPlan(app, increaseIndent(indentLevel), values);
         return true;

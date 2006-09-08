@@ -39,48 +39,60 @@ import com.amazon.carbonado.info.OrderedProperty;
  * @author Brian S O'Neill
  */
 public class DelegatedQueryExecutor<S extends Storable> implements QueryExecutor<S> {
-    private final QueryExecutor<S> mExecutor;
-    private final Storage<S> mStorage;
+    private static final <T> T check(T object) {
+        if (object == null) {
+            throw new IllegalArgumentException();
+        }
+        return object;
+    }
+
+    private final Filter<S> mFilter;
+    private final OrderingList<S> mOrdering;
     private final Query<S> mQuery;
 
     /**
+     * @param rootStorage root storage to query
      * @param executor executor to emulate
-     * @param storage storage to query
      * @throws IllegalArgumentException if any parameter is null
      */
-    public DelegatedQueryExecutor(QueryExecutor<S> executor, Storage<S> storage)
+    public DelegatedQueryExecutor(Storage<S> rootStorage, QueryExecutor<S> executor)
         throws FetchException
     {
-        if (executor == null || storage == null) {
-            throw new IllegalStateException();
-        }
+        this(rootStorage, (executor = check(executor)).getFilter(), executor.getOrdering());
+    }
 
-        mExecutor = executor;
-        mStorage = storage;
-
-        Filter<S> filter = executor.getFilter();
+    /**
+     * @param rootStorage root storage to query
+     * @param filter optional query filter
+     * @param ordering optional ordering
+     * @throws IllegalArgumentException if rootStorage is null
+     */
+    public DelegatedQueryExecutor(Storage<S> rootStorage,
+                                  Filter<S> filter, OrderingList<S> ordering)
+        throws FetchException
+    {
+        check(rootStorage);
 
         Query<S> query;
         if (filter == null) {
-            query = storage.query();
+            query = rootStorage.query();
         } else {
-            query = storage.query(filter);
+            query = rootStorage.query(filter);
         }
 
-        List<OrderedProperty<S>> ordering = executor.getOrdering();
-        if (ordering.size() > 0) {
-            String[] orderBy = new String[ordering.size()];
-            for (int i=0; i<orderBy.length; i++) {
-                orderBy[i] = ordering.get(i).toString();
-            }
-            query = query.orderBy(orderBy);
+        if (ordering == null) {
+            ordering = OrderingList.emptyList();
+        } else if (ordering.size() > 0) {
+            query = query.orderBy(ordering.asStringArray());
         }
 
+        mFilter = filter;
+        mOrdering = ordering;
         mQuery = query;
     }
 
     public Class<S> getStorableType() {
-        return mStorage.getStorableType();
+        return mFilter.getStorableType();
     }
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
@@ -92,11 +104,11 @@ public class DelegatedQueryExecutor<S extends Storable> implements QueryExecutor
     }
 
     public Filter<S> getFilter() {
-        return mExecutor.getFilter();
+        return mFilter;
     }
 
-    public List<OrderedProperty<S>> getOrdering() {
-        return mExecutor.getOrdering();
+    public OrderingList<S> getOrdering() {
+        return mOrdering;
     }
 
     public boolean printNative(Appendable app, int indentLevel, FilterValues<S> values)

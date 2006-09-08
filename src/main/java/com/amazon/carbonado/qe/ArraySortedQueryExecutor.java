@@ -37,13 +37,13 @@ public class ArraySortedQueryExecutor<S extends Storable> extends SortedQueryExe
     /**
      * @param executor executor to wrap
      * @throws IllegalArgumentException if executor is null or if remainder
-     * orderings is empty
+     * ordering is empty
      */
     public ArraySortedQueryExecutor(QueryExecutor<S> executor,
-                                    List<OrderedProperty<S>> handledOrderings,
-                                    List<OrderedProperty<S>> remainderOrderings)
+                                    OrderingList<S> handledOrdering,
+                                    OrderingList<S> remainderOrdering)
     {
-        super(executor, handledOrderings, remainderOrderings);
+        super(executor, handledOrdering, remainderOrdering);
     }
 
     protected SortBuffer<S> createSortBuffer() {

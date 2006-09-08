@@ -70,8 +70,8 @@ public abstract class FullScanIndexedQueryExecutor<S extends Storable>
      * Returns the natural order of the index.
      */
     @Override
-    public List<OrderedProperty<S>> getOrdering() {
-        return Collections.unmodifiableList(Arrays.asList(mIndex.getOrderedProperties()));
+    public OrderingList<S> getOrdering() {
+        return OrderingList.get(mIndex.getOrderedProperties());
     }
 
     protected Cursor<S> fetch() throws FetchException {

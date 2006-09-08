@@ -65,8 +65,8 @@ public abstract class FullScanQueryExecutor<S extends Storable> extends Abstract
     /**
      * Returns an empty list.
      */
-    public List<OrderedProperty<S>> getOrdering() {
-        return Collections.emptyList();
+    public OrderingList<S> getOrdering() {
+        return OrderingList.emptyList();
     }
 
     public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)

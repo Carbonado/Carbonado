@@ -173,8 +173,8 @@ public abstract class IndexedQueryExecutor<S extends Storable> extends AbstractQ
         return filter;
     }
 
-    public List<OrderedProperty<S>> getOrdering() {
-        return Collections.unmodifiableList(Arrays.asList(mIndex.getOrderedProperties()));
+    public OrderingList<S> getOrdering() {
+        return OrderingList.get(mIndex.getOrderedProperties());
     }
 
     public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)

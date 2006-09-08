@@ -175,16 +175,10 @@ public class TestJoinedQueryExecutor extends TestQueryExecutor {
         addressExecutor = new FilteredQueryExecutor<UserAddress>
             (addressExecutor, Filter.filterFor(UserAddress.class, "state = ?"));
 
-        StorableProperty<UserAddress> prop = StorableIntrospector
-            .examine(UserAddress.class).getAllProperties().get("country");
+        OrderingList<UserAddress> ordering = OrderingList.get(UserAddress.class, "+country");
 
-        List<OrderedProperty<UserAddress>> orderings =
-            new ArrayList<OrderedProperty<UserAddress>>();
-
-        orderings.add(OrderedProperty.get(prop, Direction.ASCENDING));
-
-        addressExecutor = new ArraySortedQueryExecutor<UserAddress>
-            (addressExecutor, null, orderings);
+        addressExecutor =
+            new ArraySortedQueryExecutor<UserAddress>(addressExecutor, null, ordering);
 
         return addressExecutor;
     }
