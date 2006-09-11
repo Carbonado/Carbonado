@@ -18,10 +18,15 @@
 
 package com.amazon.carbonado.qe;
 
+import java.io.IOException;
+
 import java.util.concurrent.locks.Lock;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.Storable;
+
+import com.amazon.carbonado.filter.Filter;
+import com.amazon.carbonado.filter.FilterValues;
 
 import com.amazon.carbonado.cursor.IteratorCursor;
 
@@ -31,7 +36,8 @@ import com.amazon.carbonado.cursor.IteratorCursor;
  * @author Brian S O'Neill
  * @see IteratorCursor
  */
-public class IterableQueryExecutor<S extends Storable> extends FullScanQueryExecutor<S> {
+public class IterableQueryExecutor<S extends Storable> extends AbstractQueryExecutor<S> {
+    private final Class<S> mType;
     private final Iterable<S> mIterable;
     private final Lock mLock;
 
@@ -51,12 +57,39 @@ public class IterableQueryExecutor<S extends Storable> extends FullScanQueryExec
      * @throws IllegalArgumentException if type is null
      */
     public IterableQueryExecutor(Class<S> type, Iterable<S> iterable, Lock lock) {
-        super(type);
+        if (type == null) {
+            throw new IllegalArgumentException();
+        }
+        mType = type;
         mIterable = iterable;
         mLock = lock;
     }
 
-    protected Cursor<S> fetch() {
+    /**
+     * Returns an open filter.
+     */
+    public Filter<S> getFilter() {
+        return Filter.getOpenFilter(mType);
+    }
+
+    public Cursor<S> fetch(FilterValues<S> values) {
         return new IteratorCursor<S>(mIterable, mLock);
+    }
+
+    /**
+     * Returns an empty list.
+     */
+    public OrderingList<S> getOrdering() {
+        return OrderingList.emptyList();
+    }
+
+    public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)
+        throws IOException
+    {
+        indent(app, indentLevel);
+        app.append("iterable: ");
+        app.append(mType.getName());
+        newline(app);
+        return true;
     }
 }

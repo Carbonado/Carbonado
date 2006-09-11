@@ -24,7 +24,6 @@ import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistNoneException;
-import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Query;
 
@@ -41,20 +40,20 @@ import com.amazon.carbonado.info.OrderedProperty;
  * @author Brian S O'Neill
  */
 public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
-    private final Storage<S> mRootStorage;
+    private final QueryFactory<S> mFactory;
 
     // Properties that this query is ordered by.
     private final OrderingList<S> mOrdering;
 
     /**
-     * @param rootStorage required root storage object, used by 'or' and 'not' methods
+     * @param factory required query factory, used by 'or' and 'not' methods
      * @param ordering optional order-by properties
      */
-    public EmptyQuery(Storage<S> rootStorage, OrderingList<S> ordering) {
-        if (rootStorage == null) {
+    public EmptyQuery(QueryFactory<S> factory, OrderingList<S> ordering) {
+        if (factory == null) {
             throw new IllegalArgumentException();
         }
-        mRootStorage = rootStorage;
+        mFactory = factory;
         if (ordering == null) {
             ordering = OrderingList.emptyList();
         }
@@ -62,23 +61,23 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     }
 
     /**
-     * @param rootStorage required root storage object, used by 'or' and 'not' methods
+     * @param factory required query factory, used by 'or' and 'not' methods
      * @param ordering optional order-by property
      */
-    public EmptyQuery(Storage<S> rootStorage, String ordering) {
-        this(rootStorage, OrderingList.get(rootStorage.getStorableType(), ordering));
+    public EmptyQuery(QueryFactory<S> factory, String ordering) {
+        this(factory, OrderingList.get(factory.getStorableType(), ordering));
     }
 
     /**
-     * @param rootStorage required root storage object, used by 'or' and 'not' methods
+     * @param factory required query factory, used by 'or' and 'not' methods
      * @param orderings optional order-by properties
      */
-    public EmptyQuery(Storage<S> rootStorage, String... orderings) {
-        this(rootStorage, OrderingList.get(rootStorage.getStorableType(), orderings));
+    public EmptyQuery(QueryFactory<S> factory, String... orderings) {
+        this(factory, OrderingList.get(factory.getStorableType(), orderings));
     }
 
     public Class<S> getStorableType() {
-        return mRootStorage.getStorableType();
+        return mFactory.getStorableType();
     }
 
     /**
@@ -182,30 +181,24 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
         throw new IllegalStateException("Query is already guaranteed to fetch nothing");
     }
 
-    /**
-     * Returns a query that fetches only what's specified by the given filter.
-     */
     public Query<S> or(Filter<S> filter) throws FetchException {
-        return mRootStorage.query(filter);
+        FilterValues<S> values = filter == null ? null : filter.initialFilterValues();
+        return mFactory.query(values, mOrdering);
     }
 
     /**
      * Returns a query that fetches everything, possibly in a specified order.
      */
     public Query<S> not() throws FetchException {
-        Query<S> query = mRootStorage.query();
-        if (mOrdering.size() > 0) {
-            query = query.orderBy(mOrdering.asStringArray());
-        }
-        return query;
+        return mFactory.query(null, mOrdering);
     }
 
     public Query<S> orderBy(String property) throws FetchException {
-        return new EmptyQuery<S>(mRootStorage, property);
+        return new EmptyQuery<S>(mFactory, property);
     }
 
     public Query<S> orderBy(String... properties) throws FetchException {
-        return new EmptyQuery<S>(mRootStorage, properties);
+        return new EmptyQuery<S>(mFactory, properties);
     }
 
     /**

@@ -36,11 +36,11 @@ import com.amazon.carbonado.info.StorableIndex;
 import com.amazon.carbonado.info.OrderedProperty;
 
 /**
- * Abstract QueryExecutor which utilizes an index.
+ * QueryExecutor which utilizes an index.
  *
  * @author Brian S O'Neill
  */
-public abstract class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecutor<S> {
+public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecutor<S> {
     /**
      * Compares two objects which are assumed to be Comparable. If one value is
      * null, it is treated as being higher. This consistent with all other
@@ -50,6 +50,7 @@ public abstract class IndexedQueryExecutor<S extends Storable> extends AbstractQ
         return a == null ? (b == null ? 0 : -1) : (b == null ? 1 : ((Comparable) a).compareTo(b));
     }
 
+    private final Support<S> mSupport;
     private final StorableIndex<S> mIndex;
     private final Filter<S> mIdentityFilter;
     private final List<PropertyFilter<S>> mExclusiveRangeStartFilters;
@@ -62,13 +63,17 @@ public abstract class IndexedQueryExecutor<S extends Storable> extends AbstractQ
     /**
      * @param index index to use, which may be a primary key index
      * @param score score determines how best to utilize the index
-     * @throws IllegalArgumentException if index or score is null
+     * @throws IllegalArgumentException if any parameter is null
      */
-    public IndexedQueryExecutor(StorableIndex<S> index, CompositeScore<S> score) {
-        if (index == null || score == null) {
+    public IndexedQueryExecutor(Support<S> support,
+                                StorableIndex<S> index,
+                                CompositeScore<S> score)
+    {
+        if (support == null || index == null || score == null) {
             throw new IllegalArgumentException();
         }
 
+        mSupport = support;
         mIndex = index;
 
         FilteringScore<S> fScore = score.getFilteringScore();
@@ -147,11 +152,11 @@ public abstract class IndexedQueryExecutor<S extends Storable> extends AbstractQ
             }
         }
 
-        return fetch(mIndex, identityValues,
-                     rangeStartBoundary, rangeStartValue,
-                     rangeEndBoundary, rangeEndValue,
-                     mReverseRange,
-                     mReverseOrder);
+        return mSupport.fetch(mIndex, identityValues,
+                              rangeStartBoundary, rangeStartValue,
+                              rangeEndBoundary, rangeEndValue,
+                              mReverseRange,
+                              mReverseOrder);
     }
 
     public Filter<S> getFilter() {
@@ -235,32 +240,35 @@ public abstract class IndexedQueryExecutor<S extends Storable> extends AbstractQ
         return true;
     }
 
-    /**
-     * Return a new Cursor instance constrained by the given parameters. The
-     * index values are aligned with the index properties at property index
-     * 0. An optional start or end boundary matches up with the index property
-     * following the last of the index values.
-     *
-     * @param index index to open, which may be a primary key index
-     * @param identityValues optional list of exactly matching values to apply to index
-     * @param rangeStartBoundary start boundary type
-     * @param rangeStartValue value to start at if boundary is not open
-     * @param rangeEndBoundary end boundary type
-     * @param rangeEndValue value to end at if boundary is not open
-     * @param reverseRange indicates that range operates on a property whose
-     * natural order is descending. Only the code that opens the physical
-     * cursor should examine this parameter. If true, then the range start and
-     * end parameter pairs need to be swapped.
-     * @param reverseOrder when true, iteration should be reversed from its
-     * natural order
-     */
-    protected abstract Cursor<S> fetch(StorableIndex<S> index,
-                                       Object[] identityValues,
-                                       BoundaryType rangeStartBoundary,
-                                       Object rangeStartValue,
-                                       BoundaryType rangeEndBoundary,
-                                       Object rangeEndValue,
-                                       boolean reverseRange,
-                                       boolean reverseOrder)
-        throws FetchException;
+    public static interface Support<S extends Storable> {
+        /**
+         * Perform an index scan of a subset of Storables referenced by an
+         * index. The identity values are aligned with the index properties at
+         * property 0. An optional range start or range end aligns with the index
+         * property following the last of the identity values.
+         *
+         *
+         * @param index index to open, which may be a primary key index
+         * @param identityValues optional list of exactly matching values to apply to index
+         * @param rangeStartBoundary start boundary type
+         * @param rangeStartValue value to start at if boundary is not open
+         * @param rangeEndBoundary end boundary type
+         * @param rangeEndValue value to end at if boundary is not open
+         * @param reverseRange indicates that range operates on a property whose
+         * natural order is descending. Only the code that opens the physical
+         * cursor should examine this parameter. If true, then the range start and
+         * end parameter pairs need to be swapped.
+         * @param reverseOrder when true, iteration should be reversed from its
+         * natural order
+         */
+        Cursor<S> fetch(StorableIndex<S> index,
+                        Object[] identityValues,
+                        BoundaryType rangeStartBoundary,
+                        Object rangeStartValue,
+                        BoundaryType rangeEndBoundary,
+                        Object rangeEndValue,
+                        boolean reverseRange,
+                        boolean reverseOrder)
+            throws FetchException;
+    }
 }

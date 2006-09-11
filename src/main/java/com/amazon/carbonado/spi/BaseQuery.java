@@ -211,7 +211,9 @@ public abstract class BaseQuery<S extends Storable> extends AbstractQuery<S> imp
     public Query<S> not() throws FetchException {
         FilterValues<S> values = getFilterValues();
         if (values == null) {
-            return new EmptyQuery<S>(mStorage, mOrderings);
+            // FIXME: fix this or remove BaseQuery class.
+            throw new UnsupportedOperationException();
+            //return new EmptyQuery<S>(mStorage, mOrderings);
         }
         Query<S> newQuery = mStorage.query(values.getFilter().not());
         newQuery = newQuery.withValues(values.getSuppliedValues());

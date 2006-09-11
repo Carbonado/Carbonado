@@ -83,7 +83,7 @@ class PropertyFilterList {
                 }
             }, null);
 
-            Collections.sort(list, new PropertyFilterComparator<S>());
+            Collections.sort(list, new PFComparator<S>());
 
             ((ArrayList) list).trimToSize();
             list = Collections.unmodifiableList(list);
@@ -96,7 +96,7 @@ class PropertyFilterList {
         return list;
     }
 
-    private static class PropertyFilterComparator<S extends Storable>
+    private static class PFComparator<S extends Storable>
         implements Comparator<PropertyFilter<S>>
     {
         public int compare(PropertyFilter<S> a, PropertyFilter<S> b) {

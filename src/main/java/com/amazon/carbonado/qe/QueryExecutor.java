@@ -36,6 +36,7 @@ import com.amazon.carbonado.info.OrderedProperty;
  * together forming a <i>query plan</i>.
  *
  * @author Brian S O'Neill
+ * @see QueryExecutorFactory
  */
 public interface QueryExecutor<S extends Storable> {
     /**

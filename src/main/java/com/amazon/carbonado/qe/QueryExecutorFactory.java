@@ -18,20 +18,27 @@
 
 package com.amazon.carbonado.qe;
 
-import java.util.Collection;
-
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 
-import com.amazon.carbonado.info.StorableIndex;
+import com.amazon.carbonado.filter.Filter;
+
+import com.amazon.carbonado.info.OrderedProperty;
 
 /**
- * An index provider is typically a repository implementation.
+ * Produces {@link QueryExecutor} instances from a query specification.
  *
  * @author Brian S O'Neill
  */
-public interface IndexProvider {
+public interface QueryExecutorFactory<S extends Storable> {
+    Class<S> getStorableType();
+
     /**
-     * Returns all the available indexes for the given type.
+     * Returns an executor that handles the given query specification.
+     *
+     * @param filter optional filter
+     * @param ordering optional order-by properties
      */
-    <S extends Storable> Collection<StorableIndex<S>> indexesFor(Class<S> type);
+    QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+        throws RepositoryException;
 }

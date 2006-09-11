@@ -697,26 +697,36 @@ public class TestIndexedQueryExecutor extends TestCase {
         boolean mReverseRange;
         boolean mReverseOrder;
 
-        public Mock(StorableIndex<S> index, CompositeScore<S> score) {
-            super(index, score);
+        Mock(StorableIndex<S> index, CompositeScore<S> score) {
+            this(index, score, new MockSupport[1]);
         }
 
-        protected Cursor<S> fetch(StorableIndex<S> index,
-                                  Object[] identityValues,
-                                  BoundaryType rangeStartBoundary,
-                                  Object rangeStartValue,
-                                  BoundaryType rangeEndBoundary,
-                                  Object rangeEndValue,
-                                  boolean reverseRange,
-                                  boolean reverseOrder)
+        Mock(StorableIndex<S> index, CompositeScore<S> score, MockSupport[] ref) {
+            // Extremely bizarre hack to allow support to know about us.
+            super(ref[0] = new MockSupport(), index, score);
+            ((MockSupport<S>) ref[0]).mMock = this;
+        }
+    }
+
+    static class MockSupport<S extends Storable> implements IndexedQueryExecutor.Support<S> {
+        Mock<S> mMock;
+
+        public Cursor<S> fetch(StorableIndex<S> index,
+                               Object[] identityValues,
+                               BoundaryType rangeStartBoundary,
+                               Object rangeStartValue,
+                               BoundaryType rangeEndBoundary,
+                               Object rangeEndValue,
+                               boolean reverseRange,
+                               boolean reverseOrder)
         {
-            mIdentityValues = identityValues;
-            mRangeStartBoundary = rangeStartBoundary;
-            mRangeStartValue = rangeStartValue;
-            mRangeEndBoundary = rangeEndBoundary;
-            mRangeEndValue = rangeEndValue;
-            mReverseRange = reverseRange;
-            mReverseOrder = reverseOrder;
+            mMock.mIdentityValues = identityValues;
+            mMock.mRangeStartBoundary = rangeStartBoundary;
+            mMock.mRangeStartValue = rangeStartValue;
+            mMock.mRangeEndBoundary = rangeEndBoundary;
+            mMock.mRangeEndValue = rangeEndValue;
+            mMock.mReverseRange = reverseRange;
+            mMock.mReverseOrder = reverseOrder;
 
             Collection<S> empty = Collections.emptyList();
             return new IteratorCursor<S>(empty);

@@ -33,33 +33,33 @@ import com.amazon.carbonado.filter.FilterValues;
 import com.amazon.carbonado.info.OrderedProperty;
 
 /**
- * Abstract QueryExecutor which fully scans all Storables of a given type.
+ * QueryExecutor which fully scans all Storables of a given type.
  *
  * @author Brian S O'Neill
  */
-public abstract class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExecutor<S> {
-    private final Class<S> mType;
+public class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExecutor<S> {
+    private final Support<S> mSupport;
 
     /**
-     * @param type type of Storable
-     * @throws IllegalArgumentException if type is null
+     * @param support support for full scan
+     * @throws IllegalArgumentException if support is null
      */
-    public FullScanQueryExecutor(Class<S> type) {
-        if (type == null) {
+    public FullScanQueryExecutor(Support<S> support) {
+        if (support == null) {
             throw new IllegalArgumentException();
         }
-        mType = type;
+        mSupport = support;
     }
 
     /**
      * Returns an open filter.
      */
     public Filter<S> getFilter() {
-        return Filter.getOpenFilter(mType);
+        return Filter.getOpenFilter(mSupport.getStorableType());
     }
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
-        return fetch();
+        return mSupport.fetch();
     }
 
     /**
@@ -74,13 +74,17 @@ public abstract class FullScanQueryExecutor<S extends Storable> extends Abstract
     {
         indent(app, indentLevel);
         app.append("full scan: ");
-        app.append(mType.getName());
+        app.append(mSupport.getStorableType().getName());
         newline(app);
         return true;
     }
 
-    /**
-     * Return a new Cursor instance.
-     */
-    protected abstract Cursor<S> fetch() throws FetchException;
+    public static interface Support<S extends Storable> {
+        Class<S> getStorableType();
+
+        /**
+         * Perform a full scan of all Storables.
+         */
+        Cursor<S> fetch() throws FetchException;
+    }
 }

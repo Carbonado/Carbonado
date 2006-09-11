@@ -26,6 +26,7 @@ import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 
+import com.amazon.carbonado.cursor.ArraySortBuffer;
 import com.amazon.carbonado.cursor.SortBuffer;
 import com.amazon.carbonado.cursor.SortedCursor;
 
@@ -35,12 +36,13 @@ import com.amazon.carbonado.filter.FilterValues;
 import com.amazon.carbonado.info.OrderedProperty;
 
 /**
- * Abstract QueryExecutor which wraps another and sorts the results.
+ * QueryExecutor which wraps another and sorts the results.
  *
  * @author Brian S O'Neill
  * @see SortedCursor
  */
-public abstract class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecutor<S> {
+public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecutor<S> {
+    private final Support<S> mSupport;
     private final QueryExecutor<S> mExecutor;
 
     private final Comparator<S> mHandledComparator;
@@ -50,19 +52,22 @@ public abstract class SortedQueryExecutor<S extends Storable> extends AbstractQu
     private final OrderingList<S> mRemainderOrdering;
 
     /**
+     * @param support optional support to control sort buffer; if null, array is used
      * @param executor executor to wrap
      * @param handledOrdering optional handled ordering
      * @param remainderOrdering required remainder ordering
-     * @throws IllegalArgumentException if executor is null or if remainder
-     * ordering is empty
+     * @throws IllegalArgumentException if executor is null or if
+     * remainder ordering is empty
      */
-    public SortedQueryExecutor(QueryExecutor<S> executor,
+    public SortedQueryExecutor(Support<S> support,
+                               QueryExecutor<S> executor,
                                OrderingList<S> handledOrdering,
                                OrderingList<S> remainderOrdering)
     {
         if (executor == null) {
             throw new IllegalArgumentException();
         }
+        mSupport = support;
         mExecutor = executor;
 
         if (handledOrdering != null && handledOrdering.size() == 0) {
@@ -90,7 +95,8 @@ public abstract class SortedQueryExecutor<S extends Storable> extends AbstractQu
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
         Cursor<S> cursor = mExecutor.fetch(values);
-        SortBuffer<S> buffer = createSortBuffer();
+        SortBuffer<S> buffer =
+            mSupport == null ? new ArraySortBuffer<S>() : mSupport.createSortBuffer();
         return new SortedCursor<S>(cursor, buffer, mHandledComparator, mFinisherComparator);
     }
 
@@ -122,8 +128,10 @@ public abstract class SortedQueryExecutor<S extends Storable> extends AbstractQu
         return true;
     }
 
-    /**
-     * Implementation must return an empty buffer for sorting.
-     */
-    protected abstract SortBuffer<S> createSortBuffer();
+    public static interface Support<S extends Storable> {
+        /**
+         * Implementation must return an empty buffer for sorting.
+         */
+        SortBuffer<S> createSortBuffer();
+    }
 }

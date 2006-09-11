@@ -27,6 +27,7 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.PersistMultipleException;
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Transaction;
@@ -60,13 +61,6 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
 
     /**
      * @param values optional values object, defaults to open filter if null
-     */
-    protected StandardQuery(FilterValues<S> values) {
-        this(values, null);
-    }
-
-    /**
-     * @param values optional values object, defaults to open filter if null
      * @param ordering optional order-by properties
      */
     protected StandardQuery(FilterValues<S> values, OrderingList<S> ordering) {
@@ -78,7 +72,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     public Class<S> getStorableType() {
-        return getRootStorage().getStorableType();
+        return queryFactory().getStorableType();
     }
 
     public Filter<S> getFilter() {
@@ -141,47 +135,50 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     public Query<S> and(Filter<S> filter) throws FetchException {
-        FilterValues<S> values = mValues;
-        Query<S> newQuery;
-        if (values == null) {
-            newQuery = getRootStorage().query(filter);
+        FilterValues<S> newValues;
+        if (mValues == null) {
+            newValues = filter.initialFilterValues();
         } else {
-            newQuery = getRootStorage().query(values.getFilter().and(filter));
-            newQuery = newQuery.withValues(values.getValues());
+            newValues = mValues.getFilter().and(filter)
+                .initialFilterValues().withValues(mValues.getValues());
         }
-        return mOrdering.size() == 0 ? newQuery : newQuery.orderBy(mOrdering.asStringArray());
+        return createQuery(newValues, mOrdering);
     }
 
     public Query<S> or(Filter<S> filter) throws FetchException {
-        FilterValues<S> values = mValues;
-        if (values == null) {
+        if (mValues == null) {
             throw new IllegalStateException("Query is already guaranteed to fetch everything");
         }
-        Query<S> newQuery = getRootStorage().query(values.getFilter().or(filter));
-        newQuery = newQuery.withValues(values.getValues());
-        return mOrdering.size() == 0 ? newQuery : newQuery.orderBy(mOrdering.asStringArray());
+        FilterValues<S> newValues = mValues.getFilter().or(filter)
+            .initialFilterValues().withValues(mValues.getValues());
+        return createQuery(newValues, mOrdering);
     }
 
     public Query<S> not() throws FetchException {
-        FilterValues<S> values = mValues;
-        if (values == null) {
-            return new EmptyQuery<S>(getRootStorage(), mOrdering);
+        if (mValues == null) {
+            return new EmptyQuery<S>(queryFactory(), mOrdering);
         }
-        Query<S> newQuery = getRootStorage().query(values.getFilter().not());
-        newQuery = newQuery.withValues(values.getSuppliedValues());
-        return mOrdering.size() == 0 ? newQuery : newQuery.orderBy(mOrdering.asStringArray());
+        // FIXME: Just like with DelegatedQueryExecutor, need a better way of
+        // transfering values.
+        FilterValues<S> newValues = mValues.getFilter().not()
+            .initialFilterValues().withValues(mValues.getSuppliedValues());
+        return createQuery(newValues, mOrdering);
     }
 
     public Query<S> orderBy(String property) throws FetchException {
-        return newInstance(mValues, OrderingList.get(getStorableType(), property));
+        return createQuery(mValues, OrderingList.get(getStorableType(), property));
     }
 
     public Query<S> orderBy(String... properties) throws FetchException {
-        return newInstance(mValues, OrderingList.get(getStorableType(), properties));
+        return createQuery(mValues, OrderingList.get(getStorableType(), properties));
     }
 
     public Cursor<S> fetch() throws FetchException {
-        return executor().fetch(mValues);
+        try {
+            return executor().fetch(mValues);
+        } catch (RepositoryException e) {
+            throw e.toFetchException();
+        }
     }
 
     public Cursor<S> fetchAfter(S start) throws FetchException {
@@ -216,19 +213,19 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             lastSubFilter = lastSubFilter.and(propertyName, RelOp.EQ);
         }
 
-        Query<S> newQuery = this.and(orderFilter);
+        Query<S> query = this.and(orderFilter);
 
         for (int i=0; i<values.length; i++) {
             for (int j=0; j<=i; j++) {
-                newQuery = newQuery.with(values[j]);
+                query = query.with(values[j]);
             }
         }
 
-        return newQuery.fetch();
+        return query.fetch();
     }
 
     public boolean tryDeleteOne() throws PersistException {
-        Transaction txn = enterTransactionForDelete(IsolationLevel.READ_COMMITTED);
+        Transaction txn = enterTransaction(IsolationLevel.READ_COMMITTED);
         try {
             Cursor<S> cursor = fetch();
             boolean result;
@@ -259,7 +256,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     public void deleteAll() throws PersistException {
-        Transaction txn = enterTransactionForDelete(IsolationLevel.READ_COMMITTED);
+        Transaction txn = enterTransaction(IsolationLevel.READ_COMMITTED);
         try {
             Cursor<S> cursor = fetch();
             try {
@@ -282,23 +279,37 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     public long count() throws FetchException {
-        return executor().count(mValues);
+        try {
+            return executor().count(mValues);
+        } catch (RepositoryException e) {
+            throw e.toFetchException();
+        }
     }
 
     public boolean printNative(Appendable app, int indentLevel) throws IOException {
-        return executor().printNative(app, indentLevel, mValues);
+        try {
+            return executor().printNative(app, indentLevel, mValues);
+        } catch (RepositoryException e) {
+            return false;
+        }
     }
 
     public boolean printPlan(Appendable app, int indentLevel) throws IOException {
-        return executor().printPlan(app, indentLevel, mValues);
+        try {
+            return executor().printPlan(app, indentLevel, mValues);
+        } catch (RepositoryException e) {
+            return false;
+        }
     }
 
     @Override
     public int hashCode() {
-        int hash = getRootStorage().hashCode() * 31;
+        int hash = queryFactory().hashCode();
+        hash = hash * 31 + executorFactory().hashCode();
         if (mValues != null) {
-            hash += mValues.hashCode();
+            hash = hash * 31 + mValues.hashCode();
         }
+        hash = hash * 31 + mOrdering.hashCode();
         return hash;
     }
 
@@ -309,8 +320,10 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
         if (obj instanceof StandardQuery) {
             StandardQuery<?> other = (StandardQuery<?>) obj;
-            return getRootStorage().equals(other.getRootStorage()) &&
-                (mValues == null ? (other.mValues == null) : (mValues.equals(other.mValues)));
+            return queryFactory().equals(other.queryFactory())
+                && executorFactory().equals(other.executorFactory())
+                && (mValues == null ? (other.mValues == null) : (mValues.equals(other.mValues)))
+                && mOrdering.equals(other.mOrdering);
         }
         return false;
     }
@@ -351,18 +364,32 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     /**
+     * Ensures that a cached query executor reference is available. If not, the
+     * query executor factory is called and the executor is cached.
+     */
+    protected void setExecutorReference() throws RepositoryException {
+        executor();
+    }
+
+    /**
+     * Resets any cached reference to a query executor. If a reference is
+     * available, it is replaced, but a clear reference is not set.
+     */
+    protected void resetExecutorReference() throws RepositoryException {
+        if (mExecutor != null) {
+            Filter<S> filter = mValues == null ? null : mValues.getFilter();
+            mExecutor = executorFactory().executor(filter, mOrdering);
+        }
+    }
+
+    /**
      * Clears any cached reference to a query executor. The next time this
-     * Query is used, it will get an executor from getExecutor and cache a
-     * reference to it.
+     * Query is used, it will get an executor from the query executor factory
+     * and cache a reference to it.
      */
     protected void clearExecutorReference() {
         mExecutor = null;
     }
-
-    /**
-     * Return the root Storage object that the query is operating on.
-     */
-    protected abstract Storage<S> getRootStorage();
 
     /**
      * Enter a transaction as needed by the standard delete operation, or null
@@ -370,16 +397,17 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      *
      * @param level minimum desired isolation level
      */
-    protected abstract Transaction enterTransactionForDelete(IsolationLevel level);
+    protected abstract Transaction enterTransaction(IsolationLevel level);
 
     /**
-     * Return a new or cached query executor.
-     *
-     * @param values optional values object, defaults to open filter if null
-     * @param orderings order-by properties, never null
+     * Return a QueryFactory which is used to form new queries from this one.
      */
-    protected abstract QueryExecutor<S> getExecutor(FilterValues<S> values,
-                                                    OrderingList<S> orderings);
+    protected abstract QueryFactory<S> queryFactory();
+
+    /**
+     * Return a QueryExecutorFactory which is used to get an executor.
+     */
+    protected abstract QueryExecutorFactory<S> executorFactory();
 
     /**
      * Return a new or cached instance of StandardQuery implementation, using
@@ -396,10 +424,21 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return newInstance(values, mOrdering);
     }
 
-    private QueryExecutor<S> executor() {
+    private Query<S> createQuery(FilterValues<S> values) throws FetchException {
+        return queryFactory().query(values, mOrdering);
+    }
+
+    private Query<S> createQuery(FilterValues<S> values, OrderingList<S> ordering)
+        throws FetchException
+    {
+        return queryFactory().query(values, ordering);
+    }
+
+    private QueryExecutor<S> executor() throws RepositoryException {
         QueryExecutor<S> executor = mExecutor;
         if (executor == null) {
-            mExecutor = executor = getExecutor(mValues, mOrdering);
+            Filter<S> filter = mValues == null ? null : mValues.getFilter();
+            mExecutor = executor = executorFactory().executor(filter, mOrdering);
         }
         return executor;
     }

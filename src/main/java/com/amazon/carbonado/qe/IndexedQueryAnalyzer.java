@@ -26,7 +26,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.Storage;
+import com.amazon.carbonado.SupportException;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.PropertyFilter;
@@ -50,23 +54,23 @@ import com.amazon.carbonado.info.StorableProperty;
  * @see UnionQueryAnalyzer
  */
 public class IndexedQueryAnalyzer<S extends Storable> {
-    private final Class<S> mType;
-    private final IndexProvider mIndexProvider;
+    final Class<S> mType;
+    final RepositoryAccess mRepoAccess;
 
     // Growable cache which maps join properties to lists of usable foreign indexes.
     private Map<ChainedProperty<S>, ForeignIndexes<S>> mForeignIndexCache;
 
     /**
      * @param type type of storable being queried
-     * @param indexProvider
+     * @param access repository access for examing available indexes
      * @throws IllegalArgumentException if type or indexProvider is null
      */
-    public IndexedQueryAnalyzer(Class<S> type, IndexProvider indexProvider) {
-        if (type == null || indexProvider == null) {
+    public IndexedQueryAnalyzer(Class<S> type, RepositoryAccess access) {
+        if (type == null || access == null) {
             throw new IllegalArgumentException();
         }
         mType = type;
-        mIndexProvider = indexProvider;
+        mRepoAccess = access;
     }
 
     public Class<S> getStorableType() {
@@ -81,8 +85,6 @@ public class IndexedQueryAnalyzer<S extends Storable> {
      */
     public Result analyze(Filter<S> filter, OrderingList<S> ordering) {
         if (!filter.isBound()) {
-            // Strictly speaking, this is not required, but it detects the
-            // mistake of not properly calling initialFilterValues.
             throw new IllegalArgumentException("Filter must be bound");
         }
 
@@ -92,7 +94,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         CompositeScore<S> bestScore = null;
         StorableIndex<S> bestLocalIndex = null;
 
-        Collection<StorableIndex<S>> localIndexes = mIndexProvider.indexesFor(mType);
+        Collection<StorableIndex<S>> localIndexes = indexesFor(getStorableType());
         if (localIndexes != null) {
             for (StorableIndex<S> index : localIndexes) {
                 CompositeScore<S> candidateScore =
@@ -177,7 +179,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
 
             // All foreign indexes are available for use.
             Class foreignType = chainedProp.getLastProperty().getType();
-            Collection<StorableIndex<?>> indexes = mIndexProvider.indexesFor(foreignType);
+            Collection<StorableIndex<?>> indexes = indexesFor(foreignType);
 
             foreignIndexes = new ForeignIndexes<S>(chainedProp, indexes);
         }
@@ -211,7 +213,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
 
         // Java generics are letting me down. I cannot use proper specification
         // because compiler gets confused with all the wildcards.
-        Collection indexes = mIndexProvider.indexesFor(filter.getStorableType());
+        Collection indexes = indexesFor(filter.getStorableType());
 
         if (indexes != null) {
             for (Object index : indexes) {
@@ -226,7 +228,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
     }
 
     private <F extends Storable> boolean simpleAnalyze(Filter<F> filter) {
-        Collection<StorableIndex<F>> indexes = mIndexProvider.indexesFor(filter.getStorableType());
+        Collection<StorableIndex<F>> indexes = indexesFor(filter.getStorableType());
 
         if (indexes != null) {
             for (StorableIndex<F> index : indexes) {
@@ -238,6 +240,10 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         }
 
         return false;
+    }
+
+    private <T extends Storable> Collection<StorableIndex<T>> indexesFor(Class<T> type) {
+        return mRepoAccess.storageAccessFor(type).getAllIndexes();
     }
 
     public class Result {
@@ -257,27 +263,24 @@ public class IndexedQueryAnalyzer<S extends Storable> {
                StorableIndex<?> foreignIndex,
                ChainedProperty<S> foreignProperty)
         {
+            this(filter, score, localIndex, foreignIndex, foreignProperty,
+                 score.getFilteringScore().getRemainderFilter(),
+                 score.getOrderingScore().getRemainderOrdering());
+        }
+
+        private Result(Filter<S> filter,
+                       CompositeScore<S> score,
+                       StorableIndex<S> localIndex,
+                       StorableIndex<?> foreignIndex,
+                       ChainedProperty<S> foreignProperty,
+                       Filter<S> remainderFilter,
+                       OrderingList<S> remainderOrdering)
+        {
             mFilter = filter;
             mScore = score;
             mLocalIndex = localIndex;
             mForeignIndex = foreignIndex;
             mForeignProperty = foreignProperty;
-            mRemainderFilter = score.getFilteringScore().getRemainderFilter();
-            mRemainderOrdering = score.getOrderingScore().getRemainderOrdering();
-        }
-
-        // Called by mergeRemainder.
-        private Result(Result result,
-                       Filter<S> remainderFilter,
-                       OrderingList<S> remainderOrdering)
-        {
-            mFilter = result.mFilter == null ? remainderFilter
-                : (remainderFilter == null ? result.mFilter : result.mFilter.or(remainderFilter));
-
-            mScore = result.mScore;
-            mLocalIndex = result.mLocalIndex;
-            mForeignIndex = result.mForeignIndex;
-            mForeignProperty = result.mForeignProperty;
             mRemainderFilter = remainderFilter;
             mRemainderOrdering = remainderOrdering;
         }
@@ -387,10 +390,17 @@ public class IndexedQueryAnalyzer<S extends Storable> {
                 return this;
             }
 
+            Filter<S> remainderFilter =
+                mergeFilters(getRemainderFilter(), other.getRemainderFilter());
+
+            OrderingList<S> remainderOrdering =
+                getRemainderOrdering().concat(other.getRemainderOrdering()).reduce();
+
+            Filter<S> filter = mergeFilters(getFilter(), remainderFilter);
+
             return new Result
-                (this,
-                 getCompositeScore().mergeRemainderFilter(other.getCompositeScore()),
-                 getCompositeScore().mergeRemainderOrdering(other.getCompositeScore()));
+                (filter, mScore, mLocalIndex, mForeignIndex, mForeignProperty,
+                 remainderFilter, remainderOrdering);
         }
 
         /**
@@ -399,20 +409,114 @@ public class IndexedQueryAnalyzer<S extends Storable> {
          * doesn't usually make sense to call this method.
          */
         public Result mergeRemainderFilter(Filter<S> filter) {
-            Filter<S> remainderFilter = getRemainderFilter();
-            if (remainderFilter == null) {
-                remainderFilter = filter;
-            } else if (filter != null) {
-                remainderFilter = remainderFilter.or(filter);
+            return setRemainderFilter(mergeFilters(getRemainderFilter(), filter));
+        }
+
+        private Filter<S> mergeFilters(Filter<S> a, Filter<S> b) {
+            if (a == null) {
+                return b;
             }
-            return setRemainderFilter(remainderFilter);
+            if (b == null) {
+                return a;
+            }
+            return a.or(b).reduce();
         }
 
         /**
          * Returns a new result with the remainder filter replaced.
          */
-        public Result setRemainderFilter(Filter<S> filter) {
-            return new Result(this, filter, getRemainderOrdering());
+        public Result setRemainderFilter(Filter<S> remainderFilter) {
+            return new Result
+                (mFilter, mScore, mLocalIndex, mForeignIndex, mForeignProperty,
+                 remainderFilter, mRemainderOrdering);
+        }
+
+        /**
+         * Returns a new result with the remainder ordering replaced.
+         */
+        public Result setRemainderOrdering(OrderingList<S> remainderOrdering) {
+            return new Result
+                (mFilter, mScore, mLocalIndex, mForeignIndex, mForeignProperty,
+                 mRemainderFilter, remainderOrdering);
+        }
+
+        /**
+         * Creates a QueryExecutor based on this result.
+         */
+        public QueryExecutor<S> createExecutor()
+            throws SupportException, FetchException, RepositoryException
+        {
+            StorableIndex<S> localIndex = getLocalIndex();
+            StorageAccess<S> localAccess = mRepoAccess.storageAccessFor(getStorableType());
+
+            if (localIndex != null) {
+                Storage<S> delegate = localAccess.storageDelegate(localIndex);
+                if (delegate != null) {
+                    return new DelegatedQueryExecutor<S>(delegate, getFilter(), getOrdering());
+                }
+            }
+
+            QueryExecutor<S> executor = baseExecutor(localAccess);
+
+            Filter<S> remainderFilter = getRemainderFilter();
+            if (remainderFilter != null) {
+                executor = new FilteredQueryExecutor<S>(executor, remainderFilter);
+            }
+
+            OrderingList<S> remainderOrdering = getRemainderOrdering();
+            if (remainderOrdering.size() > 0) {
+                executor = new SortedQueryExecutor<S>
+                    (localAccess,
+                     executor,
+                     getCompositeScore().getOrderingScore().getHandledOrdering(),
+                     remainderOrdering);
+            }
+
+            return executor;
+        }
+
+        private QueryExecutor<S> baseExecutor(StorageAccess<S> localAccess)
+            throws SupportException, FetchException, RepositoryException
+        {
+            if (!handlesAnything()) {
+                return new FullScanQueryExecutor<S>(localAccess);
+            }
+
+            StorableIndex<S> localIndex = getLocalIndex();
+
+            if (localIndex != null) {
+                return indexExecutor(localAccess, localIndex);
+            }
+
+            StorableIndex foreignIndex = getForeignIndex();
+            StorageAccess foreignAccess = mRepoAccess
+                .storageAccessFor(foreignIndex.getStorableType());
+
+            QueryExecutor foreignExecutor;
+            Storage delegate = foreignAccess.storageDelegate(foreignIndex);
+            if (delegate != null) {
+                foreignExecutor = new DelegatedQueryExecutor(delegate, getFilter(), getOrdering());
+            } else {
+                foreignExecutor = indexExecutor(foreignAccess, foreignIndex);
+            }
+
+            return new JoinedQueryExecutor
+                (mRepoAccess.getRootRepository(), getForeignProperty(), foreignExecutor);
+        }
+
+        private <T extends Storable> QueryExecutor<T> indexExecutor(StorageAccess<T> access,
+                                                                    StorableIndex<T> index)
+        {
+            CompositeScore score = getCompositeScore();
+            FilteringScore fScore = score.getFilteringScore();
+
+            if (!fScore.hasAnyMatches()) {
+                return new FullScanIndexedQueryExecutor<T>(access, index);
+            }
+            if (fScore.isKeyMatch()) {
+                return new KeyQueryExecutor<T>(access, index, fScore);
+            }
+            return new IndexedQueryExecutor<T>(access, index, score);
         }
 
         public String toString() {

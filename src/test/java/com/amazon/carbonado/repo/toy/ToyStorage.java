@@ -48,7 +48,9 @@ import com.amazon.carbonado.filter.FilterValues;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIntrospector;
 
-import com.amazon.carbonado.qe.ArraySortedQueryExecutor;
+import com.amazon.carbonado.qe.QueryExecutorFactory;
+import com.amazon.carbonado.qe.QueryFactory;
+import com.amazon.carbonado.qe.SortedQueryExecutor;
 import com.amazon.carbonado.qe.FilteredQueryExecutor;
 import com.amazon.carbonado.qe.IterableQueryExecutor;
 import com.amazon.carbonado.qe.OrderingList;
@@ -59,7 +61,9 @@ import com.amazon.carbonado.qe.StandardQuery;
  *
  * @author Brian S O'Neill
  */
-public class ToyStorage<S extends Storable> implements Storage<S>, MasterSupport<S> {
+public class ToyStorage<S extends Storable>
+    implements Storage<S>, MasterSupport<S>, QueryFactory<S>, QueryExecutorFactory<S>
+{
     final ToyRepository mRepo;
     final Class<S> mType;
 
@@ -89,16 +93,34 @@ public class ToyStorage<S extends Storable> implements Storage<S>, MasterSupport
         return (S) mInstanceFactory.instantiate(this);
     }
 
-    public Query<S> query() throws FetchException {
+    public Query<S> query() {
         return new ToyQuery(null, null);
     }
 
-    public Query<S> query(String filter) throws FetchException {
+    public Query<S> query(String filter) {
         return query(Filter.filterFor(mType, filter));
     }
 
-    public Query<S> query(Filter<S> filter) throws FetchException {
+    public Query<S> query(Filter<S> filter) {
         return new ToyQuery(filter.initialFilterValues(), null);
+    }
+
+    public Query<S> query(FilterValues<S> values, OrderingList<S> ordering) {
+        return new ToyQuery(values, ordering);
+    }
+
+    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering) {
+        QueryExecutor<S> executor = new IterableQueryExecutor<S>(mType, mData, mDataLock);
+
+        if (filter != null) {
+            executor = new FilteredQueryExecutor<S>(executor, filter);
+        }
+
+        if (ordering.size() > 0) {
+            executor = new SortedQueryExecutor<S>(null, executor, null, ordering);
+        }
+
+        return executor;
     }
 
     public boolean addTrigger(Trigger<? super S> trigger) {
@@ -217,34 +239,24 @@ public class ToyStorage<S extends Storable> implements Storage<S>, MasterSupport
     }
 
     private class ToyQuery extends StandardQuery<S> {
-        ToyQuery(FilterValues<S> values, OrderingList<S> orderings) {
-            super(values, orderings);
+        ToyQuery(FilterValues<S> values, OrderingList<S> ordering) {
+            super(values, ordering);
         }
 
-        protected Storage<S> getStorage() {
-            return ToyStorage.this;
-        }
-
-        protected Transaction enterTransactionForDelete(IsolationLevel level) {
+        protected Transaction enterTransaction(IsolationLevel level) {
             return mRepo.enterTransaction(level);
         }
 
-        protected QueryExecutor<S> getExecutor(FilterValues<S> values, OrderingList<S> orderings) {
-            QueryExecutor<S> executor = new IterableQueryExecutor<S>(mType, mData, mDataLock);
-
-            if (values != null) {
-                executor = new FilteredQueryExecutor<S>(executor, values.getFilter());
-            }
-
-            if (orderings.size() > 0) {
-                executor = new ArraySortedQueryExecutor<S>(executor, null, orderings);
-            }
-
-            return executor;
+        protected QueryFactory<S> queryFactory() {
+            return ToyStorage.this;
         }
 
-        protected StandardQuery<S> newInstance(FilterValues<S> values, OrderingList<S> orderings) {
-            return new ToyQuery(values, orderings);
+        protected QueryExecutorFactory<S> executorFactory() {
+            return ToyStorage.this;
+        }
+
+        protected StandardQuery<S> newInstance(FilterValues<S> values, OrderingList<S> ordering) {
+            return new ToyQuery(values, ordering);
         }
     }
 }

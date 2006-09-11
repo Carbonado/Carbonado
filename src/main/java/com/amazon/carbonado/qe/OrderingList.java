@@ -20,13 +20,16 @@ package com.amazon.carbonado.qe;
 
 import java.util.AbstractList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.Storable;
 
+import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIntrospector;
 
@@ -176,6 +179,28 @@ public class OrderingList<S extends Storable> extends AbstractList<OrderedProper
                 newList = newList.concat(property);
             }
         }
+        return newList;
+    }
+
+    /**
+     * Eliminates redundant ordering properties.
+     */
+    public OrderingList<S> reduce() {
+        if (size() == 0) {
+            return this;
+        }
+
+        Set<ChainedProperty<S>> seen = new HashSet<ChainedProperty<S>>();
+        OrderingList<S> newList = emptyList();
+
+        for (OrderedProperty<S> property : this) {
+            ChainedProperty<S> chained = property.getChainedProperty();
+            if (!seen.contains(chained)) {
+                newList = newList.concat(property);
+                seen.add(chained);
+            }
+        }
+
         return newList;
     }
 

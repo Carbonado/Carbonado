@@ -18,35 +18,27 @@
 
 package com.amazon.carbonado.qe;
 
-import java.util.List;
-
+import com.amazon.carbonado.MalformedTypeException;
+import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.Storable;
-
-import com.amazon.carbonado.cursor.ArraySortBuffer;
-import com.amazon.carbonado.cursor.SortBuffer;
-
-import com.amazon.carbonado.info.OrderedProperty;
+import com.amazon.carbonado.SupportException;
 
 /**
- * QueryExecutor which wraps another and sorts the results within an array.
+ * Provides internal access to a {@link Repository}, necessary for query
+ * execution.
  *
  * @author Brian S O'Neill
- * @see ArraySortBuffer
  */
-public class ArraySortedQueryExecutor<S extends Storable> extends SortedQueryExecutor<S> {
-    /**
-     * @param executor executor to wrap
-     * @throws IllegalArgumentException if executor is null or if remainder
-     * ordering is empty
-     */
-    public ArraySortedQueryExecutor(QueryExecutor<S> executor,
-                                    OrderingList<S> handledOrdering,
-                                    OrderingList<S> remainderOrdering)
-    {
-        super(executor, handledOrdering, remainderOrdering);
-    }
+public interface RepositoryAccess {
+    Repository getRootRepository();
 
-    protected SortBuffer<S> createSortBuffer() {
-        return new ArraySortBuffer<S>();
-    }
+    /**
+     * Returns a StorageAccess instance for the given user defined Storable
+     * class or interface.
+     *
+     * @return specific type of StorageAccess instance
+     * @throws IllegalArgumentException if specified type is null
+     * @throws MalformedTypeException if specified type is not suitable
+     */
+    <S extends Storable> StorageAccess<S> storageAccessFor(Class<S> type);
 }

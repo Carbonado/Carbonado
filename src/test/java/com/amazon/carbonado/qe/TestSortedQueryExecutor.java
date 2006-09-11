@@ -50,7 +50,7 @@ public class TestSortedQueryExecutor extends TestQueryExecutor {
         OrderingList<Address> ordered = createOrdering("addressCountry");
 
         QueryExecutor<Address> executor =
-            new ArraySortedQueryExecutor<Address>(unsorted, null, ordered);
+            new SortedQueryExecutor<Address>(null, unsorted, null, ordered);
 
         assertEquals(filter, executor.getFilter());
 
@@ -69,7 +69,7 @@ public class TestSortedQueryExecutor extends TestQueryExecutor {
         OrderingList<Address> finisher = createOrdering("addressState");
 
         QueryExecutor<Address> executor =
-            new ArraySortedQueryExecutor<Address>(unsorted, handled, finisher);
+            new SortedQueryExecutor<Address>(null, unsorted, handled, finisher);
 
         assertEquals(filter, executor.getFilter());
 

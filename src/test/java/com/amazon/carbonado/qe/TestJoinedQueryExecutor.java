@@ -169,29 +169,32 @@ public class TestJoinedQueryExecutor extends TestQueryExecutor {
     protected QueryExecutor<UserAddress> addressExecutor() throws Exception {
         Storage<UserAddress> addressStorage = mRepository.storageFor(UserAddress.class);
 
-        QueryExecutor<UserAddress> addressExecutor =
-            new ScanQueryExecutor<UserAddress>(addressStorage.query());
+        QueryExecutor<UserAddress> addressExecutor = new FullScanQueryExecutor<UserAddress>
+            (new ScanQuerySupport<UserAddress>(addressStorage.query()));
 
         addressExecutor = new FilteredQueryExecutor<UserAddress>
             (addressExecutor, Filter.filterFor(UserAddress.class, "state = ?"));
 
         OrderingList<UserAddress> ordering = OrderingList.get(UserAddress.class, "+country");
 
-        addressExecutor =
-            new ArraySortedQueryExecutor<UserAddress>(addressExecutor, null, ordering);
+        addressExecutor = new SortedQueryExecutor<UserAddress>
+            (null, addressExecutor, null, ordering);
 
         return addressExecutor;
     }
 
-    static class ScanQueryExecutor<S extends Storable> extends FullScanQueryExecutor<S> {
+    static class ScanQuerySupport<S extends Storable> implements FullScanQueryExecutor.Support<S> {
         private final Query<S> mQuery;
 
-        ScanQueryExecutor(Query<S> query) {
-            super(query.getStorableType());
+        ScanQuerySupport(Query<S> query) {
             mQuery = query;
         }
 
-        protected Cursor<S> fetch() throws FetchException {
+        public Class<S> getStorableType() {
+            return mQuery.getStorableType();
+        }
+
+        public Cursor<S> fetch() throws FetchException {
             return mQuery.fetch();
         }
     }

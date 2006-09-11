@@ -34,12 +34,13 @@ import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIndex;
 
 /**
- * Abstract QueryExecutor which has a fully specified key, and so cursors
- * produce at most one result.
+ * QueryExecutor which has a fully specified key, and so cursors produce at
+ * most one result.
  *
  * @author Brian S O'Neill
  */
-public abstract class KeyQueryExecutor<S extends Storable> extends AbstractQueryExecutor<S> {
+public class KeyQueryExecutor<S extends Storable> extends AbstractQueryExecutor<S> {
+    private final Support<S> mSupport;
     private final StorableIndex<S> mIndex;
     private final Filter<S> mKeyFilter;
 
@@ -49,18 +50,18 @@ public abstract class KeyQueryExecutor<S extends Storable> extends AbstractQuery
      * @throws IllegalArgumentException if any parameter is null or if index is
      * not unique or if score is not a key match
      */
-    public KeyQueryExecutor(StorableIndex<S> index, FilteringScore<S> score) {
-        if (index == null || score == null) {
+    public KeyQueryExecutor(Support<S> support, StorableIndex<S> index, FilteringScore<S> score) {
+        if (support == null || index == null || score == null) {
             throw new IllegalArgumentException();
         }
         if (!index.isUnique() || !score.isKeyMatch()) {
             throw new IllegalArgumentException();
         }
+        mSupport = support;
         mIndex = index;
         mKeyFilter = score.getIdentityFilter();
     }
 
-    @Override
     public Class<S> getStorableType() {
         // Storable type of filter may differ if index is used along with a
         // join. The type of the index is the correct storable type.
@@ -68,7 +69,7 @@ public abstract class KeyQueryExecutor<S extends Storable> extends AbstractQuery
     }
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
-        return fetch(mIndex, values.getValuesFor(mKeyFilter));
+        return mSupport.fetch(mIndex, values.getValuesFor(mKeyFilter));
     }
 
     public Filter<S> getFilter() {
@@ -100,12 +101,16 @@ public abstract class KeyQueryExecutor<S extends Storable> extends AbstractQuery
         return true;
     }
 
-    /**
-     * Return a new Cursor instance referenced by the given index.
-     *
-     * @param index index to open, which may be a primary key index
-     * @param keyValues list of exactly matching values to apply to index
-     */
-    protected abstract Cursor<S> fetch(StorableIndex<S> index, Object[] keyValues)
-        throws FetchException;
+    public static interface Support<S extends Storable> {
+        /**
+         * Select at most one Storable referenced by an index. The identity
+         * values fully specify all elements of the index, and the index is
+         * unique.
+         *
+         * @param index index to open, which may be a primary key index
+         * @param identityValues of exactly matching values to apply to index
+         */
+        Cursor<S> fetch(StorableIndex<S> index, Object[] identityValues)
+            throws FetchException;
+    }
 }

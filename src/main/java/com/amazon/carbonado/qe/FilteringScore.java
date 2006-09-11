@@ -521,11 +521,7 @@ public class FilteringScore<S extends Storable> {
         Filter<S> otherRemainderFilter = other.getRemainderFilter();
 
         if (thisRemainderFilter == null) {
-            if (otherRemainderFilter == null) {
-                return null;
-            } else {
-                return otherRemainderFilter;
-            }
+            return otherRemainderFilter;
         } else if (otherRemainderFilter == null) {
             return thisRemainderFilter;
         } else if (thisRemainderFilter.equals(otherRemainderFilter)) {

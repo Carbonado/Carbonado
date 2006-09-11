@@ -70,7 +70,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
 
     public void testSingleSubResult() throws Exception {
         UnionQueryAnalyzer uqa =
-            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class, "shipmentID = ?");
         filter = filter.bind();
         UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
@@ -81,7 +81,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
 
     public void testSingleSubResultUnspecifiedDirection() throws Exception {
         UnionQueryAnalyzer uqa =
-            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class, "shipmentID > ?");
         filter = filter.bind();
         OrderingList<Shipment> orderings =
@@ -98,7 +98,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
 
     public void testSimpleUnion() throws Exception {
         UnionQueryAnalyzer uqa =
-            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class,
                                                    "shipmentID = ? | orderID = ?");
         filter = filter.bind();
@@ -129,7 +129,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
  
     public void testSimpleUnion2() throws Exception {
         UnionQueryAnalyzer uqa =
-            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class,
                                                    "shipmentID = ? | orderID > ?");
         filter = filter.bind();
@@ -165,7 +165,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
 
     public void testSimpleUnion3() throws Exception {
         UnionQueryAnalyzer uqa =
-            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class,
                                                    "shipmentID = ? | orderID > ? & orderID <= ?");
         filter = filter.bind();
@@ -206,7 +206,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
 
     public void testSimpleUnionUnspecifiedDirection() throws Exception {
         UnionQueryAnalyzer uqa =
-            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class,
                                                    "shipmentID > ? | orderID = ?");
         filter = filter.bind();
@@ -251,7 +251,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         // split this into a union. After futher analysis, it should decide
         // that this offers no benefit and will merge them back.
         UnionQueryAnalyzer uqa =
-            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class,
              "shipmentID = ? & (shipmentID = ? | orderID = ?)");
@@ -276,7 +276,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
     public void testFullScan() throws Exception {
         // Because no indexes were selected, there's no union to perform.
         UnionQueryAnalyzer uqa =
-            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "shipmentNotes = ? | shipperID = ?");
         filter = filter.bind();
@@ -298,7 +298,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         // Because not all sub-results of union use an index, just fallback to
         // doing a full scan.
         UnionQueryAnalyzer uqa =
-            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "shipmentNotes = ? | orderID = ?");
         filter = filter.bind();
@@ -320,7 +320,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         // Although not all sub-results use an index, one that does has a join
         // so it is exempt from folding into the full scan.
         UnionQueryAnalyzer uqa =
-            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.IxProvider.INSTANCE);
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "shipmentNotes = ? | orderID = ? & order.orderTotal > ?");
         filter = filter.bind();

@@ -26,8 +26,12 @@ import java.util.List;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
+import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.Storage;
+
+import com.amazon.carbonado.cursor.SortBuffer;
 
 import com.amazon.carbonado.info.StorableIndex;
 
@@ -70,7 +74,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
     // are performed by TestFilteringScore and TestOrderingScore.
 
     public void testFullScan() throws Exception {
-        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Address.class, IxProvider.INSTANCE);
+        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Address.class, RepoAccess.INSTANCE);
         Filter<Address> filter = Filter.filterFor(Address.class, "addressZip = ?");
         filter = filter.bind();
         IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
@@ -83,7 +87,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
     }
 
     public void testIndexScan() throws Exception {
-        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Address.class, IxProvider.INSTANCE);
+        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Address.class, RepoAccess.INSTANCE);
         Filter<Address> filter = Filter.filterFor(Address.class, "addressID = ?");
         filter = filter.bind();
         IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
@@ -96,7 +100,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
     }
 
     public void testBasic() throws Exception {
-        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, IxProvider.INSTANCE);
+        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class, "shipmentID = ?");
         filter = filter.bind();
         IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
@@ -134,7 +138,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
     }
 
     public void testSimpleJoin() throws Exception {
-        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, IxProvider.INSTANCE);
+        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor(Shipment.class, "order.orderTotal >= ?");
         filter = filter.bind();
         IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
@@ -149,7 +153,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
     public void testJoinPriority() throws Exception {
         // Selects foreign index because filter score is better.
 
-        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, IxProvider.INSTANCE);
+        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "shipmentNotes = ? & order.orderTotal >= ?");
         filter = filter.bind();
@@ -168,7 +172,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         // Selects local index because filter score is just as good and local
         // indexes are preferred.
 
-        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, IxProvider.INSTANCE);
+        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "orderID >= ? & order.orderTotal >= ?");
         filter = filter.bind();
@@ -184,7 +188,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
     }
 
     public void testChainedJoin() throws Exception {
-        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, IxProvider.INSTANCE);
+        IndexedQueryAnalyzer iqa = new IndexedQueryAnalyzer(Shipment.class, RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "order.address.addressState = ?");
         filter = filter.bind();
@@ -201,7 +205,7 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         Repository repo = new ToyRepository();
 
         IndexedQueryAnalyzer<Shipment> iqa =
-            new IndexedQueryAnalyzer<Shipment>(Shipment.class, IxProvider.INSTANCE);
+            new IndexedQueryAnalyzer<Shipment>(Shipment.class, RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "order.address.addressState = ? & order.address.addressZip = ?");
         FilterValues<Shipment> values = filter.initialFilterValues();
@@ -240,37 +244,93 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         assertFalse(ixExec.mReverseOrder);
     }
 
-    static class IxProvider implements IndexProvider {
-        static final IxProvider INSTANCE = new IxProvider();
+    static class RepoAccess implements RepositoryAccess {
+        static final RepoAccess INSTANCE = new RepoAccess();
 
-        public <S extends Storable> Collection<StorableIndex<S>> indexesFor(Class<S> type) {
+        public Repository getRootRepository() {
+            throw new UnsupportedOperationException();
+        }
+
+        public <S extends Storable> StorageAccess<S> storageAccessFor(Class<S> type) {
+            return new StoreAccess<S>(type);
+        }
+    }
+
+    /**
+     * Partially implemented StorageAccess which only supplies information
+     * about indexes.
+     */
+    static class StoreAccess<S extends Storable> implements StorageAccess<S> {
+        private final Class<S> mType;
+
+        StoreAccess(Class<S> type) {
+            mType = type;
+        }
+
+        public Class<S> getStorableType() {
+            return mType;
+        }
+
+        public Collection<StorableIndex<S>> getAllIndexes() {
             StorableIndex<S>[] indexes;
 
-            if (Address.class.isAssignableFrom(type)) {
+            if (Address.class.isAssignableFrom(mType)) {
                 indexes = new StorableIndex[] {
-                    makeIndex(type, "addressID"),
-                    makeIndex(type, "addressState")
+                    makeIndex(mType, "addressID"),
+                    makeIndex(mType, "addressState")
                 };
-            } else if (Order.class.isAssignableFrom(type)) {
+            } else if (Order.class.isAssignableFrom(mType)) {
                 indexes = new StorableIndex[] {
-                    makeIndex(type, "orderID"),
-                    makeIndex(type, "orderTotal"),
-                    makeIndex(type, "addressID")
+                    makeIndex(mType, "orderID"),
+                    makeIndex(mType, "orderTotal"),
+                    makeIndex(mType, "addressID")
                 };
-            } else if (Shipment.class.isAssignableFrom(type)) {
+            } else if (Shipment.class.isAssignableFrom(mType)) {
                 indexes = new StorableIndex[] {
-                    makeIndex(type, "shipmentID"),
-                    makeIndex(type, "orderID"),
+                    makeIndex(mType, "shipmentID"),
+                    makeIndex(mType, "orderID"),
                 };
-            } else if (Shipper.class.isAssignableFrom(type)) {
+            } else if (Shipper.class.isAssignableFrom(mType)) {
                 indexes = new StorableIndex[] {
-                    makeIndex(type, "shipperID")
+                    makeIndex(mType, "shipperID")
                 };
             } else {
                 indexes = new StorableIndex[0];
             }
 
             return Arrays.asList(indexes);
+        }
+
+        public Storage<S> storageDelegate(StorableIndex<S> index) {
+            return null;
+        }
+
+        public SortBuffer<S> createSortBuffer() {
+            throw new UnsupportedOperationException();
+        }
+
+        public Cursor<S> fetch() {
+            throw new UnsupportedOperationException();
+        }
+
+        public Cursor<S> fetch(StorableIndex<S> index) {
+            throw new UnsupportedOperationException();
+        }
+
+        public Cursor<S> fetch(StorableIndex<S> index, Object[] identityValues) {
+            throw new UnsupportedOperationException();
+        }
+
+        public Cursor<S> fetch(StorableIndex<S> index,
+                               Object[] identityValues,
+                               BoundaryType rangeStartBoundary,
+                               Object rangeStartValue,
+                               BoundaryType rangeEndBoundary,
+                               Object rangeEndValue,
+                               boolean reverseRange,
+                               boolean reverseOrder)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

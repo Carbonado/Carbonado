@@ -44,8 +44,8 @@ public class TestUnionQueryExecutor extends TestQueryExecutor {
     }
 
     public void testBasicUnion() throws Exception {
-        QueryExecutor<Address> primary = new ArraySortedQueryExecutor<Address>
-            (createExecutor(1, 2, 3, 4, 5, 6, 7, 8), null, createOrdering("addressID"));
+        QueryExecutor<Address> primary = new SortedQueryExecutor<Address>
+            (null, createExecutor(1, 2, 3, 4, 5, 6, 7, 8), null, createOrdering("addressID"));
 
         Filter<Address> filter_1 = Filter.filterFor(Address.class, "addressCountry > ?");
         FilterValues<Address> values_1 = filter_1.initialFilterValues();

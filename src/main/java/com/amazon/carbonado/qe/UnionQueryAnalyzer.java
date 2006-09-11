@@ -26,7 +26,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.Storage;
+import com.amazon.carbonado.SupportException;
 
 import com.amazon.carbonado.filter.AndFilter;
 import com.amazon.carbonado.filter.Filter;
@@ -54,16 +58,22 @@ import com.amazon.carbonado.info.StorableKey;
  *
  * @author Brian S O'Neill
  */
-public class UnionQueryAnalyzer<S extends Storable> {
+public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFactory<S> {
     final IndexedQueryAnalyzer<S> mIndexAnalyzer;
+    final RepositoryAccess mRepoAccess;
 
     /**
      * @param type type of storable being queried
-     * @param indexProvider
+     * @param access repository access for examing available indexes
      * @throws IllegalArgumentException if type or indexProvider is null
      */
-    public UnionQueryAnalyzer(Class<S> type, IndexProvider indexProvider) {
-        mIndexAnalyzer = new IndexedQueryAnalyzer<S>(type, indexProvider);
+    public UnionQueryAnalyzer(Class<S> type, RepositoryAccess access) {
+        mIndexAnalyzer = new IndexedQueryAnalyzer<S>(type, access);
+        mRepoAccess = access;
+    }
+
+    public Class<S> getStorableType() {
+        return mIndexAnalyzer.getStorableType();
     }
 
     /**
@@ -72,8 +82,6 @@ public class UnionQueryAnalyzer<S extends Storable> {
      */
     public Result analyze(Filter<S> filter, OrderingList<S> ordering) {
         if (!filter.isBound()) {
-            // Strictly speaking, this is not required, but it detects the
-            // mistake of not properly calling initialFilterValues.
             throw new IllegalArgumentException("Filter must be bound");
         }
 
@@ -81,11 +89,33 @@ public class UnionQueryAnalyzer<S extends Storable> {
             ordering = OrderingList.emptyList();
         }
 
+        return new Result(buildSubResults(filter, ordering));
+    }
+
+    /**
+     * Returns an executor that handles the given query specification.
+     *
+     * @param filter optional filter which must be {@link Filter#isBound bound}
+     * @param ordering optional properties which define desired ordering
+     */
+    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+        throws RepositoryException
+    {
+        return analyze(filter, ordering).createExecutor();
+    }
+
+    /**
+     * Splits the filter into sub-results, merges sub-results, and possibly
+     * imposes a total ordering.
+     */
+    private List<IndexedQueryAnalyzer<S>.Result>
+        buildSubResults(Filter<S> filter, OrderingList<S> ordering)
+    {
         List<IndexedQueryAnalyzer<S>.Result> subResults = splitIntoSubResults(filter, ordering);
 
         if (subResults.size() <= 1) {
             // Total ordering not required.
-            return new Result(subResults);
+            return subResults;
         }
 
         // If any orderings have an unspecified direction, switch to ASCENDING
@@ -111,7 +141,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
 
             if (subResults.size() <= 1) {
                 // Total ordering no longer required.
-                return new Result(subResults);
+                return subResults;
             }
         }
 
@@ -125,7 +155,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
             ChainedProperty<S> property = op.getChainedProperty();
             if (pruneKeys(keys, property)) {
                 // Found a key which is fully covered, indicating total ordering.
-                return new Result(subResults);
+                return subResults;
             }
         }
 
@@ -194,7 +224,7 @@ public class UnionQueryAnalyzer<S extends Storable> {
             }
         }
 
-        return new Result(subResults);
+        return subResults;
     }
 
     /**
@@ -263,6 +293,9 @@ public class UnionQueryAnalyzer<S extends Storable> {
         return Direction.UNSPECIFIED;
     }
 
+    /**
+     * Splits the filter into sub-results and possibly merges them.
+     */
     private List<IndexedQueryAnalyzer<S>.Result>
         splitIntoSubResults(Filter<S> filter, OrderingList<S> ordering)
     {
@@ -340,16 +373,28 @@ public class UnionQueryAnalyzer<S extends Storable> {
         return mergedResults;
     }
 
-    public class Result {
-        // FIXME: User of QueryAnalyzer results needs to identify what actual
-        // storage is used by an index. It is also responsible for grouping
-        // unions together if storage differs. If foreign index is selected,
-        // then join is needed.
+    Storage storageDelegate(IndexedQueryAnalyzer<S>.Result result) {
+        StorableIndex<S> localIndex = result.getLocalIndex();
+        StorageAccess<S> localAccess = mRepoAccess.storageAccessFor(getStorableType());
 
+        if (localIndex != null) {
+            return localAccess.storageDelegate(localIndex);
+        }
+
+        StorableIndex foreignIndex = result.getForeignIndex();
+        StorageAccess foreignAccess = mRepoAccess.storageAccessFor(foreignIndex.getStorableType());
+
+        return foreignAccess.storageDelegate(foreignIndex);
+    }
+
+    public class Result {
         private final List<IndexedQueryAnalyzer<S>.Result> mSubResults;
 
         Result(List<IndexedQueryAnalyzer<S>.Result> subResults) {
-            mSubResults = subResults;
+            if (subResults.size() < 1) {
+                throw new IllegalArgumentException();
+            }
+            mSubResults = Collections.unmodifiableList(subResults);
         }
 
         /**
@@ -358,6 +403,27 @@ public class UnionQueryAnalyzer<S extends Storable> {
          */
         public List<IndexedQueryAnalyzer<S>.Result> getSubResults() {
             return mSubResults;
+        }
+
+        /**
+         * Creates a QueryExecutor based on this result.
+         */
+        public QueryExecutor<S> createExecutor()
+            throws SupportException, FetchException, RepositoryException
+        {
+            List<IndexedQueryAnalyzer<S>.Result> subResults = getSubResults();
+            int size = subResults.size();
+
+            if (size == 1) {
+                return subResults.get(0).createExecutor();
+            }
+
+            List<QueryExecutor<S>> executors = new ArrayList<QueryExecutor<S>>(size);
+            for (int i=0; i<size; i++) {
+                executors.add(subResults.get(i).createExecutor());
+            }
+
+            return new UnionQueryExecutor<S>(executors);
         }
     }
 
@@ -482,6 +548,8 @@ public class UnionQueryAnalyzer<S extends Storable> {
             IndexedQueryAnalyzer<S>.Result subResult =
                 mIndexAnalyzer.analyze(subFilter, mOrdering);
 
+            Storage subResultStorage = storageDelegate(subResult);
+
             // Rather than blindly add to mSubResults, try to merge with
             // another result. This in turn reduces the number of cursors
             // needed by the union.
@@ -489,7 +557,15 @@ public class UnionQueryAnalyzer<S extends Storable> {
             int size = mSubResults.size();
             for (int i=0; i<size; i++) {
                 IndexedQueryAnalyzer<S>.Result existing = mSubResults.get(i);
-                if (existing.canMergeRemainder(subResult)) {
+                boolean canMerge = existing.canMergeRemainder(subResult);
+                if (!canMerge) {
+                    Storage existingStorage = storageDelegate(existing);
+                    if (existingStorage != null && existingStorage == subResultStorage) {
+                        // Merge common delegates together.
+                        canMerge = true;
+                    }
+                }
+                if (canMerge) {
                     mSubResults.set(i, existing.mergeRemainder(subResult));
                     return;
                 }
