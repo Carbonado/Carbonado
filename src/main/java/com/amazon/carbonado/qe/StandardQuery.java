@@ -364,10 +364,22 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     /**
+     * Returns the executor in use by this query.
+     */
+    protected QueryExecutor<S> executor() throws RepositoryException {
+        QueryExecutor<S> executor = mExecutor;
+        if (executor == null) {
+            Filter<S> filter = mValues == null ? null : mValues.getFilter();
+            mExecutor = executor = executorFactory().executor(filter, mOrdering);
+        }
+        return executor;
+    }
+
+    /**
      * Ensures that a cached query executor reference is available. If not, the
      * query executor factory is called and the executor is cached.
      */
-    protected void setExecutorReference() throws RepositoryException {
+    protected void setExecutor() throws RepositoryException {
         executor();
     }
 
@@ -375,7 +387,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      * Resets any cached reference to a query executor. If a reference is
      * available, it is replaced, but a clear reference is not set.
      */
-    protected void resetExecutorReference() throws RepositoryException {
+    protected void resetExecutor() throws RepositoryException {
         if (mExecutor != null) {
             Filter<S> filter = mValues == null ? null : mValues.getFilter();
             mExecutor = executorFactory().executor(filter, mOrdering);
@@ -387,7 +399,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      * Query is used, it will get an executor from the query executor factory
      * and cache a reference to it.
      */
-    protected void clearExecutorReference() {
+    protected void clearExecutor() {
         mExecutor = null;
     }
 
@@ -415,10 +427,10 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      * passed in the constructor.
      *
      * @param values optional values object, defaults to open filter if null
-     * @param orderings order-by properties, never null
+     * @param ordering order-by properties, never null
      */
     protected abstract StandardQuery<S> newInstance(FilterValues<S> values,
-                                                    OrderingList<S> orderings);
+                                                    OrderingList<S> ordering);
 
     private StandardQuery<S> newInstance(FilterValues<S> values) {
         return newInstance(values, mOrdering);
@@ -432,14 +444,5 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         throws FetchException
     {
         return queryFactory().query(values, ordering);
-    }
-
-    private QueryExecutor<S> executor() throws RepositoryException {
-        QueryExecutor<S> executor = mExecutor;
-        if (executor == null) {
-            Filter<S> filter = mValues == null ? null : mValues.getFilter();
-            mExecutor = executor = executorFactory().executor(filter, mOrdering);
-        }
-        return executor;
     }
 }

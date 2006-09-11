@@ -37,6 +37,7 @@ import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
@@ -44,6 +45,7 @@ import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
+import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.capability.IndexInfo;
 
@@ -61,19 +63,26 @@ import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.info.StorablePropertyAdapter;
 
-import com.amazon.carbonado.spi.BaseQuery;
-import com.amazon.carbonado.spi.BaseQueryCompiler;
 import com.amazon.carbonado.spi.SequenceValueProducer;
 import com.amazon.carbonado.spi.TriggerManager;
 
 import com.amazon.carbonado.util.QuickConstructorGenerator;
+
+import com.amazon.carbonado.qe.AbstractQueryExecutor;
+import com.amazon.carbonado.qe.OrderingList;
+import com.amazon.carbonado.qe.QueryExecutor;
+import com.amazon.carbonado.qe.QueryExecutorFactory;
+import com.amazon.carbonado.qe.QueryExecutorCache;
+import com.amazon.carbonado.qe.QueryFactory;
+import com.amazon.carbonado.qe.StandardQuery;
+import com.amazon.carbonado.qe.StandardQueryFactory;
 
 /**
  *
  *
  * @author Brian S O'Neill
  */
-class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
+class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     implements Storage<S>, JDBCSupport<S>
 {
     private static final String TABLE_ALIAS_PREFIX = "T";
@@ -83,13 +92,14 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
     final JDBCSupportStrategy mSupportStrategy;
     final JDBCStorableInfo<S> mInfo;
     final InstanceFactory mInstanceFactory;
+    final QueryExecutorFactory<S> mExecutorFactory;
 
     final TriggerManager<S> mTriggerManager;
 
     JDBCStorage(JDBCRepository repository, JDBCStorableInfo<S> info)
         throws SupportException
     {
-        super(info);
+        super(info.getStorableType());
         mRepository = repository;
         mSupportStrategy = repository.getSupportStrategy();
         mInfo = info;
@@ -97,6 +107,8 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
         Class<? extends S> generatedStorableClass = JDBCStorableGenerator.getGeneratedClass(info);
         mInstanceFactory = QuickConstructorGenerator
             .getInstance(generatedStorableClass, InstanceFactory.class);
+
+        mExecutorFactory = new QueryExecutorCache<S>(new ExecutorFactory());
 
         mTriggerManager = new TriggerManager<S>();
     }
@@ -107,18 +119,6 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
 
     public S prepare() {
         return (S) mInstanceFactory.instantiate(this);
-    }
-
-    public Query<S> query() throws FetchException {
-        return getCompiledQuery();
-    }
-
-    public Query<S> query(String filter) throws FetchException {
-        return getCompiledQuery(filter);
-    }
-
-    public Query<S> query(Filter<S> filter) throws FetchException {
-        return getCompiledQuery(filter);
     }
 
     public JDBCRepository getJDBCRepository() {
@@ -248,114 +248,8 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
         return mInfo;
     }
 
-    protected Query<S> compileQuery(FilterValues<S> values, OrderedProperty<S>[] orderings)
-        throws FetchException, UnsupportedOperationException
-    {
-        JoinNode jn;
-        try {
-            JoinNodeBuilder jnb = new JoinNodeBuilder();
-            if (values == null) {
-                jn = new JoinNode(getStorableInfo(), null);
-            } else {
-                values.getFilter().accept(jnb, null);
-                jn = jnb.getRootJoinNode();
-            }
-            jnb.captureOrderings(orderings);
-        } catch (UndeclaredThrowableException e) {
-            throw mRepository.toFetchException(e);
-        }
-
-        StatementBuilder selectBuilder = new StatementBuilder();
-        selectBuilder.append("SELECT ");
-
-        // Don't bother using a table alias for one table. With just one table,
-        // there's no need to disambiguate.
-        String alias = jn.hasAnyJoins() ? jn.getAlias() : null;
-
-        Map<String, JDBCStorableProperty<S>> properties = getStorableInfo().getAllProperties();
-        int ordinal = 0;
-        for (JDBCStorableProperty<S> property : properties.values()) {
-            if (!property.isSelectable()) {
-                continue;
-            }
-            if (ordinal > 0) {
-                selectBuilder.append(',');
-            }
-            if (alias != null) {
-                selectBuilder.append(alias);
-                selectBuilder.append('.');
-            }
-            selectBuilder.append(property.getColumnName());
-            ordinal++;
-        }
-
-        selectBuilder.append(" FROM");
-
-        StatementBuilder fromWhereBuilder = new StatementBuilder();
-        fromWhereBuilder.append(" FROM");
-
-        if (alias == null) {
-            // Don't bother defining a table alias for one table.
-            jn.appendTableNameTo(selectBuilder);
-            jn.appendTableNameTo(fromWhereBuilder);
-        } else {
-            jn.appendFullJoinTo(selectBuilder);
-            jn.appendFullJoinTo(fromWhereBuilder);
-        }
-
-        PropertyFilter<S>[] propertyFilters;
-        boolean[] propertyFilterNullable;
-
-        if (values == null) {
-            propertyFilters = null;
-            propertyFilterNullable = null;
-        } else {
-            // Build the WHERE clause only if anything to filter on.
-            selectBuilder.append(" WHERE ");
-            fromWhereBuilder.append(" WHERE ");
-
-            WhereBuilder wb = new WhereBuilder(selectBuilder, alias == null ? null : jn);
-            FetchException e = values.getFilter().accept(wb, null);
-            if (e != null) {
-                throw e;
-            }
-
-            propertyFilters = wb.getPropertyFilters();
-            propertyFilterNullable = wb.getPropertyFilterNullable();
-
-            wb = new WhereBuilder(fromWhereBuilder, alias == null ? null : jn);
-            e = values.getFilter().accept(wb, null);
-            if (e != null) {
-                throw e;
-            }
-        }
-
-        // Append order-by clause.
-        if (orderings != null && orderings.length != 0) {
-            selectBuilder.append(" ORDER BY ");
-            ordinal = 0;
-            for (OrderedProperty<S> orderedProperty : orderings) {
-                if (ordinal > 0) {
-                    selectBuilder.append(',');
-                }
-                selectBuilder.appendColumn(alias == null ? null : jn,
-                                           orderedProperty.getChainedProperty());
-                if (orderedProperty.getDirection() == Direction.DESCENDING) {
-                    selectBuilder.append(" DESC");
-                }
-                ordinal++;
-            }
-        }
-
-        try {
-            CursorFactory factory = new CursorFactory(selectBuilder.build(),
-                                                      fromWhereBuilder.build(),
-                                                      propertyFilters,
-                                                      propertyFilterNullable);
-            return new JDBCQuery(factory, values, orderings);
-        } catch (RepositoryException e) {
-            throw mRepository.toFetchException(e);
-        }
+    protected StandardQuery<S> createQuery(FilterValues<S> values, OrderingList<S> ordering) {
+        return new JDBCQuery(values, ordering);
     }
 
     public S instantiate(ResultSet rs) throws SQLException {
@@ -368,7 +262,123 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
         Storable instantiate(JDBCSupport storage, ResultSet rs, int offset) throws SQLException;
     }
 
-    private class CursorFactory {
+    private class ExecutorFactory implements QueryExecutorFactory<S> {
+        public Class<S> getStorableType() {
+            return JDBCStorage.this.getStorableType();
+        }
+
+        public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+            throws RepositoryException
+        {
+            JoinNode jn;
+            try {
+                JoinNodeBuilder jnb = new JoinNodeBuilder();
+                if (filter == null) {
+                    jn = new JoinNode(getStorableInfo(), null);
+                } else {
+                    filter.accept(jnb, null);
+                    jn = jnb.getRootJoinNode();
+                }
+                jnb.captureOrderings(ordering);
+            } catch (UndeclaredThrowableException e) {
+                throw mRepository.toFetchException(e);
+            }
+
+            StatementBuilder selectBuilder = new StatementBuilder();
+            selectBuilder.append("SELECT ");
+
+            // Don't bother using a table alias for one table. With just one table,
+            // there's no need to disambiguate.
+            String alias = jn.hasAnyJoins() ? jn.getAlias() : null;
+
+            Map<String, JDBCStorableProperty<S>> properties = getStorableInfo().getAllProperties();
+            int ordinal = 0;
+            for (JDBCStorableProperty<S> property : properties.values()) {
+                if (!property.isSelectable()) {
+                    continue;
+                }
+                if (ordinal > 0) {
+                    selectBuilder.append(',');
+                }
+                if (alias != null) {
+                    selectBuilder.append(alias);
+                    selectBuilder.append('.');
+                }
+                selectBuilder.append(property.getColumnName());
+                ordinal++;
+            }
+
+            selectBuilder.append(" FROM");
+
+            StatementBuilder fromWhereBuilder = new StatementBuilder();
+            fromWhereBuilder.append(" FROM");
+
+            if (alias == null) {
+                // Don't bother defining a table alias for one table.
+                jn.appendTableNameTo(selectBuilder);
+                jn.appendTableNameTo(fromWhereBuilder);
+            } else {
+                jn.appendFullJoinTo(selectBuilder);
+                jn.appendFullJoinTo(fromWhereBuilder);
+            }
+
+            PropertyFilter<S>[] propertyFilters;
+            boolean[] propertyFilterNullable;
+
+            if (filter == null) {
+                propertyFilters = null;
+                propertyFilterNullable = null;
+            } else {
+                // Build the WHERE clause only if anything to filter on.
+                selectBuilder.append(" WHERE ");
+                fromWhereBuilder.append(" WHERE ");
+
+                WhereBuilder wb = new WhereBuilder(selectBuilder, alias == null ? null : jn);
+                FetchException e = filter.accept(wb, null);
+                if (e != null) {
+                    throw e;
+                }
+
+                propertyFilters = wb.getPropertyFilters();
+                propertyFilterNullable = wb.getPropertyFilterNullable();
+
+                wb = new WhereBuilder(fromWhereBuilder, alias == null ? null : jn);
+                e = filter.accept(wb, null);
+                if (e != null) {
+                    throw e;
+                }
+            }
+
+            // Append order-by clause.
+            if (ordering != null && ordering.size() != 0) {
+                selectBuilder.append(" ORDER BY ");
+                ordinal = 0;
+                for (OrderedProperty<S> orderedProperty : ordering) {
+                    if (ordinal > 0) {
+                        selectBuilder.append(',');
+                    }
+                    selectBuilder.appendColumn(alias == null ? null : jn,
+                                               orderedProperty.getChainedProperty());
+                    if (orderedProperty.getDirection() == Direction.DESCENDING) {
+                        selectBuilder.append(" DESC");
+                    }
+                    ordinal++;
+                }
+            }
+
+            return new Executor(filter,
+                                ordering,
+                                selectBuilder.build(),
+                                fromWhereBuilder.build(),
+                                propertyFilters,
+                                propertyFilterNullable);
+        }
+    }
+
+    private class Executor extends AbstractQueryExecutor<S> {
+        private final Filter<S> mFilter;
+        private final OrderingList<S> mOrdering;
+
         private final Statement<S> mSelectStatement;
         private final int mMaxSelectStatementLength;
         private final Statement<S> mFromWhereStatement;
@@ -387,12 +397,17 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
         // Some entries may be null if no adapter required.
         private final Object[] mAdapterInstances;
 
-        CursorFactory(Statement<S> selectStatement,
-                      Statement<S> fromWhereStatement,
-                      PropertyFilter<S>[] propertyFilters,
-                      boolean[] propertyFilterNullable)
+        Executor(Filter<S> filter,
+                 OrderingList<S> ordering,
+                 Statement<S> selectStatement,
+                 Statement<S> fromWhereStatement,
+                 PropertyFilter<S>[] propertyFilters,
+                 boolean[] propertyFilterNullable)
             throws RepositoryException
         {
+            mFilter = filter;
+            mOrdering = ordering;
+
             mSelectStatement = selectStatement;
             mMaxSelectStatementLength = selectStatement.maxLength();
             mFromWhereStatement = fromWhereStatement;
@@ -440,18 +455,66 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
             }
         }
 
-        JDBCCursor<S> openCursor(FilterValues<S> filterValues, boolean forUpdate)
-            throws FetchException
-        {
+        public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
+            boolean forUpdate = mRepository.openTransactionManager().isForUpdate();
             Connection con = mRepository.getConnection();
             try {
-                PreparedStatement ps =
-                    con.prepareStatement(prepareSelect(filterValues, forUpdate));
-
-                setParameters(ps, filterValues);
+                PreparedStatement ps = con.prepareStatement(prepareSelect(values, forUpdate));
+                setParameters(ps, values);
                 return new JDBCCursor<S>(JDBCStorage.this, con, ps);
             } catch (Exception e) {
                 throw mRepository.toFetchException(e);
+            }
+        }
+
+        @Override
+        public long count(FilterValues<S> values) throws FetchException {
+            Connection con = mRepository.getConnection();
+            try {
+                PreparedStatement ps = con.prepareStatement(prepareCount(values));
+                setParameters(ps, values);
+                ResultSet rs = ps.executeQuery();
+                try {
+                    rs.next();
+                    return rs.getLong(1);
+                } finally {
+                    rs.close();
+                }
+            } catch (Exception e) {
+                throw mRepository.toFetchException(e);
+            } finally {
+                mRepository.yieldConnection(con);
+            }
+        }
+
+        public Filter<S> getFilter() {
+            return mFilter;
+        }
+
+        public OrderingList<S> getOrdering() {
+            return mOrdering;
+        }
+
+        public boolean printNative(Appendable app, int indentLevel, FilterValues<S> values)
+            throws IOException
+        {
+            indent(app, indentLevel);
+            boolean forUpdate = mRepository.openTransactionManager().isForUpdate();
+            app.append(prepareSelect(values, forUpdate));
+            app.append('\n');
+            return true;
+        }
+
+        public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)
+            throws IOException
+        {
+            try {
+                boolean forUpdate = mRepository.openTransactionManager().isForUpdate();
+                String statement = prepareSelect(values, forUpdate);
+                return mRepository.getSupportStrategy().printPlan(app, indentLevel, statement);
+            } catch (FetchException e) {
+                LogFactory.getLog(JDBCStorage.class).error(null, e);
+                return false;
             }
         }
 
@@ -480,29 +543,7 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
             }
         }
 
-        /**
-         * Count operation is included in cursor factory for ease of implementation.
-         */
-        long executeCount(FilterValues<S> filterValues) throws FetchException {
-            Connection con = mRepository.getConnection();
-            try {
-                PreparedStatement ps = con.prepareStatement(prepareCount(filterValues));
-                setParameters(ps, filterValues);
-                ResultSet rs = ps.executeQuery();
-                try {
-                    rs.next();
-                    return rs.getLong(1);
-                } finally {
-                    rs.close();
-                }
-            } catch (Exception e) {
-                throw mRepository.toFetchException(e);
-            } finally {
-                mRepository.yieldConnection(con);
-            }
-        }
-
-        String prepareSelect(FilterValues<S> filterValues, boolean forUpdate) {
+        private String prepareSelect(FilterValues<S> filterValues, boolean forUpdate) {
             if (!forUpdate) {
                 return mSelectStatement.buildStatement(mMaxSelectStatementLength, filterValues);
             }
@@ -514,7 +555,7 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
             return b.toString();
         }
 
-        String prepareDelete(FilterValues<S> filterValues) {
+        private String prepareDelete(FilterValues<S> filterValues) {
             // Allocate with extra room for "DELETE"
             StringBuilder b = new StringBuilder(6 + mMaxFromWhereStatementLength);
             b.append("DELETE");
@@ -522,7 +563,7 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
             return b.toString();
         }
 
-        String prepareCount(FilterValues<S> filterValues) {
+        private String prepareCount(FilterValues<S> filterValues) {
             // Allocate with extra room for "SELECT COUNT(*)"
             StringBuilder b = new StringBuilder(15 + mMaxFromWhereStatementLength);
             b.append("SELECT COUNT(*)");
@@ -569,77 +610,40 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
         }
     }
 
-    private class JDBCQuery extends BaseQuery<S> {
-        private final CursorFactory mCursorFactory;
-
-        JDBCQuery(CursorFactory factory,
-                  FilterValues<S> values,
-                  OrderedProperty<S>[] orderings)
-        {
-            super(mRepository, JDBCStorage.this, values, orderings);
-            mCursorFactory = factory;
+    private class JDBCQuery extends StandardQuery<S> {
+        JDBCQuery(FilterValues<S> values, OrderingList<S> ordering) {
+            super(values, ordering);
         }
 
-        JDBCQuery(CursorFactory factory,
-                  FilterValues<S> values,
-                  String[] orderings)
-        {
-            super(mRepository, JDBCStorage.this, values, orderings);
-            mCursorFactory = factory;
-        }
-
-        public Query<S> orderBy(String property)
-            throws FetchException, UnsupportedOperationException
-        {
-            return JDBCStorage.this.getOrderedQuery(getFilterValues(), property);
-        }
-
-        public Query<S> orderBy(String... properties)
-            throws FetchException, UnsupportedOperationException
-        {
-            return JDBCStorage.this.getOrderedQuery(getFilterValues(), properties);
-        }
-
-        public Cursor<S> fetch() throws FetchException {
-            boolean forUpdate = mRepository.openTransactionManager().isForUpdate();
-            return mCursorFactory.openCursor(getFilterValues(), forUpdate);
-        }
-
+        @Override
         public void deleteAll() throws PersistException {
             if (mTriggerManager.getDeleteTrigger() != null) {
                 // Super implementation loads one at time and calls
                 // delete. This allows delete trigger to be invoked on each.
                 super.deleteAll();
             } else {
-                mCursorFactory.executeDelete(getFilterValues());
+                try {
+                    ((Executor) executor()).executeDelete(getFilterValues());
+                } catch (RepositoryException e) {
+                    throw e.toPersistException();
+                }
             }
         }
 
-        public long count() throws FetchException {
-            return mCursorFactory.executeCount(getFilterValues());
+        protected Transaction enterTransaction(IsolationLevel level) {
+            return getRootRepository().enterTransaction(level);
         }
 
-        public boolean printNative(Appendable app, int indentLevel) throws IOException {
-            indent(app, indentLevel);
-            boolean forUpdate = mRepository.openTransactionManager().isForUpdate();
-            app.append(mCursorFactory.prepareSelect(getFilterValues(), forUpdate));
-            app.append('\n');
-            return true;
+        protected QueryFactory<S> queryFactory() {
+            return JDBCStorage.this;
         }
 
-        public boolean printPlan(Appendable app, int indentLevel) throws IOException {
-            try {
-                boolean forUpdate = mRepository.openTransactionManager().isForUpdate();
-                String statement = mCursorFactory.prepareSelect(getFilterValues(), forUpdate);
-                return mRepository.getSupportStrategy().printPlan(app, indentLevel, statement);
-            } catch (FetchException e) {
-                LogFactory.getLog(JDBCStorage.class).error(null, e);
-                return false;
-            }
+        protected QueryExecutorFactory<S> executorFactory() {
+            return JDBCStorage.this.mExecutorFactory;
         }
 
-        protected BaseQuery<S> newInstance(FilterValues<S> values) {
-            return new JDBCQuery(mCursorFactory, values, getOrderings());
+        protected StandardQuery<S> newInstance(FilterValues<S> values, OrderingList<S> ordering) {
+            return new JDBCQuery(values, ordering);
         }
     }
 
@@ -818,10 +822,10 @@ class JDBCStorage<S extends Storable> extends BaseQueryCompiler<S>
          *
          * @throws UndeclaredThrowableException wraps a RepositoryException
          */
-        public void captureOrderings(OrderedProperty<?>[] orderings) {
+        public void captureOrderings(OrderingList<?> ordering) {
             try {
-                if (orderings != null) {
-                    for (OrderedProperty<?> orderedProperty : orderings) {
+                if (ordering != null) {
+                    for (OrderedProperty<?> orderedProperty : ordering) {
                         ChainedProperty<?> chained = orderedProperty.getChainedProperty();
                         mAliasCounter = mRootJoinNode.addJoin(chained, mAliasCounter);
                     }

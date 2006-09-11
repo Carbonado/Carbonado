@@ -135,7 +135,7 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
                     StandardQuery<S> standardQuery = createQuery(values, ordering);
                     if (!mLazySetExecutor) {
                         try {
-                            standardQuery.setExecutorReference();
+                            standardQuery.setExecutor();
                         } catch (RepositoryException e) {
                             throw e.toFetchException();
                         }
@@ -168,33 +168,33 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
     }
 
     /**
-     * For each cached query, calls {@link StandardQuery#setExecutorReference}.
+     * For each cached query, calls {@link StandardQuery#setExecutor}.
      */
-    public void setExecutorReferences() throws RepositoryException {
+    public void setExecutors() throws RepositoryException {
         for (StandardQuery<S> query : gatherQueries()) {
-            query.setExecutorReference();
+            query.setExecutor();
         }
     }
 
     /**
-     * For each cached query, calls {@link StandardQuery#resetExecutorReference}.
+     * For each cached query, calls {@link StandardQuery#resetExecutor}.
      * This call can be used to rebuild all cached query plans after the set of
      * available indexes has changed.
      */
-    public void resetExecutorReferences() throws RepositoryException {
+    public void resetExecutors() throws RepositoryException {
         for (StandardQuery<S> query : gatherQueries()) {
-            query.resetExecutorReference();
+            query.resetExecutor();
         }
     }
 
     /**
-     * For each cached query, calls {@link StandardQuery#clearExecutorReference}.
+     * For each cached query, calls {@link StandardQuery#clearExecutor}.
      * This call can be used to clear all cached query plans after the set of
      * available indexes has changed.
      */
-    public void clearExecutorReferences() {
+    public void clearExecutos() {
         for (StandardQuery<S> query : gatherQueries()) {
-            query.clearExecutorReference();
+            query.clearExecutor();
         }
     }
 
@@ -205,7 +205,8 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
      * @param ordering optional order-by properties
      */
     protected abstract StandardQuery<S> createQuery(FilterValues<S> values,
-                                                    OrderingList<S> ordering);
+                                                    OrderingList<S> ordering)
+        throws FetchException;
 
     private ArrayList<StandardQuery<S>> gatherQueries() {
         // Copy all queries and operate on the copy instead of holding lock for

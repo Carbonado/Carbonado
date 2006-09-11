@@ -42,7 +42,7 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
     // Maps filters to maps which map ordering lists to executors.
     private final Map<Filter<S>, Map<OrderingList<S>, QueryExecutor<S>>> mFilterToExecutor;
 
-    protected QueryExecutorCache(QueryExecutorFactory<S> factory) {
+    public QueryExecutorCache(QueryExecutorFactory<S> factory) {
         if (factory == null) {
             throw new IllegalArgumentException();
         }
