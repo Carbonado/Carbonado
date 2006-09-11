@@ -224,4 +224,68 @@ class LoggingConnection implements Connection {
         mLog.debug("Connection.releaseSavepoint(savepoint)");
         mCon.releaseSavepoint(savepoint);
     }
+
+    /* JDK 1.6 features
+    public Clob createClob() throws SQLException {
+        return mCon.createClob();
+    }
+
+    public Blob createBlob() throws SQLException {
+        return mCon.createBlob();
+    }
+    
+    public NClob createNClob() throws SQLException {
+        return mCon.createNClob();
+    }
+
+    public SQLXML createSQLXML() throws SQLException {
+        return mCon.createSQLXML();
+    }
+
+    public boolean isValid(int timeout) throws SQLException {
+        return mCon.isValid(timeout);
+    }
+
+    public void setClientInfo(String name, String value) throws SQLClientInfoException {
+        mCon.setClientInfo(name, value);
+    }
+        
+    public void setClientInfo(java.util.Properties properties) throws SQLClientInfoException {
+        mCon.setClientInfo(properties);
+    }
+
+    public String getClientInfo(String name) throws SQLException {
+        return mCon.getClientInfo(name);
+    }
+
+    public java.util.Properties getClientInfo() throws SQLException {
+        return mCon.getClientInfo();
+    }
+
+    public <T extends BaseQuery> T createQueryObject(Class<T> ifc) throws SQLException {
+        return mCon.createQueryObject(ifc);
+    }
+
+    public <T extends BaseQuery> T createQueryObject(Class<T> ifc, Connection con)
+        throws SQLException
+    {
+        return mCon.createQueryObject(ifc, con);
+    }
+
+    public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
+        return mCon.createArrayOf(typeName, elements);
+    }
+
+    public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
+        return mCon.createStruct(typeName, attributes);
+    }
+
+    public <T> T unwrap(Class<T> iface) throws SQLException {
+        throw new UnsupportedOperationException();
+    }
+
+    public boolean isWrapperFor(Class<?> iface) throws SQLException {
+        throw new UnsupportedOperationException();
+    }
+    */
 }

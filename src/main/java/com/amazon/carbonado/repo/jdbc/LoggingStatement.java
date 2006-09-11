@@ -197,4 +197,26 @@ class LoggingStatement implements Statement {
     public int getResultSetHoldability() throws SQLException {
         return mStatement.getResultSetHoldability();
     }
+
+    /* JDK 1.6 features
+    public boolean isClosed() throws SQLException {
+        return mStatement.isClosed();
+    }
+
+    public void setPoolable(boolean poolable) throws SQLException {
+        mStatement.setPoolable(poolable);
+    }
+
+    public boolean isPoolable() throws SQLException {
+        return mStatement.isPoolable();
+    }
+
+    public <T> T unwrap(Class<T> iface) throws SQLException {
+        throw new UnsupportedOperationException();
+    }
+
+    public boolean isWrapperFor(Class<?> iface) throws SQLException {
+        throw new UnsupportedOperationException();
+    }
+    */
 }

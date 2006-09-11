@@ -86,4 +86,30 @@ public class SimpleDataSource implements DataSource {
     public int getLoginTimeout() throws SQLException {
         return 0;
     }
+
+    /* JDK 1.6 features
+    public <T extends java.sql.BaseQuery> T createQueryObject(Class<T> ifc)
+        throws SQLException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    public <T extends java.sql.BaseQuery> T createQueryObject(Class<T> ifc, DataSource ds)
+        throws SQLException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    public java.sql.QueryObjectGenerator getQueryObjectGenerator() throws SQLException {
+        throw new UnsupportedOperationException();
+    }
+
+    public <T> T unwrap(Class<T> iface) throws SQLException {
+        throw new UnsupportedOperationException();
+    }
+
+    public boolean isWrapperFor(Class<?> iface) throws SQLException {
+        throw new UnsupportedOperationException();
+    }
+    */
 }

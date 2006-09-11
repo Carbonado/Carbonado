@@ -249,6 +249,98 @@ class LoggingPreparedStatement extends LoggingStatement implements PreparedState
         return ps().getParameterMetaData();
     }
 
+    /* JDK 1.6 features
+    public void setRowId(int parameterIndex, RowId x) throws SQLException {
+        ps().setRowId(parameterIndex, x);
+    }
+ 
+    public void setNString(int parameterIndex, String value) throws SQLException {
+        ps().setNString(parameterIndex, value);
+    }
+
+    public void setNCharacterStream(int parameterIndex, java.io.Reader value, long length)
+        throws SQLException
+    {
+        ps().setNCharacterStream(parameterIndex, value, length);
+    }
+
+    public void setNClob(int parameterIndex, NClob value) throws SQLException {
+        ps().setNClob(parameterIndex, value);
+    }
+
+    public void setClob(int parameterIndex, java.io.Reader reader, long length)
+        throws SQLException
+    {
+        ps().setClob(parameterIndex, reader, length);
+    }
+
+    public void setBlob(int parameterIndex, java.io.InputStream inputStream, long length)
+        throws SQLException
+    {
+        ps().setBlob(parameterIndex, inputStream, length);
+    }
+
+    public void setNClob(int parameterIndex, java.io.Reader reader, long length)
+        throws SQLException
+    {
+        ps().setNClob(parameterIndex, reader, length);
+    }
+
+    public void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {
+        ps().setSQLXML(parameterIndex, xmlObject);
+    }
+
+    public void setAsciiStream(int parameterIndex, java.io.InputStream x, long length)
+        throws SQLException
+    {
+        ps().setAsciiStream(parameterIndex, x, length);
+    }
+
+    public void setBinaryStream(int parameterIndex, java.io.InputStream x, long length)
+        throws SQLException
+    {
+        ps().setBinaryStream(parameterIndex, x, length);
+    }
+
+    public void setCharacterStream(int parameterIndex,
+                                   java.io.Reader reader,
+                                   long length)
+        throws SQLException
+    {
+        ps().setCharacterStream(parameterIndex, reader, length);
+    }
+
+    public void setAsciiStream(int parameterIndex, java.io.InputStream x) throws SQLException {
+        ps().setAsciiStream(parameterIndex, x);
+    }
+
+    public void setBinaryStream(int parameterIndex, java.io.InputStream x) throws SQLException {
+        ps().setBinaryStream(parameterIndex, x);
+    }
+
+    public void setCharacterStream(int parameterIndex, java.io.Reader reader) throws SQLException {
+        ps().setCharacterStream(parameterIndex, reader);
+    }
+
+    public void setNCharacterStream(int parameterIndex, java.io.Reader value) throws SQLException {
+        ps().setNCharacterStream(parameterIndex, value);
+    }
+
+    public void setClob(int parameterIndex, java.io.Reader reader) throws SQLException {
+        ps().setClob(parameterIndex, reader);
+    }
+
+    public void setBlob(int parameterIndex, java.io.InputStream inputStream)
+        throws SQLException
+    {
+        ps().setBlob(parameterIndex, inputStream);
+    }
+
+    public void setNClob(int parameterIndex, java.io.Reader reader) throws SQLException {
+        ps().setNClob(parameterIndex, reader);
+    }
+    */
+
     private PreparedStatement ps() {
         return (PreparedStatement) mStatement;
     }

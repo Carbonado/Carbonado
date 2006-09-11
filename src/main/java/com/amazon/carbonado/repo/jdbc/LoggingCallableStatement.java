@@ -386,6 +386,164 @@ class LoggingCallableStatement extends LoggingPreparedStatement implements Calla
         return cs().getURL(parameterName);
     }
 
+    /* JDK 1.6 features
+    public RowId getRowId(int parameterIndex) throws SQLException {
+        return cs().getRowId(parameterIndex);
+    }
+    
+    public RowId getRowId(String parameterName) throws SQLException {
+        return cs().getRowId(parameterName);
+    }
+    
+    public void setRowId(String parameterName, RowId x) throws SQLException {
+        cs().setRowId(parameterName, x);
+    }
+
+    public void setNString(String parameterName, String value) throws SQLException {
+        cs().setNString(parameterName, value);
+    }
+
+    public void setNCharacterStream(String parameterName, java.io.Reader value, long length)
+        throws SQLException
+    {
+        cs().setNCharacterStream(parameterName, value, length);
+    }
+
+    public void setNClob(String parameterName, NClob value) throws SQLException {
+        cs().setNClob(parameterName, value);
+    }
+
+    public void setClob(String parameterName, java.io.Reader reader, long length)
+        throws SQLException
+    {
+        cs().setClob(parameterName, reader, length);
+    }
+
+    public void setBlob(String parameterName, java.io.InputStream inputStream, long length)
+        throws SQLException
+    {
+        cs().setBlob(parameterName, inputStream, length);
+    }
+
+    public void setNClob(String parameterName, java.io.Reader reader, long length)
+        throws SQLException
+    {
+        cs().setNClob(parameterName, reader, length);
+    }
+     
+    public NClob getNClob (int parameterIndex) throws SQLException {
+        return cs().getNClob(parameterIndex);
+    }
+    
+    public NClob getNClob (String parameterName) throws SQLException {
+        return cs().getNClob(parameterName);
+    }
+
+    public void setSQLXML(String parameterName, SQLXML xmlObject) throws SQLException {
+        cs().setSQLXML(parameterName, xmlObject);
+    }
+
+    public SQLXML getSQLXML(int parameterIndex) throws SQLException {
+        return cs().getSQLXML(parameterIndex);
+    }
+
+    public SQLXML getSQLXML(String parameterName) throws SQLException {
+        return cs().getSQLXML(parameterName);
+    }
+    
+    public String getNString(int parameterIndex) throws SQLException {
+        return cs().getNString(parameterIndex);
+    }
+
+    public String getNString(String parameterName) throws SQLException {
+        return cs().getNString(parameterName);
+    }
+      
+    public java.io.Reader getNCharacterStream(int parameterIndex) throws SQLException {
+        return cs().getNCharacterStream(parameterIndex);
+    }
+
+    public java.io.Reader getNCharacterStream(String parameterName) throws SQLException {
+        return cs().getNCharacterStream(parameterName);
+    }
+        
+    public java.io.Reader getCharacterStream(int parameterIndex) throws SQLException {
+        return cs().getCharacterStream(parameterIndex);
+    }
+
+    public java.io.Reader getCharacterStream(String parameterName) throws SQLException {
+        return cs().getCharacterStream(parameterName);
+    }
+    
+    public void setBlob(String parameterName, Blob x) throws SQLException {
+        cs().setBlob(parameterName, x);
+    }
+
+    public void setClob(String parameterName, Clob x) throws SQLException {
+        cs().setClob(parameterName, x);
+    }
+
+    public void setAsciiStream(String parameterName, java.io.InputStream x, long length)
+        throws SQLException
+    {
+        cs().setAsciiStream(parameterName, x, length);
+    }
+
+    public void setBinaryStream(String parameterName, java.io.InputStream x, long length)
+        throws SQLException
+    {
+        cs().setBinaryStream(parameterName, x, length);
+    }
+
+    public void setCharacterStream(String parameterName,
+                                   java.io.Reader reader,
+                                   long length)
+        throws SQLException
+    {
+        cs().setCharacterStream(parameterName, reader, length);
+    }
+
+    public void setAsciiStream(String parameterName, java.io.InputStream x)
+        throws SQLException
+    {
+        cs().setAsciiStream(parameterName, x);
+    }
+
+    public void setBinaryStream(String parameterName, java.io.InputStream x)
+        throws SQLException
+    {
+        cs().setBinaryStream(parameterName, x);
+    }
+
+    public void setCharacterStream(String parameterName, java.io.Reader reader)
+        throws SQLException
+    {
+        cs().setCharacterStream(parameterName, reader);
+    }
+
+    public void setNCharacterStream(String parameterName, java.io.Reader value)
+        throws SQLException
+    {
+        cs().setNCharacterStream(parameterName, value);
+    }
+
+    public void setClob(String parameterName, java.io.Reader reader) throws SQLException {
+        cs().setClob(parameterName, reader);
+    }
+
+    public void setBlob(String parameterName, java.io.InputStream inputStream)
+        throws SQLException
+    {
+        cs().setBlob(parameterName, inputStream);
+    }
+
+    public void setNClob(String parameterName, java.io.Reader reader)
+        throws SQLException
+    {
+        cs().setNClob(parameterName, reader);
+    }
+    */
+
     private CallableStatement cs() {
         return (CallableStatement) mStatement;
     }
