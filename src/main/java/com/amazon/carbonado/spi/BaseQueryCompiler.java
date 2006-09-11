@@ -41,6 +41,7 @@ import com.amazon.carbonado.info.StorableInfo;
  * to compile queries it doesn't have cached.
  *
  * @author Brian S O'Neill
+ * @deprecated Use {@link com.amazon.carbonado.qe.StandardQueryFactory}
  */
 public abstract class BaseQueryCompiler<S extends Storable> {
     private final StorableInfo<S> mInfo;

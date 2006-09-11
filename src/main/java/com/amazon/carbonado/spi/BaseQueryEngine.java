@@ -60,6 +60,7 @@ import com.amazon.carbonado.qe.BoundaryType;
  * filtering, sorting, and unions.
  *
  * @author Brian S O'Neill
+ * @deprecated Use {@link com.amazon.carbonado.qe.QueryEngine}
  */
 public abstract class BaseQueryEngine<S extends Storable> extends BaseQueryCompiler<S> {
     private static PropertyFilter[] NO_FILTERS = new PropertyFilter[0];

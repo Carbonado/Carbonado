@@ -49,6 +49,7 @@ import com.amazon.carbonado.info.StorableProperty;
  * indexes, the first in the list (the lowest) is the best index.
  *
  * @author Brian S O'Neill
+ * @deprecated Use {@link com.amazon.carbonado.qe.CompositeScore}
  */
 public class IndexSelector<S extends Storable> implements Comparator<StorableIndex<S>> {
     static int intCompare(int a, int b) {
