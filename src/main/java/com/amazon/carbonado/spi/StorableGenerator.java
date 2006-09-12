@@ -645,10 +645,10 @@ public final class StorableGenerator<S extends Storable> {
                         // Store loaded join result here.
                         LocalVariable join = b.createLocalVariable(name, type);
 
-                        // Check if any internal properties may be null, but
-                        // the matching external property is primitive. If so,
-                        // load each of these special internal values and check
-                        // if null. If so, short-circuit the load and use null
+                        // Check if any internal properties are nullable, but
+                        // the matching external property is not. If so, load
+                        // each of these special internal values and check if
+                        // null. If null, short-circuit the load and use null
                         // as the join result.
 
                         Label shortCircuit = b.createLabel();
@@ -658,8 +658,7 @@ public final class StorableGenerator<S extends Storable> {
                                 for (int i=0; i<count; i++) {
                                     StorableProperty internal = property.getInternalJoinElement(i);
                                     StorableProperty external = property.getExternalJoinElement(i);
-                                    if (!internal.getType().isPrimitive() &&
-                                        external.getType().isPrimitive()) {
+                                    if (internal.isNullable() && !external.isNullable()) {
                                         break nullPossible;
                                     }
                                 }
@@ -669,9 +668,7 @@ public final class StorableGenerator<S extends Storable> {
                             for (int i=0; i<count; i++) {
                                 StorableProperty internal = property.getInternalJoinElement(i);
                                 StorableProperty external = property.getExternalJoinElement(i);
-                                if (!internal.getType().isPrimitive() &&
-                                    external.getType().isPrimitive()) {
-
+                                if (internal.isNullable() && !external.isNullable()) {
                                     if (mGenMode == GEN_ABSTRACT) {
                                         b.loadThis();
                                         b.loadField(internal.getName(),
