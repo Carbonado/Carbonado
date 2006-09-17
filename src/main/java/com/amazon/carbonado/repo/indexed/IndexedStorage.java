@@ -19,6 +19,7 @@
 package com.amazon.carbonado.repo.indexed;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -44,6 +45,9 @@ import com.amazon.carbonado.UniqueConstraintException;
 import com.amazon.carbonado.capability.IndexInfo;
 import com.amazon.carbonado.capability.IndexInfoCapability;
 
+import com.amazon.carbonado.cursor.ArraySortBuffer;
+import com.amazon.carbonado.cursor.MergeSortBuffer;
+
 import com.amazon.carbonado.filter.Filter;
 
 import com.amazon.carbonado.info.Direction;
@@ -51,11 +55,12 @@ import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableIndex;
 
-import com.amazon.carbonado.cursor.MergeSortBuffer;
+import com.amazon.carbonado.cursor.SortBuffer;
 
 import com.amazon.carbonado.qe.BoundaryType;
+import com.amazon.carbonado.qe.QueryEngine;
+import com.amazon.carbonado.qe.StorageAccess;
 
-import com.amazon.carbonado.spi.BaseQueryEngine;
 import com.amazon.carbonado.spi.RepairExecutor;
 import com.amazon.carbonado.spi.StorableIndexSet;
 
@@ -64,7 +69,7 @@ import com.amazon.carbonado.spi.StorableIndexSet;
  *
  * @author Brian S O'Neill
  */
-class IndexedStorage<S extends Storable> implements Storage<S> {
+class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S> {
     static <S extends Storable> StorableIndexSet<S> gatherRequiredIndexes(StorableInfo<S> info) {
         StorableIndexSet<S> indexSet = new StorableIndexSet<S>();
         indexSet.addIndexes(info);
@@ -76,8 +81,11 @@ class IndexedStorage<S extends Storable> implements Storage<S> {
     final Storage<S> mMasterStorage;
 
     private final Map<StorableIndex<S>, IndexInfo> mIndexInfoMap;
+    private final StorableIndexSet<S> mIndexSet;
 
     private final QueryEngine<S> mQueryEngine;
+
+    private Storage<S> mRootStorage;
 
     @SuppressWarnings("unchecked")
     IndexedStorage(IndexedRepository repository, Storage<S> masterStorage)
@@ -208,7 +216,9 @@ class IndexedStorage<S extends Storable> implements Storage<S> {
             currentIndexSet.add(freeIndexes[i]);
         }
 
-        mQueryEngine = new QueryEngine<S>(info, repository, this, currentIndexSet);
+        mIndexSet = currentIndexSet;
+
+        mQueryEngine = new QueryEngine<S>(masterStorage.getStorableType(), repository);
     }
 
     public Class<S> getStorableType() {
@@ -220,15 +230,15 @@ class IndexedStorage<S extends Storable> implements Storage<S> {
     }
 
     public Query<S> query() throws FetchException {
-        return mQueryEngine.getCompiledQuery();
+        return mQueryEngine.query();
     }
 
     public Query<S> query(String filter) throws FetchException {
-        return mQueryEngine.getCompiledQuery(filter);
+        return mQueryEngine.query(filter);
     }
 
     public Query<S> query(Filter<S> filter) throws FetchException {
-        return mQueryEngine.getCompiledQuery(filter);
+        return mQueryEngine.query(filter);
     }
 
     public boolean addTrigger(Trigger<? super S> trigger) {
@@ -256,17 +266,87 @@ class IndexedStorage<S extends Storable> implements Storage<S> {
         return accessors.toArray(new IndexEntryAccessor[accessors.size()]);
     }
 
-    Storage<S> getStorageFor(StorableIndex<S> index) {
+    public Collection<StorableIndex<S>> getAllIndexes() {
+        return mIndexSet;
+    }
+
+    public Storage<S> storageDelegate(StorableIndex<S> index) {
         if (mIndexInfoMap.get(index) instanceof ManagedIndex) {
             // Index is managed by this storage, which is typical.
-            return this;
+            return null;
         }
         // Index is managed by master storage, most likely a primary key index.
         return mMasterStorage;
     }
 
-    ManagedIndex<S> getManagedIndex(StorableIndex<S> index) {
-        return (ManagedIndex<S>) mIndexInfoMap.get(index);
+    public SortBuffer<S> createSortBuffer() {
+        // FIXME: This is messy. If Storables had built-in serialization
+        // support, then MergeSortBuffer would not need a root storage.
+        if (mRootStorage == null) {
+            try {
+                mRootStorage = mRepository.getRootRepository().storageFor(getStorableType());
+            } catch (RepositoryException e) {
+                LogFactory.getLog(IndexedStorage.class).warn(null, e);
+                return new ArraySortBuffer<S>();
+            }
+        }
+
+        // FIXME: sort buffer should be on repository access. Also, create abstract
+        // repository access that creates the correct merge sort buffer. And more:
+        // create capability for managing merge sort buffers.
+        return new MergeSortBuffer<S>(mRootStorage);
+    }
+
+    public Cursor<S> fetchAll() throws FetchException {
+        return mMasterStorage.query().fetch();
+    }
+
+    public Cursor<S> fetchOne(StorableIndex<S> index,
+                              Object[] identityValues)
+        throws FetchException
+    {
+        // TODO: optimize fetching one by loading storable by primary key
+        return fetchSubset(index, identityValues,
+                           BoundaryType.OPEN, null,
+                           BoundaryType.OPEN, null,
+                           false, false);
+    }
+
+    public Cursor<S> fetchSubset(StorableIndex<S> index,
+                                 Object[] identityValues,
+                                 BoundaryType rangeStartBoundary,
+                                 Object rangeStartValue,
+                                 BoundaryType rangeEndBoundary,
+                                 Object rangeEndValue,
+                                 boolean reverseRange,
+                                 boolean reverseOrder)
+        throws FetchException
+    {
+        // Note: this code ignores the reverseRange parameter to avoid double
+        // reversal. Only the lowest storage layer should examine this
+        // parameter.
+
+        ManagedIndex<S> indexInfo = (ManagedIndex<S>) mIndexInfoMap.get(index);
+
+        Query<?> query = indexInfo.getIndexEntryQueryFor
+            (identityValues == null ? 0 : identityValues.length,
+             rangeStartBoundary, rangeEndBoundary, reverseOrder);
+
+        if (identityValues != null) {
+            query = query.withValues(identityValues);
+        }
+
+        if (rangeStartBoundary != BoundaryType.OPEN) {
+            query = query.with(rangeStartValue);
+        }
+        if (rangeEndBoundary != BoundaryType.OPEN) {
+            query = query.with(rangeEndValue);
+        }
+
+        Cursor<? extends Storable> indexEntryCursor = query.fetch();
+
+        return new IndexedCursor<S>
+            (indexEntryCursor, IndexedStorage.this, indexInfo.getIndexEntryClassBuilder());
     }
 
     private void registerIndex(ManagedIndex<S> managedIndex)
@@ -350,60 +430,5 @@ class IndexedStorage<S extends Storable> implements Storage<S> {
         // TODO: when truncate method exists, call that instead
         indexEntryStorage.query().deleteAll();
         unregisterIndex(index);
-    }
-
-    private static class QueryEngine<S extends Storable> extends BaseQueryEngine<S> {
-
-        QueryEngine(StorableInfo<S> info,
-                    Repository repo,
-                    IndexedStorage<S> storage,
-                    StorableIndexSet<S> indexSet) {
-            super(info, repo, storage, null, indexSet);
-        }
-
-        @Override
-        protected Storage<S> getStorageFor(StorableIndex<S> index) {
-            return storage().getStorageFor(index);
-        }
-
-        protected Cursor<S> openCursor(StorableIndex<S> index,
-                                       Object[] exactValues,
-                                       BoundaryType rangeStartBoundary,
-                                       Object rangeStartValue,
-                                       BoundaryType rangeEndBoundary,
-                                       Object rangeEndValue,
-                                       boolean reverseRange,
-                                       boolean reverseOrder)
-            throws FetchException
-        {
-            // Note: this code ignores the reverseRange parameter to avoid
-            // double reversal. Only the lowest storage layer should examine
-            // this parameter.
-
-            ManagedIndex<S> indexInfo = storage().getManagedIndex(index);
-            Query<?> query = indexInfo.getIndexEntryQueryFor
-                (exactValues == null ? 0 : exactValues.length,
-                 rangeStartBoundary, rangeEndBoundary, reverseOrder);
-
-            if (exactValues != null) {
-                query = query.withValues(exactValues);
-            }
-
-            if (rangeStartBoundary != BoundaryType.OPEN) {
-                query = query.with(rangeStartValue);
-            }
-            if (rangeEndBoundary != BoundaryType.OPEN) {
-                query = query.with(rangeEndValue);
-            }
-
-            Cursor<? extends Storable> indexEntryCursor = query.fetch();
-
-            return new IndexedCursor<S>
-                (indexEntryCursor, storage(), indexInfo.getIndexEntryClassBuilder());
-        }
-
-        private IndexedStorage<S> storage() {
-            return (IndexedStorage<S>) super.getStorage();
-        }
     }
 }

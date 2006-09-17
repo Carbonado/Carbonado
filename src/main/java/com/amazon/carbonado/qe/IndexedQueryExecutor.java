@@ -52,6 +52,7 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
 
     private final Support<S> mSupport;
     private final StorableIndex<S> mIndex;
+    private final int mIdentityCount;
     private final Filter<S> mIdentityFilter;
     private final List<PropertyFilter<S>> mExclusiveRangeStartFilters;
     private final List<PropertyFilter<S>> mInclusiveRangeStartFilters;
@@ -78,6 +79,7 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
 
         FilteringScore<S> fScore = score.getFilteringScore();
 
+        mIdentityCount = fScore.getIdentityCount();
         mIdentityFilter = fScore.getIdentityFilter();
         mExclusiveRangeStartFilters = fScore.getExclusiveRangeStartFilters();
         mInclusiveRangeStartFilters = fScore.getInclusiveRangeStartFilters();
@@ -152,11 +154,11 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
             }
         }
 
-        return mSupport.fetch(mIndex, identityValues,
-                              rangeStartBoundary, rangeStartValue,
-                              rangeEndBoundary, rangeEndValue,
-                              mReverseRange,
-                              mReverseOrder);
+        return mSupport.fetchSubset(mIndex, identityValues,
+                                    rangeStartBoundary, rangeStartValue,
+                                    rangeEndBoundary, rangeEndValue,
+                                    mReverseRange,
+                                    mReverseOrder);
     }
 
     public Filter<S> getFilter() {
@@ -179,7 +181,11 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
     }
 
     public OrderingList<S> getOrdering() {
-        return OrderingList.get(mIndex.getOrderedProperties());
+        OrderingList<S> list = OrderingList.get(mIndex.getOrderedProperties());
+        if (mIdentityCount > 0) {
+            list = OrderingList.get(list.subList(mIdentityCount, list.size()));
+        }
+        return list;
     }
 
     public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)
@@ -261,14 +267,14 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
          * @param reverseOrder when true, iteration should be reversed from its
          * natural order
          */
-        Cursor<S> fetch(StorableIndex<S> index,
-                        Object[] identityValues,
-                        BoundaryType rangeStartBoundary,
-                        Object rangeStartValue,
-                        BoundaryType rangeEndBoundary,
-                        Object rangeEndValue,
-                        boolean reverseRange,
-                        boolean reverseOrder)
+        Cursor<S> fetchSubset(StorableIndex<S> index,
+                              Object[] identityValues,
+                              BoundaryType rangeStartBoundary,
+                              Object rangeStartValue,
+                              BoundaryType rangeEndBoundary,
+                              Object rangeEndValue,
+                              boolean reverseRange,
+                              boolean reverseOrder)
             throws FetchException;
     }
 }

@@ -65,7 +65,7 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
             return wrapped;
         }
 
-        Repository repo = new IndexedRepository(getName(), wrapped);
+        Repository repo = new IndexedRepository(rootRef, getName(), wrapped);
         rootRef.set(repo);
         return repo;
     }

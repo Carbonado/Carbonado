@@ -64,19 +64,34 @@ public class UnionQueryExecutor<S extends Storable> extends AbstractQueryExecuto
 
     /**
      * @param executors executors to wrap, each must have the exact same total ordering
-     * @throws IllegalArgumentException if any parameter is null or if ordering doesn't match
+     * @throws IllegalArgumentException if any executors is null or if ordering doesn't match
      */
     public UnionQueryExecutor(List<QueryExecutor<S>> executors) {
+        this(executors, null);
+    }
+
+    /**
+     * @param executors executors to wrap, each must have the exact same total ordering
+     * @param totalOrdering effective total ordering of executors
+     * @throws IllegalArgumentException if executors is null
+     */
+    public UnionQueryExecutor(List<QueryExecutor<S>> executors, OrderingList<S> totalOrdering) {
         if (executors == null || executors.size() == 0) {
             throw new IllegalArgumentException();
         }
-        OrderingList<S> totalOrdering = executors.get(0).getOrdering();
-        // Compare for consistency.
-        for (int i=1; i<executors.size(); i++) {
-            if (!totalOrdering.equals(executors.get(i).getOrdering())) {
-                throw new IllegalArgumentException("Ordering doesn't match");
+
+        if (totalOrdering == null) {
+            // Try to infer total ordering, which might not work since
+            // executors are not required to report or support total ordering.
+            totalOrdering = executors.get(0).getOrdering();
+            // Compare for consistency.
+            for (int i=1; i<executors.size(); i++) {
+                if (!totalOrdering.equals(executors.get(i).getOrdering())) {
+                    throw new IllegalArgumentException("Ordering doesn't match");
+                }
             }
         }
+
         mExecutors = new QueryExecutor[executors.size()];
         executors.toArray(mExecutors);
         mTotalOrdering = totalOrdering;

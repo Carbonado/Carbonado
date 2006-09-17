@@ -37,7 +37,6 @@ import com.amazon.carbonado.info.StorableIndex;
  */
 public interface StorageAccess<S extends Storable>
     extends FullScanQueryExecutor.Support<S>,
-            FullScanIndexedQueryExecutor.Support<S>,
             KeyQueryExecutor.Support<S>,
             IndexedQueryExecutor.Support<S>,
             SortedQueryExecutor.Support<S>

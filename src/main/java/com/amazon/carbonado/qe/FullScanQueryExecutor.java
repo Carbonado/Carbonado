@@ -59,7 +59,7 @@ public class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExec
     }
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
-        return mSupport.fetch();
+        return mSupport.fetchAll();
     }
 
     /**
@@ -85,6 +85,6 @@ public class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExec
         /**
          * Perform a full scan of all Storables.
          */
-        Cursor<S> fetch() throws FetchException;
+        Cursor<S> fetchAll() throws FetchException;
     }
 }

@@ -194,7 +194,7 @@ public class TestJoinedQueryExecutor extends TestQueryExecutor {
             return mQuery.getStorableType();
         }
 
-        public Cursor<S> fetch() throws FetchException {
+        public Cursor<S> fetchAll() throws FetchException {
             return mQuery.fetch();
         }
     }

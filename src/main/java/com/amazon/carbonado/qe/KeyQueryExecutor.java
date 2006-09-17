@@ -69,7 +69,7 @@ public class KeyQueryExecutor<S extends Storable> extends AbstractQueryExecutor<
     }
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
-        return mSupport.fetch(mIndex, values.getValuesFor(mKeyFilter));
+        return mSupport.fetchOne(mIndex, values.getValuesFor(mKeyFilter));
     }
 
     public Filter<S> getFilter() {
@@ -87,7 +87,7 @@ public class KeyQueryExecutor<S extends Storable> extends AbstractQueryExecutor<
         throws IOException
     {
         indent(app, indentLevel);
-        app.append("index key: ");
+        app.append("index key match: ");
         app.append(mIndex.getStorableType().getName());
         newline(app);
         indent(app, indentLevel);
@@ -110,7 +110,7 @@ public class KeyQueryExecutor<S extends Storable> extends AbstractQueryExecutor<
          * @param index index to open, which may be a primary key index
          * @param identityValues of exactly matching values to apply to index
          */
-        Cursor<S> fetch(StorableIndex<S> index, Object[] identityValues)
+        Cursor<S> fetchOne(StorableIndex<S> index, Object[] identityValues)
             throws FetchException;
     }
 }

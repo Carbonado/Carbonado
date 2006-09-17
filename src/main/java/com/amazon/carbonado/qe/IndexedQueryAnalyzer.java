@@ -83,8 +83,10 @@ public class IndexedQueryAnalyzer<S extends Storable> {
      * @param ordering optional properties which define desired ordering
      * @throws IllegalArgumentException if filter is not supported
      */
-    public Result analyze(Filter<S> filter, OrderingList<S> ordering) {
-        if (!filter.isBound()) {
+    public Result analyze(Filter<S> filter, OrderingList<S> ordering)
+        throws SupportException, RepositoryException
+    {
+        if (filter != null && !filter.isBound()) {
             throw new IllegalArgumentException("Filter must be bound");
         }
 
@@ -151,7 +153,9 @@ public class IndexedQueryAnalyzer<S extends Storable> {
     /**
      * @return null if no foreign indexes for property
      */
-    private synchronized ForeignIndexes<S> getForeignIndexes(ChainedProperty<S> chainedProp) {
+    private synchronized ForeignIndexes<S> getForeignIndexes(ChainedProperty<S> chainedProp)
+        throws SupportException, RepositoryException
+    {
         // Remove the last property as it is expected to be a simple storable
         // property instead of a joined Storable.
         chainedProp = chainedProp.trim();
@@ -198,7 +202,9 @@ public class IndexedQueryAnalyzer<S extends Storable> {
      * Checks if the property is a join and its internal properties are fully
      * indexed.
      */
-    private boolean isProperJoin(StorableProperty<?> property) {
+    private boolean isProperJoin(StorableProperty<?> property)
+        throws SupportException, RepositoryException
+    {
         if (!property.isJoin() || property.isQuery()) {
             return false;
         }
@@ -227,7 +233,9 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         return false;
     }
 
-    private <F extends Storable> boolean simpleAnalyze(Filter<F> filter) {
+    private <F extends Storable> boolean simpleAnalyze(Filter<F> filter)
+        throws SupportException, RepositoryException
+    {
         Collection<StorableIndex<F>> indexes = indexesFor(filter.getStorableType());
 
         if (indexes != null) {
@@ -242,7 +250,9 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         return false;
     }
 
-    private <T extends Storable> Collection<StorableIndex<T>> indexesFor(Class<T> type) {
+    private <T extends Storable> Collection<StorableIndex<T>> indexesFor(Class<T> type)
+        throws SupportException, RepositoryException
+    {
         return mRepoAccess.storageAccessFor(type).getAllIndexes();
     }
 
@@ -509,10 +519,6 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         {
             CompositeScore score = getCompositeScore();
             FilteringScore fScore = score.getFilteringScore();
-
-            if (!fScore.hasAnyMatches()) {
-                return new FullScanIndexedQueryExecutor<T>(access, index);
-            }
             if (fScore.isKeyMatch()) {
                 return new KeyQueryExecutor<T>(access, index, fScore);
             }

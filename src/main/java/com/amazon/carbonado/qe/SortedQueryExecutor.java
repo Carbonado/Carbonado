@@ -117,10 +117,10 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
         throws IOException
     {
         indent(app, indentLevel);
-        if (mHandledOrdering.size() == 0) {
-            app.append("full sort: ");
-        } else {
-            app.append("finish sort: ");
+        app.append("sort: ");
+        if (mHandledOrdering.size() > 0) {
+            app.append(mHandledOrdering.toString());
+            app.append(", ");
         }
         app.append(mRemainderOrdering.toString());
         newline(app);

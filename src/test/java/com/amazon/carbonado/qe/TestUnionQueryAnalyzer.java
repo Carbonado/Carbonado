@@ -68,6 +68,15 @@ public class TestUnionQueryAnalyzer extends TestCase {
         super(name);
     }
 
+    public void testNullFilter() throws Exception {
+        UnionQueryAnalyzer uqa =
+            new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
+        UnionQueryAnalyzer.Result result = uqa.analyze(null, null);
+        List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
+
+        assertEquals(1, subResults.size());
+    }
+
     public void testSingleSubResult() throws Exception {
         UnionQueryAnalyzer uqa =
             new UnionQueryAnalyzer(Shipment.class, TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);

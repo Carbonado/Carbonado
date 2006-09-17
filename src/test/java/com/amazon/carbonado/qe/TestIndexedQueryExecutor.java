@@ -680,7 +680,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         assertEquals(values.getFilter(), executor.getFilter());
         List<OrderedProperty<StorableTestBasic>> expectedOrdering =
-            makeOrdering(StorableTestBasic.class, "intProp", "-doubleProp", "stringProp");
+            makeOrdering(StorableTestBasic.class, "stringProp");
         assertEquals(expectedOrdering, executor.getOrdering());
     }
 
@@ -711,14 +711,14 @@ public class TestIndexedQueryExecutor extends TestCase {
     static class MockSupport<S extends Storable> implements IndexedQueryExecutor.Support<S> {
         Mock<S> mMock;
 
-        public Cursor<S> fetch(StorableIndex<S> index,
-                               Object[] identityValues,
-                               BoundaryType rangeStartBoundary,
-                               Object rangeStartValue,
-                               BoundaryType rangeEndBoundary,
-                               Object rangeEndValue,
-                               boolean reverseRange,
-                               boolean reverseOrder)
+        public Cursor<S> fetchSubset(StorableIndex<S> index,
+                                     Object[] identityValues,
+                                     BoundaryType rangeStartBoundary,
+                                     Object rangeStartValue,
+                                     BoundaryType rangeEndBoundary,
+                                     Object rangeEndValue,
+                                     boolean reverseRange,
+                                     boolean reverseOrder)
         {
             mMock.mIdentityValues = identityValues;
             mMock.mRangeStartBoundary = rangeStartBoundary;

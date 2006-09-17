@@ -97,6 +97,19 @@ public class OrderingList<S extends Storable> extends AbstractList<OrderedProper
         return list;
     }
 
+    /**
+     * Returns a canonical instance composed of the given orderings.
+     */
+    public static <S extends Storable> OrderingList<S> get(List<OrderedProperty<S>> orderings) {
+        OrderingList<S> list = emptyList();
+        if (orderings != null && orderings.size() > 0) {
+            for (OrderedProperty<S> property : orderings) {
+                list = list.concat(property);
+            }
+        }
+        return list;
+    }
+
     private static <S extends Storable> OrderingList<S> getListHead(Class<S> type) {
         OrderingList<S> node;
         synchronized (cCache) {

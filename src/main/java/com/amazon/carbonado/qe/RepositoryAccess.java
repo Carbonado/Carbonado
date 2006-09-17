@@ -20,6 +20,7 @@ package com.amazon.carbonado.qe;
 
 import com.amazon.carbonado.MalformedTypeException;
 import com.amazon.carbonado.Repository;
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 
@@ -40,5 +41,6 @@ public interface RepositoryAccess {
      * @throws IllegalArgumentException if specified type is null
      * @throws MalformedTypeException if specified type is not suitable
      */
-    <S extends Storable> StorageAccess<S> storageAccessFor(Class<S> type);
+    <S extends Storable> StorageAccess<S> storageAccessFor(Class<S> type)
+        throws SupportException, RepositoryException;
 }

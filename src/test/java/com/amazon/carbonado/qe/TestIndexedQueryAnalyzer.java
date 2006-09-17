@@ -309,26 +309,22 @@ public class TestIndexedQueryAnalyzer extends TestCase {
             throw new UnsupportedOperationException();
         }
 
-        public Cursor<S> fetch() {
+        public Cursor<S> fetchAll() {
             throw new UnsupportedOperationException();
         }
 
-        public Cursor<S> fetch(StorableIndex<S> index) {
+        public Cursor<S> fetchOne(StorableIndex<S> index, Object[] identityValues) {
             throw new UnsupportedOperationException();
         }
 
-        public Cursor<S> fetch(StorableIndex<S> index, Object[] identityValues) {
-            throw new UnsupportedOperationException();
-        }
-
-        public Cursor<S> fetch(StorableIndex<S> index,
-                               Object[] identityValues,
-                               BoundaryType rangeStartBoundary,
-                               Object rangeStartValue,
-                               BoundaryType rangeEndBoundary,
-                               Object rangeEndValue,
-                               boolean reverseRange,
-                               boolean reverseOrder)
+        public Cursor<S> fetchSubset(StorableIndex<S> index,
+                                     Object[] identityValues,
+                                     BoundaryType rangeStartBoundary,
+                                     Object rangeStartValue,
+                                     BoundaryType rangeEndBoundary,
+                                     Object rangeEndValue,
+                                     boolean reverseRange,
+                                     boolean reverseOrder)
         {
             throw new UnsupportedOperationException();
         }

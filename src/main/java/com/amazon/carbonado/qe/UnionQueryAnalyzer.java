@@ -80,8 +80,10 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
      * @param filter optional filter which must be {@link Filter#isBound bound}
      * @param ordering optional properties which define desired ordering
      */
-    public Result analyze(Filter<S> filter, OrderingList<S> ordering) {
-        if (!filter.isBound()) {
+    public Result analyze(Filter<S> filter, OrderingList<S> ordering)
+        throws SupportException, RepositoryException
+    {
+        if (filter != null && !filter.isBound()) {
             throw new IllegalArgumentException("Filter must be bound");
         }
 
@@ -89,7 +91,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
             ordering = OrderingList.emptyList();
         }
 
-        return new Result(buildSubResults(filter, ordering));
+        return buildResult(filter, ordering);
     }
 
     /**
@@ -108,14 +110,19 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
      * Splits the filter into sub-results, merges sub-results, and possibly
      * imposes a total ordering.
      */
-    private List<IndexedQueryAnalyzer<S>.Result>
-        buildSubResults(Filter<S> filter, OrderingList<S> ordering)
+    private Result buildResult(Filter<S> filter, OrderingList<S> ordering)
+        throws SupportException, RepositoryException
     {
-        List<IndexedQueryAnalyzer<S>.Result> subResults = splitIntoSubResults(filter, ordering);
+        List<IndexedQueryAnalyzer<S>.Result> subResults;
+        if (filter == null) {
+            subResults = Collections.singletonList(mIndexAnalyzer.analyze(filter, ordering));
+        } else {
+            subResults = splitIntoSubResults(filter, ordering);
+        }
 
         if (subResults.size() <= 1) {
             // Total ordering not required.
-            return subResults;
+            return new Result(subResults);
         }
 
         // If any orderings have an unspecified direction, switch to ASCENDING
@@ -141,7 +148,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
 
             if (subResults.size() <= 1) {
                 // Total ordering no longer required.
-                return subResults;
+                return new Result(subResults);
             }
         }
 
@@ -155,7 +162,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
             ChainedProperty<S> property = op.getChainedProperty();
             if (pruneKeys(keys, property)) {
                 // Found a key which is fully covered, indicating total ordering.
-                return subResults;
+                return new Result(subResults, ordering);
             }
         }
 
@@ -224,7 +231,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
             }
         }
 
-        return subResults;
+        return new Result(subResults, ordering);
     }
 
     /**
@@ -272,7 +279,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
     private Tally bestTally(Iterable<Tally> tallies) {
         Tally best = null;
         for (Tally tally : tallies) {
-            if (best == null || tally.compareTo(best) < 0) {
+            if (best == null || tally.compareTo(best) > 0) {
                 best = tally;
             }
         }
@@ -298,12 +305,16 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
      */
     private List<IndexedQueryAnalyzer<S>.Result>
         splitIntoSubResults(Filter<S> filter, OrderingList<S> ordering)
+        throws SupportException, RepositoryException
     {
         // Required for split to work.
         Filter<S> dnfFilter = filter.disjunctiveNormalForm();
 
         Splitter splitter = new Splitter(ordering);
-        dnfFilter.accept(splitter, null);
+        RepositoryException e = dnfFilter.accept(splitter, null);
+        if (e != null) {
+            throw e;
+        }
 
         List<IndexedQueryAnalyzer<S>.Result> subResults = splitter.mSubResults;
 
@@ -373,7 +384,9 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
         return mergedResults;
     }
 
-    Storage storageDelegate(IndexedQueryAnalyzer<S>.Result result) {
+    Storage storageDelegate(IndexedQueryAnalyzer<S>.Result result)
+        throws SupportException, RepositoryException
+    {
         StorableIndex<S> localIndex = result.getLocalIndex();
         StorageAccess<S> localAccess = mRepoAccess.storageAccessFor(getStorableType());
 
@@ -389,12 +402,18 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
 
     public class Result {
         private final List<IndexedQueryAnalyzer<S>.Result> mSubResults;
+        private final OrderingList<S> mTotalOrdering;
 
         Result(List<IndexedQueryAnalyzer<S>.Result> subResults) {
+            this(subResults, null);
+        }
+
+        Result(List<IndexedQueryAnalyzer<S>.Result> subResults, OrderingList<S> totalOrdering) {
             if (subResults.size() < 1) {
                 throw new IllegalArgumentException();
             }
             mSubResults = Collections.unmodifiableList(subResults);
+            mTotalOrdering = totalOrdering;
         }
 
         /**
@@ -403,6 +422,13 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
          */
         public List<IndexedQueryAnalyzer<S>.Result> getSubResults() {
             return mSubResults;
+        }
+
+        /**
+         * Returns a total ordering, if one was imposed. Otherwise, null is returned.
+         */
+        public OrderingList<S> getTotalOrdering() {
+            return mTotalOrdering;
         }
 
         /**
@@ -423,7 +449,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
                 executors.add(subResults.get(i).createExecutor());
             }
 
-            return new UnionQueryExecutor<S>(executors);
+            return new UnionQueryExecutor<S>(executors, mTotalOrdering);
         }
     }
 
@@ -484,7 +510,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
         }
 
         /**
-         * Returns -1 if this tally is better.
+         * Returns -1 if this tally is worse.
          */
         public int compareTo(Tally other) {
             int thisBest = getBestCount();
@@ -497,13 +523,20 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
             }
             return 0;
         }
+
+        public String toString() {
+            return "Tally: {property=" + mProperty +
+                ", asc=" + mAscendingCount +
+                ", desc=" + mDescendingCount +
+                '}';
+        }
     }
 
     /**
      * Analyzes a disjunctive normal filter into sub-results over filters that
      * only contain 'and' operations.
      */
-    private class Splitter extends Visitor<S, Object, Object> {
+    private class Splitter extends Visitor<S, RepositoryException, Object> {
         private final OrderingList<S> mOrdering;
 
         final List<IndexedQueryAnalyzer<S>.Result> mSubResults;
@@ -514,37 +547,55 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
         }
 
         @Override
-        public Object visit(OrFilter<S> filter, Object param) {
-            Filter<S> left = filter.getLeftFilter();
-            if (!(left instanceof OrFilter)) {
-                subAnalyze(left);
-            } else {
-                left.accept(this, param);
+        public RepositoryException visit(OrFilter<S> filter, Object param) {
+            try {
+                Filter<S> left = filter.getLeftFilter();
+                if (!(left instanceof OrFilter)) {
+                    subAnalyze(left);
+                } else {
+                    RepositoryException e = left.accept(this, param);
+                    if (e != null) {
+                        return e;
+                    }
+                }
+                Filter<S> right = filter.getRightFilter();
+                if (!(right instanceof OrFilter)) {
+                    subAnalyze(right);
+                } else {
+                    RepositoryException e = right.accept(this, param);
+                    if (e != null) {
+                        return e;
+                    }
+                }
+                return null;
+            } catch (RepositoryException e) {
+                return e;
             }
-            Filter<S> right = filter.getRightFilter();
-            if (!(right instanceof OrFilter)) {
-                subAnalyze(right);
-            } else {
-                right.accept(this, param);
-            }
-            return null;
         }
 
         // This method should only be called if root filter has no 'or' operators.
         @Override
-        public Object visit(AndFilter<S> filter, Object param) {
-            subAnalyze(filter);
-            return null;
+        public RepositoryException visit(AndFilter<S> filter, Object param) {
+            try {
+                subAnalyze(filter);
+                return null;
+            } catch (RepositoryException e) {
+                return e;
+            }
         }
 
         // This method should only be called if root filter has no logical operators.
         @Override
-        public Object visit(PropertyFilter<S> filter, Object param) {
-            subAnalyze(filter);
-            return null;
+        public RepositoryException visit(PropertyFilter<S> filter, Object param) {
+            try {
+                subAnalyze(filter);
+                return null;
+            } catch (RepositoryException e) {
+                return e;
+            }
         }
 
-        private void subAnalyze(Filter<S> subFilter) {
+        private void subAnalyze(Filter<S> subFilter) throws SupportException, RepositoryException {
             IndexedQueryAnalyzer<S>.Result subResult =
                 mIndexAnalyzer.analyze(subFilter, mOrdering);
 

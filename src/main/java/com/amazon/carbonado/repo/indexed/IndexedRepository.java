@@ -27,6 +27,7 @@ import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.MalformedTypeException;
 import com.amazon.carbonado.Repository;
+import static com.amazon.carbonado.RepositoryBuilder.RepositoryReference;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
@@ -40,6 +41,9 @@ import com.amazon.carbonado.capability.StorableInfoCapability;
 
 import com.amazon.carbonado.info.StorableIntrospector;
 
+import com.amazon.carbonado.qe.RepositoryAccess;
+import com.amazon.carbonado.qe.StorageAccess;
+
 /**
  * Wraps another repository in order to make it support indexes. The wrapped
  * repository must support creation of new types.
@@ -47,15 +51,18 @@ import com.amazon.carbonado.info.StorableIntrospector;
  * @author Brian S O'Neill
  */
 class IndexedRepository implements Repository,
+                                   RepositoryAccess,
                                    IndexInfoCapability,
                                    StorableInfoCapability,
                                    IndexEntryAccessCapability
 {
+    private final RepositoryReference mRootRef;
     private final Repository mRepository;
     private final String mName;
     private final Map<Class<?>, IndexedStorage<?>> mStorages;
 
-    IndexedRepository(String name, Repository repository) {
+    IndexedRepository(RepositoryReference rootRef, String name, Repository repository) {
+        mRootRef = rootRef;
         mRepository = repository;
         mName = name;
         mStorages = new IdentityHashMap<Class<?>, IndexedStorage<?>>();
@@ -87,7 +94,7 @@ class IndexedRepository implements Repository,
                             (type, "Storable cannot have any indexes: " + type +
                              ", " + indexCount);
                     }
-                    return mRepository.storageFor(type);
+                    return masterStorage;
                 }
 
                 storage = new IndexedStorage<S>(this, masterStorage);
@@ -170,6 +177,16 @@ class IndexedRepository implements Repository,
 
     public void close() {
         mRepository.close();
+    }
+
+    public Repository getRootRepository() {
+        return mRootRef.get();
+    }
+
+    public <S extends Storable> StorageAccess<S> storageAccessFor(Class<S> type)
+        throws SupportException, RepositoryException
+    {
+        return (StorageAccess<S>) storageFor(type);
     }
 
     Storage<?> getIndexEntryStorageFor(Class<? extends Storable> indexEntryClass)
