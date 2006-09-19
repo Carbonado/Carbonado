@@ -305,7 +305,6 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
                               Object[] identityValues)
         throws FetchException
     {
-        // TODO: optimize fetching one by loading storable by primary key
         return fetchSubset(index, identityValues,
                            BoundaryType.OPEN, null,
                            BoundaryType.OPEN, null,
