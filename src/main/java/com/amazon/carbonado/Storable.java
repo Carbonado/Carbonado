@@ -416,8 +416,8 @@ public interface Storable<S extends Storable<S>> {
     String toString();
 
     /**
-     * Returns a string for debugging purposes that contains only supported
-     * primary key property names and values for this object. Unsupported
+     * Returns a string for debugging purposes that contains supported
+     * key property names and values for this object. Unsupported
      * {@link Independent independent} properties are not included.
      */
     String toStringKeyOnly();

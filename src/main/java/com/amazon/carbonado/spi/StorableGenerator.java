@@ -3138,6 +3138,42 @@ public final class StorableGenerator<S extends Storable> {
 
         b.loadConstant('}');
         invokeAppend(b, charParam);
+
+        // For key string, also show all the alternate keys. This makes the
+        // FetchNoneException message more helpful.
+        if (keyOnly) {
+            int altKeyCount = mInfo.getAlternateKeyCount();
+            for (int i=0; i<altKeyCount; i++) {
+                b.loadConstant(", {");
+                invokeAppend(b, stringParam);
+
+                StorableKey<S> key = mInfo.getAlternateKey(i);
+
+                ordinal = 0;
+                for (OrderedProperty<S> op : key.getProperties()) {
+                    StorableProperty<S> property = op.getChainedProperty().getPrimeProperty();
+
+                    Label skipPrint = b.createLabel();
+
+                    // Check if independent property is supported, and skip if not.
+                    if (property.isIndependent()) {
+                        addSkipIndependent(b, null, property, skipPrint);
+                    }
+
+                    if (ordinal++ > 0) {
+                        b.loadConstant(", ");
+                        invokeAppend(b, stringParam);
+                    }
+                    addPropertyAppendCall(b, property, stringParam, charParam);
+
+                    skipPrint.setLocation();
+                }
+
+                b.loadConstant('}');
+                invokeAppend(b, charParam);
+            }
+        }
+
         b.invokeVirtual(stringBuilder, TO_STRING_METHOD_NAME, TypeDesc.STRING, null);
         b.returnValue(TypeDesc.STRING);
     }
