@@ -20,6 +20,8 @@ package com.amazon.carbonado.cursor;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -51,6 +53,43 @@ public class TestCursors extends TestCase {
     }
 
     protected void tearDown() {
+    }
+
+    public void testSingleton() throws Exception {
+        try {
+            new SingletonCursor<Object>(null);
+            fail();
+        } catch (IllegalArgumentException e) {
+        }
+
+        Cursor<String> cursor = new SingletonCursor<String>("hello");
+
+        assertTrue(cursor.hasNext());
+        assertEquals("hello", cursor.next());
+        assertFalse(cursor.hasNext());
+        try {
+            cursor.next();
+            fail();
+        } catch (NoSuchElementException e) {
+        }
+
+        assertEquals(0, cursor.skipNext(1));
+
+        cursor = new SingletonCursor<String>("world");
+        List<String> list = cursor.toList(0);
+        assertEquals(0, list.size());
+        list = cursor.toList(10);
+        assertEquals(1, list.size());
+        assertEquals("world", list.get(0));
+
+        cursor = new SingletonCursor<String>("world");
+        cursor.close();
+        assertFalse(cursor.hasNext());
+
+        cursor = new SingletonCursor<String>("world");
+        assertEquals(1, cursor.skipNext(2));
+        assertEquals(0, cursor.skipNext(1));
+        assertFalse(cursor.hasNext());
     }
 
     public void testUnion() throws Exception {

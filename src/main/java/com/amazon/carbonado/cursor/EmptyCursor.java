@@ -29,6 +29,7 @@ import com.amazon.carbonado.Cursor;
  * Special cursor implementation that is empty.
  *
  * @author Brian S O'Neill
+ * @see SingletonCursor
  */
 public class EmptyCursor<S> implements Cursor<S> {
     private static final Cursor EMPTY_CURSOR = new EmptyCursor();
