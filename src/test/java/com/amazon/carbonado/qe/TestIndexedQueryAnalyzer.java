@@ -45,6 +45,7 @@ import com.amazon.carbonado.stored.Address;
 import com.amazon.carbonado.stored.Order;
 import com.amazon.carbonado.stored.Shipment;
 import com.amazon.carbonado.stored.Shipper;
+import com.amazon.carbonado.stored.StorableTestBasic;
 
 import static com.amazon.carbonado.qe.TestIndexedQueryExecutor.Mock;
 
@@ -293,6 +294,14 @@ public class TestIndexedQueryAnalyzer extends TestCase {
             } else if (Shipper.class.isAssignableFrom(mType)) {
                 indexes = new StorableIndex[] {
                     makeIndex(mType, "shipperID")
+                };
+            } else if (StorableTestBasic.class.isAssignableFrom(mType)) {
+                indexes = new StorableIndex[] {
+                    makeIndex(mType, "id").unique(true).clustered(true),
+                    makeIndex(mType, "stringProp", "doubleProp").unique(true),
+                    makeIndex(mType, "-stringProp", "-intProp", "~id").unique(true),
+                    makeIndex(mType, "+intProp", "stringProp", "~id").unique(true),
+                    makeIndex(mType, "-doubleProp", "+longProp", "~id").unique(true),
                 };
             } else {
                 indexes = new StorableIndex[0];

@@ -39,6 +39,7 @@ import com.amazon.carbonado.stored.Address;
 import com.amazon.carbonado.stored.Order;
 import com.amazon.carbonado.stored.Shipment;
 import com.amazon.carbonado.stored.Shipper;
+import com.amazon.carbonado.stored.StorableTestBasic;
 
 import static com.amazon.carbonado.qe.TestIndexedQueryExecutor.Mock;
 
@@ -112,6 +113,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
                                                    "shipmentID = ? | orderID = ?");
         filter = filter.bind();
         UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+        assertEquals(OrderingList.get(Shipment.class, "+shipmentID"), result.getTotalOrdering());
         List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
 
         assertEquals(2, subResults.size());
@@ -143,6 +145,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
                                                    "shipmentID = ? | orderID > ?");
         filter = filter.bind();
         UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+        assertEquals(OrderingList.get(Shipment.class, "+shipmentID"), result.getTotalOrdering());
         List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
 
         assertEquals(2, subResults.size());
@@ -157,19 +160,14 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertEquals(null, res_0.getForeignProperty());
         assertEquals(0, res_0.getRemainderOrdering().size());
 
-        // Note: index that has proper ordering is preferred because "orderId > ?"
-        // filter does not specify a complete range. It is not expected to actually
-        // filter much, so we choose to avoid a large sort instead.
         assertTrue(res_1.handlesAnything());
-        assertFalse(res_1.getCompositeScore().getFilteringScore().hasRangeStart());
+        assertTrue(res_1.getCompositeScore().getFilteringScore().hasRangeStart());
         assertFalse(res_1.getCompositeScore().getFilteringScore().hasRangeEnd());
-        assertEquals(makeIndex(Shipment.class, "shipmentID"), res_1.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "orderID"), res_1.getLocalIndex());
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
-        assertEquals(0, res_0.getRemainderOrdering().size());
-        // Remainder filter exists because the "orderID" index was not chosen.
-        assertEquals(Filter.filterFor(Shipment.class, "orderID > ?").bind(),
-                     res_1.getRemainderFilter());
+        assertEquals(1, res_1.getRemainderOrdering().size());
+        assertEquals("+shipmentID", res_1.getRemainderOrdering().get(0).toString());
     }
 
     public void testSimpleUnion3() throws Exception {
@@ -179,6 +177,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
                                                    "shipmentID = ? | orderID > ? & orderID <= ?");
         filter = filter.bind();
         UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+        assertEquals(OrderingList.get(Shipment.class, "+shipmentID"), result.getTotalOrdering());
         List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
 
         assertEquals(2, subResults.size());
@@ -222,6 +221,8 @@ public class TestUnionQueryAnalyzer extends TestCase {
         OrderingList<Shipment> orderings =
             makeOrdering(Shipment.class, "~shipmentID", "~orderID");
         UnionQueryAnalyzer.Result result = uqa.analyze(filter, orderings);
+        assertEquals(OrderingList.get(Shipment.class, "+shipmentID", "+orderID"),
+                     result.getTotalOrdering());
         List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
 
         assertEquals(2, subResults.size());
@@ -341,20 +342,234 @@ public class TestUnionQueryAnalyzer extends TestCase {
         IndexedQueryAnalyzer<Shipment>.Result res_1 = subResults.get(1);
 
         assertTrue(res_0.handlesAnything());
-        assertEquals(makeIndex(Shipment.class, "shipmentID"), res_0.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "orderID"), res_0.getLocalIndex());
         assertEquals(null, res_0.getForeignIndex());
         assertEquals(null, res_0.getForeignProperty());
-        assertEquals(0, res_0.getRemainderOrdering().size());
-        assertEquals(Filter.filterFor(Shipment.class, "shipmentNotes = ?").bind(),
+        assertEquals(1, res_0.getRemainderOrdering().size());
+        assertEquals("+shipmentID", res_0.getRemainderOrdering().get(0).toString());
+        assertEquals(Filter.filterFor(Shipment.class, "order.orderTotal > ?").bind(),
                      res_0.getRemainderFilter());
 
         assertTrue(res_1.handlesAnything());
-        assertEquals(makeIndex(Shipment.class, "orderID"), res_1.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "shipmentID"), res_1.getLocalIndex());
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
-        assertEquals(1, res_1.getRemainderOrdering().size());
-        assertEquals("+shipmentID", res_1.getRemainderOrdering().get(0).toString());
-        assertEquals(Filter.filterFor(Shipment.class, "order.orderTotal > ?").bind(),
+        assertEquals(0, res_1.getRemainderOrdering().size());
+        assertEquals(Filter.filterFor(Shipment.class, "shipmentNotes = ?").bind(),
                      res_1.getRemainderFilter());
+
+    }
+
+    public void testComplexUnionPlan() throws Exception {
+        UnionQueryAnalyzer uqa =
+            new UnionQueryAnalyzer(StorableTestBasic.class,
+                                   TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
+        Filter<StorableTestBasic> filter = Filter.filterFor
+            (StorableTestBasic.class, "doubleProp = ? | (stringProp = ? & intProp = ?) | id > ?");
+        filter = filter.bind();
+        UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+        assertEquals(OrderingList.get(StorableTestBasic.class, "+id"), result.getTotalOrdering());
+
+        QueryExecutor<StorableTestBasic> exec = result.createExecutor();
+
+        assertEquals(filter, exec.getFilter());
+        assertEquals(OrderingList.get(StorableTestBasic.class, "+id"), exec.getOrdering());
+
+        List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
+
+        assertEquals(3, subResults.size());
+
+        StringBuffer buf = new StringBuffer();
+        exec.printPlan(buf, 0, null);
+        String plan = buf.toString();
+
+        String expexted =
+            "union\n" +
+            "  sort: [+id]\n" +
+            "    index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "    ...index: {properties=[-doubleProp, +longProp, ~id], unique=true}\n" +
+            "    ...identity filter: doubleProp = ?\n" +
+            "  index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "  ...index: {properties=[-stringProp, -intProp, ~id], unique=true}\n" +
+            "  ...identity filter: stringProp = ? & intProp = ?\n" +
+            "  clustered index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "  ...index: {properties=[+id], unique=true}\n" +
+            "  ...range filter: id > ?\n";
+
+        // Test test will fail if the format of the plan changes.
+        assertEquals(expexted, plan);
+    }
+
+    public void testComplexUnionPlan2() throws Exception {
+        UnionQueryAnalyzer uqa =
+            new UnionQueryAnalyzer(StorableTestBasic.class,
+                                   TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
+        Filter<StorableTestBasic> filter = Filter.filterFor
+            (StorableTestBasic.class, "doubleProp = ? | stringProp = ?");
+        filter = filter.bind();
+        UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+        assertEquals(OrderingList.get(StorableTestBasic.class, "+doubleProp", "+stringProp"),
+                     result.getTotalOrdering());
+
+        QueryExecutor<StorableTestBasic> exec = result.createExecutor();
+
+        assertEquals(filter, exec.getFilter());
+        assertEquals(OrderingList.get(StorableTestBasic.class, "+doubleProp", "+stringProp"),
+                     exec.getOrdering());
+
+        List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
+
+        assertEquals(2, subResults.size());
+
+        StringBuffer buf = new StringBuffer();
+        exec.printPlan(buf, 0, null);
+        String plan = buf.toString();
+
+        String expexted =
+            "union\n" +
+            "  sort: [+stringProp]\n" +
+            "    index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "    ...index: {properties=[-doubleProp, +longProp, ~id], unique=true}\n" +
+            "    ...identity filter: doubleProp = ?\n" +
+            "  index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "  ...index: {properties=[+stringProp, +doubleProp], unique=true}\n" +
+            "  ...identity filter: stringProp = ?\n";
+
+        // Test test will fail if the format of the plan changes.
+        assertEquals(expexted, plan);
+    }
+
+    public void testComplexUnionPlan3() throws Exception {
+        UnionQueryAnalyzer uqa =
+            new UnionQueryAnalyzer(StorableTestBasic.class,
+                                   TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
+        Filter<StorableTestBasic> filter = Filter.filterFor
+            (StorableTestBasic.class, "stringProp = ? | stringProp = ?");
+        filter = filter.bind();
+        UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+
+        boolean a = result.getTotalOrdering() == 
+            OrderingList.get(StorableTestBasic.class, "+doubleProp", "+stringProp");
+        boolean b = result.getTotalOrdering() == 
+            OrderingList.get(StorableTestBasic.class, "+stringProp", "+doubleProp");
+            
+        assertTrue(a || b);
+
+        QueryExecutor<StorableTestBasic> exec = result.createExecutor();
+
+        assertEquals(filter, exec.getFilter());
+
+        a = exec.getOrdering() == 
+            OrderingList.get(StorableTestBasic.class, "+doubleProp", "+stringProp");
+        b = exec.getOrdering() == 
+            OrderingList.get(StorableTestBasic.class, "+stringProp", "+doubleProp");
+
+        assertTrue(a || b);
+
+        List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
+
+        assertEquals(2, subResults.size());
+
+        StringBuffer buf = new StringBuffer();
+        exec.printPlan(buf, 0, null);
+        String plan = buf.toString();
+
+        String expexted =
+            "union\n" +
+            "  index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "  ...index: {properties=[+stringProp, +doubleProp], unique=true}\n" +
+            "  ...identity filter: stringProp = ?\n" +
+            "  index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "  ...index: {properties=[+stringProp, +doubleProp], unique=true}\n" +
+            "  ...identity filter: stringProp = ?[2]\n";
+
+        // Test test will fail if the format of the plan changes.
+        assertEquals(expexted, plan);
+    }
+
+    public void testComplexUnionPlan4() throws Exception {
+        UnionQueryAnalyzer uqa =
+            new UnionQueryAnalyzer(StorableTestBasic.class,
+                                   TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
+        Filter<StorableTestBasic> filter = Filter.filterFor
+            (StorableTestBasic.class, "doubleProp = ? | stringProp = ? | id > ?");
+        filter = filter.bind();
+        UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+        assertEquals(OrderingList.get(StorableTestBasic.class, "+doubleProp", "+id"),
+                     result.getTotalOrdering());
+
+        QueryExecutor<StorableTestBasic> exec = result.createExecutor();
+
+        assertEquals(filter, exec.getFilter());
+        assertEquals(OrderingList.get(StorableTestBasic.class, "+doubleProp", "+id"),
+                     exec.getOrdering());
+
+        List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
+
+        assertEquals(3, subResults.size());
+
+        StringBuffer buf = new StringBuffer();
+        exec.printPlan(buf, 0, null);
+        String plan = buf.toString();
+
+        String expexted =
+            "union\n" +
+            "  sort: [+id]\n" +
+            "    index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "    ...index: {properties=[-doubleProp, +longProp, ~id], unique=true}\n" +
+            "    ...identity filter: doubleProp = ?\n" +
+            "  sort: [+doubleProp], [+id]\n" +
+            "    index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "    ...index: {properties=[+stringProp, +doubleProp], unique=true}\n" +
+            "    ...identity filter: stringProp = ?\n" +
+            "  sort: [+doubleProp, +id]\n" +
+            "    clustered index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "    ...index: {properties=[+id], unique=true}\n" +
+            "    ...range filter: id > ?\n";
+
+        // Test test will fail if the format of the plan changes.
+        assertEquals(expexted, plan);
+    }
+
+    public void testComplexUnionPlan5() throws Exception {
+        UnionQueryAnalyzer uqa =
+            new UnionQueryAnalyzer(StorableTestBasic.class,
+                                   TestIndexedQueryAnalyzer.RepoAccess.INSTANCE);
+        Filter<StorableTestBasic> filter = Filter.filterFor
+            (StorableTestBasic.class, "stringProp = ? | stringProp = ? | id > ?");
+        filter = filter.bind();
+        UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
+        assertEquals(OrderingList.get(StorableTestBasic.class, "+stringProp", "+doubleProp"),
+                     result.getTotalOrdering());
+
+        QueryExecutor<StorableTestBasic> exec = result.createExecutor();
+
+        assertEquals(filter, exec.getFilter());
+        assertEquals(OrderingList.get(StorableTestBasic.class, "+stringProp", "+doubleProp"),
+                     exec.getOrdering());
+
+        List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
+
+        assertEquals(3, subResults.size());
+
+        StringBuffer buf = new StringBuffer();
+        exec.printPlan(buf, 0, null);
+        String plan = buf.toString();
+
+        String expexted =
+            "union\n" +
+            "  index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "  ...index: {properties=[+stringProp, +doubleProp], unique=true}\n" +
+            "  ...identity filter: stringProp = ?\n" +
+            "  index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "  ...index: {properties=[+stringProp, +doubleProp], unique=true}\n" +
+            "  ...identity filter: stringProp = ?[2]\n" +
+            "  sort: [+stringProp, +doubleProp]\n" +
+            "    clustered index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
+            "    ...index: {properties=[+id], unique=true}\n" +
+            "    ...range filter: id > ?\n";
+
+        // Test test will fail if the format of the plan changes.
+        assertEquals(expexted, plan);
     }
 }

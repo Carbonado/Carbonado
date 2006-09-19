@@ -371,6 +371,15 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         }
 
         /**
+         * Returns true if local or foreign index is clustered. Scans of
+         * clustered indexes are generally faster.
+         */
+        public boolean isIndexClustered() {
+            return (mLocalIndex != null && mLocalIndex.isClustered())
+                || (mForeignIndex != null && mForeignIndex.isClustered());
+        }
+
+        /**
          * Returns true if the given result uses the same index as this, and in
          * the same way. The only allowed differences are in the remainder
          * filter and orderings.

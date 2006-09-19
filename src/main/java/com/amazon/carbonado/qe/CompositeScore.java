@@ -166,24 +166,38 @@ public class CompositeScore<S extends Storable> {
                 return result;
             }
 
-            result = FilteringScore.rangeComparator()
-                .compare(first.getFilteringScore(), second.getFilteringScore());
+            FilteringScore<?> firstScore = first.getFilteringScore();
+            FilteringScore<?> secondScore = second.getFilteringScore();
+
+            result = FilteringScore.rangeComparator().compare(firstScore, secondScore);
 
             if (result != 0) {
                 return result;
             }
 
-            result = OrderingScore.fullComparator()
-                .compare(first.getOrderingScore(), second.getOrderingScore());
+            if (considerOrdering(firstScore) && considerOrdering(secondScore)) {
+                // Only consider ordering if index is fast (clustered) or if
+                // index is used for any significant filtering. A full scan of
+                // an index just to get desired ordering can be very expensive
+                // due to random access I/O. A sort operation is often faster.
 
-            if (result != 0) {
-                return result;
+                result = OrderingScore.fullComparator()
+                    .compare(first.getOrderingScore(), second.getOrderingScore());
+
+                if (result != 0) {
+                    return result;
+                }
             }
 
-            result = FilteringScore.fullComparator()
-                .compare(first.getFilteringScore(), second.getFilteringScore());
+            result = FilteringScore.fullComparator().compare(firstScore, secondScore);
 
             return result;
+        }
+
+        private boolean considerOrdering(FilteringScore<?> score) {
+            return score.isIndexClustered()
+                || score.getIdentityCount() > 0
+                || score.hasRangeMatch();
         }
     }
 }

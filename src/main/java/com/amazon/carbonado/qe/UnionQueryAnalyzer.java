@@ -19,6 +19,7 @@
 package com.amazon.carbonado.qe;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.HashSet;
@@ -184,15 +185,28 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
 
         // Keep looping until total ordering achieved.
         while (true) {
-            // For each ordering score, find the next free property. If
-            // property is in the super key increment a tally associated with
-            // property direction. Choose the property with the best tally and
-            // augment the orderings with it and create new sub-results.
-            // Remove the property from the super key and the key set. If any
-            // key is now fully covered, a total ordering has been achieved.
+            // For each ordering score, iterate over the entire unused ordering
+            // properties and select the next free property. If property is in
+            // the super key increment a tally associated with property
+            // direction. Choose the property with the best tally and augment
+            // the orderings with it and create new sub-results. Remove the
+            // property from the super key and the key set. If any key is now
+            // fully covered, a total ordering has been achieved.
 
             for (IndexedQueryAnalyzer<S>.Result result : subResults) {
                 OrderingScore<S> score = result.getCompositeScore().getOrderingScore();
+
+                OrderingList<S> unused = score.getUnusedOrdering();
+                if (unused.size() > 0) {
+                    for (OrderedProperty<S> prop : unused) {
+                        ChainedProperty<S> chainedProp = prop.getChainedProperty();
+                        Tally tally = superKey.get(chainedProp);
+                        if (tally != null) {
+                            tally.increment(prop.getDirection());
+                        }
+                    }
+                }
+
                 OrderingList<S> free = score.getFreeOrdering();
                 if (free.size() > 0) {
                     OrderedProperty<S> prop = free.get(0);
@@ -237,7 +251,9 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
     /**
      * Returns a list of all primary and alternate keys, stripped of ordering.
      */
-    private List<Set<ChainedProperty<S>>> getKeys() {
+    private List<Set<ChainedProperty<S>>> getKeys()
+        throws SupportException, RepositoryException
+    {
         StorableInfo<S> info = StorableIntrospector.examine(mIndexAnalyzer.getStorableType());
         List<Set<ChainedProperty<S>>> keys = new ArrayList<Set<ChainedProperty<S>>>();
 
@@ -245,6 +261,26 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
 
         for (StorableKey<S> altKey : info.getAlternateKeys()) {
             keys.add(stripOrdering(altKey.getProperties()));
+        }
+
+        // Also fold in all unique indexes, just in case they weren't reported
+        // as actual keys.
+        Collection<StorableIndex<S>> indexes =
+            mRepoAccess.storageAccessFor(getStorableType()).getAllIndexes();
+
+        for (StorableIndex<S> index : indexes) {
+            if (!index.isUnique()) {
+                continue;
+            }
+
+            int propCount = index.getPropertyCount();
+            Set<ChainedProperty<S>> props = new HashSet<ChainedProperty<S>>(propCount);
+
+            for (int i=0; i<propCount; i++) {
+                props.add(index.getOrderedProperty(i).getChainedProperty());
+            }
+
+            keys.add(props);
         }
 
         return keys;
@@ -331,6 +367,15 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
             if (!result.handlesAnything()) {
                 full = result;
                 break;
+            }
+            if (!result.getCompositeScore().getFilteringScore().hasAnyMatches()) {
+                if (full == null) {
+                    // This index is used only for its ordering, and it will be
+                    // tentatively selected as the "full scan". If a result is
+                    // found doesn't use an index for anything, then it becomes
+                    // the "full scan" index.
+                    full = result;
+                }
             }
         }
 

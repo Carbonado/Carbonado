@@ -177,6 +177,10 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
             filter = filter == null ? p : filter.and(p);
         }
 
+        if (filter == null) {
+            return Filter.getOpenFilter(getStorableType());
+        }
+        
         return filter;
     }
 
