@@ -64,7 +64,10 @@ public abstract class AbstractCursor<S> implements Cursor<S> {
         return list;
     }
 
-    public int skipNext(int amount) throws FetchException {
+    public synchronized int skipNext(int amount) throws FetchException {
+        // This method is synchronized to avoid potential race conditions
+        // between calls to hasNext and next in the loop below.
+
         if (amount <= 0) {
             if (amount < 0) {
                 throw new IllegalArgumentException("Cannot skip negative amount: " + amount);
