@@ -205,14 +205,14 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
      * Always returns an {@link EmptyCursor}.
      */
     public Cursor<S> fetch() {
-        return EmptyCursor.getEmptyCursor();
+        return EmptyCursor.the();
     }
 
     /**
      * Always returns an {@link EmptyCursor}.
      */
     public Cursor<S> fetchAfter(S start) {
-        return EmptyCursor.getEmptyCursor();
+        return EmptyCursor.the();
     }
 
     /**

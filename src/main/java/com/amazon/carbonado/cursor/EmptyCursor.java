@@ -34,10 +34,10 @@ public class EmptyCursor<S> implements Cursor<S> {
     private static final Cursor EMPTY_CURSOR = new EmptyCursor();
 
     /**
-     * Returns the singleton empty cursor instance.
+     * Returns the empty cursor instance.
      */
     @SuppressWarnings("unchecked")
-    public static <S> Cursor<S> getEmptyCursor() {
+    public static <S> Cursor<S> the() {
         return EMPTY_CURSOR;
     }
 
