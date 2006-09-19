@@ -113,87 +113,79 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
     protected abstract G finishGroup() throws FetchException;
 
     public void close() throws FetchException {
-        synchronized (mCursor) {
-            mCursor.close();
-            mGroupLeader = null;
-            mNextAggregate = null;
-        }
+        mCursor.close();
+        mGroupLeader = null;
+        mNextAggregate = null;
     }
 
     public boolean hasNext() throws FetchException {
-        synchronized (mCursor) {
-            if (mNextAggregate != null) {
-                return true;
-            }
-
-            try {
-                int count = 0;
-                if (mCursor.hasNext()) {
-                    if (mGroupLeader == null) {
-                        beginGroup(mGroupLeader = mCursor.next());
-                    }
-
-                    while (mCursor.hasNext()) {
-                        S groupMember = mCursor.next();
-
-                        if (mGroupComparator.compare(mGroupLeader, groupMember) == 0) {
-                            addToGroup(groupMember);
-                        } else {
-                            G aggregate = finishGroup();
-
-                            beginGroup(mGroupLeader = groupMember);
-
-                            if (aggregate != null) {
-                                mNextAggregate = aggregate;
-                                return true;
-                            }
-                        }
-
-                        interruptCheck(++count);
-                    }
-
-                    G aggregate = finishGroup();
-
-                    if (aggregate != null) {
-                        mNextAggregate = aggregate;
-                        return true;
-                    }
-                }
-            } catch (NoSuchElementException e) {
-            }
-
-            return false;
+        if (mNextAggregate != null) {
+            return true;
         }
+
+        try {
+            int count = 0;
+            if (mCursor.hasNext()) {
+                if (mGroupLeader == null) {
+                    beginGroup(mGroupLeader = mCursor.next());
+                }
+
+                while (mCursor.hasNext()) {
+                    S groupMember = mCursor.next();
+
+                    if (mGroupComparator.compare(mGroupLeader, groupMember) == 0) {
+                        addToGroup(groupMember);
+                    } else {
+                        G aggregate = finishGroup();
+
+                        beginGroup(mGroupLeader = groupMember);
+
+                        if (aggregate != null) {
+                            mNextAggregate = aggregate;
+                            return true;
+                        }
+                    }
+
+                    interruptCheck(++count);
+                }
+
+                G aggregate = finishGroup();
+
+                if (aggregate != null) {
+                    mNextAggregate = aggregate;
+                    return true;
+                }
+            }
+        } catch (NoSuchElementException e) {
+        }
+
+        return false;
     }
 
     public G next() throws FetchException {
-        synchronized (mCursor) {
-            if (hasNext()) {
-                G next = mNextAggregate;
-                mNextAggregate = null;
-                return next;
-            }
-            throw new NoSuchElementException();
+        if (hasNext()) {
+            G next = mNextAggregate;
+            mNextAggregate = null;
+            return next;
         }
+        throw new NoSuchElementException();
     }
 
     public int skipNext(int amount) throws FetchException {
-        synchronized (mCursor) {
-            if (amount <= 0) {
-                if (amount < 0) {
-                    throw new IllegalArgumentException("Cannot skip negative amount: " + amount);
-                }
-                return 0;
+        if (amount <= 0) {
+            if (amount < 0) {
+                throw new IllegalArgumentException("Cannot skip negative amount: " + amount);
             }
-
-            int count = 0;
-            while (--amount >= 0 && hasNext()) {
-                interruptCheck(++count);
-                mNextAggregate = null;
-            }
-
-            return count;
+            return 0;
         }
+
+        int count = 0;
+        while (--amount >= 0 && hasNext()) {
+            interruptCheck(++count);
+            mNextAggregate = null;
+        }
+
+        return count;
     }
 
     private void interruptCheck(int count) throws FetchException {

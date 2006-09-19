@@ -59,14 +59,14 @@ public class UnionCursor<S> extends AbstractCursor<S> {
         mOrder = order;
     }
 
-    public synchronized void close() throws FetchException {
+    public void close() throws FetchException {
         mLeftCursor.close();
         mRightCursor.close();
         mNextLeft = null;
         mNextRight = null;
     }
 
-    public synchronized boolean hasNext() throws FetchException {
+    public boolean hasNext() throws FetchException {
         if (mNextLeft == null && mLeftCursor.hasNext()) {
             mNextLeft = mLeftCursor.next();
         }
@@ -76,7 +76,7 @@ public class UnionCursor<S> extends AbstractCursor<S> {
         return mNextLeft != null || mNextRight != null;
     }
 
-    public synchronized S next() throws FetchException {
+    public S next() throws FetchException {
         if (hasNext()) {
             S next;
             if (mNextLeft == null) {

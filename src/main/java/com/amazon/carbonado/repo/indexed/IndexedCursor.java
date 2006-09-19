@@ -61,123 +61,117 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
     }
 
     public boolean hasNext() throws FetchException {
-        synchronized (mCursor) {
-            if (mNext != null) {
-                return true;
-            }
-            while (mCursor.hasNext()) {
-                final Storable indexEntry = mCursor.next();
-                S master = mGenerator.loadMaster(indexEntry);
-                if (master == null) {
-                    LogFactory.getLog(getClass()).warn
-                        ("Master is missing for index entry: " + indexEntry);
-                } else {
-                    if (mGenerator.isConsistent(indexEntry, master)) {
+        if (mNext != null) {
+            return true;
+        }
+        while (mCursor.hasNext()) {
+            final Storable indexEntry = mCursor.next();
+            S master = mGenerator.loadMaster(indexEntry);
+            if (master == null) {
+                LogFactory.getLog(getClass()).warn
+                    ("Master is missing for index entry: " + indexEntry);
+            } else {
+                if (mGenerator.isConsistent(indexEntry, master)) {
+                    mNext = master;
+                    return true;
+                }
+
+                // This index entry is stale. Repair is needed.
+
+                // Insert a correct index entry, just to be sure.
+                try {
+                    final IndexedRepository repo = mStorage.mRepository;
+                    final Storage<?> indexEntryStorage =
+                        repo.getIndexEntryStorageFor(mGenerator.getIndexEntryClass());
+                    Storable newIndexEntry = indexEntryStorage.prepare();
+                    mGenerator.setAllProperties(newIndexEntry, master);
+
+                    if (newIndexEntry.tryLoad()) {
+                        // Good, the correct index entry exists. We'll see
+                        // the master record eventually, so skip.
+                    } else {
+                        // We have no choice but to return the master, at
+                        // the risk of seeing it multiple times. This is
+                        // better than seeing it never.
+                        LogFactory.getLog(getClass()).warn
+                            ("Inconsistent index entry: " + indexEntry);
                         mNext = master;
-                        return true;
                     }
 
-                    // This index entry is stale. Repair is needed.
+                    // Repair the stale index entry.
+                    RepairExecutor.execute(new Runnable() {
+                        public void run() {
+                            Transaction txn = repo.enterTransaction();
+                            try {
+                                // Reload master and verify inconsistency.
+                                S master = mGenerator.loadMaster(indexEntry);
+                                if (mGenerator.isConsistent(indexEntry, master)) {
+                                    return;
+                                }
 
-                    // Insert a correct index entry, just to be sure.
-                    try {
-                        final IndexedRepository repo = mStorage.mRepository;
-                        final Storage<?> indexEntryStorage =
-                            repo.getIndexEntryStorageFor(mGenerator.getIndexEntryClass());
-                        Storable newIndexEntry = indexEntryStorage.prepare();
-                        mGenerator.setAllProperties(newIndexEntry, master);
+                                Storable newIndexEntry = indexEntryStorage.prepare();
+                                mGenerator.setAllProperties(newIndexEntry, master);
 
-                        if (newIndexEntry.tryLoad()) {
-                            // Good, the correct index entry exists. We'll see
-                            // the master record eventually, so skip.
-                        } else {
-                            // We have no choice but to return the master, at
-                            // the risk of seeing it multiple times. This is
-                            // better than seeing it never.
-                            LogFactory.getLog(getClass()).warn
-                                ("Inconsistent index entry: " + indexEntry);
-                            mNext = master;
-                        }
+                                newIndexEntry.tryInsert();
 
-                        // Repair the stale index entry.
-                        RepairExecutor.execute(new Runnable() {
-                            public void run() {
-                                Transaction txn = repo.enterTransaction();
+                                indexEntry.tryDelete();
+                                txn.commit();
+                            } catch (FetchException fe) {
+                                LogFactory.getLog(IndexedCursor.class).warn
+                                    ("Unable to check if repair required for " +
+                                     "inconsistent index entry " +
+                                     indexEntry, fe);
+                            } catch (PersistException pe) {
+                                LogFactory.getLog(IndexedCursor.class).error
+                                    ("Unable to repair inconsistent index entry " +
+                                     indexEntry, pe);
+                            } finally {
                                 try {
-                                    // Reload master and verify inconsistency.
-                                    S master = mGenerator.loadMaster(indexEntry);
-                                    if (mGenerator.isConsistent(indexEntry, master)) {
-                                        return;
-                                    }
-
-                                    Storable newIndexEntry = indexEntryStorage.prepare();
-                                    mGenerator.setAllProperties(newIndexEntry, master);
-
-                                    newIndexEntry.tryInsert();
-
-                                    indexEntry.tryDelete();
-                                    txn.commit();
-                                } catch (FetchException fe) {
-                                    LogFactory.getLog(IndexedCursor.class).warn
-                                        ("Unable to check if repair required for " +
-                                         "inconsistent index entry " +
-                                         indexEntry, fe);
+                                    txn.exit();
                                 } catch (PersistException pe) {
                                     LogFactory.getLog(IndexedCursor.class).error
                                         ("Unable to repair inconsistent index entry " +
                                          indexEntry, pe);
-                                } finally {
-                                    try {
-                                        txn.exit();
-                                    } catch (PersistException pe) {
-                                        LogFactory.getLog(IndexedCursor.class).error
-                                            ("Unable to repair inconsistent index entry " +
-                                             indexEntry, pe);
-                                    }
                                 }
                             }
-                        });
-                    } catch (RepositoryException re) {
-                        LogFactory.getLog(getClass()).error
-                            ("Unable to inspect inconsistent index entry " +
-                             indexEntry, re);
-                    }
+                        }
+                    });
+                } catch (RepositoryException re) {
+                    LogFactory.getLog(getClass()).error
+                        ("Unable to inspect inconsistent index entry " +
+                         indexEntry, re);
+                }
 
-                    if (mNext != null) {
-                        return true;
-                    }
+                if (mNext != null) {
+                    return true;
                 }
             }
-            return false;
         }
+        return false;
     }
 
     public S next() throws FetchException {
-        synchronized (mCursor) {
-            if (hasNext()) {
-                S next = mNext;
-                mNext = null;
-                return next;
-            }
+        if (hasNext()) {
+            S next = mNext;
+            mNext = null;
+            return next;
         }
         throw new NoSuchElementException();
     }
 
     public int skipNext(int amount) throws FetchException {
-        synchronized (mCursor) {
-            if (mNext == null) {
-                return mCursor.skipNext(amount);
-            }
-
-            if (amount <= 0) {
-                if (amount < 0) {
-                    throw new IllegalArgumentException("Cannot skip negative amount: " + amount);
-                }
-                return 0;
-            }
-
-            mNext = null;
-            return 1 + mCursor.skipNext(amount - 1);
+        if (mNext == null) {
+            return mCursor.skipNext(amount);
         }
+
+        if (amount <= 0) {
+            if (amount < 0) {
+                throw new IllegalArgumentException("Cannot skip negative amount: " + amount);
+            }
+            return 0;
+        }
+
+        mNext = null;
+        return 1 + mCursor.skipNext(amount - 1);
     }
 }

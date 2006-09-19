@@ -82,61 +82,53 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
     protected abstract boolean isAllowed(S storable);
 
     public void close() throws FetchException {
-        synchronized (mCursor) {
-            mCursor.close();
-            mNext = null;
-        }
+        mCursor.close();
+        mNext = null;
     }
 
     public boolean hasNext() throws FetchException {
-        synchronized (mCursor) {
-            if (mNext != null) {
-                return true;
-            }
-            try {
-                int count = 0;
-                while (mCursor.hasNext()) {
-                    S next = mCursor.next();
-                    if (isAllowed(next)) {
-                        mNext = next;
-                        return true;
-                    }
-                    interruptCheck(++count);
-                }
-            } catch (NoSuchElementException e) {
-            }
-            return false;
+        if (mNext != null) {
+            return true;
         }
+        try {
+            int count = 0;
+            while (mCursor.hasNext()) {
+                S next = mCursor.next();
+                if (isAllowed(next)) {
+                    mNext = next;
+                    return true;
+                }
+                interruptCheck(++count);
+            }
+        } catch (NoSuchElementException e) {
+        }
+        return false;
     }
 
     public S next() throws FetchException {
-        synchronized (mCursor) {
-            if (hasNext()) {
-                S next = mNext;
-                mNext = null;
-                return next;
-            }
-            throw new NoSuchElementException();
+        if (hasNext()) {
+            S next = mNext;
+            mNext = null;
+            return next;
         }
+        throw new NoSuchElementException();
     }
 
     public int skipNext(int amount) throws FetchException {
-        synchronized (mCursor) {
-            if (amount <= 0) {
-                if (amount < 0) {
-                    throw new IllegalArgumentException("Cannot skip negative amount: " + amount);
-                }
-                return 0;
+        if (amount <= 0) {
+            if (amount < 0) {
+                throw new IllegalArgumentException("Cannot skip negative amount: " + amount);
             }
-
-            int count = 0;
-            while (--amount >= 0 && hasNext()) {
-                interruptCheck(++count);
-                mNext = null;
-            }
-
-            return count;
+            return 0;
         }
+
+        int count = 0;
+        while (--amount >= 0 && hasNext()) {
+            interruptCheck(++count);
+            mNext = null;
+        }
+
+        return count;
     }
 
     private void interruptCheck(int count) throws FetchException {

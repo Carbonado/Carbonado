@@ -198,13 +198,13 @@ public class SortedCursor<S> extends AbstractCursor<S> {
         };
     }
 
-    public synchronized void close() throws FetchException {
+    public void close() throws FetchException {
         mCursor.close();
         mChunkIterator = null;
         mChunkBuffer.close();
     }
 
-    public synchronized boolean hasNext() throws FetchException {
+    public boolean hasNext() throws FetchException {
         prepareNextChunk();
         try {
             if (mChunkIterator.hasNext()) {
@@ -217,7 +217,7 @@ public class SortedCursor<S> extends AbstractCursor<S> {
         return false;
     }
 
-    public synchronized S next() throws FetchException {
+    public S next() throws FetchException {
         prepareNextChunk();
         try {
             return mChunkIterator.next();
@@ -233,7 +233,7 @@ public class SortedCursor<S> extends AbstractCursor<S> {
         }
     }
 
-    public synchronized int skipNext(int amount) throws FetchException {
+    public int skipNext(int amount) throws FetchException {
         if (amount <= 0) {
             if (amount < 0) {
                 throw new IllegalArgumentException("Cannot skip negative amount: " + amount);

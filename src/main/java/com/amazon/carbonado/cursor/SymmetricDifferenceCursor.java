@@ -60,7 +60,7 @@ public class SymmetricDifferenceCursor<S> extends AbstractCursor<S> {
         mOrder = order;
     }
 
-    public synchronized void close() throws FetchException {
+    public void close() throws FetchException {
         mLeftCursor.close();
         mRightCursor.close();
         mNextLeft = null;
@@ -76,7 +76,7 @@ public class SymmetricDifferenceCursor<S> extends AbstractCursor<S> {
      * left source cursor, and &gt;0 if next element is from right source
      * cursor.
      */
-    public synchronized int compareNext() throws FetchException {
+    public int compareNext() throws FetchException {
         if (mCompareResult != 0) {
             return mCompareResult;
         }
@@ -105,7 +105,7 @@ public class SymmetricDifferenceCursor<S> extends AbstractCursor<S> {
         }
     }
 
-    public synchronized S next() throws FetchException {
+    public S next() throws FetchException {
         S next;
         int result = compareNext();
         if (result < 0) {

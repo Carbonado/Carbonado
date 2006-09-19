@@ -52,7 +52,7 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
         mResultSet = statement.executeQuery();
     }
 
-    public synchronized void close() throws FetchException {
+    public void close() throws FetchException {
         if (mResultSet != null) {
             try {
                 mResultSet.close();
@@ -66,7 +66,7 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
         }
     }
 
-    public synchronized boolean hasNext() throws FetchException {
+    public boolean hasNext() throws FetchException {
         ResultSet rs = mResultSet;
         if (rs == null) {
             return false;
@@ -84,7 +84,7 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
         return mHasNext;
     }
 
-    public synchronized S next() throws FetchException, NoSuchElementException {
+    public S next() throws FetchException, NoSuchElementException {
         if (!hasNext()) {
             throw new NoSuchElementException();
         }
@@ -97,7 +97,7 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
         }
     }
 
-    public synchronized int skipNext(int amount) throws FetchException {
+    public int skipNext(int amount) throws FetchException {
         if (amount <= 0) {
             if (amount < 0) {
                 throw new IllegalArgumentException("Cannot skip negative amount: " + amount);

@@ -54,73 +54,65 @@ public abstract class MultiTransformedCursor<S, T> extends AbstractCursor<T> {
     protected abstract Cursor<T> transform(S storable) throws FetchException;
 
     public void close() throws FetchException {
-        synchronized (mCursor) {
-            mCursor.close();
-            if (mNextCursor != null) {
-                mNextCursor.close();
-                mNextCursor = null;
-            }
+        mCursor.close();
+        if (mNextCursor != null) {
+            mNextCursor.close();
+            mNextCursor = null;
         }
     }
 
     public boolean hasNext() throws FetchException {
-        synchronized (mCursor) {
-            if (mNextCursor != null) {
-                if (mNextCursor.hasNext()) {
-                    return true;
-                }
-                mNextCursor.close();
-                mNextCursor = null;
+        if (mNextCursor != null) {
+            if (mNextCursor.hasNext()) {
+                return true;
             }
-            try {
-                int count = 0;
-                while (mCursor.hasNext()) {
-                    Cursor<T> nextCursor = transform(mCursor.next());
-                    if (nextCursor != null) {
-                        if (nextCursor.hasNext()) {
-                            mNextCursor = nextCursor;
-                            return true;
-                        }
-                        nextCursor.close();
-                    }
-                    interruptCheck(++count);
-                }
-            } catch (NoSuchElementException e) {
-            }
-            return false;
+            mNextCursor.close();
+            mNextCursor = null;
         }
+        try {
+            int count = 0;
+            while (mCursor.hasNext()) {
+                Cursor<T> nextCursor = transform(mCursor.next());
+                if (nextCursor != null) {
+                    if (nextCursor.hasNext()) {
+                        mNextCursor = nextCursor;
+                        return true;
+                    }
+                    nextCursor.close();
+                }
+                interruptCheck(++count);
+            }
+        } catch (NoSuchElementException e) {
+        }
+        return false;
     }
 
     public T next() throws FetchException {
-        synchronized (mCursor) {
-            if (hasNext()) {
-                return mNextCursor.next();
-            }
-            throw new NoSuchElementException();
+        if (hasNext()) {
+            return mNextCursor.next();
         }
+        throw new NoSuchElementException();
     }
 
     public int skipNext(int amount) throws FetchException {
-        synchronized (mCursor) {
-            if (amount <= 0) {
-                if (amount < 0) {
-                    throw new IllegalArgumentException("Cannot skip negative amount: " + amount);
-                }
-                return 0;
+        if (amount <= 0) {
+            if (amount < 0) {
+                throw new IllegalArgumentException("Cannot skip negative amount: " + amount);
             }
-
-            int count = 0;
-            while (hasNext()) {
-                int chunk = mNextCursor.skipNext(amount);
-                count += chunk;
-                if ((amount -= chunk) <= 0) {
-                    break;
-                }
-                interruptCheck(count);
-            }
-
-            return count;
+            return 0;
         }
+
+        int count = 0;
+        while (hasNext()) {
+            int chunk = mNextCursor.skipNext(amount);
+            count += chunk;
+            if ((amount -= chunk) <= 0) {
+                break;
+            }
+            interruptCheck(count);
+        }
+
+        return count;
     }
 
     private void interruptCheck(int count) throws FetchException {

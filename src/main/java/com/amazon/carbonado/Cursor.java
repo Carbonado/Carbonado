@@ -42,7 +42,7 @@ import java.util.NoSuchElementException;
  * repository in the interim. To guard against this, operate within a
  * serializable {@link IsolationLevel isolation level}.
  *
- * <p>Cursor instances are mutable, but they should be thread-safe. Still, only
+ * <p>Cursor instances are mutable and not guaranteed to be thread-safe. Only
  * one thread should ever operate on a cursor instance.
  *
  * @author Brian S O'Neill

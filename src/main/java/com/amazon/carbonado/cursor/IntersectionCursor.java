@@ -58,13 +58,13 @@ public class IntersectionCursor<S> extends AbstractCursor<S> {
         mOrder = order;
     }
 
-    public synchronized void close() throws FetchException {
+    public void close() throws FetchException {
         mLeftCursor.close();
         mRightCursor.close();
         mNext = null;
     }
 
-    public synchronized boolean hasNext() throws FetchException {
+    public boolean hasNext() throws FetchException {
         if (mNext != null) {
             return true;
         }
@@ -107,7 +107,7 @@ public class IntersectionCursor<S> extends AbstractCursor<S> {
         }
     }
 
-    public synchronized S next() throws FetchException {
+    public S next() throws FetchException {
         if (hasNext()) {
             S next = mNext;
             mNext = null;
