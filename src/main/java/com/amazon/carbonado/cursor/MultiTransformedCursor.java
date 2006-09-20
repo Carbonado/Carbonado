@@ -31,6 +31,9 @@ import com.amazon.carbonado.FetchInterruptedException;
  * joins.
  *
  * @author Brian S O'Neill
+ * @see JoinedCursorFactory
+ * @param <S> source type, can be anything
+ * @param <T> target type, can be anything
  */
 public abstract class MultiTransformedCursor<S, T> extends AbstractCursor<T> {
     private final Cursor<S> mCursor;

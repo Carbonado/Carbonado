@@ -56,12 +56,13 @@ import com.amazon.carbonado.spi.CodeBuilderUtil;
 import static com.amazon.carbonado.spi.CommonMethodNames.*;
 
 /**
- * Given two joined types <i>A</i> and <i>B</i>, this factory converts a cursor
- * over type <i>A</i> into a cursor over type <i>B</i>. For example, consider
- * two storable types, Employer and Person. A query filter for persons with a
- * given employer might look like: {@code "employer.name = ?" }  The join can be
- * manually implemented by querying for employers and then using this factory
- * to produce persons:
+ * Given two joined types <i>source</i> and <i>target</i>, this factory
+ * converts a cursor over type <i>source</i> into a cursor over type
+ * <i>target</i>. For example, consider two storable types, Employer and
+ * Person. A query filter for persons with a given employer might look like:
+ * {@code "employer.name = ?" }  The join can be manually implemented by
+ * querying for employers (the source) and then using this factory to produce
+ * persons (the target):
  *
  * <pre>
  * JoinedCursorFactory&lt;Employer, Person&gt; factory = new JoinedCursorFactory&lt;Employer, Person&gt;
@@ -88,12 +89,16 @@ import static com.amazon.carbonado.spi.CommonMethodNames.*;
  * </pre>
  *
  * @author Brian S O'Neill
+ * @see TransformedCursor
+ * @see MultiTransformedCursor
+ * @param <S> source type, can be anything
+ * @param <T> target type, must be a Storable
  */
-public class JoinedCursorFactory<A, B extends Storable> {
+public class JoinedCursorFactory<S, T extends Storable> {
     private static final String STORAGE_FIELD_NAME = "storage";
     private static final String QUERY_FIELD_NAME = "query";
     private static final String QUERY_FILTER_FIELD_NAME = "queryFilter";
-    private static final String ACTIVE_A_FIELD_NAME = "active";
+    private static final String ACTIVE_SOURCE_FIELD_NAME = "active";
 
     private static final Map<Object, Class> cJoinerCursorClassCache;
 
@@ -101,63 +106,63 @@ public class JoinedCursorFactory<A, B extends Storable> {
         cJoinerCursorClassCache = new SoftValuedHashMap();
     }
 
-    private static synchronized <B extends Storable> Joiner<?, B>
-        newBasicJoiner(StorableProperty<B> bToAProperty, Storage<B> bStorage)
+    private static synchronized <T extends Storable> Joiner<?, T>
+        newBasicJoiner(StorableProperty<T> targetToSourceProperty, Storage<T> targetStorage)
         throws FetchException
     {
-        Class<?> aType = bToAProperty.getType();
+        Class<?> sourceType = targetToSourceProperty.getType();
 
         final Object key = KeyFactory.createKey
-            (new Object[] {aType,
-                           bToAProperty.getEnclosingType(),
-                           bToAProperty.getName()});
+            (new Object[] {sourceType,
+                           targetToSourceProperty.getEnclosingType(),
+                           targetToSourceProperty.getName()});
 
         Class clazz = cJoinerCursorClassCache.get(key);
 
         if (clazz == null) {
-            clazz = generateBasicJoinerCursor(aType, bToAProperty);
+            clazz = generateBasicJoinerCursor(sourceType, targetToSourceProperty);
             cJoinerCursorClassCache.put(key, clazz);
         }
 
         // Transforming cursor class may need a Query to operate on.
-        Query<B> bQuery = null;
+        Query<T> targetQuery = null;
         try {
             String filter = (String) clazz.getField(QUERY_FILTER_FIELD_NAME).get(null);
-            bQuery = bStorage.query(filter);
+            targetQuery = targetStorage.query(filter);
         } catch (NoSuchFieldException e) {
         } catch (IllegalAccessException e) {
         }
 
-        BasicJoiner.Factory<?, B> factory = (BasicJoiner.Factory<?, B>) QuickConstructorGenerator
+        BasicJoiner.Factory<?, T> factory = (BasicJoiner.Factory<?, T>) QuickConstructorGenerator
             .getInstance(clazz, BasicJoiner.Factory.class);
 
-        return new BasicJoiner(factory, bStorage, bQuery);
+        return new BasicJoiner(factory, targetStorage, targetQuery);
     }
 
-    private static <B extends Storable> Class<Cursor<B>>
-        generateBasicJoinerCursor(Class<?> aType, StorableProperty<B> bToAProperty)
+    private static <T extends Storable> Class<Cursor<T>>
+        generateBasicJoinerCursor(Class<?> sourceType, StorableProperty<T> targetToSourceProperty)
     {
-        final int propCount = bToAProperty.getJoinElementCount();
+        final int propCount = targetToSourceProperty.getJoinElementCount();
 
         // Determine if join is one-to-one, in which case slightly more optimal
         // code can be generated.
         boolean isOneToOne = true;
         for (int i=0; i<propCount; i++) {
-            if (!bToAProperty.getInternalJoinElement(i).isPrimaryKeyMember()) {
+            if (!targetToSourceProperty.getInternalJoinElement(i).isPrimaryKeyMember()) {
                 isOneToOne = false;
                 break;
             }
-            if (!bToAProperty.getExternalJoinElement(i).isPrimaryKeyMember()) {
+            if (!targetToSourceProperty.getExternalJoinElement(i).isPrimaryKeyMember()) {
                 isOneToOne = false;
                 break;
             }
         }
 
-        Class<B> bType = bToAProperty.getEnclosingType();
+        Class<T> targetType = targetToSourceProperty.getEnclosingType();
 
         String packageName;
         {
-            String name = bType.getName();
+            String name = targetType.getName();
             int index = name.lastIndexOf('.');
             if (index >= 0) {
                 packageName = name.substring(0, index);
@@ -166,7 +171,7 @@ public class JoinedCursorFactory<A, B extends Storable> {
             }
         }
 
-        ClassLoader loader = bType.getClassLoader();
+        ClassLoader loader = targetType.getClassLoader();
 
         ClassInjector ci = ClassInjector.create(packageName + ".JoinedCursor", loader);
         Class superclass = isOneToOne ? TransformedCursor.class : MultiTransformedCursor.class;
@@ -183,15 +188,16 @@ public class JoinedCursorFactory<A, B extends Storable> {
         if (isOneToOne) {
             cf.addField(Modifiers.PRIVATE.toFinal(true), STORAGE_FIELD_NAME, storageType);
         } else {
-            // Field to hold query which fetches type B.
+            // Field to hold query which fetches type T.
             cf.addField(Modifiers.PRIVATE.toFinal(true), QUERY_FIELD_NAME, queryType);
         }
 
-        boolean canSetAReference = bToAProperty.getWriteMethod() != null;
+        boolean canSetSourceReference = targetToSourceProperty.getWriteMethod() != null;
 
-        if (canSetAReference && !isOneToOne) {
-            // Field to hold active A storable.
-            cf.addField(Modifiers.PRIVATE, ACTIVE_A_FIELD_NAME, TypeDesc.forClass(aType));
+        if (canSetSourceReference && !isOneToOne) {
+            // Field to hold active S storable.
+            cf.addField(Modifiers.PRIVATE, ACTIVE_SOURCE_FIELD_NAME,
+                        TypeDesc.forClass(sourceType));
         }
 
         // Constructor accepts a Storage and Query, but Storage is only used
@@ -202,16 +208,16 @@ public class JoinedCursorFactory<A, B extends Storable> {
             CodeBuilder b = new CodeBuilder(mi);
 
             b.loadThis();
-            b.loadLocal(b.getParameter(0)); // pass A cursor to superclass
+            b.loadLocal(b.getParameter(0)); // pass S cursor to superclass
             b.invokeSuperConstructor(new TypeDesc[] {cursorType});
 
             if (isOneToOne) {
                 b.loadThis();
-                b.loadLocal(b.getParameter(1)); // push B storage to stack
+                b.loadLocal(b.getParameter(1)); // push T storage to stack
                 b.storeField(STORAGE_FIELD_NAME, storageType);
             } else {
                 b.loadThis();
-                b.loadLocal(b.getParameter(2)); // push B query to stack
+                b.loadLocal(b.getParameter(2)); // push T query to stack
                 b.storeField(QUERY_FIELD_NAME, queryType);
             }
 
@@ -227,7 +233,7 @@ public class JoinedCursorFactory<A, B extends Storable> {
                 if (i > 0) {
                     queryBuilder.append(" & ");
                 }
-                queryBuilder.append(bToAProperty.getInternalJoinElement(i).getName());
+                queryBuilder.append(targetToSourceProperty.getInternalJoinElement(i).getName());
                 queryBuilder.append(" = ?");
             }
 
@@ -243,32 +249,32 @@ public class JoinedCursorFactory<A, B extends Storable> {
             mi.addException(TypeDesc.forClass(FetchException.class));
             CodeBuilder b = new CodeBuilder(mi);
 
-            LocalVariable aVar = b.createLocalVariable(null, storableType);
+            LocalVariable sourceVar = b.createLocalVariable(null, storableType);
             b.loadLocal(b.getParameter(0));
-            b.checkCast(TypeDesc.forClass(aType));
-            b.storeLocal(aVar);
+            b.checkCast(TypeDesc.forClass(sourceType));
+            b.storeLocal(sourceVar);
 
-            // Prepare B storable.
+            // Prepare T storable.
             b.loadThis();
             b.loadField(STORAGE_FIELD_NAME, storageType);
             b.invokeInterface(storageType, PREPARE_METHOD_NAME, storableType, null);
-            LocalVariable bVar = b.createLocalVariable(null, storableType);
-            b.checkCast(TypeDesc.forClass(bType));
-            b.storeLocal(bVar);
+            LocalVariable targetVar = b.createLocalVariable(null, storableType);
+            b.checkCast(TypeDesc.forClass(targetType));
+            b.storeLocal(targetVar);
 
-            // Copy pk property values from A to B.
+            // Copy pk property values from S to T.
             for (int i=0; i<propCount; i++) {
-                StorableProperty<B> internal = bToAProperty.getInternalJoinElement(i);
-                StorableProperty<?> external = bToAProperty.getExternalJoinElement(i);
+                StorableProperty<T> internal = targetToSourceProperty.getInternalJoinElement(i);
+                StorableProperty<?> external = targetToSourceProperty.getExternalJoinElement(i);
 
-                b.loadLocal(bVar);
-                b.loadLocal(aVar);
+                b.loadLocal(targetVar);
+                b.loadLocal(sourceVar);
                 b.invoke(external.getReadMethod());
                 b.invoke(internal.getWriteMethod());
             }
 
-            // tryLoad b.
-            b.loadLocal(bVar);
+            // tryLoad target.
+            b.loadLocal(targetVar);
             b.invokeInterface(storableType, TRY_LOAD_METHOD_NAME, TypeDesc.BOOLEAN, null);
             Label wasLoaded = b.createLabel();
             b.ifZeroComparisonBranch(wasLoaded, "!=");
@@ -278,13 +284,13 @@ public class JoinedCursorFactory<A, B extends Storable> {
 
             wasLoaded.setLocation();
 
-            if (canSetAReference) {
-                b.loadLocal(bVar);
-                b.loadLocal(aVar);
-                b.invoke(bToAProperty.getWriteMethod());
+            if (canSetSourceReference) {
+                b.loadLocal(targetVar);
+                b.loadLocal(sourceVar);
+                b.invoke(targetToSourceProperty.getWriteMethod());
             }
 
-            b.loadLocal(bVar);
+            b.loadLocal(targetVar);
             b.returnValue(storableType);
         } else {
             MethodInfo mi = cf.addMethod(Modifiers.PROTECTED, "transform", cursorType,
@@ -292,15 +298,15 @@ public class JoinedCursorFactory<A, B extends Storable> {
             mi.addException(TypeDesc.forClass(FetchException.class));
             CodeBuilder b = new CodeBuilder(mi);
 
-            LocalVariable aVar = b.createLocalVariable(null, storableType);
+            LocalVariable sourceVar = b.createLocalVariable(null, storableType);
             b.loadLocal(b.getParameter(0));
-            b.checkCast(TypeDesc.forClass(aType));
-            b.storeLocal(aVar);
+            b.checkCast(TypeDesc.forClass(sourceType));
+            b.storeLocal(sourceVar);
 
-            if (canSetAReference) {
+            if (canSetSourceReference) {
                 b.loadThis();
-                b.loadLocal(aVar);
-                b.storeField(ACTIVE_A_FIELD_NAME, TypeDesc.forClass(aType));
+                b.loadLocal(sourceVar);
+                b.storeField(ACTIVE_SOURCE_FIELD_NAME, TypeDesc.forClass(sourceType));
             }
 
             // Populate query parameters.
@@ -308,8 +314,8 @@ public class JoinedCursorFactory<A, B extends Storable> {
             b.loadField(QUERY_FIELD_NAME, queryType);
 
             for (int i=0; i<propCount; i++) {
-                StorableProperty<?> external = bToAProperty.getExternalJoinElement(i);
-                b.loadLocal(aVar);
+                StorableProperty<?> external = targetToSourceProperty.getExternalJoinElement(i);
+                b.loadLocal(sourceVar);
                 b.invoke(external.getReadMethod());
 
                 TypeDesc bindType = CodeBuilderUtil.bindQueryParam(external.getType());
@@ -323,8 +329,8 @@ public class JoinedCursorFactory<A, B extends Storable> {
             b.returnValue(cursorType);
         }
 
-        if (canSetAReference && !isOneToOne) {
-            // Override the "next" method to set A object on B.
+        if (canSetSourceReference && !isOneToOne) {
+            // Override the "next" method to set S object on T.
             MethodInfo mi = cf.addMethod(Modifiers.PUBLIC, "next", TypeDesc.OBJECT, null);
             mi.addException(TypeDesc.forClass(FetchException.class));
             CodeBuilder b = new CodeBuilder(mi);
@@ -332,128 +338,130 @@ public class JoinedCursorFactory<A, B extends Storable> {
             b.loadThis();
             b.invokeSuper(TypeDesc.forClass(MultiTransformedCursor.class),
                           "next", TypeDesc.OBJECT, null);
-            b.checkCast(TypeDesc.forClass(bType));
+            b.checkCast(TypeDesc.forClass(targetType));
             b.dup();
 
             b.loadThis();
-            b.loadField(ACTIVE_A_FIELD_NAME, TypeDesc.forClass(aType));
-            b.invoke(bToAProperty.getWriteMethod());
+            b.loadField(ACTIVE_SOURCE_FIELD_NAME, TypeDesc.forClass(sourceType));
+            b.invoke(targetToSourceProperty.getWriteMethod());
 
             b.returnValue(storableType);
         }
 
-        return (Class<Cursor<B>>) ci.defineClass(cf);
+        return (Class<Cursor<T>>) ci.defineClass(cf);
     }
 
-    private final Joiner<A, B> mJoiner;
+    private final Joiner<S, T> mJoiner;
 
     /**
      * @param repo access to storage instances for properties
-     * @param bType type of <i>B</i> instances
-     * @param bToAProperty property of <i>B</i> type which maps to instances of
-     * <i>A</i> type.
-     * @param aType type of <i>A</i> instances
-     * @throws IllegalArgumentException if property type is not <i>A</i>
+     * @param targetType type of <i>target</i> instances
+     * @param targetToSourceProperty property of <i>target</i> type which maps
+     * to instances of <i>source</i> type.
+     * @param sourceType type of <i>source</i> instances
+     * @throws IllegalArgumentException if property type is not <i>source</i>
      */
     public JoinedCursorFactory(Repository repo,
-                               Class<B> bType,
-                               String bToAProperty,
-                               Class<A> aType)
+                               Class<T> targetType,
+                               String targetToSourceProperty,
+                               Class<S> sourceType)
         throws SupportException, FetchException, RepositoryException
     {
         this(repo,
-             ChainedProperty.parse(StorableIntrospector.examine(bType), bToAProperty),
-             aType);
+             ChainedProperty.parse(StorableIntrospector.examine(targetType),
+                                   targetToSourceProperty),
+             sourceType);
     }
 
     /**
      * @param repo access to storage instances for properties
-     * @param bToAProperty property of <i>B</i> type which maps to instances of
-     * <i>A</i> type.
-     * @param aType type of <i>A</i> instances
-     * @throws IllegalArgumentException if property type is not <i>A</i>
+     * @param targetToSourceProperty property of <i>target</i> type which maps
+     * to instances of <i>source</i> type.
+     * @param sourceType type of <i>source</i> instances
+     * @throws IllegalArgumentException if property type is not <i>source</i>
      */
     public JoinedCursorFactory(Repository repo,
-                               ChainedProperty<B> bToAProperty,
-                               Class<A> aType)
+                               ChainedProperty<T> targetToSourceProperty,
+                               Class<S> sourceType)
         throws SupportException, FetchException, RepositoryException
     {
-        if (bToAProperty.getType() != aType) {
+        if (targetToSourceProperty.getType() != sourceType) {
             throw new IllegalArgumentException
-                ("Property is not of type \"" + aType.getName() + "\": " +
-                 bToAProperty);
+                ("Property is not of type \"" + sourceType.getName() + "\": " +
+                 targetToSourceProperty);
         }
 
-        StorableProperty<B> primeB = bToAProperty.getPrimeProperty();
-        Storage<B> primeBStorage = repo.storageFor(primeB.getEnclosingType());
+        StorableProperty<T> primeTarget = targetToSourceProperty.getPrimeProperty();
+        Storage<T> primeTargetStorage = repo.storageFor(primeTarget.getEnclosingType());
 
-        Joiner joiner = newBasicJoiner(primeB, primeBStorage);
+        Joiner joiner = newBasicJoiner(primeTarget, primeTargetStorage);
 
-        int chainCount = bToAProperty.getChainCount();
+        int chainCount = targetToSourceProperty.getChainCount();
         for (int i=0; i<chainCount; i++) {
-            StorableProperty prop = bToAProperty.getChainedProperty(i);
+            StorableProperty prop = targetToSourceProperty.getChainedProperty(i);
             Storage storage = repo.storageFor(prop.getEnclosingType());
 
             joiner = new MultiJoiner(newBasicJoiner(prop, storage), joiner);
         }
 
-        mJoiner = (Joiner<A, B>) joiner;
+        mJoiner = (Joiner<S, T>) joiner;
     }
 
     /**
-     * Given a cursor over <i>A</i>, returns a new cursor over joined property
-     * of type <i>B</i>.
+     * Given a cursor over type <i>source</i>, returns a new cursor over joined
+     * property of type <i>target</i>.
      */
-    public Cursor<B> join(Cursor<A> cursor) {
+    public Cursor<T> join(Cursor<S> cursor) {
         return mJoiner.join(cursor);
     }
 
-    private static interface Joiner<A, B extends Storable> {
-        Cursor<B> join(Cursor<A> cursor);
+    private static interface Joiner<S, T extends Storable> {
+        Cursor<T> join(Cursor<S> cursor);
     }
 
     /**
      * Support for joins without an intermediate hop.
      */
-    private static class BasicJoiner<A, B extends Storable> implements Joiner<A, B> {
-        private final Factory<A, B> mJoinerFactory;
-        private final Storage<B> mBStorage;
-        private final Query<B> mBQuery;
+    private static class BasicJoiner<S, T extends Storable> implements Joiner<S, T> {
+        private final Factory<S, T> mJoinerFactory;
+        private final Storage<T> mTargetStorage;
+        private final Query<T> mTargetQuery;
 
-        BasicJoiner(Factory<A, B> factory, Storage<B> bStorage, Query<B> bQuery) {
+        BasicJoiner(Factory<S, T> factory, Storage<T> targetStorage, Query<T> targetQuery) {
             mJoinerFactory = factory;
-            mBStorage = bStorage;
-            mBQuery = bQuery;
+            mTargetStorage = targetStorage;
+            mTargetQuery = targetQuery;
         }
 
-        public Cursor<B> join(Cursor<A> cursor) {
-            return mJoinerFactory.newJoinedCursor(cursor, mBStorage, mBQuery);
+        public Cursor<T> join(Cursor<S> cursor) {
+            return mJoinerFactory.newJoinedCursor(cursor, mTargetStorage, mTargetQuery);
         }
 
         /**
          * Needs to be public for {@link QuickConstructorGenerator}.
          */
-        public static interface Factory<A, B extends Storable> {
-            Cursor<B> newJoinedCursor(Cursor<A> cursor, Storage<B> bStorage, Query<B> bQuery);
+        public static interface Factory<S, T extends Storable> {
+            Cursor<T> newJoinedCursor(Cursor<S> cursor,
+                                      Storage<T> targetStorage, Query<T> targetQuery);
         }
     }
 
     /**
      * Support for joins with an intermediate hop -- multi-way joins.
      */
-    private static class MultiJoiner<A, X extends Storable, B extends Storable>
-        implements Joiner<A, B>
+    private static class MultiJoiner<S, X extends Storable, T extends Storable>
+        implements Joiner<S, T>
     {
-        private final Joiner<A, X> mAToMid;
-        private final Joiner<X, B> mMidToB;
+        private final Joiner<S, X> mSourceToMid;
+        private final Joiner<X, T> mMidToTarget;
 
-        MultiJoiner(Joiner<A, X> aToMidJoiner, Joiner<X, B> midToBJoiner) {
-            mAToMid = aToMidJoiner;
-            mMidToB = midToBJoiner;
+        MultiJoiner(Joiner<S, X> sourceToMidJoiner, Joiner<X, T> midToTargetJoiner) {
+            mSourceToMid = sourceToMidJoiner;
+            mMidToTarget = midToTargetJoiner;
         }
 
-        public Cursor<B> join(Cursor<A> cursor) {
-            return mMidToB.join(mAToMid.join(cursor));
+        public Cursor<T> join(Cursor<S> cursor) {
+            return mMidToTarget.join(mSourceToMid.join(cursor));
         }
     }
 }

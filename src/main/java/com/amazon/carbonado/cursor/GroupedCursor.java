@@ -35,6 +35,8 @@ import com.amazon.carbonado.FetchInterruptedException;
  *
  * @author Brian S O'Neill
  * @see SortedCursor
+ * @param <S> source type, can be anything
+ * @param <G> aggregate type, can be anything
  */
 public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
     private final Cursor<S> mCursor;
