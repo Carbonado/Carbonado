@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -179,7 +179,9 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
         Map<ChainedProperty<S>, Tally> superKey = new LinkedHashMap<ChainedProperty<S>, Tally>();
         for (Set<ChainedProperty<S>> key : keys) {
             for (ChainedProperty<S> property : key) {
-                superKey.put(property, new Tally(property));
+                if (!superKey.containsKey(property)) {
+                    superKey.put(property, new Tally(property));
+                }
             }
         }
 
@@ -274,7 +276,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
             }
 
             int propCount = index.getPropertyCount();
-            Set<ChainedProperty<S>> props = new HashSet<ChainedProperty<S>>(propCount);
+            Set<ChainedProperty<S>> props = new LinkedHashSet<ChainedProperty<S>>(propCount);
 
             for (int i=0; i<propCount; i++) {
                 props.add(index.getOrderedProperty(i).getChainedProperty());
@@ -287,7 +289,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
     }
 
     private Set<ChainedProperty<S>> stripOrdering(Set<? extends OrderedProperty<S>> orderedProps) {
-        Set<ChainedProperty<S>> props = new HashSet<ChainedProperty<S>>(orderedProps.size());
+        Set<ChainedProperty<S>> props = new LinkedHashSet<ChainedProperty<S>>(orderedProps.size());
         for (OrderedProperty<S> ordering : orderedProps) {
             props.add(ordering.getChainedProperty());
         }

@@ -1528,8 +1528,8 @@ public class StorableIntrospector {
         }
 
         public int hashCode() {
-            return (getName().hashCode() * 31 + getType().hashCode()) * 31
-                + getEnclosingType().hashCode();
+            return (getName().hashCode() * 31 + getType().getName().hashCode()) * 31
+                + getEnclosingType().getName().hashCode();
         }
 
         public boolean equals(Object obj) {

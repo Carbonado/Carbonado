@@ -34,8 +34,8 @@ import junit.framework.TestSuite;
  */
 public class TestDataEncoding extends TestCase {
     private static final int SHORT_TEST = 100;
-    private static final int MEDIUM_TEST = 1000;
-    private static final int LONG_TEST = 10000;
+    private static final int MEDIUM_TEST = 500;
+    private static final int LONG_TEST = 1000;
 
     public static void main(String[] args) {
         junit.textui.TestRunner.run(suite());

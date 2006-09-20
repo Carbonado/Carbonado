@@ -447,24 +447,12 @@ public class TestUnionQueryAnalyzer extends TestCase {
             (StorableTestBasic.class, "stringProp = ? | stringProp = ?");
         filter = filter.bind();
         UnionQueryAnalyzer.Result result = uqa.analyze(filter, null);
-
-        boolean a = result.getTotalOrdering() == 
-            OrderingList.get(StorableTestBasic.class, "+doubleProp", "+stringProp");
-        boolean b = result.getTotalOrdering() == 
-            OrderingList.get(StorableTestBasic.class, "+stringProp", "+doubleProp");
-            
-        assertTrue(a || b);
+        assertEquals(OrderingList.get(StorableTestBasic.class, "+stringProp", "+doubleProp"),
+                     result.getTotalOrdering());
 
         QueryExecutor<StorableTestBasic> exec = result.createExecutor();
-
-        assertEquals(filter, exec.getFilter());
-
-        a = exec.getOrdering() == 
-            OrderingList.get(StorableTestBasic.class, "+doubleProp", "+stringProp");
-        b = exec.getOrdering() == 
-            OrderingList.get(StorableTestBasic.class, "+stringProp", "+doubleProp");
-
-        assertTrue(a || b);
+        assertEquals(OrderingList.get(StorableTestBasic.class, "+stringProp", "+doubleProp"),
+                     exec.getOrdering());
 
         List<IndexedQueryAnalyzer<Shipment>.Result> subResults = result.getSubResults();
 

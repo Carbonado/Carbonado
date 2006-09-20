@@ -41,9 +41,9 @@ import com.amazon.carbonado.spi.*;
  * @author Brian S O'Neill
  */
 public class TestEncodingStrategy extends TestCase {
-    private static final int SHORT_TEST  =   100;
-    private static final int MEDIUM_TEST =  1000;
-    private static final int LONG_TEST   = 10000;
+    private static final int SHORT_TEST = 100;
+    private static final int MEDIUM_TEST = 500;
+    private static final int LONG_TEST = 1000;
 
     private static final int ENCODE_OBJECT_ARRAY = 0;
     private static final int DECODE_OBJECT_ARRAY = 1;
