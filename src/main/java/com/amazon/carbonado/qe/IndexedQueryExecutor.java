@@ -189,6 +189,9 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
         if (mIdentityCount > 0) {
             list = OrderingList.get(list.subList(mIdentityCount, list.size()));
         }
+        if (mReverseOrder) {
+            list = list.reverseDirections();
+        }
         return list;
     }
 
