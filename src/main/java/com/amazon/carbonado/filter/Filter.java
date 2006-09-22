@@ -28,6 +28,7 @@ import com.amazon.carbonado.MalformedFilterException;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.info.ChainedProperty;
+import com.amazon.carbonado.info.StorableIntrospector;
 
 import com.amazon.carbonado.util.Appender;
 
@@ -95,7 +96,7 @@ public abstract class Filter<S extends Storable> implements Appender {
      * @return canonical Filter instance
      * @see OpenFilter
      */
-    public static <S extends Storable> Filter<S> getOpenFilter(Class<S> type) {
+    public static <S extends Storable> OpenFilter<S> getOpenFilter(Class<S> type) {
         Map<Object, Filter<S>> filterCache = getFilterCache(type);
         synchronized (filterCache) {
             Filter<S> filter = filterCache.get(OPEN_KEY);
@@ -103,7 +104,7 @@ public abstract class Filter<S extends Storable> implements Appender {
                 filter = new OpenFilter<S>(type);
                 filterCache.put(OPEN_KEY, filter);
             }
-            return filter;
+            return (OpenFilter<S>) filter;
         }
     }
 
@@ -115,7 +116,7 @@ public abstract class Filter<S extends Storable> implements Appender {
      * @return canonical Filter instance
      * @see ClosedFilter
      */
-    public static <S extends Storable> Filter<S> getClosedFilter(Class<S> type) {
+    public static <S extends Storable> ClosedFilter<S> getClosedFilter(Class<S> type) {
         Map<Object, Filter<S>> filterCache = getFilterCache(type);
         synchronized (filterCache) {
             Filter<S> filter = filterCache.get(CLOSED_KEY);
@@ -123,7 +124,7 @@ public abstract class Filter<S extends Storable> implements Appender {
                 filter = new ClosedFilter<S>(type);
                 filterCache.put(CLOSED_KEY, filter);
             }
-            return filter;
+            return (ClosedFilter<S>) filter;
         }
     }
 
@@ -449,6 +450,35 @@ public abstract class Filter<S extends Storable> implements Appender {
     public final Filter<S> reduce() {
         return isReduced() ? this : accept(new Reducer<S>(), null);
     }
+
+    /**
+     * Prepends a join property to all properties of this filter. For example,
+     * consider two Storable types, Person and Address. Person has a property
+     * "homeAddress" which joins to Address. An Address filter, "city = ?", as
+     * joined from Person's "homeAddress", becomes "homeAddress.city = ?".
+     *
+     * @param type type of T which contains join property
+     * @param joinProperty property of T which joins to this Filter's Storable type
+     * @return filter for type T
+     * @throws IllegalArgumentException if property does not exist or is not a
+     * join to type S
+     */
+    public final <T extends Storable> Filter<T> asJoinedFrom(Class<T> type, String joinProperty) {
+        return asJoinedFrom
+            (ChainedProperty.parse(StorableIntrospector.examine(type), joinProperty));
+    }
+
+    /**
+     * Prepends a join property to all properties of this filter. For example,
+     * consider two Storable types, Person and Address. Person has a property
+     * "homeAddress" which joins to Address. An Address filter, "city = ?", as
+     * joined from Person's "homeAddress", becomes "homeAddress.city = ?".
+     *
+     * @param joinProperty property of T which joins to this Filter's Storable type
+     * @return filter for type T
+     * @throws IllegalArgumentException if property is not a join to type S
+     */
+    public abstract <T extends Storable> Filter<T> asJoinedFrom(ChainedProperty<T> joinProperty);
 
     abstract Filter<S> buildDisjunctiveNormalForm();
 

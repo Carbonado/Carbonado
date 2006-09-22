@@ -105,7 +105,7 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
     }
 
     @Override
-    public Filter<S> not() {
+    public PropertyFilter<S> not() {
         if (mBindID == BOUND_CONSTANT) {
             return getCanonical(mProperty, mOp.reverse(), mConstant);
         } else {
@@ -156,16 +156,32 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         return mBindID;
     }
 
-    public Filter<S> bind() {
+    public PropertyFilter<S> bind() {
         return mBindID == 0 ? getCanonical(this, 1) : this;
     }
 
-    public Filter<S> unbind() {
+    public PropertyFilter<S> unbind() {
         return mBindID == 0 ? this : getCanonical(this, 0);
     }
 
     public boolean isBound() {
         return mBindID != 0;
+    }
+
+    public <T extends Storable> PropertyFilter<T> asJoinedFrom(ChainedProperty<T> joinProperty) {
+        if (joinProperty.getType() != getStorableType()) {
+            throw new IllegalArgumentException
+                ("Property is not of type \"" + getStorableType().getName() + "\": " +
+                 joinProperty);
+        }
+
+        ChainedProperty<T> newProperty = joinProperty.append(getChainedProperty());
+
+        if (isConstant()) {
+            return getCanonical(newProperty, mOp, mConstant);
+        } else {
+            return getCanonical(newProperty, mOp, mBindID);
+        }
     }
 
     /**

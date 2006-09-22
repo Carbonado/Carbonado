@@ -22,6 +22,8 @@ import java.io.IOException;
 
 import com.amazon.carbonado.Storable;
 
+import com.amazon.carbonado.info.ChainedProperty;
+
 /**
  * Filter tree node that performs a logical 'and' test.
  *
@@ -58,6 +60,10 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
             return this;
         }
         return mLeft.unbind().and(mRight.unbind());
+    }
+
+    public <T extends Storable> Filter<T> asJoinedFrom(ChainedProperty<T> joinProperty) {
+        return mLeft.asJoinedFrom(joinProperty).and(mRight.asJoinedFrom(joinProperty));
     }
 
     Filter<S> buildDisjunctiveNormalForm() {

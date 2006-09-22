@@ -22,6 +22,8 @@ import java.io.IOException;
 
 import com.amazon.carbonado.Storable;
 
+import com.amazon.carbonado.info.ChainedProperty;
+
 /**
  * Filter tree node that performs a logical 'or' test.
  *
@@ -58,6 +60,10 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
             return this;
         }
         return mLeft.unbind().or(mRight.unbind());
+    }
+
+    public <T extends Storable> Filter<T> asJoinedFrom(ChainedProperty<T> joinProperty) {
+        return mLeft.asJoinedFrom(joinProperty).or(mRight.asJoinedFrom(joinProperty));
     }
 
     Filter<S> buildDisjunctiveNormalForm() {

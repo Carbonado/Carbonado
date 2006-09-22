@@ -22,6 +22,8 @@ import java.io.IOException;
 
 import com.amazon.carbonado.Storable;
 
+import com.amazon.carbonado.info.ChainedProperty;
+
 /**
  * Filter which lets all results pass through.
  *
@@ -36,11 +38,11 @@ public class OpenFilter<S extends Storable> extends Filter<S> {
         return filter;
     }
 
-    public Filter<S> or(Filter<S> filter) {
+    public OpenFilter<S> or(Filter<S> filter) {
         return this;
     }
 
-    public Filter<S> not() {
+    public ClosedFilter<S> not() {
         return getClosedFilter(getStorableType());
     }
 
@@ -58,16 +60,20 @@ public class OpenFilter<S extends Storable> extends Filter<S> {
         return visitor.visit(this, param);
     }
 
-    public Filter<S> bind() {
+    public OpenFilter<S> bind() {
         return this;
     }
 
-    public Filter<S> unbind() {
+    public OpenFilter<S> unbind() {
         return this;
     }
 
     public boolean isBound() {
         return true;
+    }
+
+    public <T extends Storable> OpenFilter<T> asJoinedFrom(ChainedProperty<T> joinProperty) {
+        return getOpenFilter(joinProperty.getPrimeProperty().getEnclosingType());
     }
 
     void markBound() {
