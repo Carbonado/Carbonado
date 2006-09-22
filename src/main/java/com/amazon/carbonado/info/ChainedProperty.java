@@ -213,7 +213,7 @@ public class ChainedProperty<S extends Storable> implements Appender {
             new StorableProperty[getChainCount() + 1 + propChainCount];
 
         int pos = 0;
-        if (newChain.length > 1) {
+        if (getChainCount() > 0) {
             System.arraycopy(mChain, 0, newChain, 0, mChain.length);
             pos = mChain.length;
         }
@@ -241,6 +241,24 @@ public class ChainedProperty<S extends Storable> implements Appender {
         StorableProperty<?>[] newChain = new StorableProperty[getChainCount() - 1];
         System.arraycopy(mChain, 0, newChain, 0, newChain.length);
         return get(mPrime, newChain);
+    }
+
+    /**
+     * Returns a new ChainedProperty which contains everything that follows
+     * this ChainedProperty's prime property.
+     *
+     * @throws IllegalStateException if chain count is zero
+     */
+    public ChainedProperty<?> tail() {
+        if (getChainCount() == 0) {
+            throw new IllegalStateException();
+        }
+        if (getChainCount() == 1) {
+            return get(mChain[0]);
+        }
+        StorableProperty<?>[] newChain = new StorableProperty[getChainCount() - 1];
+        System.arraycopy(mChain, 1, newChain, 0, newChain.length);
+        return get(mChain[0], newChain);
     }
 
     @Override
