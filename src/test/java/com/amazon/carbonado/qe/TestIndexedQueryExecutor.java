@@ -680,7 +680,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         assertEquals(values.getFilter(), executor.getFilter());
         List<OrderedProperty<StorableTestBasic>> expectedOrdering =
-            makeOrdering(StorableTestBasic.class, "stringProp");
+            makeOrdering(StorableTestBasic.class, "-stringProp");
         assertEquals(expectedOrdering, executor.getOrdering());
     }
 
