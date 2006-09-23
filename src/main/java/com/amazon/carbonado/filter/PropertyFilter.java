@@ -184,6 +184,37 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         }
     }
 
+    @Override
+    NotJoined notJoinedFrom(ChainedProperty<S> joinProperty,
+                            Class<? extends Storable> joinPropertyType)
+    {
+        ChainedProperty<?> notJoinedProp = getChainedProperty();
+        ChainedProperty<?> jp = joinProperty;
+
+        while (notJoinedProp.getPrimeProperty().equals(jp.getPrimeProperty())) {
+            notJoinedProp = notJoinedProp.tail();
+            if (jp.getChainCount() == 0) {
+                jp = null;
+                break;
+            }
+            jp = jp.tail();
+        }
+
+        if (jp != null || notJoinedProp.equals(getChainedProperty())) {
+            return super.notJoinedFrom(joinProperty, joinPropertyType);
+        }
+
+        PropertyFilter<?> notJoinedFilter;
+
+        if (isConstant()) {
+            notJoinedFilter = getCanonical(notJoinedProp, mOp, mConstant);
+        } else {
+            notJoinedFilter = getCanonical(notJoinedProp, mOp, mBindID);
+        }
+
+        return new NotJoined(notJoinedFilter, getOpenFilter(getStorableType()));
+    }
+
     /**
      * Returns another PropertyFilter instance which is bound to the given constant value.
      *

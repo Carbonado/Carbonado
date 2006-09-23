@@ -480,6 +480,91 @@ public abstract class Filter<S extends Storable> implements Appender {
      */
     public abstract <T extends Storable> Filter<T> asJoinedFrom(ChainedProperty<T> joinProperty);
 
+    /**
+     * Removes a join property prefix from all applicable properties of this
+     * filter. For example, consider two Storable types, Person and
+     * Address. Person has a property "homeAddress" which joins to Address. A
+     * Person filter might be "homeAddress.city = ? & lastName = ?". When not
+     * joined from "homeAddress", it becomes "city = ?" on Address with a
+     * remainder of "lastName = ?" on Person.
+     *
+     * <p>The resulting remainder filter (if any) is always logically and'd to
+     * the not joined filter. In order to achieve this, the original filter is
+     * first converted to conjunctive normal form. And as a side affect, both
+     * the remainder and not joined filters are {@link #bind bound}.
+     *
+     * @param joinProperty property to not join from
+     * @return not join result
+     * @throws IllegalArgumentException if property does not exist or if
+     * property does not refer to a Storable
+     */
+    public final NotJoined notJoinedFrom(String joinProperty) {
+        return notJoinedFrom
+            (ChainedProperty.parse(StorableIntrospector.examine(mType), joinProperty));
+    }
+
+    /**
+     * Removes a join property prefix from all applicable properties of this
+     * filter. For example, consider two Storable types, Person and
+     * Address. Person has a property "homeAddress" which joins to Address. A
+     * Person filter might be "homeAddress.city = ? & lastName = ?". When not
+     * joined from "homeAddress", it becomes "city = ?" on Address with a
+     * remainder of "lastName = ?" on Person.
+     *
+     * <p>The resulting remainder filter (if any) is always logically and'd to
+     * the not joined filter. In order to achieve this, the original filter is
+     * first converted to conjunctive normal form. And as a side affect, both
+     * the remainder and not joined filters are {@link #bind bound}.
+     *
+     * @param joinProperty property to not join from
+     * @return not join result
+     * @throws IllegalArgumentException if property does not refer to a Storable
+     */
+    public final NotJoined notJoinedFrom(ChainedProperty<S> joinProperty) {
+        Class<?> type = joinProperty.getType();
+        if (!Storable.class.isAssignableFrom(type)) {
+            throw new IllegalArgumentException
+                ("Join property type is not a Storable: " + joinProperty);
+        }
+
+        Filter<S> cnf = conjunctiveNormalForm();
+        NotJoined nj = cnf.notJoinedFrom(joinProperty, (Class<Storable>) type);
+
+        if (nj.getNotJoinedFilter() instanceof OpenFilter) {
+            // Remainder filter should be same as original, but it might have
+            // expanded with conjunctive normal form. If so, restore to
+            // original, but still bind it to ensure consistent side-effects.
+            if (nj.getRemainderFilter() != this) {
+                nj = new NotJoined(nj.getNotJoinedFilter(), bind());
+            }
+        }
+
+        if (isDisjunctiveNormalForm()) {
+            // Try to return filters which look similar to the original. The
+            // conversion from disjunctive normal form to conjunctive normal
+            // form may make major changes. If original was dnf, restore the
+            // result filters to dnf.
+            
+            if (!(nj.getNotJoinedFilter().isDisjunctiveNormalForm()) ||
+                !(nj.getRemainderFilter().isDisjunctiveNormalForm()))
+            {
+                nj = new NotJoined(nj.getNotJoinedFilter().disjunctiveNormalForm(),
+                                   nj.getRemainderFilter().disjunctiveNormalForm());
+            }
+        }
+
+        return nj;
+    }
+
+    /**
+     * Should only be called on a filter in conjunctive normal form.
+     */
+    NotJoined notJoinedFrom(ChainedProperty<S> joinProperty,
+                            Class<? extends Storable> joinPropertyType)
+    {
+        return new NotJoined(getOpenFilter(joinPropertyType), this);
+    }
+
     abstract Filter<S> buildDisjunctiveNormalForm();
 
     abstract Filter<S> buildConjunctiveNormalForm();
@@ -541,4 +626,54 @@ public abstract class Filter<S extends Storable> implements Appender {
     }
 
     abstract void dumpTree(Appendable app, int indentLevel) throws IOException;
+
+    /**
+     * Result from calling {@link Filter#notJoinedFrom}.
+     */
+    public class NotJoined {
+        private final Filter<?> mNotJoined;
+        private final Filter<S> mRemainder;
+
+        NotJoined(Filter<?> notJoined, Filter<S> remainder) {
+            mNotJoined = notJoined;
+            mRemainder = remainder;
+        }
+
+        /**
+         * Returns the filter which is no longer as from a join.
+         *
+         * @return not joined filter or open filter if none
+         */
+        public Filter<?> getNotJoinedFilter() {
+            return mNotJoined;
+        }
+
+        /**
+         * Returns the filter which could not be separated.
+         *
+         * @return remainder filter or open filter if none
+         */
+        public Filter<S> getRemainderFilter() {
+            return mRemainder;
+        }
+
+        public int hashCode() {
+            return mNotJoined.hashCode() * 31 + mRemainder.hashCode();
+        }
+
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj instanceof Filter.NotJoined) {
+                NotJoined other = (NotJoined) obj;
+                return mNotJoined.equals(other.mNotJoined) && mRemainder.equals(other.mRemainder);
+            }
+            return false;
+        }
+
+        public String toString() {
+            return "not joined: " + mNotJoined + ", remainder: " + mRemainder;
+        }
+    }
 }

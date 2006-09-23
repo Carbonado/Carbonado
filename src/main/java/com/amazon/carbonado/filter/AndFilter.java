@@ -66,6 +66,21 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
         return mLeft.asJoinedFrom(joinProperty).and(mRight.asJoinedFrom(joinProperty));
     }
 
+    @Override
+    NotJoined notJoinedFrom(ChainedProperty<S> joinProperty,
+                            Class<? extends Storable> joinPropertyType)
+    {
+        NotJoined left = mLeft.notJoinedFrom(joinProperty, joinPropertyType);
+        NotJoined right = mRight.notJoinedFrom(joinProperty, joinPropertyType);
+
+        // Remove wildcards to shut the compiler up.
+        Filter leftNotJoined = left.getNotJoinedFilter();
+        Filter rightNotJoined = right.getNotJoinedFilter();
+
+        return new NotJoined(leftNotJoined.and(rightNotJoined),
+                             left.getRemainderFilter().and(right.getRemainderFilter()));
+    }
+
     Filter<S> buildDisjunctiveNormalForm() {
         Filter<S> left = mLeft.reduce().dnf();
         Filter<S> right = mRight.reduce().dnf();

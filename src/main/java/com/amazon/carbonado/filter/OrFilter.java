@@ -66,6 +66,38 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
         return mLeft.asJoinedFrom(joinProperty).or(mRight.asJoinedFrom(joinProperty));
     }
 
+    @Override
+    NotJoined notJoinedFrom(ChainedProperty<S> joinProperty,
+                            Class<? extends Storable> joinPropertyType)
+    {
+        NotJoined left = mLeft.notJoinedFrom(joinProperty, joinPropertyType);
+        NotJoined right = mRight.notJoinedFrom(joinProperty, joinPropertyType);
+
+        // Assert that our child nodes are only OrFilter or PropertyFilter.
+        if (!isConjunctiveNormalForm()) {
+            throw new IllegalStateException();
+        }
+
+        // If child nodes have any remainder, then everything must go to the
+        // remainder. As per the contract of notJoinedFrom, the not-joined and
+        // remainder filters are logically and'd together to reform the
+        // original filter. If the remainder was broken up, then the not-joined
+        // and remainder filters would need to logically or'd together to
+        // reform the original filter, breaking the notJoinedFrom contract.
+
+        if (!(left.getRemainderFilter() instanceof OpenFilter) ||
+            !(right.getRemainderFilter() instanceof OpenFilter))
+        {
+            return super.notJoinedFrom(joinProperty, joinPropertyType);
+        }
+
+        // Remove wildcards to shut the compiler up.
+        Filter leftNotJoined = left.getNotJoinedFilter();
+        Filter rightNotJoined = right.getNotJoinedFilter();
+
+        return new NotJoined(leftNotJoined.or(rightNotJoined), getOpenFilter(getStorableType()));
+    }
+
     Filter<S> buildDisjunctiveNormalForm() {
         return mLeft.dnf().or(mRight.dnf()).reduce();
     }
