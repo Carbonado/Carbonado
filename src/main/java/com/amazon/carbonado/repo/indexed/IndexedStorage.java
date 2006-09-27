@@ -297,6 +297,10 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         return new MergeSortBuffer<S>(mRootStorage);
     }
 
+    public long countAll() throws FetchException {
+        return mMasterStorage.query().count();
+    }
+
     public Cursor<S> fetchAll() throws FetchException {
         return mMasterStorage.query().fetch();
     }

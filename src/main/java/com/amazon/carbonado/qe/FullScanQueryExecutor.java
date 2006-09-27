@@ -51,6 +51,15 @@ public class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExec
         mSupport = support;
     }
 
+    @Override
+    public long count(FilterValues<S> values) throws FetchException {
+        long count = mSupport.countAll();
+        if (count == -1) {
+            count = super.count(values);
+        }
+        return count;
+    }
+
     /**
      * Returns an open filter.
      */
@@ -81,6 +90,12 @@ public class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExec
 
     public static interface Support<S extends Storable> {
         Class<S> getStorableType();
+
+        /**
+         * Counts all Storables. Implementation may return -1 to indicate that
+         * default count algorithm should be used.
+         */
+        long countAll() throws FetchException;
 
         /**
          * Perform a full scan of all Storables.
