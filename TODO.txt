@@ -37,7 +37,6 @@ Carbonado TODO
 
 == Performance ==
 
-* Join optimization
 * Support partial lookup:
       // For partial lookup, identify which properties you want.
       // Selections are overridden when calling reject.

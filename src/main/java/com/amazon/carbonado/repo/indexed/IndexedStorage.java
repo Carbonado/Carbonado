@@ -59,6 +59,7 @@ import com.amazon.carbonado.cursor.SortBuffer;
 
 import com.amazon.carbonado.qe.BoundaryType;
 import com.amazon.carbonado.qe.QueryEngine;
+import com.amazon.carbonado.qe.QueryExecutorFactory;
 import com.amazon.carbonado.qe.StorageAccess;
 
 import com.amazon.carbonado.spi.RepairExecutor;
@@ -264,6 +265,10 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
             }
         }
         return accessors.toArray(new IndexEntryAccessor[accessors.size()]);
+    }
+
+    public QueryExecutorFactory<S> getQueryExecutorFactory() {
+        return mQueryEngine;
     }
 
     public Collection<StorableIndex<S>> getAllIndexes() {

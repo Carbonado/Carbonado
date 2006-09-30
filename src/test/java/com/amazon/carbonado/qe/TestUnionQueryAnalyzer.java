@@ -131,7 +131,8 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertTrue(res_1.handlesAnything());
         assertEquals(Filter.filterFor(Shipment.class, "orderID = ?").bind(),
                      res_1.getCompositeScore().getFilteringScore().getIdentityFilter());
-        assertEquals(makeIndex(Shipment.class, "orderID"), res_1.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "orderID", "shipmentNotes"),
+                     res_1.getLocalIndex());
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
         assertEquals(1, res_1.getRemainderOrdering().size());
@@ -163,7 +164,8 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertTrue(res_1.handlesAnything());
         assertTrue(res_1.getCompositeScore().getFilteringScore().hasRangeStart());
         assertFalse(res_1.getCompositeScore().getFilteringScore().hasRangeEnd());
-        assertEquals(makeIndex(Shipment.class, "orderID"), res_1.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "orderID", "shipmentNotes"),
+                     res_1.getLocalIndex());
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
         assertEquals(1, res_1.getRemainderOrdering().size());
@@ -205,7 +207,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         rangeFilters = res_1.getCompositeScore().getFilteringScore().getRangeEndFilters();
         assertEquals(1, rangeFilters.size());
         assertEquals(Filter.filterFor(Shipment.class, "orderID <= ?").bind(), rangeFilters.get(0));
-        assertEquals(makeIndex(Shipment.class, "orderID"), res_1.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "orderID", "shipmentNotes"), res_1.getLocalIndex());
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
         // Sort operation required because the "shipmentID" index was not chosen.
@@ -249,7 +251,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         assertTrue(res_1.handlesAnything());
         assertEquals(Filter.filterFor(Shipment.class, "orderID = ?").bind(),
                      res_1.getCompositeScore().getFilteringScore().getIdentityFilter());
-        assertEquals(makeIndex(Shipment.class, "orderID"), res_1.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "orderID", "shipmentNotes"), res_1.getLocalIndex());
         assertEquals(null, res_1.getForeignIndex());
         assertEquals(null, res_1.getForeignProperty());
         assertEquals(1, res_1.getRemainderOrdering().size());
@@ -342,7 +344,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         IndexedQueryAnalyzer<Shipment>.Result res_1 = subResults.get(1);
 
         assertTrue(res_0.handlesAnything());
-        assertEquals(makeIndex(Shipment.class, "orderID"), res_0.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "orderID", "shipmentNotes"), res_0.getLocalIndex());
         assertEquals(null, res_0.getForeignIndex());
         assertEquals(null, res_0.getForeignProperty());
         assertEquals(1, res_0.getRemainderOrdering().size());

@@ -51,6 +51,9 @@ public class KeyQueryExecutor<S extends Storable> extends AbstractQueryExecutor<
      * not unique or if score is not a key match
      */
     public KeyQueryExecutor(Support<S> support, StorableIndex<S> index, FilteringScore<S> score) {
+        if (support == null && this instanceof Support) {
+            support = (Support<S>) this;
+        }
         if (support == null || index == null || score == null) {
             throw new IllegalArgumentException();
         }
@@ -101,6 +104,9 @@ public class KeyQueryExecutor<S extends Storable> extends AbstractQueryExecutor<
         return true;
     }
 
+    /**
+     * Provides support for {@link KeyQueryExecutor}.
+     */
     public static interface Support<S extends Storable> {
         /**
          * Select at most one Storable referenced by an index. The identity

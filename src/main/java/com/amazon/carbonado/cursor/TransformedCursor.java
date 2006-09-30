@@ -30,7 +30,6 @@ import com.amazon.carbonado.FetchInterruptedException;
  * one-to-one joins. Use {@link MultiTransformedCursor} for one-to-many joins.
  *
  * @author Brian S O'Neill
- * @see JoinedCursorFactory
  * @param <S> source type, can be anything
  * @param <T> target type, can be anything
  */

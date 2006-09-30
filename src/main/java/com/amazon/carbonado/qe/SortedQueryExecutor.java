@@ -64,9 +64,13 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
                                OrderingList<S> handledOrdering,
                                OrderingList<S> remainderOrdering)
     {
+        if (support == null && this instanceof Support) {
+            support = (Support<S>) this;
+        }
         if (executor == null) {
             throw new IllegalArgumentException();
         }
+
         mSupport = support;
         mExecutor = executor;
 
@@ -128,6 +132,9 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
         return true;
     }
 
+    /**
+     * Provides support for {@link SortedQueryExecutor}.
+     */
     public static interface Support<S extends Storable> {
         /**
          * Implementation must return an empty buffer for sorting.

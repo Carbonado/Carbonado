@@ -47,6 +47,11 @@ public interface StorageAccess<S extends Storable>
     Class<S> getStorableType();
 
     /**
+     * Returns a QueryExecutorFactory instance for storage.
+     */
+    QueryExecutorFactory<S> getQueryExecutorFactory();
+
+    /**
      * Returns all the available indexes.
      */
     Collection<StorableIndex<S>> getAllIndexes();

@@ -87,7 +87,7 @@ public class IterableQueryExecutor<S extends Storable> extends AbstractQueryExec
         throws IOException
     {
         indent(app, indentLevel);
-        app.append("iterable: ");
+        app.append("collection iterator: ");
         app.append(mType.getName());
         newline(app);
         return true;

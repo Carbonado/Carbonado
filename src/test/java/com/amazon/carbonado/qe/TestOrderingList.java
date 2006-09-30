@@ -184,6 +184,21 @@ public class TestOrderingList extends TestCase {
         assertTrue(list_1 == list_2);
     }
 
+    public void testSubList() throws Exception {
+        OrderingList<StorableTestBasic> list_1 =
+            OrderingList.get(StorableTestBasic.class, "date", "-intProp", "~stringProp");
+
+        assertEquals(0, list_1.subList(0, 0).size());
+        assertEquals(list_1, list_1.subList(0, 3));
+
+        OrderingList<StorableTestBasic> sub = list_1.subList(0, 1);
+        assertEquals(1, sub.size());
+        assertEquals("+date", sub.get(0).toString());
+
+        sub = list_1.subList(1, 3);
+        assertEquals(2, sub.size());
+    }
+
     public void testAsArray() throws Exception {
         OrderingList<StorableTestBasic> list =
             OrderingList.get(StorableTestBasic.class, "date", "intProp", "stringProp");

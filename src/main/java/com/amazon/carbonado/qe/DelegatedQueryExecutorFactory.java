@@ -18,25 +18,34 @@
 
 package com.amazon.carbonado.qe;
 
-import com.amazon.carbonado.RepositoryException;
+import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.Storage;
 
 import com.amazon.carbonado.filter.Filter;
 
 /**
- * Produces {@link QueryExecutor} instances from a query specification.
+ * QueryExecutorFactory which produces executors which delegate via {@link DelegatedQueryExecutor}.
  *
  * @author Brian S O'Neill
  */
-public interface QueryExecutorFactory<S extends Storable> {
-    Class<S> getStorableType();
+public class DelegatedQueryExecutorFactory<S extends Storable> implements QueryExecutorFactory<S> {
+    private final Storage<S> mStorage;
 
-    /**
-     * Returns an executor that handles the given query specification.
-     *
-     * @param filter optional filter
-     * @param ordering optional order-by properties
-     */
-    QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
-        throws RepositoryException;
+    public DelegatedQueryExecutorFactory(Storage<S> rootStorage) {
+        if (rootStorage == null) {
+            throw new IllegalArgumentException();
+        }
+        mStorage = rootStorage;
+    }
+
+    public Class<S> getStorableType() {
+        return mStorage.getStorableType();
+    }
+
+    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+        throws FetchException
+    {
+        return new DelegatedQueryExecutor<S>(mStorage, filter, ordering);
+    }
 }

@@ -90,11 +90,11 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             throw new IllegalArgumentException("Filter must be bound");
         }
 
-        final Comparator<CompositeScore<?>> comparator = CompositeScore.fullComparator();
-
         // First find best local index.
-        CompositeScore<S> bestScore = null;
+        CompositeScore<S> bestLocalScore = null;
         StorableIndex<S> bestLocalIndex = null;
+
+        final Comparator<CompositeScore<?>> fullComparator = CompositeScore.fullComparator();
 
         Collection<StorableIndex<S>> localIndexes = indexesFor(getStorableType());
         if (localIndexes != null) {
@@ -102,14 +102,23 @@ public class IndexedQueryAnalyzer<S extends Storable> {
                 CompositeScore<S> candidateScore =
                     CompositeScore.evaluate(index, filter, ordering);
 
-                if (bestScore == null || comparator.compare(candidateScore, bestScore) < 0) {
-                    bestScore = candidateScore;
+                if (bestLocalScore == null
+                    || fullComparator.compare(candidateScore, bestLocalScore) < 0)
+                {
+                    bestLocalScore = candidateScore;
                     bestLocalIndex = index;
                 }
             }
         }
 
-        // Now try to find better foreign index.
+        // Now try to find best foreign index.
+
+        if (bestLocalScore.getFilteringScore().isKeyMatch()) {
+            // Don't bother checking foreign indexes. The local one is perfect.
+            return new Result(filter, bestLocalScore, bestLocalIndex, null, null);
+        }
+
+        CompositeScore<?> bestForeignScore = null;
         StorableIndex<?> bestForeignIndex = null;
         ChainedProperty<S> bestForeignProperty = null;
 
@@ -134,20 +143,47 @@ public class IndexedQueryAnalyzer<S extends Storable> {
                      filter,
                      ordering);
 
-                if (bestScore == null || comparator.compare(candidateScore, bestScore) < 0) {
-                    bestScore = candidateScore;
-                    bestLocalIndex = null;
+                if (bestForeignScore == null
+                    || fullComparator.compare(candidateScore, bestForeignScore) < 0)
+                {
+                    bestForeignScore = candidateScore;
                     bestForeignIndex = index;
                     bestForeignProperty = foreignIndexes.mProperty;
                 }
             }
         }
 
-        return new Result(filter,
-                          bestScore,
-                          bestLocalIndex,
-                          bestForeignIndex,
-                          bestForeignProperty);
+        // Check if foreign index is better than local index.
+
+        if (bestLocalScore != null && bestForeignScore != null) {
+            // When comparing local index to foreign index, use a slightly less
+            // discriminating comparator, to prevent foreign indexes from
+            // looking too good.
+
+            Comparator<CompositeScore<?>> comp = CompositeScore.localForeignComparator();
+
+            if (comp.compare(bestForeignScore, bestLocalScore) < 0) {
+                // Foreign is better.
+                bestLocalScore = null;
+            } else {
+                // Local is better.
+                bestForeignScore = null;
+            }
+        }
+
+        CompositeScore bestScore;
+
+        if (bestLocalScore != null) {
+            bestScore = bestLocalScore;
+            bestForeignIndex = null;
+            bestForeignProperty = null;
+        } else {
+            bestScore = bestForeignScore;
+            bestLocalIndex = null;
+        }
+
+        return new Result
+            (filter, bestScore, bestLocalIndex, bestForeignIndex, bestForeignProperty);
     }
 
     /**
@@ -224,23 +260,6 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         if (indexes != null) {
             for (Object index : indexes) {
                 FilteringScore score = FilteringScore.evaluate((StorableIndex) index, filter);
-                if (score.getRemainderCount() == 0) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private <F extends Storable> boolean simpleAnalyze(Filter<F> filter)
-        throws SupportException, RepositoryException
-    {
-        Collection<StorableIndex<F>> indexes = indexesFor(filter.getStorableType());
-
-        if (indexes != null) {
-            for (StorableIndex<F> index : indexes) {
-                FilteringScore<F> score = FilteringScore.evaluate(index, filter);
                 if (score.getRemainderCount() == 0) {
                     return true;
                 }
@@ -363,7 +382,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         /**
          * Returns the simple or chained property that maps to the selected
          * foreign index. Returns null if foreign index was not selected. This
-         * property corresponds to the "bToAProperty" of {@link
+         * property corresponds to the "targetToSourceProperty" of {@link
          * JoinedQueryExecutor}.
          */
         public ChainedProperty<S> getForeignProperty() {
@@ -475,7 +494,12 @@ public class IndexedQueryAnalyzer<S extends Storable> {
                 }
             }
 
-            QueryExecutor<S> executor = baseExecutor(localAccess);
+            QueryExecutor<S> executor = baseLocalExecutor(localAccess);
+
+            if (executor == null) {
+                return JoinedQueryExecutor.build
+                    (mRepoAccess, getForeignProperty(), getFilter(), getOrdering());
+            }
 
             Filter<S> remainderFilter = getRemainderFilter();
             if (remainderFilter != null) {
@@ -494,9 +518,10 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             return executor;
         }
 
-        private QueryExecutor<S> baseExecutor(StorageAccess<S> localAccess)
-            throws SupportException, FetchException, RepositoryException
-        {
+        /**
+         * Returns local executor or null if foreign executor should be used.
+         */
+        private QueryExecutor<S> baseLocalExecutor(StorageAccess<S> localAccess) {
             if (!handlesAnything()) {
                 return new FullScanQueryExecutor<S>(localAccess);
             }
@@ -504,34 +529,15 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             StorableIndex<S> localIndex = getLocalIndex();
 
             if (localIndex != null) {
-                return indexExecutor(localAccess, localIndex);
+                CompositeScore<S> score = getCompositeScore();
+                FilteringScore<S> fScore = score.getFilteringScore();
+                if (fScore.isKeyMatch()) {
+                    return new KeyQueryExecutor<S>(localAccess, localIndex, fScore);
+                }
+                return new IndexedQueryExecutor<S>(localAccess, localIndex, score);
             }
 
-            StorableIndex foreignIndex = getForeignIndex();
-            StorageAccess foreignAccess = mRepoAccess
-                .storageAccessFor(foreignIndex.getStorableType());
-
-            QueryExecutor foreignExecutor;
-            Storage delegate = foreignAccess.storageDelegate(foreignIndex);
-            if (delegate != null) {
-                foreignExecutor = new DelegatedQueryExecutor(delegate, getFilter(), getOrdering());
-            } else {
-                foreignExecutor = indexExecutor(foreignAccess, foreignIndex);
-            }
-
-            return new JoinedQueryExecutor
-                (mRepoAccess.getRootRepository(), getForeignProperty(), foreignExecutor);
-        }
-
-        private <T extends Storable> QueryExecutor<T> indexExecutor(StorageAccess<T> access,
-                                                                    StorableIndex<T> index)
-        {
-            CompositeScore score = getCompositeScore();
-            FilteringScore fScore = score.getFilteringScore();
-            if (fScore.isKeyMatch()) {
-                return new KeyQueryExecutor<T>(access, index, fScore);
-            }
-            return new IndexedQueryExecutor<T>(access, index, score);
+            return null;
         }
 
         public String toString() {

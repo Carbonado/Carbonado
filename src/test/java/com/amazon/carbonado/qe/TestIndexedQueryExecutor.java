@@ -76,7 +76,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter, null);
 
-        Mock<StorableTestBasic> executor = new Mock(index, score);
+        Mock<StorableTestBasic> executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -96,7 +96,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100).with(5));
 
@@ -117,7 +117,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(200));
 
@@ -140,7 +140,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter, null);
 
-        Mock<StorableTestBasic> executor = new Mock(index, score);
+        Mock<StorableTestBasic> executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -159,7 +159,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -178,7 +178,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(10).with(30));
 
@@ -197,7 +197,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(10).with(30));
 
@@ -216,7 +216,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(10).with(10));
 
@@ -235,7 +235,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(30).with(10));
 
@@ -255,7 +255,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         score = CompositeScore.evaluate(index, filter,
                                         makeOrdering(StorableTestBasic.class, "-intProp"));
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100).with(30));
 
@@ -276,7 +276,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -296,7 +296,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         score = CompositeScore.evaluate(index, filter,
                                         makeOrdering(StorableTestBasic.class, "-intProp"));
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -316,7 +316,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         score = CompositeScore.evaluate(index, filter,
                                         makeOrdering(StorableTestBasic.class, "intProp"));
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -339,7 +339,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter, null);
 
-        Mock<StorableTestBasic> executor = new Mock(index, score);
+        Mock<StorableTestBasic> executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -358,7 +358,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -377,7 +377,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(10).with(30));
 
@@ -396,7 +396,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(10).with(30));
 
@@ -415,7 +415,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(10).with(10));
 
@@ -434,7 +434,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(30).with(10));
 
@@ -454,7 +454,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         score = CompositeScore.evaluate(index, filter,
                                         makeOrdering(StorableTestBasic.class, "-intProp"));
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100).with(30));
 
@@ -475,7 +475,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -495,7 +495,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         score = CompositeScore.evaluate(index, filter,
                                         makeOrdering(StorableTestBasic.class, "-intProp"));
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -515,7 +515,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         score = CompositeScore.evaluate(index, filter,
                                         makeOrdering(StorableTestBasic.class, "intProp"));
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100));
 
@@ -541,7 +541,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         CompositeScore<StorableTestBasic> score = CompositeScore.evaluate(index, filter, null);
 
-        Mock<StorableTestBasic> executor = new Mock(index, score);
+        Mock<StorableTestBasic> executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100).with(200));
 
@@ -560,7 +560,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(100).with(10));
 
@@ -580,7 +580,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(10).with(100).with(30));
 
@@ -612,7 +612,7 @@ public class TestIndexedQueryExecutor extends TestCase {
 
         score = CompositeScore.evaluate(index, filter, null);
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(3).with(56.5).with(200.2));
 
@@ -628,7 +628,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         score = CompositeScore.evaluate(index, filter,
                                         makeOrdering(StorableTestBasic.class, "doubleProp"));
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(3).with(56.5).with(200.2));
 
@@ -644,7 +644,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         score = CompositeScore.evaluate(index, filter,
                                         makeOrdering(StorableTestBasic.class, "stringProp"));
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(3).with(56.5).with(200.2));
 
@@ -665,7 +665,7 @@ public class TestIndexedQueryExecutor extends TestCase {
         score = CompositeScore.evaluate(index, filter,
                                         makeOrdering(StorableTestBasic.class, "-stringProp"));
 
-        executor = new Mock(index, score);
+        executor = new Mock<StorableTestBasic>(index, score);
 
         executor.fetch(values.with(3).with(56.5).with("foo"));
 
@@ -684,11 +684,40 @@ public class TestIndexedQueryExecutor extends TestCase {
         assertEquals(expectedOrdering, executor.getOrdering());
     }
 
+    public void testHandledOrdering() throws Exception {
+        // Tests that ordering of executor only reveals what it actually uses.
+
+        StorableIndex<StorableTestBasic> index;
+        Filter<StorableTestBasic> filter;
+        FilterValues<StorableTestBasic> values;
+        CompositeScore<StorableTestBasic> score;
+        Mock<StorableTestBasic> executor;
+
+        index = makeIndex(StorableTestBasic.class, "intProp", "-doubleProp", "stringProp");
+
+        filter = Filter.filterFor(StorableTestBasic.class, "intProp = ?");
+        values = filter.initialFilterValues();
+        filter = values.getFilter();
+
+        score = CompositeScore.evaluate
+            (index, filter,
+             makeOrdering(StorableTestBasic.class, "intProp", "doubleProp"));
+
+        executor = new Mock<StorableTestBasic>(index, score);
+
+        assertEquals(values.getFilter(), executor.getFilter());
+        List<OrderedProperty<StorableTestBasic>> expectedOrdering =
+            makeOrdering(StorableTestBasic.class, "+doubleProp");
+        assertEquals(expectedOrdering, executor.getOrdering());
+    }
+
     /**
      * Mock object doesn't really open a cursor -- it just captures the passed
      * parameters.
      */
-    static class Mock<S extends Storable> extends IndexedQueryExecutor<S> {
+    static class Mock<S extends Storable> extends IndexedQueryExecutor<S>
+        implements IndexedQueryExecutor.Support<S>
+    {
         Object[] mIdentityValues;
         BoundaryType mRangeStartBoundary;
         Object mRangeStartValue;
@@ -697,19 +726,9 @@ public class TestIndexedQueryExecutor extends TestCase {
         boolean mReverseRange;
         boolean mReverseOrder;
 
-        Mock(StorableIndex<S> index, CompositeScore<S> score) {
-            this(index, score, new MockSupport[1]);
+        public Mock(StorableIndex<S> index, CompositeScore<S> score) {
+            super(null, index, score);
         }
-
-        Mock(StorableIndex<S> index, CompositeScore<S> score, MockSupport[] ref) {
-            // Extremely bizarre hack to allow support to know about us.
-            super(ref[0] = new MockSupport(), index, score);
-            ((MockSupport<S>) ref[0]).mMock = this;
-        }
-    }
-
-    static class MockSupport<S extends Storable> implements IndexedQueryExecutor.Support<S> {
-        Mock<S> mMock;
 
         public Cursor<S> fetchSubset(StorableIndex<S> index,
                                      Object[] identityValues,
@@ -720,13 +739,13 @@ public class TestIndexedQueryExecutor extends TestCase {
                                      boolean reverseRange,
                                      boolean reverseOrder)
         {
-            mMock.mIdentityValues = identityValues;
-            mMock.mRangeStartBoundary = rangeStartBoundary;
-            mMock.mRangeStartValue = rangeStartValue;
-            mMock.mRangeEndBoundary = rangeEndBoundary;
-            mMock.mRangeEndValue = rangeEndValue;
-            mMock.mReverseRange = reverseRange;
-            mMock.mReverseOrder = reverseOrder;
+            mIdentityValues = identityValues;
+            mRangeStartBoundary = rangeStartBoundary;
+            mRangeStartValue = rangeStartValue;
+            mRangeEndBoundary = rangeEndBoundary;
+            mRangeEndValue = rangeEndValue;
+            mReverseRange = reverseRange;
+            mReverseOrder = reverseOrder;
 
             Collection<S> empty = Collections.emptyList();
             return new IteratorCursor<S>(empty);

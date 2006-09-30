@@ -45,6 +45,9 @@ public class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExec
      * @throws IllegalArgumentException if support is null
      */
     public FullScanQueryExecutor(Support<S> support) {
+        if (support == null && this instanceof Support) {
+            support = (Support<S>) this;
+        }
         if (support == null) {
             throw new IllegalArgumentException();
         }
@@ -88,6 +91,9 @@ public class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExec
         return true;
     }
 
+    /**
+     * Provides support for {@link FullScanQueryExecutor}.
+     */
     public static interface Support<S extends Storable> {
         Class<S> getStorableType();
 

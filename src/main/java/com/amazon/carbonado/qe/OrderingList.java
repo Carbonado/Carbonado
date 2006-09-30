@@ -246,6 +246,23 @@ public class OrderingList<S extends Storable> extends AbstractList<OrderedProper
         return newList;
     }
 
+    @Override
+    public OrderingList<S> subList(int fromIndex, int toIndex) {
+        // Check for optimization opportunity.
+        if (fromIndex == 0 && toIndex >= 0 && toIndex <= mSize) {
+            if (toIndex == 0) {
+                return emptyList();
+            }
+            OrderingList<S> list = this;
+            while (toIndex < list.mSize) {
+                list = list.mParent;
+            }
+            return list;
+        }
+
+        return get(super.subList(fromIndex, toIndex));
+    }
+
     /**
      * This method is not public because the array is not a clone.
      */

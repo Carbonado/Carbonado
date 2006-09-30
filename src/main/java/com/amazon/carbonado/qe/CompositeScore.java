@@ -92,6 +92,18 @@ public class CompositeScore<S extends Storable> {
     }
 
     /**
+     * Returns a partial comparator suited for comparing local indexes to
+     * foreign indexes. It determines which CompositeScores are better by
+     * examining identity matches, range matches and ordering. It does not
+     * matter if the scores were evaluated for different indexes or storable
+     * types. The comparator returns {@code <0} if first score is better,
+     * {@code 0} if equal, or {@code >0} if second is better.
+     */
+    public static Comparator<CompositeScore<?>> localForeignComparator() {
+        return Comp.LOCAL_FOREIGN;
+    }
+
+    /**
      * Returns a comparator which determines which CompositeScores are
      * better. It compares identity matches, range matches, ordering, open
      * range matches, property arrangement and index cost estimate. It does not
@@ -100,7 +112,7 @@ public class CompositeScore<S extends Storable> {
      * {@code 0} if equal, or {@code >0} if second is better.
      */
     public static Comparator<CompositeScore<?>> fullComparator() {
-        return Full.INSTANCE;
+        return Comp.FULL;
     }
 
     private final FilteringScore<S> mFilteringScore;
@@ -157,8 +169,15 @@ public class CompositeScore<S extends Storable> {
         return "CompositeScore {" + getFilteringScore() + ", " + getOrderingScore() + '}';
     }
 
-    private static class Full implements Comparator<CompositeScore<?>> {
-        static final Comparator<CompositeScore<?>> INSTANCE = new Full();
+    private static class Comp implements Comparator<CompositeScore<?>> {
+        static final Comparator<CompositeScore<?>> LOCAL_FOREIGN = new Comp(false);
+        static final Comparator<CompositeScore<?>> FULL = new Comp(true);
+
+        private final boolean mFull;
+
+        private Comp(boolean full) {
+            mFull = full;
+        }
 
         public int compare(CompositeScore<?> first, CompositeScore<?> second) {
             int result = FilteringScore.nullCompare(first, second);
@@ -189,7 +208,18 @@ public class CompositeScore<S extends Storable> {
                 }
             }
 
-            result = FilteringScore.fullComparator().compare(firstScore, secondScore);
+            if (mFull) {
+                result = FilteringScore.fullComparator().compare(firstScore, secondScore);
+            } else {
+                // Favor index that has any matches.
+                if (firstScore.hasAnyMatches()) {
+                    if (!secondScore.hasAnyMatches()) {
+                        return -1;
+                    }
+                } else if (secondScore.hasAnyMatches()) {
+                    return 1;
+                }
+            }
 
             return result;
         }

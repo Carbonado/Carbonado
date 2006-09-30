@@ -52,6 +52,7 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
 
     private final Support<S> mSupport;
     private final StorableIndex<S> mIndex;
+    private final int mHandledCount;
     private final int mIdentityCount;
     private final Filter<S> mIdentityFilter;
     private final List<PropertyFilter<S>> mExclusiveRangeStartFilters;
@@ -70,6 +71,9 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
                                 StorableIndex<S> index,
                                 CompositeScore<S> score)
     {
+        if (support == null && this instanceof Support) {
+            support = (Support<S>) this;
+        }
         if (support == null || index == null || score == null) {
             throw new IllegalArgumentException();
         }
@@ -78,6 +82,9 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
         mIndex = index;
 
         FilteringScore<S> fScore = score.getFilteringScore();
+        OrderingScore<S> oScore = score.getOrderingScore();
+
+        mHandledCount = oScore.getHandledCount();
 
         mIdentityCount = fScore.getIdentityCount();
         mIdentityFilter = fScore.getIdentityFilter();
@@ -86,7 +93,7 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
         mExclusiveRangeEndFilters = fScore.getExclusiveRangeEndFilters();
         mInclusiveRangeEndFilters = fScore.getInclusiveRangeEndFilters();
 
-        mReverseOrder = score.getOrderingScore().shouldReverseOrder();
+        mReverseOrder = oScore.shouldReverseOrder();
         mReverseRange = fScore.shouldReverseRange();
     }
 
@@ -185,12 +192,20 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
     }
 
     public OrderingList<S> getOrdering() {
-        OrderingList<S> list = OrderingList.get(mIndex.getOrderedProperties());
-        if (mIdentityCount > 0) {
-            list = OrderingList.get(list.subList(mIdentityCount, list.size()));
-        }
-        if (mReverseOrder) {
-            list = list.reverseDirections();
+        OrderingList<S> list;
+        if (mHandledCount == 0) {
+            list = OrderingList.emptyList();
+        } else {
+            list = OrderingList.get(mIndex.getOrderedProperties());
+            if (mIdentityCount > 0) {
+                list = list.subList(mIdentityCount, list.size());
+            }
+            if (mHandledCount < list.size()) {
+                list = list.subList(0, mHandledCount);
+            }
+            if (mReverseOrder) {
+                list = list.reverseDirections();
+            }
         }
         return list;
     }
@@ -253,6 +268,9 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
         return true;
     }
 
+    /**
+     * Provides support for {@link IndexedQueryExecutor}.
+     */
     public static interface Support<S extends Storable> {
         /**
          * Perform an index scan of a subset of Storables referenced by an

@@ -27,12 +27,17 @@ import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
 import com.amazon.carbonado.Cursor;
+import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 
+import com.amazon.carbonado.cursor.ArraySortBuffer;
 import com.amazon.carbonado.cursor.SortBuffer;
 
+import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIndex;
 
 import com.amazon.carbonado.filter.Filter;
@@ -46,8 +51,6 @@ import com.amazon.carbonado.stored.Order;
 import com.amazon.carbonado.stored.Shipment;
 import com.amazon.carbonado.stored.Shipper;
 import com.amazon.carbonado.stored.StorableTestBasic;
-
-import static com.amazon.carbonado.qe.TestIndexedQueryExecutor.Mock;
 
 /**
  * 
@@ -118,7 +121,8 @@ public class TestIndexedQueryAnalyzer extends TestCase {
 
         assertTrue(result.handlesAnything());
         assertEquals(filter, result.getCompositeScore().getFilteringScore().getIdentityFilter());
-        assertEquals(makeIndex(Shipment.class, "orderID"), result.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "orderID", "shipmentNotes"),
+                     result.getLocalIndex());
         assertEquals(null, result.getForeignIndex());
         assertEquals(null, result.getForeignProperty());
 
@@ -133,7 +137,8 @@ public class TestIndexedQueryAnalyzer extends TestCase {
             result.getCompositeScore().getFilteringScore().getRangeStartFilters();
         assertEquals(1, rangeFilters.size());
         assertEquals(filter, rangeFilters.get(0));
-        assertEquals(makeIndex(Shipment.class, "orderID"), result.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "orderID", "shipmentNotes"),
+                     result.getLocalIndex());
         assertEquals(null, result.getForeignIndex());
         assertEquals(null, result.getForeignProperty());
     }
@@ -183,7 +188,8 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         assertTrue(result.getCompositeScore().getFilteringScore().hasRangeStart());
         assertEquals(Filter.filterFor(Shipment.class, "order.orderTotal >= ?").bind(),
                      result.getCompositeScore().getFilteringScore().getRemainderFilter());
-        assertEquals(makeIndex(Shipment.class, "orderID"), result.getLocalIndex());
+        assertEquals(makeIndex(Shipment.class, "orderID", "shipmentNotes"),
+                     result.getLocalIndex());
         assertEquals(null, result.getForeignIndex());
         assertEquals(null, result.getForeignProperty());
     }
@@ -198,20 +204,19 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         assertTrue(result.handlesAnything());
         assertEquals(filter, result.getCompositeScore().getFilteringScore().getIdentityFilter());
         assertEquals(null, result.getLocalIndex());
-        assertEquals(makeIndex(Address.class, "addressState"), result.getForeignIndex());
+        assertEquals(makeIndex(Address.class, "addressState", "-addressCity"),
+                     result.getForeignIndex());
         assertEquals("order.address", result.getForeignProperty().toString());
     }
 
     public void testChainedJoinExecutor() throws Exception {
-        Repository repo = new ToyRepository();
-
         IndexedQueryAnalyzer<Shipment> iqa =
             new IndexedQueryAnalyzer<Shipment>(Shipment.class, RepoAccess.INSTANCE);
         Filter<Shipment> filter = Filter.filterFor
             (Shipment.class, "order.address.addressState = ? & order.address.addressZip = ?");
         FilterValues<Shipment> values = filter.initialFilterValues();
         filter = values.getFilter();
-        IndexedQueryAnalyzer.Result result = iqa.analyze(filter, null);
+        IndexedQueryAnalyzer<Shipment>.Result result = iqa.analyze(filter, null);
 
         assertTrue(result.handlesAnything());
         assertEquals(Filter.filterFor(Shipment.class, "order.address.addressState = ?").bind(),
@@ -219,30 +224,117 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         assertEquals(Filter.filterFor(Shipment.class, "order.address.addressZip = ?").bind(),
                      result.getCompositeScore().getFilteringScore().getRemainderFilter());
         assertEquals(null, result.getLocalIndex());
-        assertEquals(makeIndex(Address.class, "addressState"), result.getForeignIndex());
+        assertEquals(makeIndex(Address.class, "addressState", "-addressCity"),
+                     result.getForeignIndex());
         assertEquals("order.address", result.getForeignProperty().toString());
 
-        Mock ixExec = new Mock(result.getForeignIndex(), result.getCompositeScore());
+        QueryExecutor<Shipment> joinExec = JoinedQueryExecutor.build
+            (RepoAccess.INSTANCE,
+             result.getForeignProperty(), result.getFilter(), result.getOrdering());
 
-        QueryExecutor joinExec = new JoinedQueryExecutor
-            (repo, result.getForeignProperty(), ixExec);
+        FilterValues<Shipment> fv = values.with("WA").with("12345");
 
-        QueryExecutor filteredExec = new FilteredQueryExecutor
-            (joinExec, result.getCompositeScore().getFilteringScore().getRemainderFilter());
+        StringBuffer buf = new StringBuffer();
+        joinExec.printPlan(buf, 0, fv);
+        String plan = buf.toString();
 
-        //System.out.println();
-        //filteredExec.printPlan(System.out, 0, null);
+        // This is actually a pretty terrible plan due to the iterators. This
+        // is expected however, since we lied and said we had indexes.
+        String expected =
+            "join: com.amazon.carbonado.stored.Shipment\n" +
+            "...inner loop: order\n" +
+            "  filter: orderID = ?\n" +
+            "    collection iterator: com.amazon.carbonado.stored.Shipment\n" +
+            "...outer loop\n" +
+            "  join: com.amazon.carbonado.stored.Order\n" +
+            "  ...inner loop: address\n" +
+            "    filter: addressID = ?\n" +
+            "      collection iterator: com.amazon.carbonado.stored.Order\n" +
+            "  ...outer loop\n" +
+            "    filter: addressState = WA & addressZip = 12345\n" +
+            "      collection iterator: com.amazon.carbonado.stored.Address\n";
 
-        joinExec.fetch(values.with("WA"));
+        assertEquals(expected, plan);
 
-        assertEquals(1, ixExec.mIdentityValues.length);
-        assertEquals("WA", ixExec.mIdentityValues[0]);
-        assertEquals(BoundaryType.OPEN, ixExec.mRangeStartBoundary);
-        assertEquals(null, ixExec.mRangeStartValue);
-        assertEquals(BoundaryType.OPEN, ixExec.mRangeEndBoundary);
-        assertEquals(null, ixExec.mRangeEndValue);
-        assertFalse(ixExec.mReverseRange);
-        assertFalse(ixExec.mReverseOrder);
+        joinExec.fetch(fv);
+
+    }
+    
+    public void testComplexChainedJoinExecutor() throws Exception {
+        IndexedQueryAnalyzer<Shipment> iqa =
+            new IndexedQueryAnalyzer<Shipment>(Shipment.class, RepoAccess.INSTANCE);
+        Filter<Shipment> filter = Filter.filterFor
+            (Shipment.class,
+             "order.address.addressState = ? & order.address.addressID != ? " +
+             "& order.address.addressZip = ? & order.orderTotal > ? & shipmentNotes <= ? " +
+             "& order.addressID > ?");
+        FilterValues<Shipment> values = filter.initialFilterValues();
+        filter = values.getFilter();
+        OrderingList<Shipment> ordering = OrderingList
+            .get(Shipment.class, "order.address.addressCity", "shipmentNotes", "order.orderTotal");
+        IndexedQueryAnalyzer.Result result = iqa.analyze(filter, ordering);
+
+        assertTrue(result.handlesAnything());
+        assertEquals(Filter.filterFor(Shipment.class, "order.address.addressState = ?").bind(),
+                     result.getCompositeScore().getFilteringScore().getIdentityFilter());
+        assertEquals(null, result.getLocalIndex());
+        assertEquals(makeIndex(Address.class, "addressState", "-addressCity"),
+                     result.getForeignIndex());
+        assertEquals("order.address", result.getForeignProperty().toString());
+
+        QueryExecutor<Shipment> joinExec = JoinedQueryExecutor.build
+            (RepoAccess.INSTANCE,
+             result.getForeignProperty(), result.getFilter(), result.getOrdering());
+
+        FilterValues<Shipment> fv =
+            values.with("WA").with(45).with("12345").with(100).with("Z").with(2);
+
+        StringBuffer buf = new StringBuffer();
+        joinExec.printPlan(buf, 0, fv);
+        String plan = buf.toString();
+
+        // This is actually a pretty terrible plan due to the iterators. This
+        // is expected however, since we lied and said we had indexes.
+        String expected =
+            "sort: [+order.address.addressCity, +shipmentNotes], [+order.orderTotal]\n" +
+            "  join: com.amazon.carbonado.stored.Shipment\n" +
+            "  ...inner loop: order\n" +
+            "    sort: [+shipmentNotes]\n" +
+            "      filter: shipmentNotes <= Z & orderID = ?\n" +
+            "        collection iterator: com.amazon.carbonado.stored.Shipment\n" +
+            "  ...outer loop\n" +
+            "    join: com.amazon.carbonado.stored.Order\n" +
+            "    ...inner loop: address\n" +
+            "      filter: orderTotal > 100 & addressID > 2 & addressID = ?\n" +
+            "        collection iterator: com.amazon.carbonado.stored.Order\n" +
+            "    ...outer loop\n" +
+            "      sort: [+addressCity]\n" +
+            "        filter: addressState = WA & addressID != 45 & addressZip = 12345\n" +
+            "          collection iterator: com.amazon.carbonado.stored.Address\n";
+
+        //System.out.println(plan);
+        assertEquals(expected, plan);
+
+        joinExec.fetch(fv);
+
+        // Now do it the easier way and compare plans.
+        QueryExecutor<Shipment> joinExec2 = result.createExecutor();
+
+        StringBuffer buf2 = new StringBuffer();
+        joinExec2.printPlan(buf2, 0, fv);
+        String plan2 = buf2.toString();
+
+        assertEquals(expected, plan2);
+
+        Filter<Shipment> expectedFilter = Filter.filterFor
+            (Shipment.class,
+             "order.address.addressState = ? & order.address.addressID != ? " +
+             "& order.address.addressZip = ? & order.orderTotal > ? " +
+             "& order.addressID > ?" +
+             "& shipmentNotes <= ? ");
+
+        assertEquals(expectedFilter.disjunctiveNormalForm(),
+                     joinExec2.getFilter().unbind().disjunctiveNormalForm());
     }
 
     static class RepoAccess implements RepositoryAccess {
@@ -261,7 +353,9 @@ public class TestIndexedQueryAnalyzer extends TestCase {
      * Partially implemented StorageAccess which only supplies information
      * about indexes.
      */
-    static class StoreAccess<S extends Storable> implements StorageAccess<S> {
+    static class StoreAccess<S extends Storable>
+        implements StorageAccess<S>, QueryExecutorFactory<S>
+    {
         private final Class<S> mType;
 
         StoreAccess(Class<S> type) {
@@ -272,24 +366,45 @@ public class TestIndexedQueryAnalyzer extends TestCase {
             return mType;
         }
 
+        public QueryExecutorFactory<S> getQueryExecutorFactory() {
+            return this;
+        }
+
+        public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering) {
+            Iterable<S> iterable = Collections.emptyList();
+
+            QueryExecutor<S> exec = new IterableQueryExecutor<S>
+                (filter.getStorableType(), iterable);
+
+            if (filter != null) {
+                exec = new FilteredQueryExecutor<S>(exec, filter);
+            }
+
+            if (ordering != null && ordering.size() > 0) {
+                exec = new SortedQueryExecutor<S>(null, exec, null, ordering);
+            }
+
+            return exec;
+        }
+
         public Collection<StorableIndex<S>> getAllIndexes() {
             StorableIndex<S>[] indexes;
 
             if (Address.class.isAssignableFrom(mType)) {
                 indexes = new StorableIndex[] {
                     makeIndex(mType, "addressID"),
-                    makeIndex(mType, "addressState")
+                    makeIndex(mType, "addressState", "-addressCity")
                 };
             } else if (Order.class.isAssignableFrom(mType)) {
                 indexes = new StorableIndex[] {
                     makeIndex(mType, "orderID"),
                     makeIndex(mType, "orderTotal"),
-                    makeIndex(mType, "addressID")
+                    makeIndex(mType, "addressID", "orderTotal")
                 };
             } else if (Shipment.class.isAssignableFrom(mType)) {
                 indexes = new StorableIndex[] {
                     makeIndex(mType, "shipmentID"),
-                    makeIndex(mType, "orderID"),
+                    makeIndex(mType, "orderID", "shipmentNotes"),
                 };
             } else if (Shipper.class.isAssignableFrom(mType)) {
                 indexes = new StorableIndex[] {
@@ -315,6 +430,10 @@ public class TestIndexedQueryAnalyzer extends TestCase {
         }
 
         public SortBuffer<S> createSortBuffer() {
+            return new ArraySortBuffer<S>();
+        }
+
+        public long countAll() {
             throw new UnsupportedOperationException();
         }
 

@@ -385,6 +385,8 @@ public class CodeBuilderUtil {
      * Determines which overloaded "with" method on Query should be bound to.
      */
     public static TypeDesc bindQueryParam(Class clazz) {
+        // This method is a bit vestigial. Once upon a time the Query class did
+        // not support all primitive types.
         if (clazz.isPrimitive()) {
             TypeDesc type = TypeDesc.forClass(clazz);
             switch (type.getTypeCode()) {
@@ -392,6 +394,10 @@ public class CodeBuilderUtil {
             case TypeDesc.LONG_CODE:
             case TypeDesc.FLOAT_CODE:
             case TypeDesc.DOUBLE_CODE:
+            case TypeDesc.BOOLEAN_CODE:
+            case TypeDesc.CHAR_CODE:
+            case TypeDesc.BYTE_CODE:
+            case TypeDesc.SHORT_CODE:
                 return type;
             }
         }

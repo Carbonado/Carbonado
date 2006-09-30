@@ -19,9 +19,11 @@
 package com.amazon.carbonado.qe;
 
 import com.amazon.carbonado.IsolationLevel;
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Transaction;
 
+import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 
 /**
@@ -29,7 +31,9 @@ import com.amazon.carbonado.filter.FilterValues;
  *
  * @author Brian S O'Neill
  */
-public class QueryEngine<S extends Storable> extends StandardQueryFactory<S> {
+public class QueryEngine<S extends Storable> extends StandardQueryFactory<S>
+    implements QueryExecutorFactory<S>
+{
     final RepositoryAccess mRepoAccess;
     final QueryExecutorFactory<S> mExecutorFactory;
 
@@ -37,6 +41,12 @@ public class QueryEngine<S extends Storable> extends StandardQueryFactory<S> {
         super(type);
         mRepoAccess = access;
         mExecutorFactory = new QueryExecutorCache<S>(new UnionQueryAnalyzer<S>(type, access));
+    }
+
+    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+        throws RepositoryException
+    {
+        return mExecutorFactory.executor(filter, ordering);
     }
 
     protected StandardQuery<S> createQuery(FilterValues<S> values, OrderingList<S> ordering) {

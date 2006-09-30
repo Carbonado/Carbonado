@@ -18,8 +18,12 @@
 
 package com.amazon.carbonado.qe;
 
+import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import junit.framework.TestSuite;
 
@@ -27,14 +31,21 @@ import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
+
+import com.amazon.carbonado.cursor.ArraySortBuffer;
+import com.amazon.carbonado.cursor.SortBuffer;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 
+import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.OrderedProperty;
+import com.amazon.carbonado.info.StorableIndex;
+import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 
@@ -69,10 +80,23 @@ public class TestJoinedQueryExecutor extends TestQueryExecutor {
     }
 
     public void testJoin() throws Exception {
-        QueryExecutor<UserAddress> addressExecutor = addressExecutor();
+        StorableInfo<UserInfo> info = StorableIntrospector.examine(UserInfo.class);
+        Map<String, ? extends StorableProperty<UserInfo>> properties = info.getAllProperties();
 
-        QueryExecutor<UserInfo> userExecutor = new JoinedQueryExecutor<UserAddress, UserInfo>
-            (mRepository, UserInfo.class, "address", addressExecutor);
+        RepositoryAccess repoAccess = new RepoAccess();
+
+        ChainedProperty<UserInfo> targetToSourceProperty =
+            ChainedProperty.get(properties.get("address"));
+
+        Filter<UserInfo> targetFilter = Filter.filterFor(UserInfo.class, "address.state = ?");
+        OrderingList<UserInfo> targetOrdering =
+            OrderingList.get(UserInfo.class, "+address.country");
+
+        QueryExecutor<UserInfo> userExecutor = JoinedQueryExecutor.build
+            (repoAccess, targetToSourceProperty, targetFilter, targetOrdering);
+
+        //System.out.println();
+        //userExecutor.printPlan(System.out, 0, null);
 
         assertEquals("address.state = ?", userExecutor.getFilter().toString());
         assertEquals("+address.country", userExecutor.getOrdering().get(0).toString());
@@ -146,8 +170,13 @@ public class TestJoinedQueryExecutor extends TestQueryExecutor {
 
         // Now do a multi join, finding everyone with an explicit neighbor in IL.
 
-        userExecutor = new JoinedQueryExecutor<UserAddress, UserInfo>
-            (mRepository, UserInfo.class, "address.neighbor", addressExecutor);
+        targetToSourceProperty = ChainedProperty.parse(info, "address.neighbor");
+
+        targetFilter = Filter.filterFor(UserInfo.class, "address.neighbor.state = ?");
+        targetOrdering = OrderingList.get(UserInfo.class, "+address.neighbor.country");
+
+        userExecutor = JoinedQueryExecutor.build
+            (repoAccess, targetToSourceProperty, targetFilter, targetOrdering);
 
         assertEquals("address.neighbor.state = ?", userExecutor.getFilter().toString());
         assertEquals("+address.neighbor.country", userExecutor.getOrdering().get(0).toString());
@@ -163,24 +192,88 @@ public class TestJoinedQueryExecutor extends TestQueryExecutor {
         cursor.close();
 
         assertEquals(1L, userExecutor.count(values));
-        
     }
 
-    protected QueryExecutor<UserAddress> addressExecutor() throws Exception {
-        Storage<UserAddress> addressStorage = mRepository.storageFor(UserAddress.class);
+    class RepoAccess implements RepositoryAccess {
+        public Repository getRootRepository() {
+            return mRepository;
+        }
 
-        QueryExecutor<UserAddress> addressExecutor = new FullScanQueryExecutor<UserAddress>
-            (new ScanQuerySupport<UserAddress>(addressStorage.query()));
+        public <S extends Storable> StorageAccess<S> storageAccessFor(Class<S> type) {
+            return new StoreAccess<S>(type);
+        }
+    }
 
-        addressExecutor = new FilteredQueryExecutor<UserAddress>
-            (addressExecutor, Filter.filterFor(UserAddress.class, "state = ?"));
+    class StoreAccess<S extends Storable> implements StorageAccess<S>, QueryExecutorFactory<S> {
+        private final Class<S> mType;
 
-        OrderingList<UserAddress> ordering = OrderingList.get(UserAddress.class, "+country");
+        StoreAccess(Class<S> type) {
+            mType = type;
+        }
 
-        addressExecutor = new SortedQueryExecutor<UserAddress>
-            (null, addressExecutor, null, ordering);
+        public Class<S> getStorableType() {
+            return mType;
+        }
 
-        return addressExecutor;
+        public QueryExecutorFactory<S> getQueryExecutorFactory() {
+            return this;
+        }
+
+        public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+            throws RepositoryException
+        {
+            Storage<S> storage = mRepository.storageFor(mType);
+
+            QueryExecutor<S> exec = new FullScanQueryExecutor<S>
+                (new ScanQuerySupport<S>(storage.query()));
+
+            if (filter != null) {
+                exec = new FilteredQueryExecutor<S>(exec, filter);
+            }
+
+            if (ordering != null && ordering.size() > 0) {
+                exec = new SortedQueryExecutor<S>(null, exec, null, ordering);
+            }
+
+            return exec;
+        }
+
+        public Collection<StorableIndex<S>> getAllIndexes() {
+            StorableIndex<S>[] indexes = new StorableIndex[0];
+            return Arrays.asList(indexes);
+        }
+
+        public Storage<S> storageDelegate(StorableIndex<S> index) {
+            return null;
+        }
+
+        public SortBuffer<S> createSortBuffer() {
+            return new ArraySortBuffer<S>();
+        }
+
+        public long countAll() {
+            throw new UnsupportedOperationException();
+        }
+
+        public Cursor<S> fetchAll() {
+            throw new UnsupportedOperationException();
+        }
+
+        public Cursor<S> fetchOne(StorableIndex<S> index, Object[] identityValues) {
+            throw new UnsupportedOperationException();
+        }
+
+        public Cursor<S> fetchSubset(StorableIndex<S> index,
+                                     Object[] identityValues,
+                                     BoundaryType rangeStartBoundary,
+                                     Object rangeStartValue,
+                                     BoundaryType rangeEndBoundary,
+                                     Object rangeEndValue,
+                                     boolean reverseRange,
+                                     boolean reverseOrder)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     static class ScanQuerySupport<S extends Storable> implements FullScanQueryExecutor.Support<S> {
@@ -192,6 +285,10 @@ public class TestJoinedQueryExecutor extends TestQueryExecutor {
 
         public Class<S> getStorableType() {
             return mQuery.getStorableType();
+        }
+
+        public long countAll() throws FetchException {
+            return mQuery.count();
         }
 
         public Cursor<S> fetchAll() throws FetchException {
