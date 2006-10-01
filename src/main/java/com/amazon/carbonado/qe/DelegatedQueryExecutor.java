@@ -136,6 +136,7 @@ public class DelegatedQueryExecutor<S extends Storable> implements QueryExecutor
         Filter<S> filter = query.getFilter();
         // FIXME: this code can get confused if filter has constants.
         if (values != null && filter != null && query.getBlankParameterCount() != 0) {
+            // FIXME: throws exception if not all values supplied
             query = query.withValues(values.getValuesFor(filter));
         }
         return query;

@@ -604,6 +604,7 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
         if (values == null) {
             return null;
         }
+        // FIXME: throws exception if not all values supplied
         return mOuterLoopFilterValues.withValues(values.getValuesFor(mSourceFilterAsFromTarget));
     }
 
