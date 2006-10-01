@@ -63,7 +63,7 @@ class JDBCBlob extends AbstractBlob implements JDBCLob {
             if (pos == 0) {
                 return getInternalBlobForFetch().getBinaryStream();
             }
-            return new Input(getInternalBlobForFetch(), DEFAULT_BUFFER);
+            return new Input(getInternalBlobForFetch(), DEFAULT_BUFFER, pos);
         } catch (SQLException e) {
             throw mRepo.toFetchException(e);
         }
@@ -77,7 +77,7 @@ class JDBCBlob extends AbstractBlob implements JDBCLob {
             if (bufferSize <= 0) {
                 bufferSize = DEFAULT_BUFFER;
             }
-            return new Input(getInternalBlobForFetch(), bufferSize);
+            return new Input(getInternalBlobForFetch(), bufferSize, pos);
         } catch (SQLException e) {
             throw mRepo.toFetchException(e);
         }
@@ -162,9 +162,10 @@ class JDBCBlob extends AbstractBlob implements JDBCLob {
         private byte[] mBuffer;
         private int mBufferPos;
 
-        Input(java.sql.Blob blob, int bufferSize) {
+        Input(java.sql.Blob blob, int bufferSize, long pos) {
             mBlob = blob;
             mBufferSize = bufferSize;
+            mPos = pos;
         }
 
         public int read() throws IOException {

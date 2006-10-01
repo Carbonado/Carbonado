@@ -63,7 +63,7 @@ class JDBCClob extends AbstractClob implements JDBCLob {
             if (pos == 0) {
                 return getInternalClobForFetch().getCharacterStream();
             }
-            return new Input(getInternalClobForFetch(), DEFAULT_BUFFER);
+            return new Input(getInternalClobForFetch(), DEFAULT_BUFFER, pos);
         } catch (SQLException e) {
             throw mRepo.toFetchException(e);
         }
@@ -77,7 +77,7 @@ class JDBCClob extends AbstractClob implements JDBCLob {
             if (bufferSize <= 0) {
                 bufferSize = DEFAULT_BUFFER;
             }
-            return new Input(getInternalClobForFetch(), bufferSize);
+            return new Input(getInternalClobForFetch(), bufferSize, pos);
         } catch (SQLException e) {
             throw mRepo.toFetchException(e);
         }
@@ -162,9 +162,10 @@ class JDBCClob extends AbstractClob implements JDBCLob {
         private String mBuffer;
         private int mBufferPos;
 
-        Input(java.sql.Clob clob, int bufferSize) {
+        Input(java.sql.Clob clob, int bufferSize, long pos) {
             mClob = clob;
             mBufferSize = bufferSize;
+            mPos = pos;
         }
 
         public int read() throws IOException {
