@@ -192,7 +192,7 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
      * This call can be used to clear all cached query plans after the set of
      * available indexes has changed.
      */
-    public void clearExecutos() {
+    public void clearExecutors() {
         for (StandardQuery<S> query : gatherQueries()) {
             query.clearExecutor();
         }

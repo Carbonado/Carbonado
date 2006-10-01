@@ -44,7 +44,7 @@ import com.amazon.carbonado.info.StorableIndex;
  * <p>An index matches a desired ordering if the arrangement of properties
  * matches. Not all properties of the index need to be used, however. Also,
  * gaps in the arrangement are allowed if a property identity filter
- * matches. An property identity filter is of the form {@code "a = ?"}.
+ * matches. A property identity filter is of the form {@code "a = ?"}.
  *
  * <p>An OrderingScore measures the number of ordering properties that are
  * matched and the number that are remaining. If there are remainder
