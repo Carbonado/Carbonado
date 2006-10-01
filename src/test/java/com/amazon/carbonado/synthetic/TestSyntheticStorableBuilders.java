@@ -87,6 +87,9 @@ public class TestSyntheticStorableBuilders extends TestCase {
     public static final String TEXT = '@'
             + TextAdapter.class.toString().substring(10) + "(charset=UTF-8, altCharsets=[])";
 
+    public static final String TEXT_2 = '@'
+            + TextAdapter.class.toString().substring(10) + "(altCharsets=[], charset=UTF-8)";
+
     private static Set s_storableInterfaceMethods = new HashSet();
 
     public static final TestDef[] TESTS = new TestDef[] {
@@ -468,6 +471,12 @@ public class TestSyntheticStorableBuilders extends TestCase {
                             boolean found = false;
                             for (Object candidate : expectedAnnotations.toArray()) {
                                 if (a.toString().startsWith((String) candidate)) {
+                                    found = true;
+                                    break;
+                                }
+                                // Special case to handle arbitrary ordering of
+                                // annotation parameters.
+                                if (candidate == TEXT && a.toString().startsWith(TEXT_2)) {
                                     found = true;
                                     break;
                                 }
