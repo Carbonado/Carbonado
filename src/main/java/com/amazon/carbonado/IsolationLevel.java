@@ -26,6 +26,7 @@ package com.amazon.carbonado;
  * <li>{@link #READ_UNCOMMITTED}
  * <li>{@link #READ_COMMITTED}
  * <li>{@link #REPEATABLE_READ}
+ * <li>{@link #SNAPSHOT}
  * <li>{@link #SERIALIZABLE}
  * </ul>
  *
@@ -34,6 +35,11 @@ package com.amazon.carbonado;
  * {@code READ_COMMITTED}, is useful when performing a long cursor
  * iteration. It releases locks during iteration rather than holding on to them
  * until the transaction exits.
+ *
+ * <p>{@code SNAPSHOT} isolation is special in that it uses multiversion
+ * concurrency control (MVCC). A commit may fail with an {@link
+ * OptimisticLockException}. Few repositories are expected to support this
+ * level, however.
  *
  * @author Brian S O'Neill
  * @see Repository#enterTransaction(IsolationLevel)
@@ -70,6 +76,13 @@ public enum IsolationLevel {
      * second time (a "non-repeatable read").
      */
     REPEATABLE_READ,
+
+    /**
+     * Indicates that dirty reads, non-repeatable reads and phantom reads are
+     * prevented. Commits can still fail however, as snapshot isolation avoids
+     * using locks.
+     */
+    SNAPSHOT,
 
     /**
      * Indicates that dirty reads, non-repeatable reads and phantom reads are

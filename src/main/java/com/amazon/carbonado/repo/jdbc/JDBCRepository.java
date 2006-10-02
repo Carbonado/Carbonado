@@ -92,6 +92,9 @@ public class JDBCRepository
             return Connection.TRANSACTION_READ_COMMITTED;
         case REPEATABLE_READ:
             return Connection.TRANSACTION_REPEATABLE_READ;
+        case SNAPSHOT:
+            // TODO: not accurate for all databases.
+            return Connection.TRANSACTION_SERIALIZABLE;
         case SERIALIZABLE:
             return Connection.TRANSACTION_SERIALIZABLE;
         }
@@ -115,6 +118,9 @@ public class JDBCRepository
                 desiredLevel = IsolationLevel.REPEATABLE_READ;
                 break;
             case REPEATABLE_READ:
+                desiredLevel = IsolationLevel.SERIALIZABLE;
+                break;
+            case SNAPSHOT:
                 desiredLevel = IsolationLevel.SERIALIZABLE;
                 break;
             case SERIALIZABLE: default:

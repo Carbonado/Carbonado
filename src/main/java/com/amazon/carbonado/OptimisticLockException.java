@@ -21,6 +21,8 @@ package com.amazon.carbonado;
 /**
  * An OptimisticLockException is thrown if the {@link Repository} is using
  * optimistic locking for concurrency control, and lock aquisition failed.
+ * This exception may also be thrown if multiversion concurrency control (MVCC)
+ * is being used and the commit fails.
  *
  * @author Brian S O'Neill
  */
