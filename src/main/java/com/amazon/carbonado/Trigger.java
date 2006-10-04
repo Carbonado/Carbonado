@@ -23,7 +23,9 @@ package com.amazon.carbonado;
  * persisted. By default, the methods defined in this class do
  * nothing. Subclass and override trigger conditions of interest, and then
  * {@link Storage#addTrigger register} it. Each overridden trigger method is
- * called in the same transaction scope as the persist operation.
+ * called in the same transaction scope as the persist operation. Trigger
+ * implementations are encouraged to override the equals method, to prevent
+ * accidental double registration.
  *
  * <p>To ensure proper nesting, all "before" events are run in the
  * <em>opposite</em> order that the trigger was registered. All "after" and
