@@ -102,7 +102,6 @@ public abstract class CustomStorableCodec<S extends Storable> implements Storabl
         cf.setTarget("1.5");
 
         // Declare some types.
-        final TypeDesc storageType = TypeDesc.forClass(Storage.class);
         final TypeDesc rawSupportType = TypeDesc.forClass(RawSupport.class);
         final TypeDesc byteArrayType = TypeDesc.forClass(byte[].class);
         final TypeDesc[] byteArrayParam = {byteArrayType};
@@ -112,33 +111,30 @@ public abstract class CustomStorableCodec<S extends Storable> implements Storabl
         cf.addField(Modifiers.PRIVATE.toFinal(true),
                     CUSTOM_STORABLE_CODEC_FIELD_NAME, customStorableCodecType);
 
-        // Add constructor that accepts a Storage, a RawSupport, and a
-        // CustomStorableCodec.
+        // Add constructor that accepts a RawSupport and a CustomStorableCodec.
         {
-            TypeDesc[] params = {storageType, rawSupportType,
-                                 customStorableCodecType};
+            TypeDesc[] params = {rawSupportType, customStorableCodecType};
             MethodInfo mi = cf.addConstructor(Modifiers.PUBLIC, params);
             CodeBuilder b = new CodeBuilder(mi);
 
             // Call super class constructor.
             b.loadThis();
             b.loadLocal(b.getParameter(0));
-            b.loadLocal(b.getParameter(1));
-            params = new TypeDesc[] {storageType, rawSupportType};
+            params = new TypeDesc[] {rawSupportType};
             b.invokeSuperConstructor(params);
 
             // Set private reference to customStorableCodec.
             b.loadThis();
-            b.loadLocal(b.getParameter(2));
+            b.loadLocal(b.getParameter(1));
             b.storeField(CUSTOM_STORABLE_CODEC_FIELD_NAME, customStorableCodecType);
 
             b.returnVoid();
         }
 
-        // Add constructor that accepts a Storage, a RawSupport, an encoded
-        // key, an encoded data, and a CustomStorableCodec.
+        // Add constructor that accepts a RawSupport, an encoded key, an
+        // encoded data, and a CustomStorableCodec.
         {
-            TypeDesc[] params = {storageType, rawSupportType, byteArrayType, byteArrayType,
+            TypeDesc[] params = {rawSupportType, byteArrayType, byteArrayType,
                                  customStorableCodecType};
             MethodInfo mi = cf.addConstructor(Modifiers.PUBLIC, params);
             CodeBuilder b = new CodeBuilder(mi);
@@ -149,7 +145,7 @@ public abstract class CustomStorableCodec<S extends Storable> implements Storabl
             // customStorableCodec. This trick is not allowed in Java, but the
             // virtual machine verifier allows it.
             b.loadThis();
-            b.loadLocal(b.getParameter(4));
+            b.loadLocal(b.getParameter(3));
             b.storeField(CUSTOM_STORABLE_CODEC_FIELD_NAME, customStorableCodecType);
 
             // Now call super class constructor.
@@ -157,8 +153,7 @@ public abstract class CustomStorableCodec<S extends Storable> implements Storabl
             b.loadLocal(b.getParameter(0));
             b.loadLocal(b.getParameter(1));
             b.loadLocal(b.getParameter(2));
-            b.loadLocal(b.getParameter(3));
-            params = new TypeDesc[] {storageType, rawSupportType, byteArrayType, byteArrayType};
+            params = new TypeDesc[] {rawSupportType, byteArrayType, byteArrayType};
             b.invokeSuperConstructor(params);
 
             b.returnVoid();
