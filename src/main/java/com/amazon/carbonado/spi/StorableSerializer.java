@@ -52,7 +52,7 @@ import com.amazon.carbonado.info.StorableProperty;
 
 import static com.amazon.carbonado.spi.CommonMethodNames.*;
 
-import com.amazon.carbonado.spi.raw.GenericEncodingStrategy;
+import com.amazon.carbonado.raw.GenericEncodingStrategy;
 
 /**
  * Support for general-purpose serialization of storables.

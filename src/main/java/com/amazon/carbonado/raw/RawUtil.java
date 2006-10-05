@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi.raw;
+package com.amazon.carbonado.raw;
 
 /**
  * Utilities for manipulating binary data.

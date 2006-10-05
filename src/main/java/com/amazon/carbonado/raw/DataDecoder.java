@@ -16,11 +16,11 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi.raw;
+package com.amazon.carbonado.raw;
 
 import com.amazon.carbonado.CorruptEncodingException;
 
-import static com.amazon.carbonado.spi.raw.DataEncoder.*;
+import static com.amazon.carbonado.raw.DataEncoder.*;
 
 /**
  * A very low-level class that decodes key components encoded by methods of

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi.raw;
+package com.amazon.carbonado.raw;
 
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;

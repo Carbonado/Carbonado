@@ -20,4 +20,4 @@
  * Provides support for repositories that encode/decode storables in a raw
  * binary format.
  */
-package com.amazon.carbonado.spi.raw;
+package com.amazon.carbonado.raw;

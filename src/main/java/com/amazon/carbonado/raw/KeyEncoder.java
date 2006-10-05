@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi.raw;
+package com.amazon.carbonado.raw;
 
 /**
  * A very low-level class that supports encoding of primitive data into unique,
