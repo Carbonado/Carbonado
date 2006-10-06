@@ -20,6 +20,8 @@ package com.amazon.carbonado.repo.indexed;
 
 import java.util.Collection;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.amazon.carbonado.ConfigurationException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryBuilder;
@@ -48,7 +50,7 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
     public IndexedRepositoryBuilder() {
     }
 
-    public Repository build(RepositoryReference rootRef) throws RepositoryException {
+    public Repository build(AtomicReference<Repository> rootRef) throws RepositoryException {
         assertReady();
 
         Repository wrapped;

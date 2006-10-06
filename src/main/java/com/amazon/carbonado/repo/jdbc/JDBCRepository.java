@@ -24,6 +24,8 @@ import java.sql.SQLException;
 import java.util.Map;
 import java.util.IdentityHashMap;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
@@ -39,7 +41,6 @@ import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.MalformedTypeException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Repository;
-import static com.amazon.carbonado.RepositoryBuilder.RepositoryReference;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.UnsupportedTypeException;
@@ -134,7 +135,7 @@ public class JDBCRepository
 
     private final String mName;
     final boolean mIsMaster;
-    private final RepositoryReference mRootRef;
+    private final AtomicReference<Repository> mRootRef;
     private final String mDatabaseProductName;
     private final DataSource mDataSource;
     private final String mCatalog;
@@ -176,7 +177,7 @@ public class JDBCRepository
      * database independent
      */
     @SuppressWarnings("unchecked")
-    JDBCRepository(RepositoryReference rootRef,
+    JDBCRepository(AtomicReference<Repository> rootRef,
                    String name, boolean isMaster,
                    DataSource dataSource, String catalog, String schema)
         throws RepositoryException

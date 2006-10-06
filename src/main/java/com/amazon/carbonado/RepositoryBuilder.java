@@ -57,7 +57,7 @@ public interface RepositoryBuilder {
      * @throws ConfigurationException if there is a problem in the builder's configuration
      * @throws RepositoryException if there is a general problem opening the repository
      */
-    Repository build(RepositoryReference rootReference)
+    Repository build(AtomicReference<Repository> rootReference)
         throws ConfigurationException, RepositoryException;
 
     /**
@@ -99,6 +99,4 @@ public interface RepositoryBuilder {
      * @see com.amazon.carbonado.repo.replicated.ReplicatedRepositoryBuilder
      */
     void setMaster(boolean b);
-
-    public class RepositoryReference extends AtomicReference<Repository> {}
 }

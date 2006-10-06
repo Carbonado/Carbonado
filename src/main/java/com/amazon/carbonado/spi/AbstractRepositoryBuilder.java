@@ -21,6 +21,8 @@ package com.amazon.carbonado.spi;
 import java.util.ArrayList;
 import java.util.Collection;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.amazon.carbonado.ConfigurationException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryBuilder;
@@ -37,7 +39,7 @@ public abstract class AbstractRepositoryBuilder implements RepositoryBuilder {
     }
 
     public Repository build() throws ConfigurationException, RepositoryException {
-        return build(new RepositoryReference());
+        return build(new AtomicReference<Repository>());
     }
 
     /**

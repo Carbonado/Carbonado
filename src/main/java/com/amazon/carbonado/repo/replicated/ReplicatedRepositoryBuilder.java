@@ -19,6 +19,8 @@ package com.amazon.carbonado.repo.replicated;
 
 import java.util.Collection;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -53,7 +55,7 @@ public class ReplicatedRepositoryBuilder extends AbstractRepositoryBuilder {
     public ReplicatedRepositoryBuilder() {
     }
 
-    public Repository build(RepositoryReference rootRef) throws RepositoryException {
+    public Repository build(AtomicReference<Repository> rootRef) throws RepositoryException {
         assertReady();
 
         Repository replica, master;

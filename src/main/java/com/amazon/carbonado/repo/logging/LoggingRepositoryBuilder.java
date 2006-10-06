@@ -20,6 +20,8 @@ package com.amazon.carbonado.repo.logging;
 
 import java.util.Collection;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.amazon.carbonado.ConfigurationException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryBuilder;
@@ -56,7 +58,7 @@ public class LoggingRepositoryBuilder extends AbstractRepositoryBuilder {
     public LoggingRepositoryBuilder() {
     }
 
-    public Repository build(RepositoryReference rootRef) throws RepositoryException {
+    public Repository build(AtomicReference<Repository> rootRef) throws RepositoryException {
         if (mName == null) {
             if (mRepoBuilder != null) {
                 mName = mRepoBuilder.getName();

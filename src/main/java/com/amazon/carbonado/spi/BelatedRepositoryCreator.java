@@ -18,12 +18,13 @@
 
 package com.amazon.carbonado.spi;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.commons.logging.Log;
 
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryBuilder;
-import static com.amazon.carbonado.RepositoryBuilder.RepositoryReference;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
@@ -47,7 +48,7 @@ import com.amazon.carbonado.util.BelatedCreator;
 public class BelatedRepositoryCreator extends BelatedCreator<Repository, SupportException> {
     final Log mLog;
     final RepositoryBuilder mBuilder;
-    final RepositoryReference mRootRef;
+    final AtomicReference<Repository> mRootRef;
 
     /**
      * @param log error reporting log
@@ -56,7 +57,7 @@ public class BelatedRepositoryCreator extends BelatedCreator<Repository, Support
      * to create object after failure; if negative, never retry
      */
     public BelatedRepositoryCreator(Log log, RepositoryBuilder builder, int minRetryDelayMillis) {
-        this(log, builder, new RepositoryReference(), minRetryDelayMillis);
+        this(log, builder, new AtomicReference<Repository>(), minRetryDelayMillis);
     }
 
     /**
@@ -68,7 +69,7 @@ public class BelatedRepositoryCreator extends BelatedCreator<Repository, Support
      */
     public BelatedRepositoryCreator(Log log,
                                     RepositoryBuilder builder,
-                                    RepositoryReference rootRef,
+                                    AtomicReference<Repository> rootRef,
                                     int minRetryDelayMillis)
     {
         super(Repository.class, minRetryDelayMillis);

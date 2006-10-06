@@ -21,9 +21,10 @@ package com.amazon.carbonado.repo.logging;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.Repository;
-import static com.amazon.carbonado.RepositoryBuilder.RepositoryReference;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
@@ -38,14 +39,14 @@ import com.amazon.carbonado.capability.Capability;
  * @author Brian S O'Neill
  */
 class LoggingRepository implements Repository, LogAccessCapability {
-    private final RepositoryReference mRootRef;
+    private final AtomicReference<Repository> mRootRef;
     private final Repository mRepo;
     private final Log mLog;
 
     // Map of storages by storable class
     private final Map<Class<?>, LoggingStorage<?>> mStorages;
 
-    LoggingRepository(RepositoryReference rootRef, Repository actual, Log log) {
+    LoggingRepository(AtomicReference<Repository> rootRef, Repository actual, Log log) {
         mRootRef = rootRef;
         mRepo = actual;
         mLog = log;

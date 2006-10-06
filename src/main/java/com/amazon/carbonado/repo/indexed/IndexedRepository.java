@@ -23,11 +23,12 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.IdentityHashMap;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.MalformedTypeException;
 import com.amazon.carbonado.Repository;
-import static com.amazon.carbonado.RepositoryBuilder.RepositoryReference;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
@@ -56,12 +57,12 @@ class IndexedRepository implements Repository,
                                    StorableInfoCapability,
                                    IndexEntryAccessCapability
 {
-    private final RepositoryReference mRootRef;
+    private final AtomicReference<Repository> mRootRef;
     private final Repository mRepository;
     private final String mName;
     private final Map<Class<?>, IndexedStorage<?>> mStorages;
 
-    IndexedRepository(RepositoryReference rootRef, String name, Repository repository) {
+    IndexedRepository(AtomicReference<Repository> rootRef, String name, Repository repository) {
         mRootRef = rootRef;
         mRepository = repository;
         mName = name;

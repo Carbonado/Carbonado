@@ -21,9 +21,12 @@ package com.amazon.carbonado.repo.jdbc;
 import java.sql.SQLException;
 import java.util.Collection;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import javax.sql.DataSource;
 
 import com.amazon.carbonado.ConfigurationException;
+import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.spi.AbstractRepositoryBuilder;
 
@@ -66,7 +69,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     public JDBCRepositoryBuilder() {
     }
 
-    public JDBCRepository build(RepositoryReference rootRef) throws RepositoryException {
+    public JDBCRepository build(AtomicReference<Repository> rootRef) throws RepositoryException {
         assertReady();
         JDBCRepository repo = new JDBCRepository
             (rootRef, getName(), isMaster(), getDataSource(), mCatalog, mSchema);
