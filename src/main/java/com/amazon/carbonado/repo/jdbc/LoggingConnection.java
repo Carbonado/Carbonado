@@ -262,16 +262,6 @@ class LoggingConnection implements Connection {
         return mCon.getClientInfo();
     }
 
-    public <T extends BaseQuery> T createQueryObject(Class<T> ifc) throws SQLException {
-        return mCon.createQueryObject(ifc);
-    }
-
-    public <T extends BaseQuery> T createQueryObject(Class<T> ifc, Connection con)
-        throws SQLException
-    {
-        return mCon.createQueryObject(ifc, con);
-    }
-
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
         return mCon.createArrayOf(typeName, elements);
     }
