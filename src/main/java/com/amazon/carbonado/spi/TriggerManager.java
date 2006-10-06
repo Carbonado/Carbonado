@@ -207,21 +207,27 @@ public class TriggerManager<S extends Storable> {
         int types = 0;
 
         if (overridesMethod(triggerClass, BEFORE_INSERT_METHOD) ||
+            overridesMethod(triggerClass, BEFORE_TRY_INSERT_METHOD) ||
             overridesMethod(triggerClass, AFTER_INSERT_METHOD) ||
+            overridesMethod(triggerClass, AFTER_TRY_INSERT_METHOD) ||
             overridesMethod(triggerClass, FAILED_INSERT_METHOD))
         {
             types |= FOR_INSERT;
         }
 
         if (overridesMethod(triggerClass, BEFORE_UPDATE_METHOD) ||
+            overridesMethod(triggerClass, BEFORE_TRY_INSERT_METHOD) ||
             overridesMethod(triggerClass, AFTER_UPDATE_METHOD) ||
+            overridesMethod(triggerClass, AFTER_TRY_UPDATE_METHOD) ||
             overridesMethod(triggerClass, FAILED_UPDATE_METHOD))
         {
             types |= FOR_UPDATE;
         }
 
         if (overridesMethod(triggerClass, BEFORE_DELETE_METHOD) ||
+            overridesMethod(triggerClass, BEFORE_TRY_DELETE_METHOD) ||
             overridesMethod(triggerClass, AFTER_DELETE_METHOD) ||
+            overridesMethod(triggerClass, AFTER_TRY_DELETE_METHOD) ||
             overridesMethod(triggerClass, FAILED_DELETE_METHOD))
         {
             types |= FOR_DELETE;
