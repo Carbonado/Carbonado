@@ -39,6 +39,7 @@ import com.amazon.carbonado.util.QuickConstructorGenerator;
  *
  * @author Brian S O'Neill
  */
+@Deprecated
 public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
     private final Storage<S> mStorage;
     private final WrappedStorableFactory<S> mFactory;
@@ -53,7 +54,8 @@ public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
             .getWrappedClass(storage.getStorableType());
         mFactory = QuickConstructorGenerator
             .getInstance(wrappedClass, WrappedStorableFactory.class);
-        mTriggerManager = new TriggerManager<S>();
+        // FIXME: wrong, just deprecate this class
+        mTriggerManager = new TriggerManager<S>(null, null);
     }
 
     public Class<S> getStorableType() {

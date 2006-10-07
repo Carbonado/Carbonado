@@ -36,6 +36,7 @@ import com.amazon.carbonado.filter.FilterValues;
  * @author Don Schneider
  * @author Brian S O'Neill
  */
+@Deprecated
 public abstract class WrappedQuery<S extends Storable> implements Query<S> {
 
     // The query to which this query will delegate

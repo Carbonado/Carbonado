@@ -110,7 +110,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         mExecutorFactory = new QueryExecutorCache<S>(new ExecutorFactory());
 
-        mTriggerManager = new TriggerManager<S>();
+        mTriggerManager = new TriggerManager<S>
+            (info.getStorableType(), repository.mTriggerFactories);
     }
 
     public Class<S> getStorableType() {

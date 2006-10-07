@@ -99,4 +99,12 @@ public interface RepositoryBuilder {
      * @see com.amazon.carbonado.repo.replicated.ReplicatedRepositoryBuilder
      */
     void setMaster(boolean b);
+
+    /**
+     * Optionally add a TriggerFactory which will be called upon to create an
+     * initial trigger for each Storable type that the Repository supports. The
+     * primary purpose of this method is to allow decorator repositories the
+     * opportunity to register custom persistence code for each Storable.
+     */
+    void addTriggerFactory(TriggerFactory factory);
 }

@@ -26,6 +26,7 @@ import java.util.Arrays;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Trigger;
+import com.amazon.carbonado.TriggerFactory;
 
 /**
  * Used by Storage implementations to manage triggers and consolidate them into
@@ -93,7 +94,19 @@ public class TriggerManager<S extends Storable> {
     private volatile ForUpdate<S> mForUpdate;
     private volatile ForDelete<S> mForDelete;
 
-    public TriggerManager() {
+    /**
+     * @param triggerFactories TriggerFactories which will be called upon to
+     * optionally return a trigger to initially register
+     */
+    public TriggerManager(Class<S> type, Iterable<TriggerFactory> triggerFactories) {
+        if (triggerFactories != null) {
+            for (TriggerFactory factory : triggerFactories) {
+                Trigger<? super S> trigger = factory.triggerFor(type);
+                if (trigger != null) {
+                    addTrigger(trigger);
+                }
+            }
+        }
     }
 
     /**

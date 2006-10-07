@@ -43,6 +43,7 @@ import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Transaction;
+import com.amazon.carbonado.TriggerFactory;
 import com.amazon.carbonado.UnsupportedTypeException;
 
 import com.amazon.carbonado.capability.Capability;
@@ -135,6 +136,7 @@ public class JDBCRepository
 
     private final String mName;
     final boolean mIsMaster;
+    final Iterable<TriggerFactory> mTriggerFactories;
     private final AtomicReference<Repository> mRootRef;
     private final String mDatabaseProductName;
     private final DataSource mDataSource;
@@ -179,6 +181,7 @@ public class JDBCRepository
     @SuppressWarnings("unchecked")
     JDBCRepository(AtomicReference<Repository> rootRef,
                    String name, boolean isMaster,
+                   Iterable<TriggerFactory> triggerFactories,
                    DataSource dataSource, String catalog, String schema)
         throws RepositoryException
     {
@@ -187,6 +190,7 @@ public class JDBCRepository
         }
         mName = name;
         mIsMaster = isMaster;
+        mTriggerFactories = triggerFactories;
         mRootRef = rootRef;
         mDataSource = dataSource;
         mCatalog = catalog;

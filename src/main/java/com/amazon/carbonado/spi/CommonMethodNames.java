@@ -83,5 +83,6 @@ public class CommonMethodNames {
         EXIT_METHOD_NAME   = "exit";
 
     /** WrappedStorage.Support API method name */
+    @Deprecated
     public static final String CREATE_WRAPPED_SUPPORT_METHOD_NAME = "createSupport";
 }

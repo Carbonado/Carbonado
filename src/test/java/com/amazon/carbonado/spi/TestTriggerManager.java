@@ -64,7 +64,7 @@ public class TestTriggerManager extends TestCase {
     List<TestTrigger> failedTriggers;
 
     public void testAddAndRemove() {
-        TriggerManager<Dummy> set = new TriggerManager<Dummy>();
+        TriggerManager<Dummy> set = new TriggerManager<Dummy>(null, null);
         Trigger<Dummy> trigger = new TestTrigger<Dummy>();
 
         assertNull(set.getInsertTrigger());
@@ -109,7 +109,7 @@ public class TestTriggerManager extends TestCase {
     }
 
     public void testBeforeAndAfterOps() throws Exception {
-        TriggerManager<Dummy> set = new TriggerManager<Dummy>();
+        TriggerManager<Dummy> set = new TriggerManager<Dummy>(null, null);
         TestTrigger<Dummy> trigger = new TestTrigger<Dummy>();
         set.addTrigger(trigger);
         Dummy d = new Dummy();
@@ -140,7 +140,7 @@ public class TestTriggerManager extends TestCase {
     }
 
     public void testBeforeAndFailedOps() throws Exception {
-        TriggerManager<Dummy> set = new TriggerManager<Dummy>();
+        TriggerManager<Dummy> set = new TriggerManager<Dummy>(null, null);
         TestTrigger<Dummy> trigger = new TestTrigger<Dummy>();
         set.addTrigger(trigger);
         Dummy d = new Dummy();
@@ -171,7 +171,7 @@ public class TestTriggerManager extends TestCase {
     }
 
     public void testExecutionOrder() throws Exception {
-        TriggerManager<Dummy> set = new TriggerManager<Dummy>();
+        TriggerManager<Dummy> set = new TriggerManager<Dummy>(null, null);
         TestTrigger<Dummy> trigger = new TestTrigger<Dummy>(null);
         TestTrigger<Dummy> trigger2 = new TestTrigger<Dummy>();
         set.addTrigger(trigger);

@@ -72,7 +72,8 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     public JDBCRepository build(AtomicReference<Repository> rootRef) throws RepositoryException {
         assertReady();
         JDBCRepository repo = new JDBCRepository
-            (rootRef, getName(), isMaster(), getDataSource(), mCatalog, mSchema);
+            (rootRef, getName(), isMaster(), getTriggerFactories(),
+             getDataSource(), mCatalog, mSchema);
         rootRef.set(repo);
         return repo;
     }

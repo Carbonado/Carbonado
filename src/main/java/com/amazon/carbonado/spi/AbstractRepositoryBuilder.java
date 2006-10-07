@@ -20,6 +20,8 @@ package com.amazon.carbonado.spi;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,6 +29,8 @@ import com.amazon.carbonado.ConfigurationException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryBuilder;
 import com.amazon.carbonado.RepositoryException;
+import com.amazon.carbonado.Trigger;
+import com.amazon.carbonado.TriggerFactory;
 
 /**
  * Abstract builder class for opening repositories.
@@ -35,11 +39,18 @@ import com.amazon.carbonado.RepositoryException;
  * @author Brian S O'Neill
  */
 public abstract class AbstractRepositoryBuilder implements RepositoryBuilder {
+    private final List<TriggerFactory> mTriggerFactories;
+
     protected AbstractRepositoryBuilder() {
+        mTriggerFactories = new ArrayList<TriggerFactory>(2);
     }
 
     public Repository build() throws ConfigurationException, RepositoryException {
         return build(new AtomicReference<Repository>());
+    }
+
+    public void addTriggerFactory(TriggerFactory factory) {
+        mTriggerFactories.add(factory);
     }
 
     /**
@@ -78,6 +89,17 @@ public abstract class AbstractRepositoryBuilder implements RepositoryBuilder {
     public void errorCheck(Collection<String> messages) throws ConfigurationException {
         if (getName() == null) {
             messages.add("name missing");
+        }
+    }
+
+    /**
+     * Returns all the TriggerFactories which were added.
+     */
+    protected Iterable<TriggerFactory> getTriggerFactories() {
+        if (mTriggerFactories == null || mTriggerFactories.size() == 0) {
+            return Collections.emptyList();
+        } else {
+            return new ArrayList<TriggerFactory>(mTriggerFactories);
         }
     }
 }
