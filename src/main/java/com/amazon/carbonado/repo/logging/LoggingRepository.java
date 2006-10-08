@@ -30,6 +30,7 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
+import com.amazon.carbonado.TriggerFactory;
 
 import com.amazon.carbonado.capability.Capability;
 
@@ -40,14 +41,19 @@ import com.amazon.carbonado.capability.Capability;
  */
 class LoggingRepository implements Repository, LogAccessCapability {
     private final AtomicReference<Repository> mRootRef;
+    final Iterable<TriggerFactory> mTriggerFactories;
     private final Repository mRepo;
     private final Log mLog;
 
     // Map of storages by storable class
     private final Map<Class<?>, LoggingStorage<?>> mStorages;
 
-    LoggingRepository(AtomicReference<Repository> rootRef, Repository actual, Log log) {
+    LoggingRepository(AtomicReference<Repository> rootRef,
+                      Iterable<TriggerFactory> triggerFactories,
+                      Repository actual, Log log)
+    {
         mRootRef = rootRef;
+        mTriggerFactories = triggerFactories;
         mRepo = actual;
         mLog = log;
 

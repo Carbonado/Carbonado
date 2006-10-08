@@ -107,4 +107,9 @@ public interface RepositoryBuilder {
      * opportunity to register custom persistence code for each Storable.
      */
     void addTriggerFactory(TriggerFactory factory);
+
+    /**
+     * Returns all the TriggerFactories which were added.
+     */
+    Iterable<TriggerFactory> getTriggerFactories();
 }

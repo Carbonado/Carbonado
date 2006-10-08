@@ -26,6 +26,7 @@ import com.amazon.carbonado.ConfigurationException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryBuilder;
 import com.amazon.carbonado.RepositoryException;
+import com.amazon.carbonado.TriggerFactory;
 
 import com.amazon.carbonado.spi.AbstractRepositoryBuilder;
 
@@ -83,6 +84,9 @@ public class LoggingRepositoryBuilder extends AbstractRepositoryBuilder {
                 mRepoBuilder.setName("Logging " + mName);
             }
             mRepoBuilder.setMaster(master);
+            for (TriggerFactory factory : getTriggerFactories()) {
+                mRepoBuilder.addTriggerFactory(factory);
+            }
             actual = mRepoBuilder.build(rootRef);
         } finally {
             mRepoBuilder.setName(originalName);
@@ -93,7 +97,8 @@ public class LoggingRepositoryBuilder extends AbstractRepositoryBuilder {
             return actual;
         }
 
-        Repository repo = new LoggingRepository(rootRef, actual, mLog);
+        Repository repo = new LoggingRepository
+            (rootRef, mRepoBuilder.getTriggerFactories(), actual, mLog);
         rootRef.set(repo);
         return repo;
     }

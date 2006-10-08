@@ -25,6 +25,7 @@ import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Trigger;
+import com.amazon.carbonado.TriggerFactory;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
@@ -39,7 +40,6 @@ import com.amazon.carbonado.util.QuickConstructorGenerator;
  *
  * @author Brian S O'Neill
  */
-@Deprecated
 public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
     private final Storage<S> mStorage;
     private final WrappedStorableFactory<S> mFactory;
@@ -48,14 +48,13 @@ public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
     /**
      * @param storage storage to wrap
      */
-    public WrappedStorage(Storage<S> storage) {
+    public WrappedStorage(Storage<S> storage, Iterable<TriggerFactory> triggerFactories) {
         mStorage = storage;
         Class<? extends S> wrappedClass = StorableGenerator
             .getWrappedClass(storage.getStorableType());
         mFactory = QuickConstructorGenerator
             .getInstance(wrappedClass, WrappedStorableFactory.class);
-        // FIXME: wrong, just deprecate this class
-        mTriggerManager = new TriggerManager<S>(null, null);
+        mTriggerManager = new TriggerManager<S>(storage.getStorableType(), triggerFactories);
     }
 
     public Class<S> getStorableType() {

@@ -357,7 +357,6 @@ public final class StorableGenerator<S extends Storable> {
      * @throws IllegalArgumentException if type is null
      */
     @SuppressWarnings("unchecked")
-    @Deprecated
     public static <S extends Storable> Class<? extends S> getWrappedClass(Class<S> type)
         throws IllegalArgumentException
     {

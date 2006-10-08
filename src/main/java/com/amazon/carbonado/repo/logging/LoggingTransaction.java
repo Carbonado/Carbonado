@@ -19,6 +19,7 @@
 package com.amazon.carbonado.repo.logging;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
@@ -30,27 +31,39 @@ import com.amazon.carbonado.Transaction;
  * @author Brian S O'Neill
  */
 class LoggingTransaction implements Transaction {
+    private static final ThreadLocal<LoggingTransaction> mActiveTxn =
+        new ThreadLocal<LoggingTransaction>();
+
+    private static final AtomicLong mNextID = new AtomicLong();
+
+    private final LoggingTransaction mParent;
     private final Log mLog;
     private final Transaction mTxn;
+    private final long mID;
 
     LoggingTransaction(Log log, Transaction txn) {
+        mParent = mActiveTxn.get();
         mLog = log;
         mTxn = txn;
+        mID = mNextID.addAndGet(1);
+        mActiveTxn.set(this);
+        mLog.write("Entered transaction: " + idChain());
     }
 
     public void commit() throws PersistException {
-        mLog.write("Transaction.commit()");
+        mLog.write("Transaction.commit() on " + idChain());
         mTxn.commit();
     }
 
     public void exit() throws PersistException {
-        mLog.write("Transaction.exit()");
+        mLog.write("Transaction.exit() on " + idChain());
         mTxn.exit();
+        mActiveTxn.set(mParent);
     }
 
     public void setForUpdate(boolean forUpdate) {
         if (mLog.isEnabled()) {
-            mLog.write("Transaction.setForUpdate(" + forUpdate + ')');
+            mLog.write("Transaction.setForUpdate(" + forUpdate + ") on " + idChain());
         }
         mTxn.setForUpdate(forUpdate);
     }
@@ -65,5 +78,12 @@ class LoggingTransaction implements Transaction {
 
     public IsolationLevel getIsolationLevel() {
         return mTxn.getIsolationLevel();
+    }
+
+    private String idChain() {
+        if (mParent == null) {
+            return String.valueOf(mID);
+        }
+        return mParent.idChain() + " > " + mID;
     }
 }

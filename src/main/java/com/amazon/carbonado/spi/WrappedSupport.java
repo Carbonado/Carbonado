@@ -27,7 +27,6 @@ import com.amazon.carbonado.Storable;
  *
  * @author Brian S O'Neill
  */
-@Deprecated
 public interface WrappedSupport<S extends Storable> extends TriggerSupport<S> {
     /**
      * @see Storable#load

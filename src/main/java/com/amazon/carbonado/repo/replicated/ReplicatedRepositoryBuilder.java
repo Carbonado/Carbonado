@@ -28,6 +28,7 @@ import com.amazon.carbonado.ConfigurationException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryBuilder;
 import com.amazon.carbonado.RepositoryException;
+import com.amazon.carbonado.TriggerFactory;
 
 import com.amazon.carbonado.spi.AbstractRepositoryBuilder;
 import com.amazon.carbonado.spi.BelatedRepositoryCreator;
@@ -64,6 +65,9 @@ public class ReplicatedRepositoryBuilder extends AbstractRepositoryBuilder {
             boolean originalOption = mReplicaRepositoryBuilder.isMaster();
             try {
                 mReplicaRepositoryBuilder.setMaster(false);
+                for (TriggerFactory factory : getTriggerFactories()) {
+                    mReplicaRepositoryBuilder.addTriggerFactory(factory);
+                }
                 replica = mReplicaRepositoryBuilder.build(rootRef);
             } finally {
                 mReplicaRepositoryBuilder.setMaster(originalOption);

@@ -21,6 +21,7 @@ package com.amazon.carbonado.spi;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -39,10 +40,10 @@ import com.amazon.carbonado.TriggerFactory;
  * @author Brian S O'Neill
  */
 public abstract class AbstractRepositoryBuilder implements RepositoryBuilder {
-    private final List<TriggerFactory> mTriggerFactories;
+    private final Collection<TriggerFactory> mTriggerFactories;
 
     protected AbstractRepositoryBuilder() {
-        mTriggerFactories = new ArrayList<TriggerFactory>(2);
+        mTriggerFactories = new LinkedHashSet<TriggerFactory>(2);
     }
 
     public Repository build() throws ConfigurationException, RepositoryException {
@@ -51,6 +52,14 @@ public abstract class AbstractRepositoryBuilder implements RepositoryBuilder {
 
     public void addTriggerFactory(TriggerFactory factory) {
         mTriggerFactories.add(factory);
+    }
+
+    public Iterable<TriggerFactory> getTriggerFactories() {
+        if (mTriggerFactories == null || mTriggerFactories.size() == 0) {
+            return Collections.emptyList();
+        } else {
+            return new ArrayList<TriggerFactory>(mTriggerFactories);
+        }
     }
 
     /**
@@ -89,17 +98,6 @@ public abstract class AbstractRepositoryBuilder implements RepositoryBuilder {
     public void errorCheck(Collection<String> messages) throws ConfigurationException {
         if (getName() == null) {
             messages.add("name missing");
-        }
-    }
-
-    /**
-     * Returns all the TriggerFactories which were added.
-     */
-    protected Iterable<TriggerFactory> getTriggerFactories() {
-        if (mTriggerFactories == null || mTriggerFactories.size() == 0) {
-            return Collections.emptyList();
-        } else {
-            return new ArrayList<TriggerFactory>(mTriggerFactories);
         }
     }
 }

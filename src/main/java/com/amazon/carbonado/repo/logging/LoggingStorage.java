@@ -36,7 +36,7 @@ class LoggingStorage<S extends Storable> extends WrappedStorage<S> {
     final LoggingRepository mRepo;
 
     LoggingStorage(LoggingRepository repo, Storage<S> storage) {
-        super(storage);
+        super(storage, repo.mTriggerFactories);
         mRepo = repo;
     }
 
