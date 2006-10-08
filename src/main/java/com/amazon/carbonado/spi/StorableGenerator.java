@@ -997,6 +997,7 @@ public final class StorableGenerator<S extends Storable> {
                                 b.loadThis();
                                 b.loadField(PROPERTY_STATE_FIELD_NAME + (ord >> 4), TypeDesc.INT);
                                 b.loadConstant(PROPERTY_STATE_MASK << ((ord & 0xf) * 2));
+                                b.math(Opcode.IAND);
                                 b.loadConstant(PROPERTY_STATE_CLEAN << ((ord & 0xf) * 2));
                                 // If not clean, skip equal check.
                                 b.ifComparisonBranch(setInternalProp, "!=");
