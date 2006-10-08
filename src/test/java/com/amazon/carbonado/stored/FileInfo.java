@@ -45,18 +45,15 @@ import com.amazon.carbonado.adapter.*;
 public abstract class FileInfo implements Storable {
     @Sequence("com.amazon.carbonado.storables.FileInfo")
     public abstract int getID();
-
     public abstract void setID(int value);
 
     @Nullable
     public abstract Integer getParentID();
-
     public abstract void setParentID(Integer id);
 
     @Nullable
     @Join(internal="parentID", external="ID")
     public abstract FileInfo getParent() throws FetchException;
-
     public abstract void setParent(FileInfo value);
 
     @Join(internal="ID", external="parentID")
@@ -64,33 +61,27 @@ public abstract class FileInfo implements Storable {
 
     @Alias("FILE_NAME")
     public abstract String getName();
-
     public abstract void setName(String value);
 
     @YesNoAdapter
     public abstract boolean isDirectory();
-
     public abstract void setDirectory(boolean value);
 
     @Alias("FILE_LENGTH")
     public abstract long getLength();
-
     public abstract void setLength(long value);
 
     @Nullable
     public abstract DateTime getLastModified();
-
     public abstract void setLastModified(DateTime value);
 
     @Version
     @Alias("RECORD_VERSION_NUMBER")
     public abstract int getVersionNumber();
-
     public abstract void setVersionNumber(int version);
 
     @Nullable
     public abstract Blob getFileData();
-
     public abstract void setFileData(Blob data);
 
     public String getFullPath() throws FetchException {
