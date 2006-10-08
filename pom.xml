@@ -152,7 +152,7 @@
             </group>
             <group>
               <title>Standard Repositories</title>
-              <packages>com.amazon.carbonado.repo.jdbc:com.amazon.carbonado.repo.replicated:com.amazon.carbonado.repo.logging</packages>
+              <packages>com.amazon.carbonado.repo.jdbc:com.amazon.carbonado.repo.replicated:com.amazon.carbonado.repo.logging:com.amazon.carbonado.repo.sleepycat</packages>
             </group>
             <group>
               <title>Service Provider Interface</title>
