@@ -190,9 +190,50 @@ public class CompositeScore<S extends Storable> {
 
             result = FilteringScore.rangeComparator().compare(firstScore, secondScore);
 
+            OrderingScore<?> firstOrderingScore = first.getOrderingScore();
+            OrderingScore<?> secondOrderingScore = second.getOrderingScore();
+                
             if (result != 0) {
+                if (!firstScore.hasAnyMatches() || !secondScore.hasAnyMatches()) {
+                    // Return result if either index filters nothing.
+                    return result;
+                }
+
+                // negative: first is better, zero: same, positive: second is better
+                int handledScore =
+                    secondOrderingScore.getHandledCount() - firstOrderingScore.getHandledCount();
+
+                if (handledScore == 0) {
+                    // Neither index handles ordering any better, so don't
+                    // bother examining that.
+                    return result;
+                }
+
+                if (Integer.signum(result) == Integer.signum(handledScore)) {
+                    // Index is better at both filtering and ordering. A double win.
+                    return result;
+                }
+
+                // This is a tough call. Both indexes perform some filtering,
+                // but one index is clearly better at it. The other index is
+                // clearly better for ordering, however. Without knowing how
+                // many results can be filtered out, it isn't possible to
+                // decide which index is better. Let the user decide in this
+                // case, by examing the preference order of filter properties.
+
+                int preferenceResult =
+                    secondScore.getPreferenceScore().compareTo(firstScore.getPreferenceScore());
+                if (preferenceResult != 0) {
+                    return preferenceResult;
+                }
+
+                // Preference scores are the same? That seems unlikely, but
+                // choose the better filtering index.
                 return result;
             }
+
+            // If this point is reached, the filtering score has not been
+            // terribly helpful in deciding an index. Check the ordering score.
 
             if (considerOrdering(firstScore) && considerOrdering(secondScore)) {
                 // Only consider ordering if index is fast (clustered) or if

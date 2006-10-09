@@ -385,7 +385,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         exec.printPlan(buf, 0, null);
         String plan = buf.toString();
 
-        String expexted =
+        String expected =
             "union\n" +
             "  sort: [+id]\n" +
             "    index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
@@ -399,7 +399,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
             "  ...range filter: id > ?\n";
 
         // Test test will fail if the format of the plan changes.
-        assertEquals(expexted, plan);
+        assertEquals(expected, plan);
     }
 
     public void testComplexUnionPlan2() throws Exception {
@@ -427,7 +427,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         exec.printPlan(buf, 0, null);
         String plan = buf.toString();
 
-        String expexted =
+        String expected =
             "union\n" +
             "  sort: [+stringProp]\n" +
             "    index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
@@ -438,7 +438,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
             "  ...identity filter: stringProp = ?\n";
 
         // Test test will fail if the format of the plan changes.
-        assertEquals(expexted, plan);
+        assertEquals(expected, plan);
     }
 
     public void testComplexUnionPlan3() throws Exception {
@@ -464,7 +464,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         exec.printPlan(buf, 0, null);
         String plan = buf.toString();
 
-        String expexted =
+        String expected =
             "union\n" +
             "  index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
             "  ...index: {properties=[+stringProp, +doubleProp], unique=true}\n" +
@@ -474,7 +474,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
             "  ...identity filter: stringProp = ?[2]\n";
 
         // Test test will fail if the format of the plan changes.
-        assertEquals(expexted, plan);
+        assertEquals(expected, plan);
     }
 
     public void testComplexUnionPlan4() throws Exception {
@@ -502,7 +502,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         exec.printPlan(buf, 0, null);
         String plan = buf.toString();
 
-        String expexted =
+        String expected =
             "union\n" +
             "  sort: [+id]\n" +
             "    index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
@@ -518,7 +518,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
             "    ...range filter: id > ?\n";
 
         // Test test will fail if the format of the plan changes.
-        assertEquals(expexted, plan);
+        assertEquals(expected, plan);
     }
 
     public void testComplexUnionPlan5() throws Exception {
@@ -546,7 +546,7 @@ public class TestUnionQueryAnalyzer extends TestCase {
         exec.printPlan(buf, 0, null);
         String plan = buf.toString();
 
-        String expexted =
+        String expected =
             "union\n" +
             "  index scan: com.amazon.carbonado.stored.StorableTestBasic\n" +
             "  ...index: {properties=[+stringProp, +doubleProp], unique=true}\n" +
@@ -560,6 +560,6 @@ public class TestUnionQueryAnalyzer extends TestCase {
             "    ...range filter: id > ?\n";
 
         // Test test will fail if the format of the plan changes.
-        assertEquals(expexted, plan);
+        assertEquals(expected, plan);
     }
 }

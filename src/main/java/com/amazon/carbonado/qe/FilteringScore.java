@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.qe;
 
+import java.math.BigInteger;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Collections;
@@ -106,15 +108,16 @@ public class FilteringScore<S extends Storable> {
 
         // List is ordered such that '=' operations are first and '!='
         // operations are last.
-        List<PropertyFilter<S>> filterList = PropertyFilterList.get(filter);
+        PropertyFilterList<S> originalFilterList = PropertyFilterList.get(filter);
 
         // Copy so it so that matching elements can be removed.
-        filterList = new ArrayList<PropertyFilter<S>>(filterList);
+        List<PropertyFilter<S>> filterList = new ArrayList<PropertyFilter<S>>(originalFilterList);
 
         // First find the identity matches.
 
         List<PropertyFilter<S>> identityFilters = new ArrayList<PropertyFilter<S>>();
         int arrangementScore = 0;
+        BigInteger preferenceScore = BigInteger.ZERO;
 
         int indexPropPos;
         int lastFilterPos = 0;
@@ -131,6 +134,9 @@ public class FilteringScore<S extends Storable> {
                 }
                 if (subFilter.getChainedProperty().equals(indexProp)) {
                     identityFilters.add(subFilter);
+                    int shift = originalFilterList.size()
+                        - originalFilterList.getOriginalPosition(subFilter) - 1;
+                    preferenceScore = preferenceScore.or(BigInteger.ONE.shiftLeft(shift));
                     if (pos >= lastFilterPos) {
                         arrangementScore++;
                     }
@@ -186,6 +192,10 @@ public class FilteringScore<S extends Storable> {
 
                         filterList.remove(pos);
 
+                        int shift = originalFilterList.size()
+                            - originalFilterList.getOriginalPosition(subFilter) - 1;
+                        preferenceScore = preferenceScore.or(BigInteger.ONE.shiftLeft(shift));
+
                         // Loop correction after removing element.
                         pos--;
                     }
@@ -204,6 +214,7 @@ public class FilteringScore<S extends Storable> {
                                      rangeStartFilters,
                                      rangeEndFilters,
                                      arrangementScore,
+                                     preferenceScore,
                                      filterList,
                                      shouldReverseRange);
     }
@@ -262,6 +273,7 @@ public class FilteringScore<S extends Storable> {
     private final List<PropertyFilter<S>> mRangeEndFilters;
 
     private final int mArrangementScore;
+    private final BigInteger mPreferenceScore;
 
     private final List<PropertyFilter<S>> mRemainderFilters;
 
@@ -277,6 +289,7 @@ public class FilteringScore<S extends Storable> {
                            List<PropertyFilter<S>> rangeStartFilters,
                            List<PropertyFilter<S>> rangeEndFilters,
                            int arrangementScore,
+                           BigInteger preferenceScore,
                            List<PropertyFilter<S>> remainderFilters,
                            boolean shouldReverseRange)
     {
@@ -287,6 +300,7 @@ public class FilteringScore<S extends Storable> {
         mRangeStartFilters = prepareList(rangeStartFilters);
         mRangeEndFilters = prepareList(rangeEndFilters);
         mArrangementScore = arrangementScore;
+        mPreferenceScore = preferenceScore;
         mRemainderFilters = prepareList(remainderFilters);
         mShouldReverseRange = shouldReverseRange;
     }
@@ -442,6 +456,17 @@ public class FilteringScore<S extends Storable> {
     }
 
     /**
+     * Returns a value which indicates user index preference, based on the
+     * original ordering of elements in the filter. A higher value can
+     * indicate that the index is a slightly better match.
+     *
+     * @return preference value which can be compared to another one
+     */
+    public Comparable getPreferenceScore() {
+        return mPreferenceScore;
+    }
+
+    /**
      * Returns number of property filters not supported by the evaluated index.
      */
     public int getRemainderCount() {
@@ -496,6 +521,7 @@ public class FilteringScore<S extends Storable> {
             && isIndexUnique() == other.isIndexUnique()
             && getIndexPropertyCount() == other.getIndexPropertyCount()
             && getArrangementScore() == other.getArrangementScore()
+            && getPreferenceScore().equals(other.getPreferenceScore())
             && shouldReverseRange() == other.shouldReverseRange()
             // List comparisons assume identical ordering, but this is
             // not strictly required. Since the different scores likely

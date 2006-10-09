@@ -18,9 +18,11 @@
 
 package com.amazon.carbonado.qe;
 
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,8 +43,8 @@ import com.amazon.carbonado.filter.Visitor;
  *
  * @author Brian S O'Neill
  */
-class PropertyFilterList {
-    private static Map<Filter<?>, List> cCache;
+class PropertyFilterList<S extends Storable> extends AbstractList<PropertyFilter<S>> {
+    private static Map<Filter<?>, PropertyFilterList> cCache;
 
     static {
         cCache = new SoftValuedHashMap();
@@ -53,21 +55,26 @@ class PropertyFilterList {
      * @return unmodifiable list of PropertyFilters, which is empty if input filter was null
      * @throws IllegalArgumentException if filter has any operators other than 'and'.
      */
-    static <S extends Storable> List<PropertyFilter<S>> get(Filter<S> filter) {
-        List<PropertyFilter<S>> list;
+    static <S extends Storable> PropertyFilterList<S> get(Filter<S> filter) {
+        PropertyFilterList<S> plist;
 
         synchronized (cCache) {
-            list = (List<PropertyFilter<S>>) cCache.get(filter);
+            plist = (PropertyFilterList<S>) cCache.get(filter);
         }
 
-        if (list != null) {
-            return list;
+        if (plist != null) {
+            return plist;
         }
+
+        List<PropertyFilter<S>> list;
+        Map<PropertyFilter<S>, Integer> posMap;
 
         if (filter == null) {
             list = Collections.emptyList();
+            posMap = Collections.emptyMap();
         } else if (filter instanceof PropertyFilter) {
             list = Collections.singletonList((PropertyFilter<S>) filter);
+            posMap = Collections.singletonMap((PropertyFilter<S>) filter, 0);
         } else {
             list = new ArrayList<PropertyFilter<S>>();
             final List<PropertyFilter<S>> flist = list;
@@ -83,17 +90,46 @@ class PropertyFilterList {
                 }
             }, null);
 
+            posMap = new HashMap<PropertyFilter<S>, Integer>();
+            for (int i=0; i<list.size(); i++) {
+                posMap.put(list.get(i), i);
+            }
+
             Collections.sort(list, new PFComparator<S>());
 
             ((ArrayList) list).trimToSize();
             list = Collections.unmodifiableList(list);
         }
 
+        plist = new PropertyFilterList<S>(list, posMap);
+
         synchronized (cCache) {
-            cCache.put(filter, list);
+            cCache.put(filter, plist);
         }
 
-        return list;
+        return plist;
+    }
+
+    private final List<PropertyFilter<S>> mList;
+    private final Map<PropertyFilter<S>, Integer> mPosMap;
+
+    private PropertyFilterList(List<PropertyFilter<S>> list,
+                               Map<PropertyFilter<S>, Integer> posMap)
+    {
+        mList = list;
+        mPosMap = posMap;
+    }
+
+    public Integer getOriginalPosition(PropertyFilter<S> filter) {
+        return mPosMap.get(filter);
+    }
+
+    public int size() {
+        return mList.size();
+    }
+
+    public PropertyFilter<S> get(int index) {
+        return mList.get(index);
     }
 
     private static class PFComparator<S extends Storable>
