@@ -510,12 +510,4 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         }
         return new IllegalArgumentException(b.toString());
     }
-
-    void dumpTree(Appendable app, int indentLevel) throws IOException {
-        for (int i=0; i<indentLevel; i++) {
-            app.append("  ");
-        }
-        appendTo(app);
-        app.append('\n');
-    }
 }

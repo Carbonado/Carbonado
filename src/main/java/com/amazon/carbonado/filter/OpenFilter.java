@@ -127,11 +127,4 @@ public class OpenFilter<S extends Storable> extends Filter<S> {
     public void appendTo(Appendable app, FilterValues<S> values) throws IOException {
         app.append("open");
     }
-
-    void dumpTree(Appendable app, int indentLevel) throws IOException {
-        for (int i=0; i<indentLevel; i++) {
-            app.append("  ");
-        }
-        app.append("open");
-    }
 }

@@ -619,15 +619,6 @@ public abstract class Filter<S extends Storable> implements Appender {
         throws IOException;
 
     /**
-     * Prints a tree representation of the filter to the given Appendable.
-     */
-    public void dumpTree(Appendable app) throws IOException {
-        dumpTree(app, 0);
-    }
-
-    abstract void dumpTree(Appendable app, int indentLevel) throws IOException;
-
-    /**
      * Result from calling {@link Filter#notJoinedFrom}.
      */
     public class NotJoined {

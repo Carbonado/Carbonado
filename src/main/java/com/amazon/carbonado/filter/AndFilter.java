@@ -143,14 +143,4 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
             mRight.appendTo(app, values);
         }
     }
-
-    void dumpTree(Appendable app, int indentLevel) throws IOException {
-        mRight.dumpTree(app, indentLevel + 1);
-        for (int i=0; i<indentLevel; i++) {
-            app.append("  ");
-        }
-        app.append("and");
-        app.append('\n');
-        mLeft.dumpTree(app, indentLevel + 1);
-    }
 }
