@@ -228,7 +228,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     }
 
     public long countAll() throws FetchException {
-        // Return -1 to indicate default algorithmn should be used.
+        // Return -1 to indicate default algorithm should be used.
         return -1;
     }
 
