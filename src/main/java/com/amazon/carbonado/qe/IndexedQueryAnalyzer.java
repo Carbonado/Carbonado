@@ -428,13 +428,19 @@ public class IndexedQueryAnalyzer<S extends Storable> {
                 return this;
             }
 
+            // Assuming canMergeRemainder returned true, each handled filter
+            // and the combined filter are all identical. This is just a safeguard.
+            Filter<S> handledFilter =
+                orFilters(getCompositeScore().getFilteringScore().getHandledFilter(),
+                          other.getCompositeScore().getFilteringScore().getHandledFilter());
+
             Filter<S> remainderFilter =
-                mergeFilters(getRemainderFilter(), other.getRemainderFilter());
+                orFilters(getRemainderFilter(), other.getRemainderFilter());
 
             OrderingList<S> remainderOrdering =
                 getRemainderOrdering().concat(other.getRemainderOrdering()).reduce();
 
-            Filter<S> filter = mergeFilters(getFilter(), remainderFilter);
+            Filter<S> filter = andFilters(handledFilter, remainderFilter);
 
             return new Result
                 (filter, mScore, mLocalIndex, mForeignIndex, mForeignProperty,
@@ -447,10 +453,20 @@ public class IndexedQueryAnalyzer<S extends Storable> {
          * doesn't usually make sense to call this method.
          */
         public Result mergeRemainderFilter(Filter<S> filter) {
-            return setRemainderFilter(mergeFilters(getRemainderFilter(), filter));
+            return setRemainderFilter(orFilters(getRemainderFilter(), filter));
         }
 
-        private Filter<S> mergeFilters(Filter<S> a, Filter<S> b) {
+        private Filter<S> andFilters(Filter<S> a, Filter<S> b) {
+            if (a == null) {
+                return b;
+            }
+            if (b == null) {
+                return a;
+            }
+            return a.and(b).reduce();
+        }
+
+        private Filter<S> orFilters(Filter<S> a, Filter<S> b) {
             if (a == null) {
                 return b;
             }

@@ -430,6 +430,34 @@ public class FilteringScore<S extends Storable> {
     }
 
     /**
+     * Returns the count of all handled property filters.
+     */
+    public int getHandledCount() {
+        return getIdentityCount() + mRangeStartFilters.size() + mRangeEndFilters.size();
+    }
+
+    /**
+     * Returns the composite handled filter, or null if no matches at all.
+     */
+    public Filter<S> getHandledFilter() {
+        Filter<S> identity = getIdentityFilter();
+        Filter<S> rangeStart = buildCompositeFilter(getRangeStartFilters());
+        Filter<S> rangeEnd = buildCompositeFilter(getRangeEndFilters());
+
+        return and(and(identity, rangeStart), rangeEnd);
+    }
+
+    private Filter<S> and(Filter<S> a, Filter<S> b) {
+        if (a == null) {
+            return b;
+        }
+        if (b == null) {
+            return a;
+        }
+        return a.and(b);
+    }
+
+    /**
      * Returns true if there is both a range start and range end.
      */
     public boolean hasRangeMatch() {

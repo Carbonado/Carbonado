@@ -325,7 +325,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
     }
 
     private Direction findHandledDirection(IndexedQueryAnalyzer<S>.Result result,
-                                           OrderedProperty unspecified)
+                                           OrderedProperty<S> unspecified)
     {
         ChainedProperty<S> chained = unspecified.getChainedProperty();
         OrderingScore<S> score = result.getCompositeScore().getOrderingScore();
@@ -429,22 +429,6 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
         mergedResults.add(full);
 
         return mergedResults;
-    }
-
-    Storage storageDelegate(IndexedQueryAnalyzer<S>.Result result)
-        throws SupportException, RepositoryException
-    {
-        StorableIndex<S> localIndex = result.getLocalIndex();
-        StorageAccess<S> localAccess = mRepoAccess.storageAccessFor(getStorableType());
-
-        if (localIndex != null) {
-            return localAccess.storageDelegate(localIndex);
-        }
-
-        StorableIndex foreignIndex = result.getForeignIndex();
-        StorageAccess foreignAccess = mRepoAccess.storageAccessFor(foreignIndex.getStorableType());
-
-        return foreignAccess.storageDelegate(foreignIndex);
     }
 
     public class Result {
@@ -646,8 +630,6 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
             IndexedQueryAnalyzer<S>.Result subResult =
                 mIndexAnalyzer.analyze(subFilter, mOrdering);
 
-            Storage subResultStorage = storageDelegate(subResult);
-
             // Rather than blindly add to mSubResults, try to merge with
             // another result. This in turn reduces the number of cursors
             // needed by the union.
@@ -655,15 +637,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
             int size = mSubResults.size();
             for (int i=0; i<size; i++) {
                 IndexedQueryAnalyzer<S>.Result existing = mSubResults.get(i);
-                boolean canMerge = existing.canMergeRemainder(subResult);
-                if (!canMerge) {
-                    Storage existingStorage = storageDelegate(existing);
-                    if (existingStorage != null && existingStorage == subResultStorage) {
-                        // Merge common delegates together.
-                        canMerge = true;
-                    }
-                }
-                if (canMerge) {
+                if (existing.canMergeRemainder(subResult)) {
                     mSubResults.set(i, existing.mergeRemainder(subResult));
                     return;
                 }
