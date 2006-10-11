@@ -20,8 +20,6 @@ package com.amazon.carbonado.raw;
 
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
-
 import com.amazon.carbonado.info.StorableIndex;
 
 /**

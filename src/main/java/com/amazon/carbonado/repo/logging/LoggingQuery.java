@@ -23,8 +23,6 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
-
 import com.amazon.carbonado.spi.WrappedQuery;
 
 /**

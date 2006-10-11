@@ -20,7 +20,6 @@ package com.amazon.carbonado.repo.sleepycat;
 
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
-import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.raw.RawCursor;

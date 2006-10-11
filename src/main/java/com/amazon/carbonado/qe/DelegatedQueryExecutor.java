@@ -20,8 +20,6 @@ package com.amazon.carbonado.qe;
 
 import java.io.IOException;
 
-import java.util.List;
-
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Query;
@@ -30,8 +28,6 @@ import com.amazon.carbonado.Storage;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
-
-import com.amazon.carbonado.info.OrderedProperty;
 
 /**
  * QueryExecutor which delegates by executing a Query on a Storage.

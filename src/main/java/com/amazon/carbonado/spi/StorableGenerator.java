@@ -53,9 +53,6 @@ import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.UniqueConstraintException;
 
-import com.amazon.carbonado.capability.Capability;
-import com.amazon.carbonado.capability.StorableInfoCapability;
-
 import com.amazon.carbonado.lob.Lob;
 
 import com.amazon.carbonado.info.ChainedProperty;
@@ -2251,6 +2248,7 @@ public final class StorableGenerator<S extends Storable> {
      * For the given join property, marks all of its dependent internal join
      * element properties as dirty.
      */
+    /*
     private void markInternalJoinElementsDirty(CodeBuilder b, StorableProperty joinProperty) {
         int count = mAllProperties.size();
 
@@ -2278,6 +2276,7 @@ public final class StorableGenerator<S extends Storable> {
             }
         }
     }
+    */
 
     /**
      * Generates code to set all state properties to zero.

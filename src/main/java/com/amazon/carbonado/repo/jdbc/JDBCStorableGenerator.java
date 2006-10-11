@@ -45,9 +45,7 @@ import org.cojen.util.SoftValuedHashMap;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.OptimisticLockException;
 import com.amazon.carbonado.PersistException;
-import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 
 import com.amazon.carbonado.lob.Lob;
@@ -136,7 +134,6 @@ class JDBCStorableGenerator<S extends Storable> {
         final Map<JDBCStorableProperty<S>, Class<?>> lobLoaderMap = generateLobLoaders();
 
         // Declare some types.
-        final TypeDesc storageType = TypeDesc.forClass(Storage.class);
         final TypeDesc jdbcRepoType = TypeDesc.forClass(JDBCRepository.class);
         final TypeDesc jdbcSupportType = TypeDesc.forClass(JDBCSupport.class);
         final TypeDesc resultSetType = TypeDesc.forClass(ResultSet.class);

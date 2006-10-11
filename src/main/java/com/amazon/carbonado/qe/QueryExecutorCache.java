@@ -28,8 +28,6 @@ import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
 
-import com.amazon.carbonado.info.OrderedProperty;
-
 /**
  * QueryExecutors should be cached since expensive analysis is often required
  * to build them.

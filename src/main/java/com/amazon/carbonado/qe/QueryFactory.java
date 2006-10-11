@@ -24,8 +24,6 @@ import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.FilterValues;
 
-import com.amazon.carbonado.info.OrderedProperty;
-
 /**
  * Produces {@link Query} instances from a query specification.
  *

@@ -25,8 +25,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import java.sql.Blob;
-import java.sql.SQLException;
-
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 

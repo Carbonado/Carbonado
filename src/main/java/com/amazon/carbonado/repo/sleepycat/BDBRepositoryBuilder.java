@@ -32,8 +32,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.TriggerFactory;
-
 import com.amazon.carbonado.repo.indexed.IndexedRepositoryBuilder;
 
 import com.amazon.carbonado.raw.GenericStorableCodecFactory;

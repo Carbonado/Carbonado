@@ -20,7 +20,6 @@ package com.amazon.carbonado.repo.indexed;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,18 +29,12 @@ import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.PersistException;
-import com.amazon.carbonado.PersistNoneException;
 import com.amazon.carbonado.Query;
-import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
-import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
-import com.amazon.carbonado.UniqueConstraintException;
-
 import com.amazon.carbonado.capability.IndexInfo;
 import com.amazon.carbonado.capability.IndexInfoCapability;
 
@@ -62,7 +55,6 @@ import com.amazon.carbonado.qe.QueryEngine;
 import com.amazon.carbonado.qe.QueryExecutorFactory;
 import com.amazon.carbonado.qe.StorageAccess;
 
-import com.amazon.carbonado.spi.RepairExecutor;
 import com.amazon.carbonado.spi.StorableIndexSet;
 
 /**

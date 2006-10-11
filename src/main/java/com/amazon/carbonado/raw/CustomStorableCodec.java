@@ -31,7 +31,6 @@ import org.cojen.util.WeakIdentityMap;
 import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 
 import com.amazon.carbonado.info.Direction;

@@ -22,7 +22,6 @@ import java.io.IOException;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistNoneException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Query;
@@ -31,8 +30,6 @@ import com.amazon.carbonado.cursor.EmptyCursor;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
-
-import com.amazon.carbonado.info.OrderedProperty;
 
 /**
  * Special query implementation that fetches nothing.

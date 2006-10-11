@@ -34,8 +34,6 @@ import com.amazon.carbonado.cursor.UnionCursor;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 
-import com.amazon.carbonado.info.OrderedProperty;
-
 /**
  * QueryExecutor which wraps several others and unions the results.
  *

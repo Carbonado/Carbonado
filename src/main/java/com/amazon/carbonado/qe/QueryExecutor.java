@@ -20,16 +20,12 @@ package com.amazon.carbonado.qe;
 
 import java.io.IOException;
 
-import java.util.List;
-
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
-
-import com.amazon.carbonado.info.OrderedProperty;
 
 /**
  * Performs all the actual work of executing a query. QueryExecutors are linked

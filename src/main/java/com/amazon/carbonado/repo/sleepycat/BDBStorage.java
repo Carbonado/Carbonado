@@ -22,12 +22,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 
-import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.MalformedFilterException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;

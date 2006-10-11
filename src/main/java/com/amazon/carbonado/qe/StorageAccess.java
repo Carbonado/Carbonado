@@ -20,12 +20,8 @@ package com.amazon.carbonado.qe;
 
 import java.util.Collection;
 
-import com.amazon.carbonado.Cursor;
-import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
-
-import com.amazon.carbonado.cursor.SortBuffer;
 
 import com.amazon.carbonado.info.StorableIndex;
 

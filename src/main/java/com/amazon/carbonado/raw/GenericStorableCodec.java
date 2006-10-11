@@ -40,7 +40,6 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchNoneException;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.OrderedProperty;
@@ -125,7 +124,6 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
         cf.setTarget("1.5");
 
         // Declare some types.
-        final TypeDesc storageType = TypeDesc.forClass(Storage.class);
         final TypeDesc rawSupportType = TypeDesc.forClass(RawSupport.class);
         final TypeDesc byteArrayType = TypeDesc.forClass(byte[].class);
         final TypeDesc[] byteArrayParam = {byteArrayType};

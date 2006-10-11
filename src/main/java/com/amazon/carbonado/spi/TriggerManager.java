@@ -229,7 +229,7 @@ public class TriggerManager<S extends Storable> {
         }
 
         if (overridesMethod(triggerClass, BEFORE_UPDATE_METHOD) ||
-            overridesMethod(triggerClass, BEFORE_TRY_INSERT_METHOD) ||
+            overridesMethod(triggerClass, BEFORE_TRY_UPDATE_METHOD) ||
             overridesMethod(triggerClass, AFTER_UPDATE_METHOD) ||
             overridesMethod(triggerClass, AFTER_TRY_UPDATE_METHOD) ||
             overridesMethod(triggerClass, FAILED_UPDATE_METHOD))

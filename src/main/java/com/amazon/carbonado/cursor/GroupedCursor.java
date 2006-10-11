@@ -21,8 +21,6 @@ package com.amazon.carbonado.cursor;
 import java.util.Comparator;
 import java.util.NoSuchElementException;
 
-import org.cojen.util.BeanComparator;
-
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchInterruptedException;

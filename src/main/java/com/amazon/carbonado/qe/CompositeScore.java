@@ -19,9 +19,6 @@
 package com.amazon.carbonado.qe;
 
 import java.util.Comparator;
-import java.util.Collections;
-import java.util.List;
-
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;

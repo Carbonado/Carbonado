@@ -20,7 +20,6 @@ package com.amazon.carbonado.raw;
 
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
 
 /**
  * Can be used with {@link com.amazon.carbonado.util.QuickConstructorGenerator}

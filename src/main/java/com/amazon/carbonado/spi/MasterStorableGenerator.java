@@ -39,7 +39,6 @@ import com.amazon.carbonado.OptimisticLockException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 
@@ -211,7 +210,6 @@ public final class MasterStorableGenerator<S extends Storable> {
     private void generateClass() throws SupportException {
         // Declare some types.
         final TypeDesc storableType = TypeDesc.forClass(Storable.class);
-        final TypeDesc storageType = TypeDesc.forClass(Storage.class);
         final TypeDesc triggerSupportType = TypeDesc.forClass(TriggerSupport.class);
         final TypeDesc masterSupportType = TypeDesc.forClass(MasterSupport.class);
         final TypeDesc transactionType = TypeDesc.forClass(Transaction.class);

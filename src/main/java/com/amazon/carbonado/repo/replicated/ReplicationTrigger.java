@@ -23,12 +23,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.amazon.carbonado.FetchDeadlockException;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchNoneException;
-import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.OptimisticLockException;
-import com.amazon.carbonado.PersistDeadlockException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.PersistNoneException;
 import com.amazon.carbonado.Repository;

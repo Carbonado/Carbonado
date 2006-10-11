@@ -22,15 +22,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
-import java.util.List;
-
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.amazon.carbonado.ConfigurationException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryBuilder;
 import com.amazon.carbonado.RepositoryException;
-import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.TriggerFactory;
 
 /**

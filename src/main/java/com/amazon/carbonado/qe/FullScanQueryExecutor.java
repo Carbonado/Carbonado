@@ -20,17 +20,12 @@ package com.amazon.carbonado.qe;
 
 import java.io.IOException;
 
-import java.util.Collections;
-import java.util.List;
-
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
-
-import com.amazon.carbonado.info.OrderedProperty;
 
 /**
  * QueryExecutor which fully scans all Storables of a given type.

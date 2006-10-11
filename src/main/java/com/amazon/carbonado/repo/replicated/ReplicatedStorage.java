@@ -21,24 +21,18 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.OptimisticLockException;
-import com.amazon.carbonado.PersistException;
-import com.amazon.carbonado.PersistNoneException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.RepositoryException;
-import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
-import com.amazon.carbonado.UniqueConstraintException;
 import com.amazon.carbonado.UnsupportedTypeException;
 
 import com.amazon.carbonado.filter.Filter;
 
 import com.amazon.carbonado.spi.BelatedStorageCreator;
-import com.amazon.carbonado.spi.RepairExecutor;
 
 /**
  * ReplicatedStorage

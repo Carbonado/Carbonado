@@ -43,7 +43,6 @@ import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.TriggerFactory;
 

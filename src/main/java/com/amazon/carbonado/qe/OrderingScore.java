@@ -21,7 +21,6 @@ package com.amazon.carbonado.qe;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import com.amazon.carbonado.Storable;
@@ -249,7 +248,7 @@ public class OrderingScore<S extends Storable> {
                 if (shouldReverseOrder == null) {
                     freeProp = freeProp.direction(UNSPECIFIED);
                 } else {
-                    Direction freePropDir = freePropDir = freeProp.getDirection();
+                    Direction freePropDir = freeProp.getDirection();
                     if (freePropDir == UNSPECIFIED) {
                         freePropDir = ASCENDING;
                     }

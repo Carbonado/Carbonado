@@ -36,7 +36,6 @@ import org.cojen.util.WeakIdentityMap;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 
 import com.amazon.carbonado.spi.MasterFeature;
@@ -197,7 +196,6 @@ public class RawStorableGenerator {
 
         // Declare some types.
         final TypeDesc storableType = TypeDesc.forClass(Storable.class);
-        final TypeDesc storageType = TypeDesc.forClass(Storage.class);
         final TypeDesc triggerSupportType = TypeDesc.forClass(TriggerSupport.class);
         final TypeDesc masterSupportType = TypeDesc.forClass(MasterSupport.class);
         final TypeDesc rawSupportType = TypeDesc.forClass(RawSupport.class);

@@ -289,6 +289,8 @@ public abstract class Trigger<S> {
     }
 
     public static final class Abort extends PersistException {
+        private static final long serialVersionUID = -8498639796139966911L;
+
         static final Abort INSTANCE = new Abort();
 
         private Abort() {

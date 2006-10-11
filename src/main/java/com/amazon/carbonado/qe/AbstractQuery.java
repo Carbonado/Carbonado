@@ -32,8 +32,6 @@ import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
 
-import com.amazon.carbonado.info.OrderedProperty;
-
 import com.amazon.carbonado.util.Appender;
 
 /**

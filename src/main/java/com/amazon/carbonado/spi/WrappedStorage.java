@@ -28,8 +28,6 @@ import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.TriggerFactory;
 
 import com.amazon.carbonado.filter.Filter;
-import com.amazon.carbonado.filter.FilterValues;
-
 import com.amazon.carbonado.util.QuickConstructorGenerator;
 
 /**

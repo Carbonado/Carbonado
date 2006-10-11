@@ -39,7 +39,6 @@ import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
-import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;

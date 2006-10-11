@@ -33,8 +33,6 @@ import com.amazon.carbonado.cursor.SortedCursor;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 
-import com.amazon.carbonado.info.OrderedProperty;
-
 /**
  * QueryExecutor which wraps another and sorts the results.
  *

@@ -25,8 +25,6 @@ import java.util.Map;
 
 import org.cojen.classfile.ClassFile;
 import org.cojen.classfile.CodeBuilder;
-import org.cojen.classfile.FieldInfo;
-import org.cojen.classfile.Label;
 import org.cojen.classfile.LocalVariable;
 import org.cojen.classfile.MethodInfo;
 import org.cojen.classfile.Modifiers;
@@ -37,20 +35,13 @@ import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
-
 import com.amazon.carbonado.cursor.MultiTransformedCursor;
 
-import com.amazon.carbonado.filter.AndFilter;
-import com.amazon.carbonado.filter.ClosedFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 import com.amazon.carbonado.filter.OpenFilter;
-import com.amazon.carbonado.filter.OrFilter;
-import com.amazon.carbonado.filter.PropertyFilter;
 import com.amazon.carbonado.filter.RelOp;
 
 import com.amazon.carbonado.info.ChainedProperty;
@@ -608,6 +599,7 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
         return mOuterLoopFilterValues.withValues(values.getValuesFor(mSourceFilterAsFromTarget));
     }
 
+    @SuppressWarnings("unused")
     private static interface Joiner {
         /**
          * Needs to be public for {@link QuickConstructorGenerator}, but hide

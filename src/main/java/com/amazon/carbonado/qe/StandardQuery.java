@@ -28,7 +28,6 @@ import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.PersistMultipleException;
 import com.amazon.carbonado.RepositoryException;
-import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Query;
@@ -434,10 +433,6 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
 
     private StandardQuery<S> newInstance(FilterValues<S> values) {
         return newInstance(values, mOrdering);
-    }
-
-    private Query<S> createQuery(FilterValues<S> values) throws FetchException {
-        return queryFactory().query(values, mOrdering);
     }
 
     private Query<S> createQuery(FilterValues<S> values, OrderingList<S> ordering)

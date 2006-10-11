@@ -25,12 +25,9 @@ import org.cojen.util.SoftValuedHashMap;
 import org.cojen.util.WeakIdentityMap;
 
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Transaction;
-
 import com.amazon.carbonado.filter.ClosedFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
