@@ -208,6 +208,11 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 } finally {
                     rs.close();
                 }
+
+                if (tableName != null) {
+                    // Found a match, so stop checking aliases.
+                    break;
+                }
             }
         }
 
