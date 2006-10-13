@@ -94,7 +94,7 @@ public class ToyStorage<S extends Storable>
     }
 
     public Query<S> query() {
-        return new ToyQuery(null, null);
+        return new ToyQuery(null, null, null);
     }
 
     public Query<S> query(String filter) {
@@ -102,11 +102,11 @@ public class ToyStorage<S extends Storable>
     }
 
     public Query<S> query(Filter<S> filter) {
-        return new ToyQuery(filter.initialFilterValues(), null);
+        return new ToyQuery(filter.initialFilterValues(), null, null);
     }
 
     public Query<S> query(FilterValues<S> values, OrderingList<S> ordering) {
-        return new ToyQuery(values, ordering);
+        return new ToyQuery(values, ordering, null);
     }
 
     public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering) {
@@ -239,8 +239,8 @@ public class ToyStorage<S extends Storable>
     }
 
     private class ToyQuery extends StandardQuery<S> {
-        ToyQuery(FilterValues<S> values, OrderingList<S> ordering) {
-            super(values, ordering);
+        ToyQuery(FilterValues<S> values, OrderingList<S> ordering, QueryExecutor<S> executor) {
+            super(values, ordering, executor);
         }
 
         protected Transaction enterTransaction(IsolationLevel level) {
@@ -255,8 +255,11 @@ public class ToyStorage<S extends Storable>
             return ToyStorage.this;
         }
 
-        protected StandardQuery<S> newInstance(FilterValues<S> values, OrderingList<S> ordering) {
-            return new ToyQuery(values, ordering);
+        protected StandardQuery<S> newInstance(FilterValues<S> values,
+                                               OrderingList<S> ordering,
+                                               QueryExecutor<S> executor)
+        {
+            return new ToyQuery(values, ordering, executor);
         }
     }
 }

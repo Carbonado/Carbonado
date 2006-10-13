@@ -249,7 +249,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     }
 
     protected StandardQuery<S> createQuery(FilterValues<S> values, OrderingList<S> ordering) {
-        return new JDBCQuery(values, ordering);
+        return new JDBCQuery(values, ordering, null);
     }
 
     public S instantiate(ResultSet rs) throws SQLException {
@@ -611,8 +611,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     }
 
     private class JDBCQuery extends StandardQuery<S> {
-        JDBCQuery(FilterValues<S> values, OrderingList<S> ordering) {
-            super(values, ordering);
+        JDBCQuery(FilterValues<S> values, OrderingList<S> ordering, QueryExecutor<S> executor) {
+            super(values, ordering, executor);
         }
 
         @Override
@@ -642,8 +642,11 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return JDBCStorage.this.mExecutorFactory;
         }
 
-        protected StandardQuery<S> newInstance(FilterValues<S> values, OrderingList<S> ordering) {
-            return new JDBCQuery(values, ordering);
+        protected StandardQuery<S> newInstance(FilterValues<S> values,
+                                               OrderingList<S> ordering,
+                                               QueryExecutor<S> executor)
+        {
+            return new JDBCQuery(values, ordering, executor);
         }
     }
 

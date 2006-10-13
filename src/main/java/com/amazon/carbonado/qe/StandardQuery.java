@@ -61,13 +61,18 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     /**
      * @param values optional values object, defaults to open filter if null
      * @param ordering optional order-by properties
+     * @param executor optional executor to use (by default lazily obtains and caches executor)
      */
-    protected StandardQuery(FilterValues<S> values, OrderingList<S> ordering) {
+    protected StandardQuery(FilterValues<S> values,
+                            OrderingList<S> ordering,
+                            QueryExecutor<S> executor)
+    {
         mValues = values;
         if (ordering == null) {
             ordering = OrderingList.emptyList();
         }
         mOrdering = ordering;
+        mExecutor = executor;
     }
 
     public Class<S> getStorableType() {
@@ -429,10 +434,11 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      * @param ordering order-by properties, never null
      */
     protected abstract StandardQuery<S> newInstance(FilterValues<S> values,
-                                                    OrderingList<S> ordering);
+                                                    OrderingList<S> ordering,
+                                                    QueryExecutor<S> executor);
 
     private StandardQuery<S> newInstance(FilterValues<S> values) {
-        return newInstance(values, mOrdering);
+        return newInstance(values, mOrdering, mExecutor);
     }
 
     private Query<S> createQuery(FilterValues<S> values, OrderingList<S> ordering)
