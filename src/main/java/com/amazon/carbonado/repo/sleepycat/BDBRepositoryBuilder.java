@@ -95,6 +95,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private Map<Class<?>, Integer> mDatabasePageSizes;
     private boolean mPrivate;
     private boolean mMultiversion;
+    private boolean mLogInMemory;
     private boolean mRunCheckpointer = true;
     private int mCheckpointInterval = DEFAULT_CHECKPOINT_INTERVAL;
     private boolean mRunDeadlockDetector = true;
@@ -503,6 +504,22 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public boolean isMultiversion() {
         return mMultiversion;
+    }
+
+    /**
+     * Set true to store transaction logs in memory only instead of persistent
+     * storage. For BDB products which are entirely log based, no records are
+     * ever persisted.
+     */
+    public void setLogInMemory(boolean logInMemory) {
+        mLogInMemory = true;
+    }
+
+    /**
+     * Returns false by default, indicating that transaction logs are persisted.
+     */
+    public boolean getLogInMemory() {
+        return mLogInMemory;
     }
 
     /**
