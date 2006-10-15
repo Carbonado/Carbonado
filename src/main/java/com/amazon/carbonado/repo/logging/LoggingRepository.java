@@ -18,9 +18,6 @@
 
 package com.amazon.carbonado.repo.logging;
 
-import java.util.IdentityHashMap;
-import java.util.Map;
-
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.amazon.carbonado.IsolationLevel;
@@ -34,6 +31,8 @@ import com.amazon.carbonado.TriggerFactory;
 
 import com.amazon.carbonado.capability.Capability;
 
+import com.amazon.carbonado.spi.StorageCollection;
+
 /**
  *
  *
@@ -45,8 +44,7 @@ class LoggingRepository implements Repository, LogAccessCapability {
     private final Repository mRepo;
     private final Log mLog;
 
-    // Map of storages by storable class
-    private final Map<Class<?>, LoggingStorage<?>> mStorages;
+    private final StorageCollection mStorages;
 
     LoggingRepository(AtomicReference<Repository> rootRef,
                       Iterable<TriggerFactory> triggerFactories,
@@ -57,7 +55,13 @@ class LoggingRepository implements Repository, LogAccessCapability {
         mRepo = actual;
         mLog = log;
 
-        mStorages = new IdentityHashMap<Class<?>, LoggingStorage<?>>();
+        mStorages = new StorageCollection() {
+            protected <S extends Storable> Storage<S> createStorage(Class<S> type)
+                throws RepositoryException
+            {
+                return new LoggingStorage(LoggingRepository.this, mRepo.storageFor(type));
+            }
+        };
     }
 
     public String getName() {
@@ -67,14 +71,7 @@ class LoggingRepository implements Repository, LogAccessCapability {
     public <S extends Storable> Storage<S> storageFor(Class<S> type)
         throws SupportException, RepositoryException
     {
-        synchronized (mStorages) {
-            LoggingStorage storage = mStorages.get(type);
-            if (storage == null) {
-                storage = new LoggingStorage(this, mRepo.storageFor(type));
-                mStorages.put(type, storage);
-            }
-            return storage;
-        }
+        return mStorages.storageFor(type);
     }
 
     public Transaction enterTransaction() {

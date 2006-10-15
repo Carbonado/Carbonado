@@ -20,8 +20,6 @@ package com.amazon.carbonado.repo.indexed;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Map;
-import java.util.IdentityHashMap;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -45,6 +43,8 @@ import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.qe.RepositoryAccess;
 import com.amazon.carbonado.qe.StorageAccess;
 
+import com.amazon.carbonado.spi.StorageCollection;
+
 /**
  * Wraps another repository in order to make it support indexes. The wrapped
  * repository must support creation of new types.
@@ -60,30 +60,17 @@ class IndexedRepository implements Repository,
     private final AtomicReference<Repository> mRootRef;
     private final Repository mRepository;
     private final String mName;
-    private final Map<Class<?>, IndexedStorage<?>> mStorages;
+    private final StorageCollection mStorages;
 
     IndexedRepository(AtomicReference<Repository> rootRef, String name, Repository repository) {
         mRootRef = rootRef;
         mRepository = repository;
         mName = name;
-        mStorages = new IdentityHashMap<Class<?>, IndexedStorage<?>>();
-        if (repository.getCapability(IndexInfoCapability.class) == null) {
-            throw new UnsupportedOperationException
-                ("Wrapped repository doesn't support being indexed");
-        }
-    }
 
-    public String getName() {
-        return mName;
-    }
-
-    @SuppressWarnings("unchecked")
-    public <S extends Storable> Storage<S> storageFor(Class<S> type)
-        throws MalformedTypeException, SupportException, RepositoryException
-    {
-        synchronized (mStorages) {
-            IndexedStorage<S> storage = (IndexedStorage<S>) mStorages.get(type);
-            if (storage == null) {
+        mStorages = new StorageCollection() {
+            protected <S extends Storable> Storage<S> createStorage(Class<S> type)
+                throws RepositoryException
+            {
                 Storage<S> masterStorage = mRepository.storageFor(type);
 
                 if (Unindexed.class.isAssignableFrom(type)) {
@@ -98,11 +85,25 @@ class IndexedRepository implements Repository,
                     return masterStorage;
                 }
 
-                storage = new IndexedStorage<S>(this, masterStorage);
-                mStorages.put(type, storage);
+                return new IndexedStorage<S>(IndexedRepository.this, masterStorage);
             }
-            return storage;
+        };
+
+        if (repository.getCapability(IndexInfoCapability.class) == null) {
+            throw new UnsupportedOperationException
+                ("Wrapped repository doesn't support being indexed");
         }
+    }
+
+    public String getName() {
+        return mName;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <S extends Storable> Storage<S> storageFor(Class<S> type)
+        throws MalformedTypeException, SupportException, RepositoryException
+    {
+        return mStorages.storageFor(type);
     }
 
     public Transaction enterTransaction() {

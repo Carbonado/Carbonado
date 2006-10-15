@@ -18,9 +18,7 @@
 package com.amazon.carbonado.repo.replicated;
 
 import java.util.Comparator;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 
 import java.util.concurrent.ArrayBlockingQueue;
@@ -53,6 +51,7 @@ import com.amazon.carbonado.capability.StorableInfoCapability;
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.StorableIntrospector;
 
+import com.amazon.carbonado.spi.StorageCollection;
 import com.amazon.carbonado.spi.TransactionPair;
 
 import com.amazon.carbonado.util.Throttle;
@@ -136,8 +135,7 @@ class ReplicatedRepository
     private Repository mReplicaRepository;
     private Repository mMasterRepository;
 
-    // Map of storages by storable class
-    private final Map<Class<?>, ReplicatedStorage<?>> mStorages;
+    private final StorageCollection mStorages;
 
     ReplicatedRepository(String aName,
                          Repository aReplicaRepository,
@@ -145,8 +143,13 @@ class ReplicatedRepository
         mName = aName;
         mReplicaRepository = aReplicaRepository;
         mMasterRepository = aMasterRepository;
-
-        mStorages = new IdentityHashMap<Class<?>, ReplicatedStorage<?>>();
+        mStorages = new StorageCollection() {
+            protected <S extends Storable> Storage<S> createStorage(Class<S> type)
+                throws SupportException, RepositoryException
+            {
+                return new ReplicatedStorage<S>(ReplicatedRepository.this, type);
+            }
+        };
     }
 
     public String getName() {
@@ -161,27 +164,10 @@ class ReplicatedRepository
         return mMasterRepository;
     }
 
-    @SuppressWarnings("unchecked")
     public <S extends Storable> Storage<S> storageFor(Class<S> type)
         throws MalformedTypeException, SupportException, RepositoryException
     {
-        synchronized (mStorages) {
-            ReplicatedStorage storage = mStorages.get(type);
-            if (storage == null) {
-                // Examine and throw exception if there is a problem.
-                StorableIntrospector.examine(type);
-
-                storage = createStorage(type);
-                mStorages.put(type, storage);
-            }
-            return storage;
-        }
-    }
-
-    private <S extends Storable> ReplicatedStorage<S> createStorage(Class<S> type)
-        throws SupportException, RepositoryException
-    {
-        return new ReplicatedStorage<S>(this, type);
+        return mStorages.storageFor(type);
     }
 
     public Transaction enterTransaction() {

@@ -21,6 +21,8 @@ package com.amazon.carbonado.repo.jdbc;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.IdentityHashMap;
 
@@ -53,6 +55,8 @@ import com.amazon.carbonado.capability.ShutdownCapability;
 import com.amazon.carbonado.capability.StorableInfoCapability;
 
 import com.amazon.carbonado.info.StorableProperty;
+
+import com.amazon.carbonado.spi.StorageCollection;
 
 /**
  * Repository implementation backed by a JDBC accessible database.
@@ -142,7 +146,7 @@ public class JDBCRepository
     private final DataSource mDataSource;
     private final String mCatalog;
     private final String mSchema;
-    private final Map<Class<?>, JDBCStorage<?>> mStorages;
+    private final StorageCollection mStorages;
 
     // Track all open connections so that they can be closed when this
     // repository is closed.
@@ -195,7 +199,22 @@ public class JDBCRepository
         mDataSource = dataSource;
         mCatalog = catalog;
         mSchema = schema;
-        mStorages = new IdentityHashMap<Class<?>, JDBCStorage<?>>();
+
+        mStorages = new StorageCollection() {
+            protected <S extends Storable> Storage<S> createStorage(Class<S> type)
+                throws RepositoryException
+            {
+                // Lock on mAllTxnMgrs to prevent databases from being opened during shutdown.
+                synchronized (mAllTxnMgrs) {
+                    JDBCStorableInfo<S> info = examineStorable(type);
+                    if (!info.isSupported()) {
+                        throw new UnsupportedTypeException(type);
+                    }
+                    return new JDBCStorage<S>(JDBCRepository.this, info);
+                }
+            }
+        };
+
         mOpenConnections = new IdentityHashMap<Connection, Object>();
         mCurrentTxnMgr = new ThreadLocal<JDBCTransactionManager>();
         mAllTxnMgrs = new WeakIdentityMap();
@@ -267,22 +286,7 @@ public class JDBCRepository
 
     @SuppressWarnings("unchecked")
     public <S extends Storable> Storage<S> storageFor(Class<S> type) throws RepositoryException {
-        // Lock on mAllTxnMgrs to prevent databases from being opened during shutdown.
-        synchronized (mAllTxnMgrs) {
-            JDBCStorage<S> storage = (JDBCStorage<S>) mStorages.get(type);
-            if (storage == null) {
-                // Examine and throw exception early if there is a problem.
-                JDBCStorableInfo<S> info = examineStorable(type);
-
-                if (!info.isSupported()) {
-                    throw new UnsupportedTypeException(type);
-                }
-
-                storage = new JDBCStorage<S>(this, info);
-                mStorages.put(type, storage);
-            }
-            return storage;
-        }
+        return mStorages.storageFor(type);
     }
 
     public Transaction enterTransaction() {
@@ -343,14 +347,11 @@ public class JDBCRepository
     public String[] getUserStorableTypeNames() {
         // We don't register Storable types persistently, so just return what
         // we know right now.
-        synchronized (mAllTxnMgrs) {
-            String[] names = new String[mStorages.size()];
-            int i = 0;
-            for (Class<?> type : mStorages.keySet()) {
-                names[i++] = type.getName();
-            }
-            return names;
+        ArrayList<String> names = new ArrayList<String>();
+        for (Storage storage : mStorages.allStorage()) {
+            names.add(storage.getStorableType().getName());
         }
+        return names.toArray(new String[names.size()]);
     }
 
     public boolean isSupported(Class<Storable> type) {
