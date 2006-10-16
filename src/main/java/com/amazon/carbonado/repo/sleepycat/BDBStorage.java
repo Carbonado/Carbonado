@@ -26,6 +26,7 @@ import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
@@ -33,6 +34,7 @@ import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
+import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 
 import com.amazon.carbonado.capability.IndexInfo;
@@ -425,7 +427,14 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                     primaryInfo.setIndexTypeDescriptor(pkIndex.getTypeDescriptor());
 
                     if (!readOnly) {
-                        primaryInfo.update();
+                        Repository repo = mRepository.getRootRepository();
+                        Transaction txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                        try {
+                            primaryInfo.update();
+                            txn.commit();
+                        } finally {
+                            txn.exit();
+                        }
                     }
                 }
             }
@@ -698,25 +707,37 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             // Can't register itself in itself.
             return null;
         }
+
+        Repository repo = mRepository.getRootRepository();
+
         StoredDatabaseInfo info;
         try {
-            info = prepareStoredDatabaseInfo();
+            info = repo.storageFor(StoredDatabaseInfo.class).prepare();
         } catch (SupportException e) {
             return null;
         }
         info.setDatabaseName(getStorableType().getName());
-        if (!info.tryLoad()) {
-            if (layout == null) {
-                info.setEvolutionStrategy(StoredDatabaseInfo.EVOLUTION_NONE);
-            } else {
-                info.setEvolutionStrategy(StoredDatabaseInfo.EVOLUTION_STANDARD);
+
+
+        Transaction txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+        try {
+            if (!info.tryLoad()) {
+                if (layout == null) {
+                    info.setEvolutionStrategy(StoredDatabaseInfo.EVOLUTION_NONE);
+                } else {
+                    info.setEvolutionStrategy(StoredDatabaseInfo.EVOLUTION_STANDARD);
+                }
+                info.setCreationTimestamp(System.currentTimeMillis());
+                info.setVersionNumber(0);
+                if (!readOnly) {
+                    info.insert();
+                }
             }
-            info.setCreationTimestamp(System.currentTimeMillis());
-            info.setVersionNumber(0);
-            if (!readOnly) {
-                info.insert();
-            }
+            txn.commit();
+        } finally {
+            txn.exit();
         }
+
         return info;
     }
 
@@ -726,22 +747,24 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             return;
         }
         if (!readOnly) {
+            Repository repo = mRepository.getRootRepository();
+
             StoredDatabaseInfo info;
             try {
-                info = prepareStoredDatabaseInfo();
+                info = repo.storageFor(StoredDatabaseInfo.class).prepare();
             } catch (SupportException e) {
                 return;
             }
             info.setDatabaseName(name);
-            info.delete();
-        }
-    }
 
-    /**
-     * @throws SupportException if StoredDatabaseInfo is not supported by codec factory
-     */
-    private StoredDatabaseInfo prepareStoredDatabaseInfo() throws RepositoryException {
-        return mRepository.getRootRepository().storageFor(StoredDatabaseInfo.class).prepare();
+            Transaction txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+            try {
+                info.delete();
+                txn.commit();
+            } finally {
+                txn.exit();
+            }
+        }
     }
 
     // Note: BDBStorage could just implement the RawSupport interface, but

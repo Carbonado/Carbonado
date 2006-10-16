@@ -26,6 +26,7 @@ import org.cojen.util.SoftValuedHashMap;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchNoneException;
+import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
@@ -85,7 +86,7 @@ public class LayoutFactory implements LayoutCapability {
 
         StorableInfo<?> info = StorableIntrospector.examine(type);
 
-        Transaction txn = mRepository.enterTransaction();
+        Transaction txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
         try {
             // If type represents a new generation, then a new layout needs to
             // be inserted.
