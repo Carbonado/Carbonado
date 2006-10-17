@@ -40,6 +40,7 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
+import com.amazon.carbonado.UnsupportedTypeException;
 
 import com.amazon.carbonado.capability.Capability;
 import com.amazon.carbonado.capability.IndexInfo;
@@ -143,11 +144,19 @@ class ReplicatedRepository
         mName = aName;
         mReplicaRepository = aReplicaRepository;
         mMasterRepository = aMasterRepository;
+
         mStorages = new StorageCollection() {
             protected <S extends Storable> Storage<S> createStorage(Class<S> type)
                 throws SupportException, RepositoryException
             {
-                return new ReplicatedStorage<S>(ReplicatedRepository.this, type);
+                Storage<S> replicaStorage = mReplicaRepository.storageFor(type);
+
+                try {
+                    return new ReplicatedStorage<S>(ReplicatedRepository.this, replicaStorage);
+                } catch (UnsupportedTypeException e) {
+                    // Okay, no master.
+                    return replicaStorage;
+                }
             }
         };
     }
@@ -324,6 +333,13 @@ class ReplicatedRepository
                                             Object... filterValues)
         throws RepositoryException
     {
+        ReplicationTrigger<S> trigger;
+        if (storageFor(type) instanceof ReplicatedStorage) {
+            trigger = ((ReplicatedStorage) storageFor(type)).getTrigger();
+        } else {
+            throw new UnsupportedTypeException(type);
+        }
+
         Storage<S> replicaStorage, masterStorage;
         replicaStorage = mReplicaRepository.storageFor(type);
         masterStorage = mMasterRepository.storageFor(type);
@@ -372,7 +388,7 @@ class ReplicatedRepository
         try {
             Cursor<S> masterCursor = masterQuery.fetch();
             try {
-                resync(((ReplicatedStorage) storageFor(type)).getTrigger(),
+                resync(trigger,
                        replicaCursor,
                        masterCursor,
                        throttle, desiredSpeed,

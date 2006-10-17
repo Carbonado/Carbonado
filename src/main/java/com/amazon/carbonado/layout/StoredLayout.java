@@ -18,13 +18,13 @@
 
 package com.amazon.carbonado.layout;
 
+import com.amazon.carbonado.Alias;
 import com.amazon.carbonado.AlternateKeys;
+import com.amazon.carbonado.Independent;
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.Join;
 import com.amazon.carbonado.Key;
 import com.amazon.carbonado.Nullable;
 import com.amazon.carbonado.PrimaryKey;
-import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Version;
 
@@ -39,6 +39,8 @@ import com.amazon.carbonado.Version;
     @Key({"storableTypeName", "generation"})
 })
 @PrimaryKey("layoutID")
+@Independent
+@Alias("CARBONADO_LAYOUT")
 public interface StoredLayout extends Storable<StoredLayout>, Unevolvable {
     long getLayoutID();
 
@@ -81,9 +83,6 @@ public interface StoredLayout extends Storable<StoredLayout>, Unevolvable {
     String getCreationHost();
 
     void setCreationHost(String host);
-
-    @Join
-    Query<StoredLayoutProperty> getProperties() throws FetchException;
 
     /**
      * Record version number for this StoredTypeLayout instance. Some encoding

@@ -18,9 +18,10 @@
 
 package com.amazon.carbonado.layout;
 
+import com.amazon.carbonado.Alias;
 import com.amazon.carbonado.AlternateKeys;
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.Join;
+import com.amazon.carbonado.Independent;
 import com.amazon.carbonado.Key;
 import com.amazon.carbonado.Nullable;
 import com.amazon.carbonado.PrimaryKey;
@@ -38,6 +39,8 @@ import com.amazon.carbonado.Version;
     @Key({"layoutID", "propertyName"})
 })
 @PrimaryKey({"layoutID", "ordinal"})
+@Independent
+@Alias("CARBONADO_LAYOUT_PROPERTY")
 public interface StoredLayoutProperty extends Storable<StoredLayoutProperty>, Unevolvable {
     long getLayoutID();
 
@@ -100,9 +103,6 @@ public interface StoredLayoutProperty extends Storable<StoredLayoutProperty>, Un
     String getAdapterParams();
 
     void setAdapterParams(String params);
-
-    @Join
-    StoredLayout getEnclosingLayout() throws FetchException;
 
     /**
      * Record version number for this StoredPropertyLayout instance. Some

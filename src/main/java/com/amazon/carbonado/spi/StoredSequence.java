@@ -19,6 +19,7 @@
 package com.amazon.carbonado.spi;
 
 import com.amazon.carbonado.Alias;
+import com.amazon.carbonado.Independent;
 import com.amazon.carbonado.PrimaryKey;
 import com.amazon.carbonado.Storable;
 
@@ -28,6 +29,7 @@ import com.amazon.carbonado.Storable;
  * @author Brian S O'Neill
  */
 @PrimaryKey("name")
+@Independent
 @Alias("CARBONADO_SEQUENCE")
 public interface StoredSequence extends Storable<StoredSequence> {
     String getName();

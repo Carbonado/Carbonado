@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.repo.sleepycat;
 
+import com.amazon.carbonado.Alias;
+import com.amazon.carbonado.Independent;
 import com.amazon.carbonado.Nullable;
 import com.amazon.carbonado.PrimaryKey;
 import com.amazon.carbonado.Storable;
@@ -35,6 +37,8 @@ import com.amazon.carbonado.repo.indexed.Unindexed;
  * @author Brian S O'Neill
  */
 @PrimaryKey("databaseName")
+@Independent
+@Alias("CARBONADO_DATABASE_INFO")
 public abstract class StoredDatabaseInfo implements Storable, Unevolvable, Unindexed {
     /** Evolution strategy code */
     public static final int EVOLUTION_NONE = 0, EVOLUTION_STANDARD = 1;

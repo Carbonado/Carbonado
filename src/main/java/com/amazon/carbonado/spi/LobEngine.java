@@ -149,7 +149,7 @@ public class LobEngine {
             lob.setLocator(locator);
             if (lob.tryDelete()) {
                 try {
-                    lob.getBlocks().deleteAll();
+                    mLobBlockStorage.query("locator = ?").with(lob.getLocator()).deleteAll();
                 } catch (FetchException e) {
                     throw e.toPersistException();
                 }
@@ -579,7 +579,8 @@ public class LobEngine {
                     // Free unused blocks.
                     long newBlockCount = lob.getBlockCount();
                     if (newBlockCount < oldBlockCount) {
-                        lob.getBlocks().and("blockNumber >= ?")
+                        mLobBlockStorage.query("locator = ? & blockNumber >= ?")
+                            .with(lob.getLocator())
                             // Subtract 0x80000000 such that block zero is
                             // physically stored with the smallest integer.
                             .with(((int) newBlockCount) - 0x80000000)

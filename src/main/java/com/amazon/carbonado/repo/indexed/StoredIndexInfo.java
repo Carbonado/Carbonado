@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.repo.indexed;
 
+import com.amazon.carbonado.Alias;
+import com.amazon.carbonado.Independent;
 import com.amazon.carbonado.Nullable;
 import com.amazon.carbonado.PrimaryKey;
 import com.amazon.carbonado.Storable;
@@ -34,6 +36,8 @@ import com.amazon.carbonado.layout.Unevolvable;
  * @author Brian S O'Neill
  */
 @PrimaryKey("indexName")
+@Independent
+@Alias("CARBONADO_INDEX_INFO")
 public interface StoredIndexInfo extends Storable, Unevolvable, Unindexed {
     /**
      * Returns the index name, which is also a valid index name

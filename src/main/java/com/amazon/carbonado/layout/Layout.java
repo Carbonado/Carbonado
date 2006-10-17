@@ -220,7 +220,9 @@ public class Layout {
      */
     public List<LayoutProperty> getAllProperties() throws FetchException {
         if (mAllProperties == null) {
-            Cursor <StoredLayoutProperty> cursor = mStoredLayout.getProperties()
+            Cursor <StoredLayoutProperty> cursor = mLayoutFactory.mPropertyStorage
+                .query("layoutID = ?")
+                .with(mStoredLayout.getLayoutID())
                 .orderBy("ordinal")
                 .fetch();
 

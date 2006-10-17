@@ -44,27 +44,25 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
     final Storage<S> mReplicaStorage;
     final ReplicationTrigger<S> mTrigger;
 
-    public ReplicatedStorage(ReplicatedRepository aRepository, Class<S> aType)
-        throws SupportException, RepositoryException
+    /**
+     * @throws UnsupportedTypeException if master doesn't support Storable, but
+     * it is marked as Independent
+     */
+    public ReplicatedStorage(ReplicatedRepository aRepository, Storage<S> replicaStorage)
+        throws SupportException, RepositoryException, UnsupportedTypeException
     {
-        mReplicaStorage = aRepository.getReplicaRepository().storageFor(aType);
+        mReplicaStorage = replicaStorage;
 
         // Create master using BelatedStorageCreator such that we can start up
         // and read from replica even if master is down.
 
         Log log = LogFactory.getLog(getClass());
         BelatedStorageCreator<S> creator = new BelatedStorageCreator<S>
-            (log, aRepository.getMasterRepository(), aType,
+            (log, aRepository.getMasterRepository(), replicaStorage.getStorableType(),
              ReplicatedRepositoryBuilder.DEFAULT_RETRY_MILLIS);
 
-        Storage<S> masterStorage;
-        try {
-            masterStorage = creator.get(ReplicatedRepositoryBuilder.DEFAULT_MASTER_TIMEOUT_MILLIS);
-        } catch (UnsupportedTypeException e) {
-            // Master doesn't support Storable, but it is marked as Independent.
-            masterStorage = null;
-        }
-
+        Storage<S> masterStorage =
+            creator.get(ReplicatedRepositoryBuilder.DEFAULT_MASTER_TIMEOUT_MILLIS);
         mTrigger = new ReplicationTrigger<S>(aRepository, mReplicaStorage, masterStorage);
         addTrigger(mTrigger);
     }

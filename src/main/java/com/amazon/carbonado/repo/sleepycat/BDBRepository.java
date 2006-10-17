@@ -459,19 +459,10 @@ abstract class BDBRepository<Txn>
     }
 
     LobEngine getLobEngine() throws RepositoryException {
-        LobEngine engine = mLobEngine;
-        if (engine == null) {
-            lockoutShutdown();
-            try {
-                if ((engine = mLobEngine) == null) {
-                    mLobEngine = engine = new LobEngine(this);
-                }
-                return engine;
-            } finally {
-                unlockoutShutdown();
-            }
+        if (mLobEngine == null) {
+            mLobEngine = new LobEngine(getRootRepository());
         }
-        return engine;
+        return mLobEngine;
     }
 
     /**
