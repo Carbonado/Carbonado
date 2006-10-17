@@ -105,8 +105,18 @@ public interface RepositoryBuilder {
      * initial trigger for each Storable type that the Repository supports. The
      * primary purpose of this method is to allow decorator repositories the
      * opportunity to register custom persistence code for each Storable.
+     *
+     * @return true if TriggerFactory was added, false if TriggerFactory was
+     * not added because an equal TriggerFactory is already registered
      */
-    void addTriggerFactory(TriggerFactory factory);
+    boolean addTriggerFactory(TriggerFactory factory);
+
+    /**
+     * Remove a TriggerFactory which was added earlier.
+     *
+     * @return true if TriggerFactory instance was removed, false if not added
+     */
+    boolean removeTriggerFactory(TriggerFactory factory);
 
     /**
      * Returns all the TriggerFactories which were added.

@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import com.amazon.carbonado.PersistException;
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.TriggerFactory;
@@ -94,18 +95,18 @@ public class TriggerManager<S extends Storable> {
     private volatile ForUpdate<S> mForUpdate;
     private volatile ForDelete<S> mForDelete;
 
+    public TriggerManager() {
+    }
+
     /**
      * @param triggerFactories TriggerFactories which will be called upon to
      * optionally return a trigger to initially register
      */
-    public TriggerManager(Class<S> type, Iterable<TriggerFactory> triggerFactories) {
+    public TriggerManager(Class<S> type, Iterable<TriggerFactory> triggerFactories)
+        throws RepositoryException
+    {
         if (triggerFactories != null) {
-            for (TriggerFactory factory : triggerFactories) {
-                Trigger<? super S> trigger = factory.triggerFor(type);
-                if (trigger != null) {
-                    addTrigger(trigger);
-                }
-            }
+            addTriggers(type, triggerFactories);
         }
     }
 
@@ -209,6 +210,17 @@ public class TriggerManager<S extends Storable> {
         }
 
         return retValue;
+    }
+
+    public void addTriggers(Class<S> type, Iterable<TriggerFactory> triggerFactories)
+        throws RepositoryException
+    {
+        for (TriggerFactory factory : triggerFactories) {
+            Trigger<? super S> trigger = factory.triggerFor(type);
+            if (trigger != null) {
+                addTrigger(trigger);
+            }
+        }
     }
 
     /**

@@ -96,7 +96,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     final TriggerManager<S> mTriggerManager;
 
     JDBCStorage(JDBCRepository repository, JDBCStorableInfo<S> info)
-        throws SupportException
+        throws SupportException, RepositoryException
     {
         super(info.getStorableType());
         mRepository = repository;

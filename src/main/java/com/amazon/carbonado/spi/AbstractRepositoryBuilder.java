@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.amazon.carbonado.ConfigurationException;
@@ -37,7 +38,7 @@ import com.amazon.carbonado.TriggerFactory;
  * @author Brian S O'Neill
  */
 public abstract class AbstractRepositoryBuilder implements RepositoryBuilder {
-    private final Collection<TriggerFactory> mTriggerFactories;
+    private final Set<TriggerFactory> mTriggerFactories;
 
     protected AbstractRepositoryBuilder() {
         mTriggerFactories = new LinkedHashSet<TriggerFactory>(2);
@@ -47,15 +48,25 @@ public abstract class AbstractRepositoryBuilder implements RepositoryBuilder {
         return build(new AtomicReference<Repository>());
     }
 
-    public void addTriggerFactory(TriggerFactory factory) {
-        mTriggerFactories.add(factory);
+    public boolean addTriggerFactory(TriggerFactory factory) {
+        synchronized (mTriggerFactories) {
+            return mTriggerFactories.add(factory);
+        }
+    }
+
+    public boolean removeTriggerFactory(TriggerFactory factory) {
+        synchronized (mTriggerFactories) {
+            return mTriggerFactories.remove(factory);
+        }
     }
 
     public Iterable<TriggerFactory> getTriggerFactories() {
-        if (mTriggerFactories == null || mTriggerFactories.size() == 0) {
-            return Collections.emptyList();
-        } else {
-            return new ArrayList<TriggerFactory>(mTriggerFactories);
+        synchronized (mTriggerFactories) {
+            if (mTriggerFactories == null || mTriggerFactories.size() == 0) {
+                return Collections.emptyList();
+            } else {
+                return new ArrayList<TriggerFactory>(mTriggerFactories);
+            }
         }
     }
 

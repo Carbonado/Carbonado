@@ -22,6 +22,7 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 
@@ -35,7 +36,7 @@ import com.amazon.carbonado.spi.WrappedStorage;
 class LoggingStorage<S extends Storable> extends WrappedStorage<S> {
     final LoggingRepository mRepo;
 
-    LoggingStorage(LoggingRepository repo, Storage<S> storage) {
+    LoggingStorage(LoggingRepository repo, Storage<S> storage) throws RepositoryException {
         super(storage, repo.mTriggerFactories);
         mRepo = repo;
     }

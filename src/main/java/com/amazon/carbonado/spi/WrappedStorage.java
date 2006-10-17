@@ -22,6 +22,7 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Trigger;
@@ -46,7 +47,9 @@ public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
     /**
      * @param storage storage to wrap
      */
-    public WrappedStorage(Storage<S> storage, Iterable<TriggerFactory> triggerFactories) {
+    public WrappedStorage(Storage<S> storage, Iterable<TriggerFactory> triggerFactories)
+        throws RepositoryException
+    {
         mStorage = storage;
         Class<? extends S> wrappedClass = StorableGenerator
             .getWrappedClass(storage.getStorableType());

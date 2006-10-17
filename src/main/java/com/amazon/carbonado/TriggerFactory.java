@@ -34,5 +34,5 @@ public interface TriggerFactory {
      * @param type Storable type requesting an automatic trigger
      * @return trigger instance or null if not applicable
      */
-    <S> Trigger<? super S> triggerFor(Class<S> type);
+    <S extends Storable> Trigger<? super S> triggerFor(Class<S> type) throws RepositoryException;
 }

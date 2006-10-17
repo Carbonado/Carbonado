@@ -131,7 +131,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         mRepository = repository;
         mType = type;
         mRawSupport = new Support<Txn, S>(repository, this);
-        mTriggerManager = new TriggerManager<S>(type, repository.mTriggerFactories);
+        mTriggerManager = new TriggerManager<S>();
         try {
             // Ask if any lobs via static method first, to prevent stack
             // overflow that occurs when creating BDBStorage instances for
@@ -466,6 +466,9 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         mPrimaryDatabase = primaryDatabase;
 
         mQueryEngine = new QueryEngine<S>(getStorableType(), mRepository);
+
+        // Don't install automatic triggers until we're completely ready.
+        mTriggerManager.addTriggers(getStorableType(), mRepository.mTriggerFactories);
     }
 
     protected S instantiate(byte[] key, byte[] value) throws FetchException {
