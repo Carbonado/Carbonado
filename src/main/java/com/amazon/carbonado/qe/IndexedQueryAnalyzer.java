@@ -250,7 +250,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         Filter<?> filter = Filter.getOpenFilter((Class<? extends Storable>) property.getType());
         int count = property.getJoinElementCount();
         for (int i=0; i<count; i++) {
-            filter = filter.and(property.getInternalJoinElement(i).getName(), RelOp.EQ);
+            filter = filter.and(property.getExternalJoinElement(i).getName(), RelOp.EQ);
         }
 
         // Java generics are letting me down. I cannot use proper specification
