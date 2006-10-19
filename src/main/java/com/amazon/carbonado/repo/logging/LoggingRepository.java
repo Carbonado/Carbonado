@@ -76,21 +76,21 @@ class LoggingRepository implements Repository, LogAccessCapability {
 
     public Transaction enterTransaction() {
         mLog.write("Repository.enterTransaction()");
-        return new LoggingTransaction(mLog, mRepo.enterTransaction());
+        return new LoggingTransaction(mLog, mRepo.enterTransaction(), false);
     }
 
     public Transaction enterTransaction(IsolationLevel level) {
         if (mLog.isEnabled()) {
             mLog.write("Repository.enterTransaction(" + level + ')');
         }
-        return new LoggingTransaction(mLog, mRepo.enterTransaction(level));
+        return new LoggingTransaction(mLog, mRepo.enterTransaction(level), false);
     }
 
     public Transaction enterTopTransaction(IsolationLevel level) {
         if (mLog.isEnabled()) {
             mLog.write("Repository.enterTopTransaction(" + level + ')');
         }
-        return new LoggingTransaction(mLog, mRepo.enterTopTransaction(level));
+        return new LoggingTransaction(mLog, mRepo.enterTopTransaction(level), true);
     }
 
     public IsolationLevel getTransactionIsolationLevel() {

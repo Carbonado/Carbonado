@@ -40,12 +40,14 @@ class LoggingTransaction implements Transaction {
     private final Log mLog;
     private final Transaction mTxn;
     private final long mID;
+    private final boolean mTop;
 
-    LoggingTransaction(Log log, Transaction txn) {
+    LoggingTransaction(Log log, Transaction txn, boolean top) {
         mParent = mActiveTxn.get();
         mLog = log;
         mTxn = txn;
         mID = mNextID.addAndGet(1);
+        mTop = top;
         mActiveTxn.set(this);
         mLog.write("Entered transaction: " + idChain());
     }
@@ -84,6 +86,10 @@ class LoggingTransaction implements Transaction {
         if (mParent == null) {
             return String.valueOf(mID);
         }
-        return mParent.idChain() + " > " + mID;
+        if (mTop) {
+            return mParent.idChain() + " | " + mID;
+        } else {
+            return mParent.idChain() + " > " + mID;
+        }
     }
 }
