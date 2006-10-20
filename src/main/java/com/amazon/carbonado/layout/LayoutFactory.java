@@ -87,6 +87,7 @@ public class LayoutFactory implements LayoutCapability {
         StorableInfo<?> info = StorableIntrospector.examine(type);
 
         Transaction txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+        txn.setForUpdate(true);
         try {
             // If type represents a new generation, then a new layout needs to
             // be inserted.

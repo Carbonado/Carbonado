@@ -29,6 +29,7 @@ import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
@@ -127,7 +128,16 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
             .with(getStorableType().getName() + '~')
             .with(getStorableType().getName() + '~' + '\uffff');
 
-        for (StoredIndexInfo indexInfo : query.fetch().toList()) {
+        List<StoredIndexInfo> storedInfos;
+        Transaction txn = repository.getWrappedRepository()
+            .enterTopTransaction(IsolationLevel.READ_COMMITTED);
+        try {
+            storedInfos = query.fetch().toList();
+        } finally {
+            txn.exit();
+        }
+
+        for (StoredIndexInfo indexInfo : storedInfos) {
             String name = indexInfo.getIndexName();
             StorableIndex index;
             try {
@@ -361,15 +371,23 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
             .storageFor(StoredIndexInfo.class).prepare();
         info.setIndexName(index.getNameDescriptor());
 
-        if (info.tryLoad()) {
-            // Index already exists and is registered.
-            return;
+        Transaction txn = mRepository.getWrappedRepository()
+            .enterTopTransaction(IsolationLevel.READ_COMMITTED);
+        try {
+            if (info.tryLoad()) {
+                // Index already exists and is registered.
+                return;
+            }
+        } finally {
+            txn.exit();
         }
 
         // New index, so populate it.
         managedIndex.populateIndex(mRepository, mMasterStorage);
 
-        Transaction txn = mRepository.getWrappedRepository().enterTransaction();
+        txn = mRepository.getWrappedRepository()
+            .enterTopTransaction(IsolationLevel.READ_COMMITTED);
+        txn.setForUpdate(true);
         try {
             if (!info.tryLoad()) {
                 info.setIndexTypeDescriptor(index.getTypeDescriptor());

@@ -721,8 +721,8 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
         info.setDatabaseName(getStorableType().getName());
 
-
         Transaction txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+        txn.setForUpdate(true);
         try {
             if (!info.tryLoad()) {
                 if (layout == null) {

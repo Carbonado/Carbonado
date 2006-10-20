@@ -25,6 +25,7 @@ import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
@@ -293,35 +294,51 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
      * @param repo used to enter transactions
      */
     void populateIndex(Repository repo, Storage<S> masterStorage) throws RepositoryException {
-        Cursor<S> cursor = masterStorage.query().fetch();
-        if (!cursor.hasNext()) {
-            // Nothing exists in master, so nothing to populate.
-            cursor.close();
-            return;
+        MergeSortBuffer buffer;
+        Comparator c;
+        Transaction txn;
+
+        if (repo.getTransactionIsolationLevel() == null) {
+            txn = null;
+        } else {
+            txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
         }
 
-        Log log = LogFactory.getLog(IndexedStorage.class);
-        if (log.isInfoEnabled()) {
-            StringBuilder b = new StringBuilder();
-            b.append("Populating index on ");
-            b.append(masterStorage.getStorableType().getName());
-            b.append(": ");
-            try {
-                mIndex.appendTo(b);
-            } catch (java.io.IOException e) {
-                // Not gonna happen.
+        try {
+            Cursor<S> cursor = masterStorage.query().fetch();
+            if (!cursor.hasNext()) {
+                // Nothing exists in master, so nothing to populate.
+                cursor.close();
+                return;
             }
-            log.info(b.toString());
-        }
 
-        // Preload and sort all index entries for improved performance.
+            Log log = LogFactory.getLog(IndexedStorage.class);
+            if (log.isInfoEnabled()) {
+                StringBuilder b = new StringBuilder();
+                b.append("Populating index on ");
+                b.append(masterStorage.getStorableType().getName());
+                b.append(": ");
+                try {
+                    mIndex.appendTo(b);
+                } catch (java.io.IOException e) {
+                    // Not gonna happen.
+                }
+                log.info(b.toString());
+            }
 
-        MergeSortBuffer buffer = new MergeSortBuffer(mIndexEntryStorage);
-        Comparator c = mGenerator.getComparator();
-        buffer.prepare(c);
+            // Preload and sort all index entries for improved performance.
 
-        while (cursor.hasNext()) {
-            buffer.add(makeIndexEntry(cursor.next()));
+            buffer = new MergeSortBuffer(mIndexEntryStorage);
+            c = mGenerator.getComparator();
+            buffer.prepare(c);
+
+            while (cursor.hasNext()) {
+                buffer.add(makeIndexEntry(cursor.next()));
+            }
+        } finally {
+            if (txn != null) {
+                txn.exit();
+            }
         }
 
         buffer.sort();
@@ -345,7 +362,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             }
         }
 
-        Transaction txn = repo.enterTransaction();
+        txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
         try {
             int totalInserted = 0;
             for (Object obj : buffer) {
