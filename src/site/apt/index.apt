@@ -6,7 +6,7 @@ Carbonado
 
     Carbonado is an extensible, high performance persistence abstraction layer
 for Java applications, providing a relational view to the underlying
-persistence technology. The persistence layer can be a JDBC accessible SQL
+persistence technology. Persistence can be provided by a JDBC accessible SQL
 relational database, or it can be a BDB. It can also be fully replicated
 between the two.
 
@@ -31,7 +31,7 @@ configuration files. All the code to implement types is auto-generated, yet
 there are no extra build time steps.
 
     Carbonado is able to achieve high performance by imposing very low overhead
-when accessing the storage layer. Low overhead is achieved in part by auto
+when accessing the actual storage. Low overhead is achieved in part by auto
 generating performance critical code, via the open source Cojen library.
 
 * Terminology
@@ -74,16 +74,16 @@ replacement for JDBC. These kinds of applications may choose a blend of
 Carbonado and JDBC. To facilitate this, access to the JDBC connection in use by
 the current transaction is supported.
 
-    The Carbonado repositories that are backed by BDB use a simple rule-based
-query optimizer to come up with a query plan. Cost-based optimizers are
-generally much more effective, since they estimate I/O costs. Carbonado has a
-rule-based optimizer mainly because it is easier to write.
+    The Carbonado repositories that are backed by BDB use a rule-based query
+optimizer to come up with a query plan. Cost-based optimizers are generally
+much more effective, since they estimate I/O costs. Carbonado has a rule-based
+optimizer mainly because it is easier to write.
 
-*  Persistence Layer Requirements
+*  Persistence Technology Requirements
 
     Carbonado is capable of supporting many different kinds of persistence
-layers. A minimum set of features is required, however, in order to provide
-enough Carbonado features to justify the effort:
+technologies. A minimum set of features is required, however, in order to
+provide enough Carbonado features to justify the effort:
 
     * Arbitrary keys and values
 
@@ -99,12 +99,12 @@ enough Carbonado features to justify the effort:
 
     []
 
-    Ideally, the persistence layer should support transactions. If it does not,
-then its transactions must be implemented by batching updates in memory. Upon
-commit, the updates are made to the persistence layer. If atomic batch updates
-are supported, then the repository can report supporting an isolation level of
-"read committed". Otherwise, it can only support the lowest level of "read
-uncommitted".
+    Ideally, the persistence technology should support transactions. If it does
+not, then its transactions must be implemented by batching updates in
+memory. The updates are not persisted until the transaction is committed. If
+atomic batch updates are supported, then the repository can report supporting
+an isolation level of "read committed". Otherwise, it can only support the
+lowest level of "read uncommitted".
 
     Additional features which are nice to have, but not strictly required:
 
