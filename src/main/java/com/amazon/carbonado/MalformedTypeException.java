@@ -47,6 +47,18 @@ public class MalformedTypeException extends MalformedArgumentException {
         mType = malformedType;
     }
 
+    /**
+     * Returns first message, prefixed with the malformed type.
+     */
+    @Override
+    public String getMessage() {
+        String message = super.getMessage();
+        if (mType != null) {
+            message = mType.getName() + ": " + message;
+        }
+        return message;
+    }
+
     public Class<?> getMalformedType() {
         return mType;
     }

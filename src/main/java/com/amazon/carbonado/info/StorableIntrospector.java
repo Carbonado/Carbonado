@@ -77,9 +77,6 @@ import com.amazon.carbonado.spi.ConversionComparator;
  * @author Brian S O'Neill
  */
 public class StorableIntrospector {
-    // TODO: Improve error messages to have consistent format and provide more
-    // context.
-
     // Weakly maps Class objects to softly referenced StorableInfo objects.
     @SuppressWarnings("unchecked")
     private static Map<Class<?>, Reference<StorableInfo<?>>> cCache = new WeakIdentityMap();
@@ -120,7 +117,7 @@ public class StorableIntrospector {
                     primaryKeyProps = gatherListProperties
                         (errorMessages, null, null, type.getAnnotation(PrimaryKey.class)).get(0);
                 } catch (IndexOutOfBoundsException e) {
-                    errorMessages.add("No primary key defined for type: " + type);
+                    errorMessages.add("No primary key defined");
                     primaryKeyProps = Collections.emptyList();
                 }
                 alternateKeyProps = gatherListProperties
@@ -217,8 +214,7 @@ public class StorableIntrospector {
             } else {
                 aliases = alias.value();
                 if (aliases.length == 0) {
-                    errorMessages.add
-                        ("Alias list is empty for type \"" + type.getName() + '"');
+                    errorMessages.add("Alias list is empty");
                 }
             }
 
@@ -376,8 +372,7 @@ public class StorableIntrospector {
             StorableProperty<S> prop = properties.get(name);
             if (prop == null) {
                 errorMessages.add
-                    ("Property \"" + name + "\" for " + elementName +
-                     " not found in type: " + type.getName());
+                    ("Property for " + elementName + " not found: " + name);
                 continue;
             }
             if (prop.isJoin()) {
@@ -419,14 +414,14 @@ public class StorableIntrospector {
             }
         } else {
             throw new MalformedTypeException
-                (type, "Does not implement Storable interface: " + type);
+                (type, "Does not implement Storable interface");
         }
         int modifiers = type.getModifiers();
         if (Modifier.isFinal(modifiers)) {
-            throw new MalformedTypeException(type, "Class is declared final: " + type);
+            throw new MalformedTypeException(type, "Class is declared final");
         }
         if (!Modifier.isPublic(modifiers)) {
-            throw new MalformedTypeException(type, "Class is not public: " + type);
+            throw new MalformedTypeException(type, "Class is not public");
         }
 
         List<String> errorMessages = new ArrayList<String>();
@@ -448,8 +443,13 @@ public class StorableIntrospector {
                         break findCtor;
                     }
                 }
-                errorMessages.add
-                    ("Class must have an accesible no-arg constructor: " + type);
+                if (type.getEnclosingClass() == null) {
+                    errorMessages.add
+                        ("Class must have an accesible no-arg constructor");
+                } else {
+                    errorMessages.add
+                        ("Inner class must be static and have an accesible no-arg constructor");
+                }
             }
         }
 
@@ -565,7 +565,7 @@ public class StorableIntrospector {
                                       "protected): " + m);
                 } else {
                     errorMessages.add
-                        ("Abstract method cannot be defined (not a bean property):" + m);
+                        ("Abstract method cannot be defined (not a bean property): " + m);
                 }
                 // We've reported the error, nothing more to say about it
                 iter.remove();
@@ -698,7 +698,8 @@ public class StorableIntrospector {
             if (writeMethod == null || Modifier.isAbstract(writeMethod.getModifiers())) {
                 // If we got here, the onus is on us to create this property. It's never
                 // ok for the read method (get) to be null.
-                errorMessages.add("Property must define 'get' method: " + property.getName());
+                errorMessages.add
+                    ("Must define proper 'get' method for property: " + property.getName());
             }
         } else {
             nullable = readMethod.getAnnotation(Nullable.class);
@@ -711,10 +712,12 @@ public class StorableIntrospector {
 
         if (writeMethod == null) {
             if (readMethod == null || Modifier.isAbstract(readMethod.getModifiers())) {
-                // Last chance: can have an abstract read method (which we implement) and no
-                // write method for join properties
+                // Set method is always required for non-join properties. More
+                // work is done later on join properties, and sometimes the
+                // write method is required.
                 if (join == null) {
-                    errorMessages.add("Property must define 'set' method: " + property.getName());
+                    errorMessages.add("Must define proper 'set' method for property: " +
+                                      property.getName());
                 }
             }
         } else {
@@ -756,7 +759,7 @@ public class StorableIntrospector {
             aliases = alias.value();
             if (aliases.length == 0) {
                 errorMessages.add
-                    ("Alias list is empty for property \"" + property.getName() + '"');
+                    ("Alias list is empty for property: " + property.getName());
             }
         }
 
@@ -907,8 +910,7 @@ public class StorableIntrospector {
 
         if (version != null) {
             errorMessages.add
-                ("Join property \"" + property.getName() +
-                 "\" cannot be declared as a version property");
+                ("Join property cannot be declared as a version property: " + property.getName());
         }
 
         if (errorMessages.size() > 0) {
@@ -1708,6 +1710,9 @@ public class StorableIntrospector {
             Map<String, ? extends StorableProperty<?>> externalProperties =
                 joinedInfo.getAllProperties();
 
+            // Track whether join property is allowed to have a set method.
+            boolean mutatorAllowed = !isQuery();
+
             for (int i=0; i<mExternalNames.length; i++) {
                 String externalName = mExternalNames[i];
                 StorableProperty property = externalProperties.get(externalName);
@@ -1732,12 +1737,15 @@ public class StorableIntrospector {
                          externalName + '"');
                     continue;
                 }
-                if (property.getReadMethod() == null && getWriteMethod() != null) {
-                    errorMessages.add
-                        ("Join property cannot have a mutator if external property " +
-                         "has no accessor: Mutator = \"" + getWriteMethod() +
-                         "\", external property = \"" + property.getName() + '"');
-                    continue;
+                if (property.getReadMethod() == null) {
+                    mutatorAllowed = false;
+                    if (getWriteMethod() != null) {
+                        errorMessages.add
+                            ("Join property cannot have a mutator if external property " +
+                             "has no accessor: Mutator = \"" + getWriteMethod() +
+                             "\", external property = \"" + property.getName() + '"');
+                        continue;
+                    }
                 }
                 mExternal[i] = property;
             }
@@ -1751,15 +1759,16 @@ public class StorableIntrospector {
                 StorableProperty internalProperty = getInternalJoinElement(i);
                 StorableProperty externalProperty = getExternalJoinElement(i);
 
-                if (!internalProperty.isNullable() && externalProperty.isNullable() &&
-                    getWriteMethod() != null) {
-
-                    errorMessages.add
-                        ("Join property cannot have a mutator if internal property " +
-                         "is required, but external property is nullable: Mutator = \"" +
-                         getWriteMethod() +
-                         "\", internal property = \"" + internalProperty.getName() +
-                         "\", external property = \"" + externalProperty.getName() + '"');
+                if (!internalProperty.isNullable() && externalProperty.isNullable()) {
+                    mutatorAllowed = false;
+                    if (getWriteMethod() != null) {
+                        errorMessages.add
+                            ("Join property cannot have a mutator if internal property " +
+                             "is required, but external property is nullable: Mutator = \"" +
+                             getWriteMethod() +
+                             "\", internal property = \"" + internalProperty.getName() +
+                             "\", external property = \"" + externalProperty.getName() + '"');
+                    }
                 }
 
                 Class internalClass = internalProperty.getType();
@@ -1862,6 +1871,7 @@ public class StorableIntrospector {
                 // allowed due to the difference.
 
                 if (getWriteMethod() != null) {
+                    mutatorAllowed = false;
                     errorMessages.add
                         ("Join property cannot have a mutator if external type cannot " +
                          "be reliably converted to internal type: Mutator = \"" +
@@ -1953,10 +1963,17 @@ public class StorableIntrospector {
 
                     errorMessages.add
                         ("Join property \"" + getName() +
-                         "\" doesn't completely specify any of key of joined object; consider " +
+                         "\" doesn't completely specify any key of joined object; consider " +
                          "declaring the property type as Query<" +
                          getJoinedType().getName() + '>');
                 }
+            }
+
+            if (mutatorAllowed && getWriteMethod() == null) {
+                // Require set method to aid join query optimizations. Without
+                // set method, inner join result can be needlessly tossed away.
+                errorMessages.add
+                    ("Must define proper 'set' method for join property: " + getName());
             }
 
             if (errorMessages.size() == 0) {
