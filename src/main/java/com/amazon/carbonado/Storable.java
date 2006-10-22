@@ -42,14 +42,18 @@ package com.amazon.carbonado;
  */
 public interface Storable<S extends Storable<S>> {
     /**
-     * Loads or reloads this object from the storage layer by its primary
-     * key. This object's primary key itself is never modified by calling
-     * load. If load is successful, altering the primary key is no longer
-     * allowed unless the object is deleted. Attempting to alter the primary
-     * key in this state results in an {@link IllegalStateException}.
+     * Loads or reloads this object from the storage layer by a primary or
+     * alternate key. All properties of a key must be initialized for it to be
+     * chosen. The primary key is examined first, and if not fully initialized,
+     * alternate keys are examined in turn.
+     *
+     * <p>If load is successful, altering the primary key is no longer allowed
+     * unless a call to delete succeeds. Attempting to alter the primary key in
+     * this state results in an {@link IllegalStateException}. Alternate keys
+     * may always be modified, however.
      *
      * <p>Note: This method differs from {@link #tryLoad} only in that it
-     * throws an exception if no matching record was found instead of returning
+     * throws an exception if no matching record was found, instead of returning
      * false. This may indicate that the underlying record was deleted between
      * a load and reload. When a FetchNoneException is thrown, this object's
      * state will be the same as if the delete method was called on it.
@@ -62,14 +66,18 @@ public interface Storable<S extends Storable<S>> {
     void load() throws FetchNoneException, FetchException;
 
     /**
-     * Loads or reloads this object from the storage layer by its primary
-     * key. This object's primary key itself is never modified by calling
-     * load. If load is successful, altering the primary key is no longer
-     * allowed unless the object is deleted. Attempting to alter the primary
-     * key in this state results in an {@link IllegalStateException}.
+     * Loads or reloads this object from the storage layer by a primary or
+     * alternate key. All properties of a key must be initialized for it to be
+     * chosen. The primary key is examined first, and if not fully initialized,
+     * alternate keys are examined in turn.
+     *
+     * <p>If load is successful, altering the primary key is no longer allowed
+     * unless a call to delete succeeds. Attempting to alter the primary key in
+     * this state results in an {@link IllegalStateException}. Alternate keys
+     * may always be modified, however.
      *
      * <p>Note: This method differs from {@link #load} only in that it returns
-     * false if no matching record was found instead of throwing an exception.
+     * false if no matching record was found, instead of throwing an exception.
      * This may indicate that the underlying record was deleted between a load
      * and reload. When false is returned, this object's state will be the same
      * as if the delete method was called on it.
@@ -83,9 +91,9 @@ public interface Storable<S extends Storable<S>> {
 
     /**
      * Inserts a new persistent value for this object. If successful, altering
-     * the primary key is no longer allowed unless the object is deleted.
-     * Attempting to alter the primary key in this state results in an
-     * {@link IllegalStateException}.
+     * the primary key is no longer allowed unless a call to delete succeeds.
+     * Attempting to alter the primary key in this state results in an {@link
+     * IllegalStateException}. Alternate keys may always be modified, however.
      *
      * <p>Insert requires that all primary key properties be specified. If not,
      * an {@link IllegalStateException} is thrown. Also, repository
@@ -94,7 +102,7 @@ public interface Storable<S extends Storable<S>> {
      * may be thrown.
      *
      * <p>Note: This method differs from {@link #tryInsert} only in that it may
-     * throw a UniqueConstraintException instead of returning false.
+     * throw a UniqueConstraintException, instead of returning false.
      *
      * @throws UniqueConstraintException if it is absolutely known that a key
      * of inserted object matches an existing one
@@ -107,9 +115,9 @@ public interface Storable<S extends Storable<S>> {
 
     /**
      * Inserts a new persistent value for this object. If successful, altering
-     * the primary key is no longer allowed unless the object is deleted.
-     * Attempting to alter the primary key in this state results in an
-     * {@link IllegalStateException}.
+     * the primary key is no longer allowed unless a call to delete succeeds.
+     * Attempting to alter the primary key in this state results in an {@link
+     * IllegalStateException}. Alternate keys may always be modified, however.
      *
      * <p>Insert requires that all primary key properties be specified. If not,
      * an {@link IllegalStateException} is thrown. Also, repository
@@ -118,7 +126,7 @@ public interface Storable<S extends Storable<S>> {
      * may be thrown.
      *
      * <p>Note: This method differs from {@link #insert} only in that it
-     * returns false instead of throwing a UniqueConstraintException.
+     * returns false, instead of throwing a UniqueConstraintException.
      *
      * @return false if it is absolutely known that a key of inserted object
      * matches an existing one
@@ -132,9 +140,9 @@ public interface Storable<S extends Storable<S>> {
     /**
      * Updates the persistent value of this object, regardless of whether this
      * object has actually been loaded or not. If successful, altering the
-     * primary key is no longer allowed unless the object is deleted.
-     * Attempting to alter the primary key in this state results in an
-     * {@link IllegalStateException}.
+     * primary key is no longer allowed unless a call to delete succeeds.
+     * Attempting to alter the primary key in this state results in an {@link
+     * IllegalStateException}. Alternate keys may always be modified, however.
      *
      * <p>If this object has a {@link Version version} property defined, then
      * the update logic is a bit more strict. Updates of any storable require
@@ -166,9 +174,9 @@ public interface Storable<S extends Storable<S>> {
     /**
      * Updates the persistent value of this object, regardless of whether this
      * object has actually been loaded or not. If successful, altering the
-     * primary key is no longer allowed unless the object is deleted.
-     * Attempting to alter the primary key in this state results in an
-     * {@link IllegalStateException}.
+     * primary key is no longer allowed unless a call to delete succeeds.
+     * Attempting to alter the primary key in this state results in an {@link
+     * IllegalStateException}. Alternate keys may always be modified, however.
      *
      * <p>If this object has a {@link Version version} property defined, then
      * the update logic is a bit more strict. Updates of any storable require
@@ -206,7 +214,7 @@ public interface Storable<S extends Storable<S>> {
      * deleted, the insert operation is permitted again.
      *
      * <p>Note: This method differs from {@link #tryDelete} only in that it may
-     * throw a PersistNoneException instead of returning false.
+     * throw a PersistNoneException, instead of returning false.
      *
      * @throws PersistNoneException if record is missing and nothing was
      * deleted
@@ -224,7 +232,7 @@ public interface Storable<S extends Storable<S>> {
      * deleted, the insert operation is permitted again.
      *
      * <p>Note: This method differs from {@link #delete} only in that it
-     * returns false instead of throwing a PersistNoneException.
+     * returns false, instead of throwing a PersistNoneException.
      *
      * @return true if record likely existed and was deleted, or false if record
      * absolutely no longer exists and no delete was necessary
