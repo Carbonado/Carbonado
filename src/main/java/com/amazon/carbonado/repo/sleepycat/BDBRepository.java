@@ -519,12 +519,6 @@ abstract class BDBRepository<Txn>
         setAutoShutdownEnabled(true);
     }
 
-    abstract String getVersionMajor();
-
-    abstract String getVersionMajorMinor();
-
-    abstract String getVersionMajorMinorPatch();
-
     abstract IsolationLevel selectIsolationLevel(Transaction parent, IsolationLevel level);
 
     abstract Txn txn_begin(Txn parent, IsolationLevel level) throws Exception;
