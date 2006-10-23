@@ -83,6 +83,7 @@ import java.lang.annotation.*;
  * public interface UserInfo extends Storable {
  *     ...
  *
+ *     int getAge();
  *     // Constraint is called before setting age.
  *     <b>&#64;IntegerConstraint(min=0, max=120)</b>
  *     void setAge(int value);

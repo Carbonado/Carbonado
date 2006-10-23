@@ -30,6 +30,7 @@ import java.lang.annotation.*;
  * public interface UserInfo extends Storable&lt;UserInfo&gt; {
  *     <b>&#64;Nullable</b>
  *     String getName();
+ *     void setName(String name);
  *
  *     ...
  * }

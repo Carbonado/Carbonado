@@ -48,6 +48,7 @@ import com.amazon.carbonado.adapter.AdapterDefinition;
  * public interface UserInfo extends Storable {
  *     <b>&#64;DateTimeAdapter(timeZone="UTC")</b>
  *     DateTime getModifyDateTime();
+ *     void setModifyDateTime(DateTime dt);
  *
  *     ...
  * }

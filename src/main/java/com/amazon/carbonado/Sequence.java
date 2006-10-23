@@ -31,6 +31,7 @@ import java.lang.annotation.*;
  * public interface UserInfo extends Storable&lt;UserInfo&gt; {
  *     <b>&#64;Sequence("USER_ID_SEQ")</b>
  *     long getUserInfoID();
+ *     void setUserInfoID(long id);
  *
  *     ...
  * }

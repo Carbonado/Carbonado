@@ -29,6 +29,7 @@ import java.lang.annotation.*;
  * <b>&#64;PrimaryKey</b>("userInfoID")
  * public interface UserInfo extends Storable&lt;UserInfo&gt; {
  *     long getUserInfoID();
+ *     void setUserInfoID(long id);
  *
  *     ...
  * }

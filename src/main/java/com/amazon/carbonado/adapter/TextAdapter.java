@@ -52,6 +52,7 @@ import com.amazon.carbonado.adapter.AdapterDefinition;
  * public interface UserInfo extends Storable {
  *     <b>&#64;TextAdapter(charset="UTF-8")</b>
  *     String getWelcomeMessage();
+ *     void setWelcomeMessage(String message);
  *
  *     ...
  * }

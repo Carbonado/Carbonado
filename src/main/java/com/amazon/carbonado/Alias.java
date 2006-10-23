@@ -35,6 +35,7 @@ import java.lang.annotation.*;
  * public interface UserInfo extends Storable&lt;UserInfo&gt; {
  *     <b>&#64;Alias("USER_ID")</b>
  *     long getUserInfoID();
+ *     void setUserInfoID(long id);
  *
  *     ...
  * }

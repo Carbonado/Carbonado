@@ -87,6 +87,7 @@ import java.lang.annotation.*;
  * public interface UserInfo extends Storable {
  *     <b>&#64;TrueFalseAdapter</b>
  *     boolean isAdministrator();
+ *     void setAdministrator(boolean admin);
  * }
  * </pre>
  *

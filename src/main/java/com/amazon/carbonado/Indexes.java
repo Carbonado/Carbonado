@@ -33,12 +33,16 @@ import java.lang.annotation.*;
  * &#64;PrimaryKey("ID")
  * public interface FileInfo extends Storable&lt;FileInfo&gt; {
  *     long getID();
+ *     void setID(long id);
  *
  *     String getName();
+ *     void setName(String name);
  *
  *     long getLength();
+ *     void setLength(long length);
  *
  *     long getLastModified();
+ *     void getLastModified(long datetime);
  *
  *     ...
  * }

@@ -32,7 +32,6 @@ import com.amazon.carbonado.MalformedTypeException;
  * <p>Example:<pre>
  * public interface UserInfo extends Storable {
  *     char isActive();
- *
  *     <b>&#64;TextConstraint(allowed={"Y", "N"})</b>
  *     void setActive(char value);
  *

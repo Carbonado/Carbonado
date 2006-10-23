@@ -62,6 +62,7 @@ import java.lang.annotation.*;
  * public interface UserInfo extends Storable {
  *     <b>&#64;Version</b>
  *     int getRecordVersionNumber();
+ *     void setRecordVersionNumber(int version);
  *
  *     ...
  * }

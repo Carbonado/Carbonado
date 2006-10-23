@@ -32,7 +32,6 @@ import com.amazon.carbonado.MalformedTypeException;
  * <p>Example:<pre>
  * public interface PolarCoordinate extends Storable {
  *     double getTheta();
- *
  *     <b>&#64;FloatConstraint(min=0, max=Math.PI * 2, disallowed=Double.NaN)</b>
  *     void setTheta(double radians);
  *

@@ -31,12 +31,16 @@ import java.lang.annotation.*;
  * &#64;PrimaryKey("ID")
  * public interface FileInfo extends Storable&lt;FileInfo&gt; {
  *     long getID();
+ *     void setID(long id);
  *
  *     String getFullPath();
+ *     void setFullPath(String path);
  *
  *     String getName();
+ *     void setName(String name);
  *
  *     long getParentID();
+ *     void setParentID(long id);
  *
  *     ...
  * }

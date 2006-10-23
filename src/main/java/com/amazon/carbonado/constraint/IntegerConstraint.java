@@ -32,12 +32,10 @@ import com.amazon.carbonado.MalformedTypeException;
  * <p>Example:<pre>
  * public interface UserInfo extends Storable {
  *     int getAge();
- *
  *     <b>&#64;IntegerConstraint(min=0, max=120)</b>
  *     void setAge(int value);
  *
  *     int getRoleID();
- *
  *     <b>&#64;IntegerConstraint(allowed={ROLE_REGULAR, ROLE_ADMIN})</b>
  *     void setRoleID(int role);
  *

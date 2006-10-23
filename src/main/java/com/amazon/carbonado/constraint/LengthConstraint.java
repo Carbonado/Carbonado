@@ -30,8 +30,7 @@ import com.amazon.carbonado.MalformedTypeException;
  *
  * <p>Example:<pre>
  * public interface UserInfo extends Storable {
- *     int getFirstName();
- *
+ *     String getFirstName();
  *     <b>&#64;LengthConstraint(min=1, max=50)</b>
  *     void setFirstName(String name);
  *

@@ -66,29 +66,31 @@ import java.lang.annotation.*;
  * &#64;PrimaryKey("userID")
  * public interface UserInfo extends Storable {
  *     int getUserID();
+ *     void setUserID(int id);
  *
  *     int getAddressID();
- *
  *     void setAddressID(int value);
  *
  *     // Natural join, which works because Address has a primary key
  *     // property of addressID which matches a property in this type.
  *     <b>&#64;Join</b>
  *     Address getAddress() throws FetchException;
+ *     void setAddress(Address address);
  *
  *     // Explicit join, equivalent to getAddress.
  *     <b>&#64;Join(internal="addressID", external="addressID")</b>
  *     Address getCurrentAddress() throws FetchException;
+ *     void setCurrentAddress(Address address);
  *
  *     &#64;Nullable
  *     Integer getParentID();
- *
  *     void setParentID(Integer value);
  *
  *     // Many-to-one relationship
  *     &#64;Nullable
  *     <b>&#64;Join(internal="parentID", external="userID")</b>
  *     UserInfo getParent() throws FetchException;
+ *     void setParent(UserInfo parent);
  *
  *     // One-to-many relationship
  *     <b>&#64;Join(internal="userID", external="parentID")</b>
