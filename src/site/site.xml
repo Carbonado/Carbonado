@@ -19,7 +19,9 @@
       <item name="Javadoc" href="apidocs/index.html"/>
       <item name="Subversion" href="http://svn.sourceforge.net/viewvc/carbonado/trunk/Carbonado/"/>
       <item name="Sourceforge" href="http://sourceforge.net/projects/carbonado/"/>
+      <item name="User Guide (pdf)" href="http://svn.sourceforge.net/viewvc/*checkout*/carbonado/trunk/Carbonado/docs/CarbonadoGuide.pdf"/>
       <item name="License" href="license.html"/>
+      <item name="Trademark Policy" href="trademark.html"/>
     </menu>
 
     <menu name="Project Documentation">
