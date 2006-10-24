@@ -34,6 +34,27 @@ there are no extra build time steps.
 when accessing the actual storage. Low overhead is achieved in part by auto
 generating performance critical code, via the Cojen library.
 
+* Packages
+
+    Carbonado is broken down into several package bundles for better dependency
+management. The easiest way to get started with Carbonado is to use the BDB-JE
+backed repository. For this, you need to get the Carbonado and
+CarbonadoSleepycatJE package bundles.
+
+    * {{{http://sourceforge.net/project/showfiles.php?group_id=171277&package_id=195677}Carbonado}}
+
+    Core Carbonado code, depends on {{{http://jakarta.apache.org/commons/logging/}Apache Commons Logging}}, {{{http://joda-time.sourceforge.net/}Joda-Time}}, and {{{http://cojen.sourceforge.net/}Cojen}}.
+
+    * {{{http://sourceforge.net/project/showfiles.php?group_id=171277&package_id=208711}CarbonadoSleepycatJE}}
+
+    Contains repository for supporting Sleepycat/Oracle, {{{http://www.oracle.com/database/berkeley-db/je/index.html}BDB Java Edition}}. BDB-JE code must be downloaded and installed separately.
+
+    * {{{http://sourceforge.net/project/showfiles.php?group_id=171277&package_id=208709}CarbonadoSleepycatDB}}
+
+    Contains repository for supporting Sleepycat/Oracle {{{http://www.oracle.com/database/berkeley-db/db/index.html}BDB}}. BDB code must be downloaded and installed separately.
+
+    []
+
 * Terminology
 
     Loose mapping from Carbonado terminology to SQL terminology:
