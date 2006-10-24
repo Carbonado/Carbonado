@@ -32,7 +32,7 @@ there are no extra build time steps.
 
     Carbonado is able to achieve high performance by imposing very low overhead
 when accessing the actual storage. Low overhead is achieved in part by auto
-generating performance critical code, via the open source Cojen library.
+generating performance critical code, via the Cojen library.
 
 * Terminology
 
