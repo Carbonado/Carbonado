@@ -26,7 +26,7 @@ and as a result, Carbonado depends on Java 5.
     On the surface, it may appear that Carbonado types are defined like POJOs.
 The difference is that in Carbonado, types are object representations of
 relations. It is not an object database nor an object-relational bridge. In
-addition, data type defintions are simply interfaces, and there are no external
+addition, data type definitions are simply interfaces, and there are no external
 configuration files. All the code to implement types is auto-generated, yet
 there are no extra build time steps.
 
