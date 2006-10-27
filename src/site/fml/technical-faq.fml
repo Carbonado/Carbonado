@@ -8,8 +8,8 @@
        <p>
 Carbonado uses shutdown hooks to make sure that all in progress transactions
 are properly rolled back. If you hard-kill a process (kill -9), then the
-shutdown won't get run. This can cause a problem when using BDB. In either
-case, db_recover must be run to prevent future data corruption. BDB-JE is not
+shutdown won't get run. This can cause a problem when using BDB, and
+db_recover must be run to prevent future data corruption. BDB-JE is not
 affected, however, as it automatically runs recovery upon restart.
        </p>
      </answer>
