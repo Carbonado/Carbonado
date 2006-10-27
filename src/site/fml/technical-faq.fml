@@ -268,7 +268,7 @@ want it too. This avoids a double load.
      <question>How can schemas evolve?</question>
      <answer>
        <p>
-Independent repositories, like BDB support automatic schema evolution. You may
+Independent repositories like BDB support automatic schema evolution. You may
 freely add or remove non-primary key properties and still load older
 storables. Changes to primary key properties is not supported, since they
 define a clustered index. Also, property data types cannot be changed except if
