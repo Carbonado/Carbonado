@@ -720,13 +720,24 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         }
 
         /**
+         * Appends table name and alias to the given FROM clause builder.
+         */
+        public void appendTableNameAndAliasTo(StatementBuilder fromClause) {
+            appendTableNameTo(fromClause);
+            fromClause.append(' ');
+            fromClause.append(mAlias);
+        }
+
+        /**
          * Appends table names, aliases, and joins to the given FROM clause
          * builder.
          */
         public void appendFullJoinTo(StatementBuilder fromClause) {
-            appendTableNameTo(fromClause);
-            fromClause.append(' ');
-            fromClause.append(mAlias);
+            appendTableNameAndAliasTo(fromClause);
+            appendTailJoinTo(fromClause);
+        }
+
+        private void appendTailJoinTo(StatementBuilder fromClause) {
             for (JoinNode jn : mSubNodes.values()) {
                 // TODO: By default, joins are all inner. A join could become
                 // LEFT OUTER JOIN if the query filter has a term like this:
@@ -737,7 +748,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 // "address(.)state = ?".
 
                 fromClause.append(" INNER JOIN");
-                jn.appendFullJoinTo(fromClause);
+                jn.appendTableNameAndAliasTo(fromClause);
                 fromClause.append(" ON ");
                 int count = jn.mProperty.getJoinElementCount();
                 for (int i=0; i<count; i++) {
@@ -752,6 +763,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     fromClause.append('.');
                     fromClause.append(jn.mProperty.getExternalJoinElement(i).getColumnName());
                 }
+
+                jn.appendTailJoinTo(fromClause);
             }
         }
 
