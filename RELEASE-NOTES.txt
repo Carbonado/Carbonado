@@ -1,0 +1,7 @@
+Carbonado change history
+------------------------
+
+1.1-BETA to 1.1-BETA2
+-------------------------------
+- Inner joins in generated SQL use more compliant syntax.
+- Fixed deadlocks during replicated respository resync.
