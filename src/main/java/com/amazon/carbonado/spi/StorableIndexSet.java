@@ -175,6 +175,15 @@ public class StorableIndexSet<S extends Storable> extends TreeSet<StorableIndex<
         // Now replace merged indexes.
         replaceEntries(mergedReplacements);
 
+        setDefaultDirection(defaultDirection);
+    }
+
+    /**
+     * Set the default direction for all index properties.
+     *
+     * @param defaultDirection replace unspecified property directions with this
+     */
+    public void setDefaultDirection(Direction defaultDirection) {
         // Apply default sort direction to those unspecified.
         if (defaultDirection != Direction.UNSPECIFIED) {
             Map<StorableIndex<S>, StorableIndex<S>> replacements = null;
