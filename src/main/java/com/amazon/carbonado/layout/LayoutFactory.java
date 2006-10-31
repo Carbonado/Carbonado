@@ -33,6 +33,9 @@ import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Transaction;
+import com.amazon.carbonado.UniqueConstraintException;
+
+import com.amazon.carbonado.capability.ResyncCapability;
 
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
@@ -86,73 +89,102 @@ public class LayoutFactory implements LayoutCapability {
 
         StorableInfo<?> info = StorableIntrospector.examine(type);
 
-        Transaction txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
-        txn.setForUpdate(true);
-        try {
-            // If type represents a new generation, then a new layout needs to
-            // be inserted.
-            Layout newLayout = null;
+        Layout layout;
+        ResyncCapability resyncCap = null;
 
-            for (int i=0; i<HASH_MULTIPLIERS.length; i++) {
-                // Generate an identifier which has a high likelyhood of being unique.
-                long layoutID = mixInHash(0L, info, HASH_MULTIPLIERS[i]);
-
-                // Initially use for comparison purposes.
-                newLayout = new Layout(this, info, layoutID);
-
-                StoredLayout storedLayout = mLayoutStorage.prepare();
-                storedLayout.setLayoutID(layoutID);
-
-                if (!storedLayout.tryLoad()) {
-                    // Not found, so break out and insert.
-                    break;
-                }
-
-                Layout knownLayout = new Layout(this, storedLayout);
-                if (knownLayout.equalLayouts(newLayout)) {
-                    // Type does not represent a new generation. Return
-                    // existing layout.
-                    return knownLayout;
-                }
-
-                // If this point is reached, then there was a hash collision in
-                // the generated layout ID. This should be extremely rare.
-                // Rehash and try again.
-
-                if (i >= HASH_MULTIPLIERS.length - 1) {
-                    // No more rehashes to attempt. This should be extremely,
-                    // extremely rare, unless there is a bug somewhere.
-                    throw new FetchException("Unable to generate unique layout identifier");
-                }
-            }
-
-            // If this point is reached, then type represents a new
-            // generation. Calculate next generation value and insert.
-
-            assert(newLayout != null);
-            int generation = 0;
-
-            Cursor<StoredLayout> cursor = mLayoutStorage
-                .query("storableTypeName = ?")
-                .with(info.getStorableType().getName())
-                .orderBy("-generation")
-                .fetch();
-
+        // Try to insert metadata up to three times.
+        loadLayout: for (int retryCount = 3;;) {
             try {
-                if (cursor.hasNext()) {
-                    generation = cursor.next().getGeneration() + 1;
+                Transaction txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                txn.setForUpdate(true);
+                try {
+                    // If type represents a new generation, then a new layout needs to
+                    // be inserted.
+                    Layout newLayout = null;
+
+                    for (int i=0; i<HASH_MULTIPLIERS.length; i++) {
+                        // Generate an identifier which has a high likelyhood of being unique.
+                        long layoutID = mixInHash(0L, info, HASH_MULTIPLIERS[i]);
+
+                        // Initially use for comparison purposes.
+                        newLayout = new Layout(this, info, layoutID);
+
+                        StoredLayout storedLayout = mLayoutStorage.prepare();
+                        storedLayout.setLayoutID(layoutID);
+
+                        if (!storedLayout.tryLoad()) {
+                            // Not found, so break out and insert.
+                            break;
+                        }
+
+                        Layout knownLayout = new Layout(this, storedLayout);
+                        if (knownLayout.equalLayouts(newLayout)) {
+                            // Type does not represent a new generation. Return
+                            // existing layout.
+                            layout = knownLayout;
+                            break loadLayout;
+                        }
+
+                        // If this point is reached, then there was a hash collision in
+                        // the generated layout ID. This should be extremely rare.
+                        // Rehash and try again.
+
+                        if (i >= HASH_MULTIPLIERS.length - 1) {
+                            // No more rehashes to attempt. This should be extremely,
+                            // extremely rare, unless there is a bug somewhere.
+                            throw new FetchException
+                                ("Unable to generate unique layout identifier");
+                        }
+                    }
+
+                    // If this point is reached, then type represents a new
+                    // generation. Calculate next generation value and insert.
+
+                    assert(newLayout != null);
+                    int generation = 0;
+
+                    Cursor<StoredLayout> cursor = mLayoutStorage
+                        .query("storableTypeName = ?")
+                        .with(info.getStorableType().getName())
+                        .orderBy("-generation")
+                        .fetch();
+
+                    try {
+                        if (cursor.hasNext()) {
+                            generation = cursor.next().getGeneration() + 1;
+                        }
+                    } finally {
+                        cursor.close();
+                    }
+
+                    newLayout.insert(generation);
+                    layout = newLayout;
+
+                    txn.commit();
+                } finally {
+                    txn.exit();
                 }
-            } finally {
-                cursor.close();
+
+                break;
+            } catch (UniqueConstraintException e) {
+                // This might be caused by a transient replication error. Retry
+                // a few times before throwing exception. Wait up to a second
+                // before each retry.
+                retryCount = e.backoff(e, retryCount, 1000);
+                resyncCap = mRepository.getCapability(ResyncCapability.class);
             }
-
-            newLayout.insert(generation);
-            txn.commit();
-
-            return newLayout;
-        } finally {
-            txn.exit();
         }
+
+        if (resyncCap != null) {
+            // Make sure that all layout records are sync'd.
+            try {
+                resyncCap.resync(StoredLayoutProperty.class, 1.0, null);
+            } catch (RepositoryException e) {
+                throw e.toPersistException();
+            }
+        }
+
+        return layout;
     }
 
     /**

@@ -36,6 +36,7 @@ import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
+import com.amazon.carbonado.UniqueConstraintException;
 
 import com.amazon.carbonado.capability.IndexInfo;
 
@@ -721,24 +722,35 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
         info.setDatabaseName(getStorableType().getName());
 
-        Transaction txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
-        txn.setForUpdate(true);
-        try {
-            if (!info.tryLoad()) {
-                if (layout == null) {
-                    info.setEvolutionStrategy(StoredDatabaseInfo.EVOLUTION_NONE);
-                } else {
-                    info.setEvolutionStrategy(StoredDatabaseInfo.EVOLUTION_STANDARD);
+        // Try to insert metadata up to three times.
+        for (int retryCount = 3;;) {
+            try {
+                Transaction txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                txn.setForUpdate(true);
+                try {
+                    if (!info.tryLoad()) {
+                        if (layout == null) {
+                            info.setEvolutionStrategy(StoredDatabaseInfo.EVOLUTION_NONE);
+                        } else {
+                            info.setEvolutionStrategy(StoredDatabaseInfo.EVOLUTION_STANDARD);
+                        }
+                        info.setCreationTimestamp(System.currentTimeMillis());
+                        info.setVersionNumber(0);
+                        if (!readOnly) {
+                            info.insert();
+                        }
+                    }
+                    txn.commit();
+                } finally {
+                    txn.exit();
                 }
-                info.setCreationTimestamp(System.currentTimeMillis());
-                info.setVersionNumber(0);
-                if (!readOnly) {
-                    info.insert();
-                }
+                break;
+            } catch (UniqueConstraintException e) {
+                // This might be caused by a transient replication error. Retry
+                // a few times before throwing exception. Wait up to a second
+                // before each retry.
+                retryCount = e.backoff(e, retryCount, 1000);
             }
-            txn.commit();
-        } finally {
-            txn.exit();
         }
 
         return info;
