@@ -40,12 +40,13 @@ public interface IndexEntryAccessor<S extends Storable> extends IndexInfo {
     Storage<?> getIndexEntryStorage();
 
     /**
-     * Loads the master object referenced by the given index entry.
+     * Sets all the primary key properties of the given master, using the
+     * applicable properties of the given index entry.
      *
-     * @param indexEntry index entry which points to master
-     * @return master or null if missing
+     * @param indexEntry source of property values
+     * @param master master whose primary key properties will be set
      */
-    S loadMaster(Storable indexEntry) throws FetchException;
+    void copyToMasterPrimaryKey(Storable indexEntry, S master);
 
     /**
      * Sets all the properties of the given index entry, using the applicable
@@ -54,7 +55,7 @@ public interface IndexEntryAccessor<S extends Storable> extends IndexInfo {
      * @param indexEntry index entry whose properties will be set
      * @param master source of property values
      */
-    void setAllProperties(Storable indexEntry, S master);
+    void copyFromMaster(Storable indexEntry, S master);
 
     /**
      * Returns true if the properties of the given index entry match those

@@ -132,13 +132,14 @@ class IndexEntryGenerator <S extends Storable> {
     }
 
     /**
-     * Loads the master object referenced by the given index entry.
+     * Sets all the primary key properties of the given master, using the
+     * applicable properties of the given index entry.
      *
-     * @param indexEntry index entry which points to master
-     * @return master or null if missing
+     * @param indexEntry source of property values
+     * @param master master whose primary key properties will be set
      */
-    public S loadMaster(Storable ref)  throws FetchException {
-        return mBuilder.loadMaster(ref);
+    public void copyToMasterPrimaryKey(Storable indexEntry, S master) {
+        mBuilder.copyToMasterPrimaryKey(indexEntry, master);
     }
 
     /**
@@ -148,8 +149,8 @@ class IndexEntryGenerator <S extends Storable> {
      * @param indexEntry index entry whose properties will be set
      * @param master source of property values
      */
-    public void setAllProperties(Storable indexEntry, S master) {
-        mBuilder.setAllProperties(indexEntry, master);
+    public void copyFromMaster(Storable indexEntry, S master) {
+        mBuilder.copyFromMaster(indexEntry, master);
     }
 
     /**

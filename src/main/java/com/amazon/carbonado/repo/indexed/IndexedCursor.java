@@ -65,8 +65,11 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
         }
         while (mCursor.hasNext()) {
             final Storable indexEntry = mCursor.next();
-            S master = mGenerator.loadMaster(indexEntry);
-            if (master == null) {
+
+            S master = mStorage.mMasterStorage.prepare();
+            mGenerator.copyToMasterPrimaryKey(indexEntry, master);
+
+            if (!master.tryLoad()) {
                 LogFactory.getLog(getClass()).warn
                     ("Master is missing for index entry: " + indexEntry);
             } else {
@@ -83,7 +86,7 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
                     final Storage<?> indexEntryStorage =
                         repo.getIndexEntryStorageFor(mGenerator.getIndexEntryClass());
                     Storable newIndexEntry = indexEntryStorage.prepare();
-                    mGenerator.setAllProperties(newIndexEntry, master);
+                    mGenerator.copyFromMaster(newIndexEntry, master);
 
                     if (newIndexEntry.tryLoad()) {
                         // Good, the correct index entry exists. We'll see
@@ -103,18 +106,18 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
                             Transaction txn = repo.enterTransaction();
                             try {
                                 // Reload master and verify inconsistency.
-                                S master = mGenerator.loadMaster(indexEntry);
-                                if (mGenerator.isConsistent(indexEntry, master)) {
-                                    return;
+                                S master = mStorage.mMasterStorage.prepare();
+                                mGenerator.copyToMasterPrimaryKey(indexEntry, master);
+
+                                if (master.tryLoad()) {
+                                    Storable newIndexEntry = indexEntryStorage.prepare();
+                                    mGenerator.copyFromMaster(newIndexEntry, master);
+
+                                    newIndexEntry.tryInsert();
+
+                                    indexEntry.tryDelete();
+                                    txn.commit();
                                 }
-
-                                Storable newIndexEntry = indexEntryStorage.prepare();
-                                mGenerator.setAllProperties(newIndexEntry, master);
-
-                                newIndexEntry.tryInsert();
-
-                                indexEntry.tryDelete();
-                                txn.commit();
                             } catch (FetchException fe) {
                                 LogFactory.getLog(IndexedCursor.class).warn
                                     ("Unable to check if repair required for " +

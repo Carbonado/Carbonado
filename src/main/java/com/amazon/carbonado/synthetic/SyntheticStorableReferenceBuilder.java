@@ -29,8 +29,6 @@ import java.util.Map;
 import java.util.Set;
 
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.Join;
-import com.amazon.carbonado.Nullable;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.info.Direction;
@@ -73,10 +71,10 @@ import org.cojen.util.BeanComparator;
 public class SyntheticStorableReferenceBuilder<S extends Storable>
         implements SyntheticBuilder {
 
-    // The property setter will be called something like "setAllProperties_0"
-    private static final String ALL_PROPERTIES_PREFIX = "setAllProperties_";
+    // The property setter will be called something like "copyFromMaster_0"
+    private static final String COPY_FROM_MASTER_PREFIX = "copyFromMaster_";
 
-    private static final String MASTER_PROPERTY_PREFIX = "master_";
+    private static final String COPY_TO_MASTER_PK_PREFIX = "copyToMasterPk_";
 
     private static final String IS_CONSISTENT_PREFIX = "getIsConsistent_";
 
@@ -112,23 +110,14 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
     // are retrieved from the master.
     private List<StorableProperty> mCommonProps;
 
-    // The builder generates and retains a reference to various
-    // methods which make it possible to implement the "StorableReferenceBean"
-    // interface
-    // (if there were any need to formalize it): loadMaster,
-    // copyCommonProperties,
-    // setAllProperties, and isConsistent
-    private String mNameForSetAllPropertiesMethod;
+    private String mCopyFromMasterMethodName;
+    private Method mCopyFromMasterMethod;
 
-    private Method mSetAllPropertiesMethod;
-
-    private String mNameForIsConsistentMethod;
-
+    private String mIsConsistentMethodName;
     private Method mIsConsistentMethod;
 
-    private String mNameForGetMasterMethod;
-
-    private Method mGetMasterMethod;
+    private String mCopyToMasterPkMethodName;
+    private Method mCopyToMasterPkMethod;
 
     private Comparator<? extends Storable> mComparator;
 
@@ -227,7 +216,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      * @see com.amazon.carbonado.synthetic.SyntheticBuilder#getStorableClass()
      */
     public Class<? extends Storable> getStorableClass() throws IllegalStateException {
-        if (null == mSyntheticClass) {
+        if (mSyntheticClass == null) {
             mSyntheticClass = mBuilder.getStorableClass();
 
             // We need a comparator which follows the same order as the generated
@@ -265,7 +254,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      */
     public SyntheticProperty addKeyProperty(String name, Direction direction) {
         StorableProperty<S> prop = mMasterStorableInfo.getAllProperties().get(name);
-        if (null == prop) {
+        if (prop == null) {
             throw new IllegalArgumentException(name + " is not a property of "
                     + mMasterStorableInfo.getName());
         }
@@ -355,28 +344,26 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
     }
 
     /**
-     * Loads the master object referenced by the given index entry.
+     * Sets all the primary key properties of the given master, using the
+     * applicable properties of the given index entry.
      *
-     * @param indexEntry
-     *            index entry which points to master
-     * @return master or null if missing
+     * @param indexEntry source of property values
+     * @param master master whose primary key properties will be set
      */
-    public S loadMaster(Storable indexEntry) throws FetchException {
-        if (null == mGetMasterMethod) {
+    public void copyToMasterPrimaryKey(Storable indexEntry, S master) {
+        if (mCopyToMasterPkMethod == null) {
             try {
-                mGetMasterMethod = getStorableClass().getMethod(mNameForGetMasterMethod,
-                                                                (Class[]) null);
+                mCopyToMasterPkMethod =
+                    mSyntheticClass.getMethod(mCopyToMasterPkMethodName, mMasterStorableClass);
             } catch (NoSuchMethodException e) {
                 throw new UndeclaredThrowableException(e);
             }
         }
 
         try {
-            return (S) mGetMasterMethod.invoke(indexEntry, (Object[]) null);
+            mCopyToMasterPkMethod.invoke(indexEntry, master);
         } catch (Exception e) {
-            ThrowUnchecked.fireFirstDeclaredCause(e, FetchException.class);
-            // Not reached.
-            return null;
+            ThrowUnchecked.fireFirstDeclaredCause(e);
         }
     }
 
@@ -384,24 +371,21 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      * Sets all the properties of the given index entry, using the applicable
      * properties of the given master.
      *
-     * @param indexEntry
-     *            index entry whose properties will be set
-     * @param master
-     *            source of property values
+     * @param indexEntry index entry whose properties will be set
+     * @param master source of property values
      */
-    public void setAllProperties(Storable indexEntry, S master) {
-
-        if (null == mSetAllPropertiesMethod) {
+    public void copyFromMaster(Storable indexEntry, S master) {
+        if (mCopyFromMasterMethod == null) {
             try {
-                mSetAllPropertiesMethod = mSyntheticClass.getMethod(mNameForSetAllPropertiesMethod,
-                                                                    mMasterStorableClass);
+                mCopyFromMasterMethod =
+                    mSyntheticClass.getMethod(mCopyFromMasterMethodName, mMasterStorableClass);
             } catch (NoSuchMethodException e) {
                 throw new UndeclaredThrowableException(e);
             }
         }
 
         try {
-            mSetAllPropertiesMethod.invoke(indexEntry, master);
+            mCopyFromMasterMethod.invoke(indexEntry, master);
         } catch (Exception e) {
             ThrowUnchecked.fireFirstDeclaredCause(e);
         }
@@ -410,7 +394,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
     /**
      * Returns true if the properties of the given index entry match those
      * contained in the master, excluding any version property. This will
-     * always return true after a call to setAllProperties.
+     * always return true after a call to copyFromMaster.
      *
      * @param indexEntry
      *            index entry whose properties will be tested
@@ -418,11 +402,10 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      *            source of property values
      */
     public boolean isConsistent(Storable indexEntry, S master) {
-
-        if (null == mIsConsistentMethod) {
+        if (mIsConsistentMethod == null) {
             try {
-                mIsConsistentMethod = mSyntheticClass.getMethod(mNameForIsConsistentMethod,
-                                                                mMasterStorableClass);
+                mIsConsistentMethod =
+                    mSyntheticClass.getMethod(mIsConsistentMethodName, mMasterStorableClass);
             } catch (NoSuchMethodException e) {
                 throw new UndeclaredThrowableException(e);
             }
@@ -445,96 +428,35 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
     }
 
     /**
-     * Create methods for copying properties to and from and for looking up the
-     * master object
+     * Create methods for copying properties and testing properties.
      *
      * @throws amazon.carbonado.SupportException
      */
     private void addSpecialMethods(ClassFile cf) throws SupportException {
-        TypeDesc masterStorableType = TypeDesc.forClass(mMasterStorableClass);
-        // The set master method is used to load the master object and set it
-        // into the master property of this reference storable
-        String nameForSetMasterMethod;
-
         // Generate safe names for special methods.
         {
-            String safeName = generateSafePropertyName(mMasterStorableInfo,
-                                                       MASTER_PROPERTY_PREFIX);
-            // Don't need to pass the class in, it's not a boolean so we'll get
-            // a "get<foo>" flavor read method
-            mNameForGetMasterMethod = SyntheticProperty.makeReadMethodName(safeName,
-                                                                           Object.class);
-            nameForSetMasterMethod = SyntheticProperty.makeWriteMethodName(safeName);
-            mNameForSetAllPropertiesMethod = generateSafeMethodName(mMasterStorableInfo,
-                                                                    ALL_PROPERTIES_PREFIX);
-            mNameForIsConsistentMethod = generateSafeMethodName(mMasterStorableInfo, IS_CONSISTENT_PREFIX);
+            mCopyToMasterPkMethodName =
+                generateSafeMethodName(mMasterStorableInfo, COPY_TO_MASTER_PK_PREFIX);
+
+            mCopyFromMasterMethodName =
+                generateSafeMethodName(mMasterStorableInfo, COPY_FROM_MASTER_PREFIX);
+
+            mIsConsistentMethodName =
+                generateSafeMethodName(mMasterStorableInfo, IS_CONSISTENT_PREFIX);
         }
 
-        // Add a method which sets all properties of index entry object from
-        // master object.
-        {
-            // void setAllProperties(Storable master)
-            TypeDesc[] params = new TypeDesc[] { masterStorableType };
-            MethodInfo mi = cf.addMethod(Modifiers.PUBLIC,
-                                         mNameForSetAllPropertiesMethod,
-                                         null,
-                                         params);
-            CodeBuilder b = new CodeBuilder(mi);
+        // Add methods which copies properties between master and index entry.
+        addCopyMethod(cf, mCopyFromMasterMethodName);
+        addCopyMethod(cf, mCopyToMasterPkMethodName);
 
-            // Set Join property: this.setMaster(master)
-            // (stash a reference to the master object)
-            b.loadThis();
-            b.loadLocal(b.getParameter(0));
-            b.invokeVirtual(nameForSetMasterMethod, null, params);
-
-            // Copy across all the properties. At this point they've
-            // all been added to the property list
-            for (StorableProperty prop : mCommonProps) {
-                if (prop.isPrimaryKeyMember()) {
-                    // No need to set this property, since setting join to
-                    // master already took care of it.
-                    continue;
-                }
-                b.loadThis();
-                b.loadLocal(b.getParameter(0));
-                if (prop.getReadMethod() == null) {
-                    throw new SupportException("Property does not have a public accessor method: "
-                            + prop);
-                }
-                b.invoke(prop.getReadMethod());
-                b.invokeVirtual(prop.getWriteMethodName(),
-                                null,
-                                new TypeDesc[] { TypeDesc.forClass(prop.getType()) });
-
-            }
-            b.returnVoid();
-        }
-
-        // Add a join property for looking up master object. Since binding is
-        // based on primary key properties which match to index entry object,
-        // the join is natural -- no need to specify internal and external
-        // properties.
-        {
-            MethodInfo mi = cf.addMethod(Modifiers.PUBLIC_ABSTRACT,
-                                         mNameForGetMasterMethod,
-                                         masterStorableType,
-                                         null);
-            mi.addException(TypeDesc.forClass(FetchException.class));
-            mi.addRuntimeVisibleAnnotation(TypeDesc.forClass(Join.class));
-            mi.addRuntimeVisibleAnnotation(TypeDesc.forClass(Nullable.class));
-
-            cf.addMethod(Modifiers.PUBLIC_ABSTRACT,
-                         nameForSetMasterMethod,
-                         null,
-                         new TypeDesc[] { masterStorableType });
-        }
+        TypeDesc masterStorableType = TypeDesc.forClass(mMasterStorableClass);
 
         // Add a method which tests all properties of index entry object
         // against master object, excluding the version property.
         {
             TypeDesc[] params = new TypeDesc[] {masterStorableType};
             MethodInfo mi = cf.addMethod
-                (Modifiers.PUBLIC, mNameForIsConsistentMethod, TypeDesc.BOOLEAN, params);
+                (Modifiers.PUBLIC, mIsConsistentMethodName, TypeDesc.BOOLEAN, params);
             CodeBuilder b = new CodeBuilder(mi);
 
             for (StorableProperty prop : mCommonProps) {
@@ -549,9 +471,56 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
             b.loadConstant(true);
             b.returnValue(TypeDesc.BOOLEAN);
         }
+    }
 
+    private void addCopyMethod(ClassFile cf, String methodName) throws SupportException {
+        TypeDesc masterStorableType = TypeDesc.forClass(mMasterStorableClass);
 
+        // void copyXxMaster(Storable master)
+        TypeDesc[] params = new TypeDesc[] { masterStorableType };
+        MethodInfo mi = cf.addMethod(Modifiers.PUBLIC, methodName, null, params);
+        CodeBuilder b = new CodeBuilder(mi);
 
+        boolean toMasterPk;
+        if (methodName.equals(mCopyToMasterPkMethodName)) {
+            toMasterPk = true;
+        } else if (methodName.equals(mCopyFromMasterMethodName)) {
+            toMasterPk = false;
+        } else {
+            throw new IllegalArgumentException();
+        }
+
+        for (StorableProperty prop : mCommonProps) {
+            if (toMasterPk && !prop.isPrimaryKeyMember()) {
+                continue;
+            }
+
+            if (prop.getReadMethod() == null) {
+                throw new SupportException
+                    ("Property does not have a public accessor method: " + prop);
+            }
+            if (prop.getWriteMethod() == null) {
+                throw new SupportException
+                    ("Property does not have a public mutator method: " + prop);
+            }
+
+            TypeDesc propType = TypeDesc.forClass(prop.getType());
+
+            if (toMasterPk) {
+                b.loadLocal(b.getParameter(0));
+                b.loadThis();
+                b.invokeVirtual(prop.getReadMethodName(), propType, null);
+                b.invoke(prop.getWriteMethod());
+            } else if (methodName.equals(mCopyFromMasterMethodName)) {
+                b.loadThis();
+                b.loadLocal(b.getParameter(0));
+                b.invoke(prop.getReadMethod());
+                b.invokeVirtual(prop.getWriteMethodName(), null, new TypeDesc[] {propType});
+            }
+
+        }
+
+        b.returnVoid();
     }
 
     /**
@@ -589,10 +558,6 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
     private String generateSafeMethodName(StorableInfo info, String prefix) {
         Class type = info.getStorableType();
 
-//        if (!methodExists(type, prefix)) {
-//            return prefix;
-//        }
-
         // Try a few times to generate a unique name. There's nothing special
         // about choosing 100 as the limit.
         int value = 0;
@@ -605,35 +570,6 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
         }
 
         throw new InternalError("Unable to create unique method name starting with: "
-                + prefix);
-    }
-
-    /**
-     * Generates a property name which doesn't clash with any already defined.
-     */
-    protected String generateSafePropertyName(StorableInfo info, String prefix)
-    {
-        Map<String, ? extends StorableProperty> properties = info.getAllProperties();
-        Class type = info.getStorableType();
-
-        // Try a few times to generate unique name. There's nothing special
-        // about choosing 100 as the limit.
-        for (int i = 0; i < 100; i++) {
-            String name = prefix + i;
-            if (properties.containsKey(name)) {
-                continue;
-            }
-            if (methodExists(type, SyntheticProperty.makeReadMethodName(name,
-                                                                        type))) {
-                continue;
-            }
-            if (methodExists(type, SyntheticProperty.makeWriteMethodName(name))) {
-                continue;
-            }
-            return name;
-        }
-
-        throw new InternalError("Unable to create unique property name starting with: "
                 + prefix);
     }
 

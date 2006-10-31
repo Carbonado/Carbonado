@@ -126,13 +126,13 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
     }
 
     // Required by IndexEntryAccessor interface.
-    public S loadMaster(Storable indexEntry) throws FetchException {
-        return mGenerator.loadMaster(indexEntry);
+    public void copyToMasterPrimaryKey(Storable indexEntry, S master) {
+        mGenerator.copyToMasterPrimaryKey(indexEntry, master);
     }
 
     // Required by IndexEntryAccessor interface.
-    public void setAllProperties(Storable indexEntry, S master) {
-        mGenerator.setAllProperties(indexEntry, master);
+    public void copyFromMaster(Storable indexEntry, S master) {
+        mGenerator.copyFromMaster(indexEntry, master);
     }
 
     // Required by IndexEntryAccessor interface.
@@ -388,7 +388,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
 
     private Storable makeIndexEntry(S userStorable) {
         Storable indexEntry = mIndexEntryStorage.prepare();
-        mGenerator.setAllProperties(indexEntry, userStorable);
+        mGenerator.copyFromMaster(indexEntry, userStorable);
         return indexEntry;
     }
 
@@ -403,7 +403,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         // If index entry already exists, then index might be corrupt.
         {
             Storable freshEntry = mIndexEntryStorage.prepare();
-            mGenerator.setAllProperties(freshEntry, userStorable);
+            mGenerator.copyFromMaster(freshEntry, userStorable);
             indexEntry.copyVersionProperty(freshEntry);
             if (freshEntry.equals(indexEntry)) {
                 // Existing entry is exactly what we expect. Return false
@@ -433,7 +433,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                     }
 
                     Storable freshEntry = mIndexEntryStorage.prepare();
-                    mGenerator.setAllProperties(freshEntry, freshUserStorable);
+                    mGenerator.copyFromMaster(freshEntry, freshUserStorable);
 
                     // Blow it away entry and re-insert. Don't simply update
                     // the entry, since record version number may prevent
