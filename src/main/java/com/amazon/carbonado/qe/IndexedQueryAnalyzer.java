@@ -247,10 +247,10 @@ public class IndexedQueryAnalyzer<S extends Storable> {
 
         // Make up a filter over the join's internal properties and then search
         // for an index that filters with no remainder.
-        Filter<?> filter = Filter.getOpenFilter((Class<? extends Storable>) property.getType());
+        Filter<?> filter = Filter.getOpenFilter(property.getEnclosingType());
         int count = property.getJoinElementCount();
         for (int i=0; i<count; i++) {
-            filter = filter.and(property.getExternalJoinElement(i).getName(), RelOp.EQ);
+            filter = filter.and(property.getInternalJoinElement(i).getName(), RelOp.EQ);
         }
 
         // Java generics are letting me down. I cannot use proper specification
