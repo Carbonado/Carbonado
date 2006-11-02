@@ -76,7 +76,7 @@ public abstract class BelatedCreator<T, E extends Exception> {
 
     /**
      * @param type type of object created
-     * @param minRetryDelayMillis minimum milleseconds to wait before retrying
+     * @param minRetryDelayMillis minimum milliseconds to wait before retrying
      * to create object after failure; if negative, never retry
      * @throws IllegalArgumentException if type is null or is not an interface
      */

@@ -53,7 +53,7 @@ public class BelatedRepositoryCreator extends BelatedCreator<Repository, Support
     /**
      * @param log error reporting log
      * @param builder builds real Repository
-     * @param minRetryDelayMillis minimum milleseconds to wait before retrying
+     * @param minRetryDelayMillis minimum milliseconds to wait before retrying
      * to create object after failure; if negative, never retry
      */
     public BelatedRepositoryCreator(Log log, RepositoryBuilder builder, int minRetryDelayMillis) {
@@ -64,7 +64,7 @@ public class BelatedRepositoryCreator extends BelatedCreator<Repository, Support
      * @param log error reporting log
      * @param builder builds real Repository
      * @param rootRef reference to root repository
-     * @param minRetryDelayMillis minimum milleseconds to wait before retrying
+     * @param minRetryDelayMillis minimum milliseconds to wait before retrying
      * to create object after failure; if negative, never retry
      */
     public BelatedRepositoryCreator(Log log,

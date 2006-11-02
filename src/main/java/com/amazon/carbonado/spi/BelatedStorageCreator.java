@@ -52,7 +52,7 @@ public class BelatedStorageCreator<S extends Storable>
      * @param log error reporting log
      * @param repo Repository to get Storage from
      * @param storableType type of Storable to get Storage for
-     * @param minRetryDelayMillis minimum milleseconds to wait before retrying
+     * @param minRetryDelayMillis minimum milliseconds to wait before retrying
      * to create object after failure; if negative, never retry
      */
     public BelatedStorageCreator(Log log, Repository repo, Class<S> storableType,
