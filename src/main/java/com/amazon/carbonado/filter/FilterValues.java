@@ -443,6 +443,7 @@ public class FilterValues<S extends Storable> implements Appender {
      * as used to construct this object. An IllegalStateException will result
      * otherwise.
      *
+     * @param filter filter must be bound
      * @return new object array
      * @throws IllegalStateException if any values are blank
      */
@@ -500,6 +501,96 @@ public class FilterValues<S extends Storable> implements Appender {
             }
 
             values[i] = value;
+        }
+
+        return values;
+    }
+
+    /**
+     * Returns all supplied values in this object, as required by the given
+     * Filter. Constant filter values are not included. The given Filter must
+     * be composed only of the same PropertyFilter instances as used to
+     * construct this object. An IllegalStateException will result otherwise.
+     *
+     * @param filter filter must be bound
+     * @return new object array
+     */
+    public Object[] getSuppliedValuesFor(Filter<S> filter) throws IllegalStateException {
+        // Traverse filter properties in reverse, since the filter likely was
+        // used to create this FilterValues instance. If so, then no value map
+        // needs to be constructed.
+        PropertyFilterList<S> list = filter.getTailPropertyFilterList();
+        if (list == null) {
+            return NO_VALUES;
+        }
+
+        FilterValues<S> prevValues = mPrevValues;
+        int blankCount;
+        if (prevValues == null || (blankCount= prevValues.mCurrentProperty.getBlankCount()) == 0) {
+            return NO_VALUES;
+        }
+
+        int i = list.getPreviousRemaining() + 1;
+
+        int valuesPos = Math.min(i, blankCount);
+        Object[] values = new Object[valuesPos];
+
+        FilterValues filterValues = this;
+
+        for (; --i >= 0; list = list.getPrevious()) {
+            PropertyFilter<S> propFilter = list.getPropertyFilter();
+
+            Object value;
+
+            if (prevValues != null
+                && propFilter == prevValues.mCurrentProperty.getPropertyFilter()) {
+
+                value = filterValues.mPrevValue;
+
+                filterValues = prevValues;
+                prevValues = prevValues.mPrevValues;
+
+                if (propFilter.isConstant()) {
+                    continue;
+                }
+            } else {
+                if (propFilter.isConstant()) {
+                    continue;
+                }
+
+                if (i > 0 || mValueMap != null) {
+                    if (isAssigned(propFilter)) {
+                        value = getAssignedValue(propFilter);
+                    } else {
+                        continue;
+                    }
+                } else {
+                    // No need to force value map to be created since this is
+                    // the last property to be processed. Do the same scan operation
+                    // as performed by buildValueMap, except don't save the results.
+
+                    filterValues = this;
+                    prevValues = mPrevValues;
+
+                    findValue: {
+                        while (prevValues != null) {
+                            if (propFilter == prevValues.mCurrentProperty.getPropertyFilter()) {
+                                value = filterValues.mPrevValue;
+                                break findValue;
+                            }
+                            filterValues = prevValues;
+                            prevValues = prevValues.mPrevValues;
+                        }
+
+                        continue;
+                    }
+                }
+            }
+
+            values[--valuesPos] = value;
+            if (valuesPos <= 0) {
+                break;
+            }
         }
 
         return values;

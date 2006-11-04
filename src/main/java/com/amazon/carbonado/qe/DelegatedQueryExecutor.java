@@ -126,14 +126,10 @@ public class DelegatedQueryExecutor<S extends Storable> implements QueryExecutor
     }
 
     private Query<S> applyFilterValues(FilterValues<S> values) {
-        // FIXME: figure out how to transfer values directly to query.
-
         Query<S> query = mQuery;
         Filter<S> filter = query.getFilter();
-        // FIXME: this code can get confused if filter has constants.
         if (values != null && filter != null && query.getBlankParameterCount() != 0) {
-            // FIXME: throws exception if not all values supplied
-            query = query.withValues(values.getValuesFor(filter));
+            query = query.withValues(values.getSuppliedValuesFor(filter));
         }
         return query;
     }

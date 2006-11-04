@@ -162,8 +162,6 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         if (mValues == null) {
             return new EmptyQuery<S>(queryFactory(), mOrdering);
         }
-        // FIXME: Just like with DelegatedQueryExecutor, need a better way of
-        // transfering values.
         FilterValues<S> newValues = mValues.getFilter().not()
             .initialFilterValues().withValues(mValues.getSuppliedValues());
         return createQuery(newValues, mOrdering);

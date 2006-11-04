@@ -157,8 +157,6 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
         if (values == null) {
             query = query(Filter.getOpenFilter(mType), ordering);
         } else {
-            // FIXME: Just like with DelegatedQueryExecutor, need a better way
-            // of transfering values.
             query = query(values.getFilter(), ordering).withValues(values.getSuppliedValues());
         }
         return query;
