@@ -34,10 +34,12 @@ import com.amazon.carbonado.IsolationLevel;
  * @author Brian S O'Neill
  */
 class JDBCTransaction {
+    // Use this magic value to indicate that the isolation level need not be
+    // changed when the transaction ends. This is a little optimization to
+    // avoid a round trip call to the remote database.
+    private static final int LEVEL_NOT_CHANGED = -1;
+
     private final Connection mConnection;
-    // Use TRANSACTION_NONE as a magic value to indicate that the isolation
-    // level need not be changed when the transaction ends. This is a little
-    // optimization to avoid a round trip call to the remote database.
     private final int mOriginalLevel;
     private Savepoint mSavepoint;
 
@@ -46,7 +48,7 @@ class JDBCTransaction {
     JDBCTransaction(Connection con) {
         mConnection = con;
         // Don't change level upon abort.
-        mOriginalLevel = Connection.TRANSACTION_NONE;
+        mOriginalLevel = LEVEL_NOT_CHANGED;
     }
 
     /**
@@ -57,16 +59,19 @@ class JDBCTransaction {
 
         if (level == null) {
             // Don't change level upon abort.
-            mOriginalLevel = Connection.TRANSACTION_NONE;
+            mOriginalLevel = LEVEL_NOT_CHANGED;
         } else {
             int newLevel = JDBCRepository.mapIsolationLevelToJdbc(level);
             int originalLevel = mConnection.getTransactionIsolation();
             if (newLevel == originalLevel) {
                 // Don't change level upon abort.
-                mOriginalLevel = Connection.TRANSACTION_NONE;
+                mOriginalLevel = LEVEL_NOT_CHANGED;
             } else {
-                // Don't change level upon abort.
+                // Do change level upon abort.
                 mOriginalLevel = originalLevel;
+                if (originalLevel == Connection.TRANSACTION_NONE) {
+                    mConnection.setAutoCommit(false);
+                }
                 mConnection.setTransactionIsolation(newLevel);
             }
         }
@@ -105,8 +110,12 @@ class JDBCTransaction {
             return mConnection;
         } else {
             mConnection.rollback(mSavepoint);
-            if (mOriginalLevel != Connection.TRANSACTION_NONE) {
-                mConnection.setTransactionIsolation(mOriginalLevel);
+            if (mOriginalLevel != LEVEL_NOT_CHANGED) {
+                if (mOriginalLevel == Connection.TRANSACTION_NONE) {
+                    mConnection.setAutoCommit(true);
+                } else {
+                    mConnection.setTransactionIsolation(mOriginalLevel);
+                }
             }
             mSavepoint = null;
             return null;

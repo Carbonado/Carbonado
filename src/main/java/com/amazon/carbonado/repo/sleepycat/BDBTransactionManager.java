@@ -49,6 +49,9 @@ class BDBTransactionManager<Txn> extends TransactionManager<Txn> {
     }
 
     protected Txn createTxn(Txn parent, IsolationLevel level) throws Exception {
+        if (level == IsolationLevel.NONE) {
+            return null;
+        }
         return repository().txn_begin(parent, level);
     }
 
@@ -56,6 +59,9 @@ class BDBTransactionManager<Txn> extends TransactionManager<Txn> {
     protected Txn createTxn(Txn parent, IsolationLevel level, int timeout, TimeUnit unit)
         throws Exception
     {
+        if (level == IsolationLevel.NONE) {
+            return null;
+        }
         if (timeout == 0) {
             return repository().txn_begin_nowait(parent, level);
         } else {

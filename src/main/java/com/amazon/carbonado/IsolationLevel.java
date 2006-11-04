@@ -48,6 +48,12 @@ package com.amazon.carbonado;
 public enum IsolationLevel {
 
     /**
+     * Indicates that no actual transaction is in progress. If this level is
+     * specified when entering a transaction, it uses auto-commit mode.
+     */
+    NONE,
+
+    /**
      * Indicates that dirty reads, non-repeatable reads and phantom reads can
      * occur. This level allows modifications by one transaction to be read by
      * another transaction before any changes have been committed (a "dirty

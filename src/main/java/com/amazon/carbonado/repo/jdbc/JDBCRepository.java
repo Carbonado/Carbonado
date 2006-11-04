@@ -79,7 +79,9 @@ public class JDBCRepository
 
     static IsolationLevel mapIsolationLevelFromJdbc(int jdbcLevel) {
         switch (jdbcLevel) {
-        case Connection.TRANSACTION_READ_UNCOMMITTED: default:
+        case Connection.TRANSACTION_NONE: default:
+            return IsolationLevel.NONE;
+        case Connection.TRANSACTION_READ_UNCOMMITTED:
             return IsolationLevel.READ_UNCOMMITTED;
         case Connection.TRANSACTION_READ_COMMITTED:
             return IsolationLevel.READ_COMMITTED;
@@ -92,7 +94,9 @@ public class JDBCRepository
 
     static int mapIsolationLevelToJdbc(IsolationLevel level) {
         switch (level) {
-        case READ_UNCOMMITTED: default:
+        case NONE: default:
+            return Connection.TRANSACTION_NONE;
+        case READ_UNCOMMITTED:
             return Connection.TRANSACTION_READ_UNCOMMITTED;
         case READ_COMMITTED:
             return Connection.TRANSACTION_READ_COMMITTED;
@@ -513,9 +517,14 @@ public class JDBCRepository
 
             // Get connection outside synchronized section since it may block.
             Connection con = mDataSource.getConnection();
-            con.setAutoCommit(false);
-            if (level != mDefaultIsolationLevel) {
-                con.setTransactionIsolation(mapIsolationLevelToJdbc(level));
+
+            if (level == IsolationLevel.NONE) {
+                con.setAutoCommit(true);
+            } else {
+                con.setAutoCommit(false);
+                if (level != mDefaultIsolationLevel) {
+                    con.setTransactionIsolation(mapIsolationLevelToJdbc(level));
+                }
             }
 
             synchronized (mAllTxnMgrs) {
@@ -609,6 +618,8 @@ public class JDBCRepository
         }
 
         switch (desiredLevel) {
+        case NONE:
+            return IsolationLevel.NONE;
         case READ_UNCOMMITTED:
             return mReadUncommittedLevel;
         case READ_COMMITTED:

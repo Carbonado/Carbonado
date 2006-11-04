@@ -304,6 +304,8 @@ public abstract class TransactionManager<Txn> {
      *
      * @param parent optional parent transaction
      * @param level required isolation level
+     * @return new transaction, parent transaction, or possibly null if required
+     * isolation level is none
      */
     protected abstract Txn createTxn(Txn parent, IsolationLevel level) throws Exception;
 
@@ -320,6 +322,8 @@ public abstract class TransactionManager<Txn> {
      * @param level required isolation level
      * @param timeout desired timeout for lock acquisition, never negative
      * @param unit timeout unit, never null
+     * @return new transaction, parent transaction, or possibly null if required
+     * isolation level is none
      */
     protected Txn createTxn(Txn parent, IsolationLevel level,
                             int timeout, TimeUnit unit)

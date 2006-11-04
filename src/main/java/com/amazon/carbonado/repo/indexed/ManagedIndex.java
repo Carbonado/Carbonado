@@ -296,14 +296,10 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
     void populateIndex(Repository repo, Storage<S> masterStorage) throws RepositoryException {
         MergeSortBuffer buffer;
         Comparator c;
-        Transaction txn;
 
-        if (repo.getTransactionIsolationLevel() == null) {
-            txn = null;
-        } else {
-            txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
-        }
-
+        // Enter top transaction with isolation level of none to make sure
+        // preload operation does not run in a long nested transaction.
+        Transaction txn = repo.enterTopTransaction(IsolationLevel.NONE);
         try {
             Cursor<S> cursor = masterStorage.query().fetch();
             if (!cursor.hasNext()) {
@@ -335,10 +331,10 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             while (cursor.hasNext()) {
                 buffer.add(makeIndexEntry(cursor.next()));
             }
+
+            // No need to commit transaction because no changes should have been made.
         } finally {
-            if (txn != null) {
-                txn.exit();
-            }
+            txn.exit();
         }
 
         buffer.sort();
