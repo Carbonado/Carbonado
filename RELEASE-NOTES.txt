@@ -1,9 +1,10 @@
 Carbonado change history
 ------------------------
 
-1.1-BETA2 to
+1.1-BETA2 to 1.1-BETA3
 -------------------------------
 - Fixed exception when printing join plan with blank parameters.
+- Added isolation level of "none" to indicate that transaction is auto-commit.
 
 1.1-BETA to 1.1-BETA2
 -------------------------------
