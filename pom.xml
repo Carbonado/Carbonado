@@ -5,7 +5,7 @@
   <artifactId>carbonado</artifactId>
   <packaging>jar</packaging>
   <name>Carbonado</name>
-  <version>1.1-BETA</version>
+  <version>1.1-BETA3</version>
   <description>
     Extensible, high performance persistence abstraction layer for Java applications with a relational view to the underlying persistence technology.
   </description>
