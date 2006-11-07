@@ -149,27 +149,31 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             b.returnVoid();
         }
 
-        // Add constructor that accepts a RawSupport.
-        {
-            TypeDesc[] params = {rawSupportType};
-            MethodInfo mi = cf.addConstructor(Modifiers.PUBLIC, params);
-            CodeBuilder b = new CodeBuilder(mi);
-            b.loadThis();
-            b.loadLocal(b.getParameter(0));
-            b.invokeSuperConstructor(params);
-            b.returnVoid();
-        }
+        // Add constructors.
+        // 1: Accepts a RawSupport.
+        // 2: Accepts a RawSupport and an encoded key.
+        // 3: Accepts a RawSupport, an encoded key and an encoded data.
+        for (int i=1; i<=3; i++) {
+            TypeDesc[] params = new TypeDesc[i];
+            params[0] = rawSupportType;
+            if (i >= 2) {
+                params[1] = byteArrayType;
+                if (i == 3) {
+                    params[2] = byteArrayType;
+                }
+            }
 
-        // Add constructor that accepts a RawSupport, an encoded key, and an
-        // encoded data.
-        {
-            TypeDesc[] params = {rawSupportType, byteArrayType, byteArrayType};
             MethodInfo mi = cf.addConstructor(Modifiers.PUBLIC, params);
             CodeBuilder b = new CodeBuilder(mi);
+
             b.loadThis();
             b.loadLocal(b.getParameter(0));
-            b.loadLocal(b.getParameter(1));
-            b.loadLocal(b.getParameter(2));
+            if (i >= 2) {
+                b.loadLocal(b.getParameter(1));
+                if (i == 3) {
+                    b.loadLocal(b.getParameter(2));
+                }
+            }
             b.invokeSuperConstructor(params);
             b.returnVoid();
         }
@@ -367,7 +371,17 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
     public S instantiate(RawSupport<S> support, byte[] key, byte[] value)
         throws FetchException
     {
-        return (S) mInstanceFactory.instantiate(support, key, value);
+        try {
+            return (S) mInstanceFactory.instantiate(support, key, value);
+        } catch (CorruptEncodingException e) {
+            // Try to instantiate just the key and pass what we can to the exception.
+            try {
+                e.setStorableWithPrimaryKey(mInstanceFactory.instantiate(support, key));
+            } catch (FetchException e2) {
+                // Oh well, can't even decode the key.
+            }
+            throw e;
+        }
     }
 
     public StorableIndex<S> getPrimaryKeyIndex() {

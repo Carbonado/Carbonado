@@ -27,6 +27,8 @@ public class CorruptEncodingException extends FetchException {
 
     private static final long serialVersionUID = 4543503149683482362L;
 
+    private Storable mStorable;
+
     public CorruptEncodingException() {
         super();
     }
@@ -50,5 +52,34 @@ public class CorruptEncodingException extends FetchException {
     public CorruptEncodingException(int expectedGeneration, int actualGeneration) {
         super("Expected layout generation of " + expectedGeneration +
               ", but actual layout generation was " + actualGeneration);
+    }
+
+    /**
+     * If the decoder can at least extract the primary key, it should set it here.
+     */
+    public void setStorableWithPrimaryKey(Storable s) {
+        mStorable = s;
+    }
+
+    /**
+     * If the decoder was able to extract the primary key, it will be available
+     * in the returned Storable.
+     *
+     * @return partial Storable with primary key defined, or null if unable to
+     * decode the key
+     */
+    public Storable getStorableWithPrimaryKey() {
+        return mStorable;
+    }
+
+    @Override
+    public String getMessage() {
+        String message = super.getMessage();
+        
+        if (mStorable != null) {
+            message = message + "; " + mStorable.toStringKeyOnly();
+        }
+
+        return message;
     }
 }

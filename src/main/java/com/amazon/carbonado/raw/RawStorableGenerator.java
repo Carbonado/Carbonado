@@ -20,6 +20,7 @@ package com.amazon.carbonado.raw;
 
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Map;
 
@@ -29,6 +30,7 @@ import org.cojen.classfile.Label;
 import org.cojen.classfile.LocalVariable;
 import org.cojen.classfile.MethodInfo;
 import org.cojen.classfile.Modifiers;
+import org.cojen.classfile.Opcode;
 import org.cojen.classfile.TypeDesc;
 import org.cojen.util.ClassInjector;
 import org.cojen.util.WeakIdentityMap;
@@ -37,6 +39,9 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
+
+import com.amazon.carbonado.info.StorableIntrospector;
+import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.spi.MasterFeature;
 import com.amazon.carbonado.spi.MasterStorableGenerator;
@@ -112,12 +117,14 @@ public class RawStorableGenerator {
      * Returns an abstract implementation of the given Storable type, which is
      * fully thread-safe. The Storable type itself may be an interface or a
      * class. If it is a class, then it must not be final, and it must have a
-     * public, no-arg constructor. Two constructors are defined for the
+     * public, no-arg constructor. Three constructors are defined for the
      * abstract implementation:
      *
      * <pre>
      * public &lt;init&gt;(RawSupport);
-
+     *
+     * public &lt;init&gt;(RawSupport, byte[] key);
+     *
      * public &lt;init&gt;(RawSupport, byte[] key, byte[] value);
      * </pre>
      *
@@ -201,40 +208,80 @@ public class RawStorableGenerator {
         final TypeDesc rawSupportType = TypeDesc.forClass(RawSupport.class);
         final TypeDesc byteArrayType = TypeDesc.forClass(byte[].class);
 
-        // Add constructor that accepts a RawSupport.
-        {
-            TypeDesc[] params = {rawSupportType};
+        // Add constructors.
+        // 1: Accepts a RawSupport.
+        // 2: Accepts a RawSupport and an encoded key.
+        // 3: Accepts a RawSupport, an encoded key and an encoded data.
+        for (int i=1; i<=3; i++) {
+            TypeDesc[] params = new TypeDesc[i];
+            params[0] = rawSupportType;
+            if (i >= 2) {
+                params[1] = byteArrayType;
+                if (i == 3) {
+                    params[2] = byteArrayType;
+                }
+            }
+
             MethodInfo mi = cf.addConstructor(Modifiers.PUBLIC, params);
             CodeBuilder b = new CodeBuilder(mi);
+
             b.loadThis();
             b.loadLocal(b.getParameter(0));
             b.invokeSuperConstructor(new TypeDesc[] {masterSupportType});
-            b.returnVoid();
-        }
 
-        // Add constructor that accepts a RawSupport, an encoded key, and an
-        // encoded data.
-        {
-            TypeDesc[] params = {rawSupportType, byteArrayType, byteArrayType};
-            MethodInfo mi = cf.addConstructor(Modifiers.PUBLIC, params);
-            CodeBuilder b = new CodeBuilder(mi);
-            b.loadThis();
-            b.loadLocal(b.getParameter(0));
-            b.invokeSuperConstructor(new TypeDesc[] {masterSupportType});
+            if (i >= 2) {
+                params = new TypeDesc[] {byteArrayType};
 
-            params = new TypeDesc[] {byteArrayType};
+                b.loadThis();
+                b.loadLocal(b.getParameter(1));
+                b.invokeVirtual(DECODE_KEY_METHOD_NAME, null, params);
 
-            b.loadThis();
-            b.loadLocal(b.getParameter(1));
-            b.invokeVirtual(DECODE_KEY_METHOD_NAME, null, params);
+                if (i == 3) {
+                    b.loadThis();
+                    b.loadLocal(b.getParameter(2));
+                    b.invokeVirtual(DECODE_DATA_METHOD_NAME, null, params);
 
-            b.loadThis();
-            b.loadLocal(b.getParameter(2));
-            b.invokeVirtual(DECODE_DATA_METHOD_NAME, null, params);
+                    // Indicate that object is clean by calling markAllPropertiesClean.
+                    b.loadThis();
+                    b.invokeVirtual(MARK_ALL_PROPERTIES_CLEAN, null, null);
+                } else {
+                    // Only the primary key is clean. Calling
+                    // markPropertiesClean might have no effect since subclass
+                    // may set fields directly. Instead, set state bits directly.
 
-            // Indicate that object is clean by calling markAllPropertiesClean.
-            b.loadThis();
-            b.invokeVirtual(MARK_ALL_PROPERTIES_CLEAN, null, null);
+                    Collection<? extends StorableProperty<S>> properties = StorableIntrospector
+                        .examine(storableClass).getPrimaryKeyProperties().values();
+                    final int count = properties.size();
+                    int ordinal = 0;
+                    int andMask = ~0;
+                    int orMask = 0;
+
+                    for (StorableProperty property : properties) {
+                        orMask |= StorableGenerator.PROPERTY_STATE_CLEAN << ((ordinal & 0xf) * 2);
+                        andMask &= StorableGenerator.PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2);
+
+                        ordinal++;
+                        if ((ordinal & 0xf) == 0 || ordinal >= count) {
+                            String stateFieldName =
+                                StorableGenerator.PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4);
+                            b.loadThis();
+                            if (andMask == 0) {
+                                b.loadConstant(orMask);
+                            } else {
+                                b.loadThis();
+                                b.loadField(stateFieldName, TypeDesc.INT);
+                                b.loadConstant(andMask);
+                                b.math(Opcode.IAND);
+                                b.loadConstant(orMask);
+                                b.math(Opcode.IOR);
+                            }
+                            b.storeField(stateFieldName, TypeDesc.INT);
+                            andMask = ~0;
+                            orMask = 0;
+                        }
+                    }
+                }
+            }
 
             b.returnVoid();
         }
