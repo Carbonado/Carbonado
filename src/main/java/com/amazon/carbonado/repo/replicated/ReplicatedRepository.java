@@ -422,6 +422,8 @@ class ReplicatedRepository
             replicaCursor = replicaQuery.fetch();
             masterCursor = masterQuery.fetch();
 
+            S lastReplicaEntry = null;
+            S lastMasterEntry = null;
             S replicaEntry = null;
             S masterEntry = null;
             
@@ -453,32 +455,43 @@ class ReplicatedRepository
                             }
                             break;
                         } catch (CorruptEncodingException e) {
-                            replicaEntry = null;
-                            Storable withKey = e.getStorableWithPrimaryKey();
+                            // Exception forces cursor to close. Close again to be sure.
+                            replicaCursor.close();
+                            replicaCursor = null;
 
-                            if (withKey != null &&
-                                withKey.storableType() == replicaStorage.getStorableType())
-                            {
-                                // Delete corrupt replica entry.
+                            skipCorruption: {
+                                Storable withKey = e.getStorableWithPrimaryKey();
+
+                                if (withKey != null &&
+                                    withKey.storableType() == replicaStorage.getStorableType())
+                                {
+                                    // Delete corrupt replica entry.
+                                    try {
+                                        trigger.deleteReplica(withKey);
+                                        log.info("Deleted corrupt replica entry: " +
+                                                 withKey.toStringKeyOnly(), e);
+                                        break skipCorruption;
+                                    } catch (PersistException e2) {
+                                        log.warn("Unable to delete corrupt replica entry: " +
+                                                 withKey.toStringKeyOnly(), e2);
+                                    }
+                                }
+
+                                // Just skip it.
                                 try {
-                                    withKey.delete();
-                                    log.info("Deleted corrupt replica entry: " +
-                                             withKey.toStringKeyOnly(), e);
-                                    continue;
-                                } catch (PersistException e2) {
-                                    log.warn("Unable to delete corrupt replica entry: " +
-                                             withKey.toStringKeyOnly(), e2);
+                                    skippedCount += replicaCursor.skipNext(1);
+                                    log.info("Skipped corrupt replica entry", e);
+                                } catch (FetchException e2) {
+                                    log.error("Unable to skip past corrupt replica entry", e2);
+                                    throw e;
                                 }
                             }
 
-                            // Just skip it.
-                            try {
-                                skippedCount += replicaCursor.skipNext(1);
-                                log.info("Skipped corrupt replica entry", e);
-                            } catch (FetchException e2) {
-                                log.error("Unable to skip past corrupt replica entry", e2);
-                                throw e;
+                            // Re-open (if we can)
+                            if (lastReplicaEntry == null) {
+                                break;
                             }
+                            replicaCursor = replicaQuery.fetchAfter(lastReplicaEntry);
                         }
                     }
                 }
@@ -512,11 +525,13 @@ class ReplicatedRepository
                     if (replicaCursor == null) {
                         replicaCursor = replicaQuery.fetchAfter(replicaEntry);
                     }
+                    lastReplicaEntry = replicaEntry;
                     replicaEntry = null;
                 } else if (compare > 0) {
                     // Replica cursor is missing an entry so copy it.
                     resyncTask = prepareResyncTask(trigger, null, masterEntry);
                     // Allow master to advance.
+                    lastMasterEntry = masterEntry;
                     masterEntry = null;
                 } else {
                     if (replicaEntry == null && masterEntry == null) {
@@ -533,6 +548,8 @@ class ReplicatedRepository
                     if (replicaCursor == null) {
                         replicaCursor = replicaQuery.fetchAfter(replicaEntry);
                     }
+                    lastReplicaEntry = replicaEntry;
+                    lastMasterEntry = masterEntry;
                     replicaEntry = null;
                     masterEntry = null;
                 }

@@ -258,7 +258,8 @@ public class RawStorableGenerator {
 
                     for (StorableProperty property : properties) {
                         orMask |= StorableGenerator.PROPERTY_STATE_CLEAN << ((ordinal & 0xf) * 2);
-                        andMask &= StorableGenerator.PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2);
+                        andMask &=
+                            ~(StorableGenerator.PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2));
 
                         ordinal++;
                         if ((ordinal & 0xf) == 0 || ordinal >= count) {

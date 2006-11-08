@@ -149,7 +149,7 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                     if (!master.tryLoad()) {
                         // Master record does not exist. To ensure consistency,
                         // delete record from replica.
-                        deleteReplica(replica);
+                        tryDeleteReplica(replica);
                         throw abortTry();
                     }
                 } else {
@@ -158,7 +158,7 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                     } catch (FetchNoneException e) {
                         // Master record does not exist. To ensure consistency,
                         // delete record from replica.
-                        deleteReplica(replica);
+                        tryDeleteReplica(replica);
                         throw e;
                     }
                 }
@@ -175,7 +175,7 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                     if (!master.tryUpdate()) {
                         // Master record does not exist. To ensure consistency,
                         // delete record from replica.
-                        deleteReplica(replica);
+                        tryDeleteReplica(replica);
                         throw abortTry();
                     }
                 } else {
@@ -184,7 +184,7 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                     } catch (PersistNoneException e) {
                         // Master record does not exist. To ensure consistency,
                         // delete record from replica.
-                        deleteReplica(replica);
+                        tryDeleteReplica(replica);
                         throw e;
                     }
                 }
@@ -350,12 +350,26 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
     /**
      * Deletes the replica entry with replication disabled.
      */
-    private void deleteReplica(S replica) throws PersistException {
+    boolean tryDeleteReplica(Storable replica) throws PersistException {
         // Disable replication to prevent trigger from being invoked by
         // deleting replica.
         setReplicationDisabled(true);
         try {
-            replica.tryDelete();
+            return replica.tryDelete();
+        } finally {
+            setReplicationDisabled(false);
+        }
+    }
+
+    /**
+     * Deletes the replica entry with replication disabled.
+     */
+    void deleteReplica(Storable replica) throws PersistException {
+        // Disable replication to prevent trigger from being invoked by
+        // deleting replica.
+        setReplicationDisabled(true);
+        try {
+            replica.delete();
         } finally {
             setReplicationDisabled(false);
         }
