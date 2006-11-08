@@ -20,6 +20,7 @@ package com.amazon.carbonado.spi;
 
 import java.lang.reflect.Method;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Map;
 
 import org.cojen.classfile.ClassFile;
@@ -69,6 +70,8 @@ public final class MasterStorableGenerator<S extends Storable> {
         DO_TRY_INSERT_MASTER_METHOD_NAME = "doTryInsert$master",
         DO_TRY_UPDATE_MASTER_METHOD_NAME = "doTryUpdate$master",
         DO_TRY_DELETE_MASTER_METHOD_NAME = "doTryDelete$master";
+
+    private static final String APPEND_UNINIT_PROPERTY = "appendUninitializedPropertyName$";
 
     private static final String INSERT_OP = "Insert";
     private static final String UPDATE_OP = "Update";
@@ -374,8 +377,107 @@ public final class MasterStorableGenerator<S extends Storable> {
                                 TypeDesc.BOOLEAN, null);
                 Label isInitialized = b.createLabel();
                 b.ifZeroComparisonBranch(isInitialized, "!=");
-                CodeBuilderUtil.throwException(b, ConstraintException.class,
-                                               "Not all required properties have been set");
+
+                // Throw a ConstraintException.
+                TypeDesc exType = TypeDesc.forClass(ConstraintException.class);
+                b.newObject(exType);
+                b.dup();
+
+                // Append all the uninitialized property names to the exception message.
+
+                LocalVariable countVar = b.createLocalVariable(null, TypeDesc.INT);
+                b.loadConstant(0);
+                b.storeLocal(countVar);
+
+                TypeDesc sbType = TypeDesc.forClass(StringBuilder.class);
+                b.newObject(sbType);
+                b.dup();
+                b.loadConstant("Not all required properties have been set: ");
+                TypeDesc[] stringParam = {TypeDesc.STRING};
+                b.invokeConstructor(sbType, stringParam);
+                LocalVariable sbVar = b.createLocalVariable(null, sbType);
+                b.storeLocal(sbVar);
+
+                int ordinal = -1;
+
+                HashSet<Integer> stateAppendMethods = new HashSet<Integer>();
+
+                // Parameters are: StringBuilder, count, mask, property name
+                TypeDesc[] appendParams = {sbType, TypeDesc.INT, TypeDesc.INT, TypeDesc.STRING};
+
+                for (StorableProperty<S> property : mAllProperties.values()) {
+                    ordinal++;
+
+                    if (property.isJoin() || property.isPrimaryKeyMember()
+                        || property.isNullable())
+                    {
+                        continue;
+                    }
+
+                    int stateField = ordinal >> 4;
+
+                    String stateAppendMethodName = APPEND_UNINIT_PROPERTY + stateField;
+
+                    if (!stateAppendMethods.contains(stateField)) {
+                        stateAppendMethods.add(stateField);
+
+                        MethodInfo mi2 = mClassFile.addMethod
+                            (Modifiers.PRIVATE, stateAppendMethodName, TypeDesc.INT, appendParams);
+
+                        CodeBuilder b2 = new CodeBuilder(mi2);
+
+                        // Load the StringBuilder parameter.
+                        b2.loadLocal(b2.getParameter(0));
+
+                        String stateFieldName =
+                            StorableGenerator.PROPERTY_STATE_FIELD_NAME + (ordinal >> 4);
+
+                        b2.loadThis();
+                        b2.loadField(stateFieldName, TypeDesc.INT);
+                        // Load the mask parameter.
+                        b2.loadLocal(b2.getParameter(2));
+                        b2.math(Opcode.IAND);
+                        
+                        Label propIsInitialized = b2.createLabel();
+                        b2.ifZeroComparisonBranch(propIsInitialized, "!=");
+
+                        // Load the count parameter.
+                        b2.loadLocal(b2.getParameter(1));
+                        Label noComma = b2.createLabel();
+                        b2.ifZeroComparisonBranch(noComma, "==");
+                        b2.loadConstant(", ");
+                        b2.invokeVirtual(sbType, "append", sbType, stringParam);
+                        noComma.setLocation();
+
+                        // Load the property name parameter.
+                        b2.loadLocal(b2.getParameter(3));
+                        b2.invokeVirtual(sbType, "append", sbType, stringParam);
+
+                        // Increment the count parameter.
+                        b2.integerIncrement(b2.getParameter(1), 1);
+
+                        propIsInitialized.setLocation();
+
+                        // Return the possibly updated count.
+                        b2.loadLocal(b2.getParameter(1));
+                        b2.returnValue(TypeDesc.INT);
+                    }
+
+                    b.loadThis();
+                    // Parameters are: StringBuilder, count, mask, property name
+                    b.loadLocal(sbVar);
+                    b.loadLocal(countVar);
+                    b.loadConstant(StorableGenerator.PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2));
+                    b.loadConstant(property.getName());
+                    b.invokePrivate(stateAppendMethodName, TypeDesc.INT, appendParams);
+                    b.storeLocal(countVar);
+                }
+
+                b.loadLocal(sbVar);
+                b.invokeVirtual(sbType, "toString", TypeDesc.STRING, null);
+                b.invokeConstructor(exType, new TypeDesc[] {TypeDesc.STRING});
+                b.throwObject();
+
                 isInitialized.setLocation();
             }
 
