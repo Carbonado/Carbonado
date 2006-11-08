@@ -1,6 +1,12 @@
 Carbonado change history
 ------------------------
 
+1.1-BETA3 to 1.1-BETA4
+-------------------------------
+- Added additional repair logic in resync if replica entries are corrupt.
+- ConstraintException thrown when inserting uninitialized properties now
+  includes property names in the exception message.
+
 1.1-BETA2 to 1.1-BETA3
 -------------------------------
 - Fixed exception when printing join plan with blank parameters.
