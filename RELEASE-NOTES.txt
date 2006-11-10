@@ -1,6 +1,10 @@
 Carbonado change history
 ------------------------
 
+1.1-BETA4 to 1.1-BETA5
+-------------------------------
+- More fixes in resync corruption repair logic.
+
 1.1-BETA3 to 1.1-BETA4
 -------------------------------
 - Added additional repair logic in resync if replica entries are corrupt.
