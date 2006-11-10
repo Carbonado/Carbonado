@@ -72,16 +72,10 @@ public class OptimisticLockException extends PersistException {
     }
 
     private static String makeMessage(Object expectedVersion, Object savedVersion) {
-        if (expectedVersion == null) {
-            if (savedVersion == null) {
-                return null;
-            }
-            return "Failed to update because saved version is " + savedVersion;
+        if (expectedVersion == null && savedVersion == null) {
+            return null;
         }
-        if (savedVersion == null) {
-            return "Failed to update for expected version " + expectedVersion;
-        }
-        return "Failed to update for expected version " + expectedVersion +
-            " because saved version is " + savedVersion;
+        return "Update acted on version " + expectedVersion +
+            ", but canonical version is " + savedVersion;
     }
 }
