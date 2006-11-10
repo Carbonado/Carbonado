@@ -439,7 +439,7 @@ class ReplicatedRepository
                 }
 
                 if (replicaEntry == null && replicaCursor != null) {
-                    long skippedCount = 0;
+                    int skippedCount = 0;
                     while (replicaCursor.hasNext()) {
                         try {
                             replicaEntry = replicaCursor.next();
@@ -459,31 +459,27 @@ class ReplicatedRepository
                             replicaCursor.close();
                             replicaCursor = null;
 
-                            skipCorruption: {
-                                Storable withKey = e.getStorableWithPrimaryKey();
+                            boolean skip = true;
 
-                                if (withKey != null &&
-                                    withKey.storableType() == replicaStorage.getStorableType())
-                                {
-                                    // Delete corrupt replica entry.
-                                    try {
-                                        trigger.deleteReplica(withKey);
-                                        log.info("Deleted corrupt replica entry: " +
-                                                 withKey.toStringKeyOnly(), e);
-                                        break skipCorruption;
-                                    } catch (PersistException e2) {
-                                        log.warn("Unable to delete corrupt replica entry: " +
-                                                 withKey.toStringKeyOnly(), e2);
-                                    }
-                                }
+                            Storable withKey = e.getStorableWithPrimaryKey();
+                            S replicaWithKeyOnly = null;
 
-                                // Just skip it.
+                            if (withKey != null &&
+                                withKey.storableType() == replicaStorage.getStorableType())
+                            {
+                                replicaWithKeyOnly = (S) withKey;
+                            }
+
+                            if (replicaWithKeyOnly != null) {
+                                // Delete corrupt replica entry.
                                 try {
-                                    skippedCount += replicaCursor.skipNext(1);
-                                    log.info("Skipped corrupt replica entry", e);
-                                } catch (FetchException e2) {
-                                    log.error("Unable to skip past corrupt replica entry", e2);
-                                    throw e;
+                                    trigger.deleteReplica(replicaWithKeyOnly);
+                                    log.info("Deleted corrupt replica entry: " +
+                                             replicaWithKeyOnly.toStringKeyOnly(), e);
+                                    skip = false;
+                                } catch (PersistException e2) {
+                                    log.warn("Unable to delete corrupt replica entry: " +
+                                             replicaWithKeyOnly.toStringKeyOnly(), e2);
                                 }
                             }
 
@@ -492,6 +488,21 @@ class ReplicatedRepository
                                 break;
                             }
                             replicaCursor = replicaQuery.fetchAfter(lastReplicaEntry);
+
+                            if (skip) {
+                                try {
+                                    skippedCount = replicaCursor.skipNext(++skippedCount);
+                                    log.info("Skipped corrupt replica entry", e);
+                                    if (replicaWithKeyOnly != null) {
+                                        // Try to update entry which could not be deleted.
+                                        replicaEntry = replicaWithKeyOnly;
+                                        break;
+                                    }
+                                } catch (FetchException e2) {
+                                    log.error("Unable to skip past corrupt replica entry", e2);
+                                    throw e;
+                                }
+                            }
                         }
                     }
                 }

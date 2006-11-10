@@ -244,31 +244,37 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
             try {
                 if (replicaEntry != null) {
                     if (masterEntry == null) {
-                        log.info("Deleting bogus entry: " + replicaEntry);
+                        log.info("Deleting bogus replica entry: " + replicaEntry);
                     }
-                    replicaEntry.tryDelete();
+                    try {
+                        replicaEntry.tryDelete();
+                    } catch (PersistException e) {
+                        log.error("Unable to delete replica entry: " + replicaEntry, e);
+                        if (masterEntry != null) {
+                            // Try to update instead.
+                            S newReplicaEntry = mReplicaStorage.prepare();
+                            transferToReplicaEntry(replicaEntry, masterEntry, newReplicaEntry);
+                            log.info("Replacing corrupt replica entry with: " + newReplicaEntry);
+                            try {
+                                newReplicaEntry.update();
+                            } catch (PersistException e2) {
+                                log.error("Unable to update replica entry: " + replicaEntry, e2);
+                                return;
+                            }
+                        }
+                    }
                 }
                 if (masterEntry != null) {
-                    Storable newReplicaEntry = mReplicaStorage.prepare();
+                    S newReplicaEntry = mReplicaStorage.prepare();
                     if (replicaEntry == null) {
                         masterEntry.copyAllProperties(newReplicaEntry);
-                        log.info("Adding missing entry: " + newReplicaEntry);
+                        log.info("Adding missing replica entry: " + newReplicaEntry);
                     } else {
                         if (replicaEntry.equalProperties(masterEntry)) {
                             return;
                         }
-                        // First copy from old replica to preserve values of
-                        // any independent properties. Be sure not to copy
-                        // nulls from old replica to new replica, in case new
-                        // non-nullable properties have been added. This is why
-                        // copyUnequalProperties is called instead of
-                        // copyAllProperties.
-                        replicaEntry.copyUnequalProperties(newReplicaEntry);
-                        // Calling copyAllProperties will skip unsupported
-                        // independent properties in master, thus preserving
-                        // old independent property values.
-                        masterEntry.copyAllProperties(newReplicaEntry);
-                        log.info("Replacing stale entry with: " + newReplicaEntry);
+                        transferToReplicaEntry(replicaEntry, masterEntry, newReplicaEntry);
+                        log.info("Replacing stale replica entry with: " + newReplicaEntry);
                     }
                     if (!newReplicaEntry.tryInsert()) {
                         // Try to correct bizarre corruption.
@@ -283,6 +289,17 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         } finally {
             setReplicationDisabled(false);
         }
+    }
+
+    private void transferToReplicaEntry(S replicaEntry, S masterEntry, S newReplicaEntry) {
+        // First copy from old replica to preserve values of any independent
+        // properties. Be sure not to copy nulls from old replica to new
+        // replica, in case new non-nullable properties have been added. This
+        // is why copyUnequalProperties is called instead of copyAllProperties.
+        replicaEntry.copyUnequalProperties(newReplicaEntry);
+        // Calling copyAllProperties will skip unsupported independent
+        // properties in master, thus preserving old independent property values.
+        masterEntry.copyAllProperties(newReplicaEntry);
     }
 
     /**
