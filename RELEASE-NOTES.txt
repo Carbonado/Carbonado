@@ -4,6 +4,7 @@ Carbonado change history
 1.1-BETA4 to 1.1-BETA5
 -------------------------------
 - More fixes in resync corruption repair logic.
+- Fixed deadlock when using unsupported Storage for the first time.
 
 1.1-BETA3 to 1.1-BETA4
 -------------------------------

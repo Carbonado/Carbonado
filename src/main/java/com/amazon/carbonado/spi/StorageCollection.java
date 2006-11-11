@@ -70,35 +70,42 @@ public abstract class StorageCollection {
             }
         }
 
-        synchronized (lock) {
-            // Check storage map again before creating new storage.
-            while (true) {
-                storage = mStorageMap.get(type);
-                if (storage != null) {
-                    return storage;
-                }
-                if (doCreate) {
-                    break;
-                }
-                try {
-                    lock.wait();
-                } catch (InterruptedException e) {
-                    throw new RepositoryException("Interrupted");
-                }
-            }
-
-            // Examine and throw exception early if there is a problem.
-            StorableIntrospector.examine(type);
-
-            storage = createStorage(type);
-
-            mStorageMap.put(type, storage);
-            lock.notifyAll();
+        if (Thread.holdsLock(lock)) {
+            throw new IllegalStateException
+                ("Recursively trying to create storage for type: " + type);
         }
 
-        // Storable type lock no longer needed.
-        synchronized (mStorableTypeLockMap) {
-            mStorableTypeLockMap.remove(type);
+        try {
+            synchronized (lock) {
+                // Check storage map again before creating new storage.
+                while (true) {
+                    storage = mStorageMap.get(type);
+                    if (storage != null) {
+                        return storage;
+                    }
+                    if (doCreate) {
+                        break;
+                    }
+                    try {
+                        lock.wait();
+                    } catch (InterruptedException e) {
+                        throw new RepositoryException("Interrupted");
+                    }
+                }
+
+                // Examine and throw exception early if there is a problem.
+                StorableIntrospector.examine(type);
+
+                storage = createStorage(type);
+
+                mStorageMap.put(type, storage);
+                lock.notifyAll();
+            }
+        } finally {
+            // Storable type lock no longer needed.
+            synchronized (mStorableTypeLockMap) {
+                mStorableTypeLockMap.remove(type);
+            }
         }
 
         return storage;
