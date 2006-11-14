@@ -135,12 +135,12 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
 
     @Override
     JDBCBlob convertBlob(java.sql.Blob blob, JDBCBlobLoader loader) {
-        return new OracleBlob(mRepo, blob, loader);
+        return blob == null ? null : new OracleBlob(mRepo, blob, loader);
     }
 
     @Override
     JDBCClob convertClob(java.sql.Clob clob, JDBCClobLoader loader) {
-        return new OracleClob(mRepo, clob, loader);
+        return clob == null ? null : new OracleClob(mRepo, clob, loader);
     }
 
     /**
