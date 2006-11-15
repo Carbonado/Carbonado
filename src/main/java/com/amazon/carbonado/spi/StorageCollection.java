@@ -19,8 +19,8 @@
 package com.amazon.carbonado.spi;
 
 import java.util.IdentityHashMap;
-import java.util.Map;
 
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.amazon.carbonado.MalformedTypeException;
@@ -40,12 +40,12 @@ import com.amazon.carbonado.info.StorableIntrospector;
  * @author Brian S O'Neill
  */
 public abstract class StorageCollection {
-    private final Map<Class<?>, Storage> mStorageMap;
-    private final Map<Class<?>, Object> mStorableTypeLockMap;
+    private final ConcurrentMap<Class<?>, Storage> mStorageMap;
+    private final ConcurrentMap<Class<?>, Object> mStorableTypeLockMap;
 
     public StorageCollection() {
         mStorageMap = new ConcurrentHashMap<Class<?>, Storage>();
-        mStorableTypeLockMap = new IdentityHashMap<Class<?>, Object>();
+        mStorableTypeLockMap = new ConcurrentHashMap<Class<?>, Object>();
     }
 
     public <S extends Storable> Storage<S> storageFor(Class<S> type)
@@ -56,55 +56,63 @@ public abstract class StorageCollection {
             return storage;
         }
 
-        Object lock;
-        boolean doCreate;
+        getLock: while (true) {
+            Object lock;
+            boolean doCreate;
 
-        synchronized (mStorableTypeLockMap) {
-            lock = mStorableTypeLockMap.get(type);
-            if (lock != null) {
-                doCreate = false;
-            } else {
-                doCreate = true;
-                lock = new Object();
-                mStorableTypeLockMap.put(type, lock);
-            }
-        }
+            {
+                Object newLock = new Object();
+                Object existingLock = mStorableTypeLockMap.putIfAbsent(type, newLock);
 
-        if (Thread.holdsLock(lock)) {
-            throw new IllegalStateException
-                ("Recursively trying to create storage for type: " + type);
-        }
-
-        try {
-            synchronized (lock) {
-                // Check storage map again before creating new storage.
-                while (true) {
-                    storage = mStorageMap.get(type);
-                    if (storage != null) {
-                        return storage;
-                    }
-                    if (doCreate) {
-                        break;
-                    }
-                    try {
-                        lock.wait();
-                    } catch (InterruptedException e) {
-                        throw new RepositoryException("Interrupted");
-                    }
+                if (existingLock == null) {
+                    lock = newLock;
+                    doCreate = true;
+                } else {
+                    lock = existingLock;
+                    doCreate = false;
                 }
-
-                // Examine and throw exception early if there is a problem.
-                StorableIntrospector.examine(type);
-
-                storage = createStorage(type);
-
-                mStorageMap.put(type, storage);
-                lock.notifyAll();
             }
-        } finally {
-            // Storable type lock no longer needed.
-            synchronized (mStorableTypeLockMap) {
-                mStorableTypeLockMap.remove(type);
+
+            if (Thread.holdsLock(lock)) {
+                throw new IllegalStateException
+                    ("Recursively trying to create storage for type: " + type);
+            }
+
+            synchronized (lock) {
+                try {
+                    // Check storage map again before creating new storage.
+                    checkLock: while (true) {
+                        storage = mStorageMap.get(type);
+                        if (storage != null) {
+                            return storage;
+                        }
+                        if (mStorableTypeLockMap.get(type) != lock) {
+                            // Lock has changed, so get a new lock.
+                            continue getLock;
+                        }
+                        if (doCreate) {
+                            break checkLock;
+                        }
+                        try {
+                            // Wait with a timeout to handle rare race condition.
+                            lock.wait(100);
+                        } catch (InterruptedException e) {
+                            throw new RepositoryException("Interrupted");
+                        }
+                    }
+
+                    // Examine and throw exception early if there is a problem.
+                    StorableIntrospector.examine(type);
+
+                    storage = createStorage(type);
+
+                    mStorageMap.put(type, storage);
+                    break getLock;
+                } finally {
+                    // Storable type lock no longer needed.
+                    mStorableTypeLockMap.remove(type, lock);
+                    lock.notifyAll();
+                }
             }
         }
 
