@@ -20,8 +20,8 @@ databases.
     Defining new types in Carbonado involves creating an interface or abstract
 class which follows Java bean conventions. Additional information is specified
 by inserting special annotations. At the very least, an annotation is required
-to specify the primary key. Annotations are feature first available in Java 5,
-and as a result, Carbonado depends on Java 5.
+to specify the primary key. Annotations are a feature first available in Java
+5, and as a result, Carbonado depends on Java 5.
 
     On the surface, it may appear that Carbonado types are defined like POJOs.
 The difference is that in Carbonado, types are object representations of
