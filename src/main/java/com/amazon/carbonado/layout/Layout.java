@@ -408,7 +408,17 @@ public class Layout {
             throw new IllegalStateException();
         }
         mStoredLayout.setGeneration(generation);
-        mStoredLayout.insert();
+        if (!mStoredLayout.tryInsert()) {
+            StoredLayout existing = mLayoutFactory.mLayoutStorage.prepare();
+            mStoredLayout.copyPrimaryKeyProperties(existing);
+            try {
+                existing.load();
+            } catch (FetchException e) {
+                throw e.toPersistException();
+            }
+            mStoredLayout.setVersionNumber(existing.getVersionNumber());
+            mStoredLayout.update();
+        }
         for (LayoutProperty property : mAllProperties) {
             property.insert();
         }

@@ -125,6 +125,13 @@ public class LayoutFactory implements LayoutCapability {
                             break loadLayout;
                         }
 
+                        if (knownLayout.getAllProperties().size() == 0) {
+                            // This is clearly wrong. All Storables must have
+                            // at least one property. Assume that layout record
+                            // is corrupt so rebuild it.
+                            break;
+                        }
+
                         // If this point is reached, then there was a hash collision in
                         // the generated layout ID. This should be extremely rare.
                         // Rehash and try again.
@@ -133,7 +140,8 @@ public class LayoutFactory implements LayoutCapability {
                             // No more rehashes to attempt. This should be extremely,
                             // extremely rare, unless there is a bug somewhere.
                             throw new FetchException
-                                ("Unable to generate unique layout identifier");
+                                ("Unable to generate unique layout identifier for " +
+                                 type.getName());
                         }
                     }
 
