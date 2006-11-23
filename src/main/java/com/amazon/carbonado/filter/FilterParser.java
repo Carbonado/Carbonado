@@ -164,7 +164,7 @@ class FilterParser<S extends Storable> {
             }
             operatorCheck();
             break;
-        case '?': case ':':
+        case '?':
             mPos--;
             throw error("Relational operator missing");
         case -1:
@@ -189,7 +189,7 @@ class FilterParser<S extends Storable> {
         mPos--;
         switch (c) {
         case -1:
-        case '?': case ':':
+        case '?':
         case '(': case ')':
         case ' ': case '\r': case '\n': case '\t': case '\0':
             return;
