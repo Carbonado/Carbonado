@@ -1121,25 +1121,61 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 return e;
             }
 
-            mPropertyFilters.add(filter);
+            if (!filter.isConstant()) {
+                addBindParameter(filter);
+            } else {
+                RelOp op = filter.getOperator();
 
+                Object constant = filter.constant();
+                if (constant == null) {
+                    if (op == RelOp.EQ) {
+                        mStatementBuilder.append("IS NULL");
+                    } else if (op == RelOp.NE) {
+                        mStatementBuilder.append("IS NOT NULL");
+                    } else {
+                        mStatementBuilder.append(sqlOperatorFor(op));
+                        mStatementBuilder.append("NULL");
+                    }
+                } else if (filter.getType() == String.class) {
+                    mStatementBuilder.append(sqlOperatorFor(op));
+                    mStatementBuilder.append('\'');
+                    mStatementBuilder.append(String.valueOf(constant).replace("'", "''"));
+                    mStatementBuilder.append('\'');
+                } else if (Number.class.isAssignableFrom(filter.getBoxedType())) {
+                    mStatementBuilder.append(sqlOperatorFor(op));
+                    mStatementBuilder.append(String.valueOf(constant));
+                } else {
+                    // Don't try to create literal for special type. Instead,
+                    // fallback to bind parameter and let JDBC driver do the work.
+                    addBindParameter(filter);
+                }
+            }
+
+            return null;
+        }
+
+        private void addBindParameter(PropertyFilter<S> filter) {
             RelOp op = filter.getOperator();
             StorableProperty<?> property = filter.getChainedProperty().getLastProperty();
+
+            mPropertyFilters.add(filter);
 
             if (property.isNullable() && (op == RelOp.EQ || op == RelOp.NE)) {
                 mPropertyFilterNullable.add(true);
                 mStatementBuilder.append(new NullablePropertyStatement<S>(filter, op == RelOp.EQ));
             } else {
                 mPropertyFilterNullable.add(false);
-                if (op == RelOp.NE) {
-                    mStatementBuilder.append("<>");
-                } else {
-                    mStatementBuilder.append(op.toString());
-                }
+                mStatementBuilder.append(sqlOperatorFor(op));
                 mStatementBuilder.append('?');
             }
+        }
 
-            return null;
+        private String sqlOperatorFor(RelOp op) {
+            if (op == RelOp.NE) {
+                return "<>";
+            } else {
+                return op.toString();
+            }
         }
     }
 }

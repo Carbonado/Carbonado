@@ -1,6 +1,10 @@
 Carbonado change history
 ------------------------
 
+1.1-BETA5 to 1.1-BETA6
+-------------------------------
+- Query filter constants appear as SQL constants.
+
 1.1-BETA4 to 1.1-BETA5
 -------------------------------
 - More fixes in resync corruption repair logic.
