@@ -143,8 +143,11 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         if (mValues == null) {
             newValues = filter.initialFilterValues();
         } else {
+            if (getBlankParameterCount() > 0) {
+                throw new IllegalStateException("Blank parameters exist in query: " + this);
+            }
             newValues = mValues.getFilter().and(filter)
-                .initialFilterValues().withValues(mValues.getValues());
+                .initialFilterValues().withValues(mValues.getSuppliedValues());
         }
         return createQuery(newValues, mOrdering);
     }
@@ -153,8 +156,11 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         if (mValues == null) {
             throw new IllegalStateException("Query is already guaranteed to fetch everything");
         }
+        if (getBlankParameterCount() > 0) {
+            throw new IllegalStateException("Blank parameters exist in query: " + this);
+        }
         FilterValues<S> newValues = mValues.getFilter().or(filter)
-            .initialFilterValues().withValues(mValues.getValues());
+            .initialFilterValues().withValues(mValues.getSuppliedValues());
         return createQuery(newValues, mOrdering);
     }
 
