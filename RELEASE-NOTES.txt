@@ -3,6 +3,8 @@ Carbonado change history
 
 1.1-BETA5 to 1.1-BETA6
 -------------------------------
+- Added automatic repair for broken layout metadata.
+- Fix conversion of null lobs.
 - Query filter constants appear as SQL constants.
 
 1.1-BETA4 to 1.1-BETA5
