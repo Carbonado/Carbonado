@@ -185,7 +185,9 @@ public class LayoutProperty {
         return mStoredLayoutProperty.toString();
     }
 
-    void insert() throws PersistException {
-        mStoredLayoutProperty.insert();
+    void store() throws PersistException {
+        if (!mStoredLayoutProperty.tryInsert()) {
+            mStoredLayoutProperty.update();
+        }
     }
 }

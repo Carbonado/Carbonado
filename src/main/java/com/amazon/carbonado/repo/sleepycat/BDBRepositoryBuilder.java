@@ -512,7 +512,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      * ever persisted.
      */
     public void setLogInMemory(boolean logInMemory) {
-        mLogInMemory = true;
+        mLogInMemory = logInMemory;
     }
 
     /**

@@ -420,7 +420,7 @@ public class Layout {
             mStoredLayout.update();
         }
         for (LayoutProperty property : mAllProperties) {
-            property.insert();
+            property.store();
         }
     }
 }

@@ -124,6 +124,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
         cf.setTarget("1.5");
 
         // Declare some types.
+        final TypeDesc storableType = TypeDesc.forClass(Storable.class);
         final TypeDesc rawSupportType = TypeDesc.forClass(RawSupport.class);
         final TypeDesc byteArrayType = TypeDesc.forClass(byte[].class);
         final TypeDesc[] byteArrayParam = {byteArrayType};
@@ -285,13 +286,28 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             haveCodec.setLocation();
             b.checkCast(codecType);
             b.loadLocal(actualGeneration);
+            Label tryStartDecode = b.createLabel().setLocation();
             b.invokeVirtual(codecType, "getDecoder", decoderType, new TypeDesc[] {TypeDesc.INT});
             b.loadThis();
             b.loadLocal(b.getParameter(0));
             b.invokeInterface(decoderType, "decode", null,
-                              new TypeDesc[] {TypeDesc.forClass(Storable.class), byteArrayType});
+                              new TypeDesc[] {storableType, byteArrayType});
+            Label tryEndDecode = b.createLabel().setLocation();
 
             b.returnVoid();
+
+            // If unable to decode, fill out exception.
+            b.exceptionHandler(tryStartDecode, tryEndDecode,
+                               CorruptEncodingException.class.getName());
+            TypeDesc exType = TypeDesc.forClass(CorruptEncodingException.class);
+            LocalVariable exVar = b.createLocalVariable(null, TypeDesc.OBJECT);
+            b.storeLocal(exVar);
+            b.loadLocal(exVar);
+            b.loadThis();
+            b.invokeVirtual(exType, "setStorableWithPrimaryKey", null,
+                            new TypeDesc[] {storableType});
+            b.loadLocal(exVar);
+            b.throwObject();
         }
 
         return ci.defineClass(cf);
