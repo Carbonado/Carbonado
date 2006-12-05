@@ -1,6 +1,10 @@
 Carbonado change history
 ------------------------
 
+1.1-BETA5 to 1.1-BETA7
+-------------------------------
+- Added record version number to internal sequence generating Storable.
+
 1.1-BETA5 to 1.1-BETA6
 -------------------------------
 - Added automatic repair for broken layout metadata.

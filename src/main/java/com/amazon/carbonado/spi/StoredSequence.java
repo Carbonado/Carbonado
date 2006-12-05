@@ -22,6 +22,7 @@ import com.amazon.carbonado.Alias;
 import com.amazon.carbonado.Independent;
 import com.amazon.carbonado.PrimaryKey;
 import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.Version;
 
 /**
  * Stores data for {@link SequenceValueGenerator}.
@@ -48,4 +49,12 @@ public interface StoredSequence extends Storable<StoredSequence> {
      */
     long getNextValue();
     void setNextValue(long value);
+
+    /**
+     * Record version number for this StoredSequence instance. Some encoding
+     * strategies require a version number.
+     */
+    @Version
+    int getVersionNumber();
+    void setVersionNumber(int version);
 }
