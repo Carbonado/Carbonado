@@ -30,20 +30,26 @@ public class OptimisticLockException extends PersistException {
 
     private static final long serialVersionUID = 4081788711829580886L;
 
+    private final Storable mStorable;
+
     public OptimisticLockException() {
         super();
+        mStorable = null;
     }
 
     public OptimisticLockException(String message) {
         super(message);
+        mStorable = null;
     }
 
     public OptimisticLockException(String message, Throwable cause) {
         super(message, cause);
+        mStorable = null;
     }
 
     public OptimisticLockException(Throwable cause) {
         super(cause);
+        mStorable = null;
     }
 
     /**
@@ -68,14 +74,44 @@ public class OptimisticLockException extends PersistException {
      * @param savedVersion actual persistent version number of storable
      */
     public OptimisticLockException(Object expectedVersion, Object savedVersion) {
-        super(makeMessage(expectedVersion, savedVersion));
+        this(expectedVersion, savedVersion, null);
     }
 
-    private static String makeMessage(Object expectedVersion, Object savedVersion) {
+    /**
+     * @param expectedVersion version number that was expected for persistent
+     * record when update was executed
+     * @param savedVersion actual persistent version number of storable
+     * @param s Storable which was acted upon
+     */
+    public OptimisticLockException(Object expectedVersion, Object savedVersion, Storable s) {
+        super(makeMessage(expectedVersion, savedVersion, s));
+        mStorable = s;
+    }
+
+    /**
+     * Returns the Storable which was acted upon, or null if not available.
+     */
+    public Storable getStorable() {
+        return mStorable;
+    }
+
+    private static String makeMessage(Object expectedVersion, Object savedVersion, Storable s) {
+        String message;
         if (expectedVersion == null && savedVersion == null) {
-            return null;
+            message = null;
+        } else {
+            message = "Update acted on version " + expectedVersion +
+                ", but canonical version is " + savedVersion;
         }
-        return "Update acted on version " + expectedVersion +
-            ", but canonical version is " + savedVersion;
+
+        if (s != null) {
+            if (message == null) {
+                message = s.toStringKeyOnly();
+            } else {
+                message = message + ": " + s.toStringKeyOnly();
+            }
+        }
+
+        return message;
     }
 }

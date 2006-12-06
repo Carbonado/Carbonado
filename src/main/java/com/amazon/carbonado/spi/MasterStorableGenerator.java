@@ -546,7 +546,7 @@ public final class MasterStorableGenerator<S extends Storable> {
                 // if (version support enabled) {
                 //     if (this.getVersionNumber() != saved.getVersionNumber()) {
                 //         throw new OptimisticLockException
-                //             (this.getVersionNumber(), saved.getVersionNumber());
+                //             (this.getVersionNumber(), saved.getVersionNumber(), this);
                 //     }
                 // }
                 if (mFeatures.contains(MasterFeature.VERSIONING)) {
@@ -565,8 +565,10 @@ public final class MasterStorableGenerator<S extends Storable> {
                     b.loadLocal(savedVar);
                     b.invoke(mInfo.getVersionProperty().getReadMethod());
                     b.convert(versionType, TypeDesc.OBJECT);
-                    b.invokeConstructor(optimisticLockType,
-                                        new TypeDesc[] {TypeDesc.OBJECT, TypeDesc.OBJECT});
+                    b.loadThis();
+                    b.invokeConstructor
+                        (optimisticLockType,
+                         new TypeDesc[] {TypeDesc.OBJECT, TypeDesc.OBJECT, storableType});
                     b.throwObject();
                     sameVersion.setLocation();
                 }
