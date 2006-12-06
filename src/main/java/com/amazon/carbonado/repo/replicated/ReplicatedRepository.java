@@ -168,11 +168,7 @@ class ReplicatedRepository
         return mName;
     }
 
-    Repository getReplicaRepository() {
-        return mReplicaRepository;
-    }
-
-    Repository getMasterRepository() {
+    public Repository getMasterRepository() {
         return mMasterRepository;
     }
 

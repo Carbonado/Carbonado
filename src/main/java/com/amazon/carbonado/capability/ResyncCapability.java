@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.capability;
 
+import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 
@@ -43,4 +44,10 @@ public interface ResyncCapability extends Capability {
                                      String filter,
                                      Object... filterValues)
         throws RepositoryException;
+
+    /**
+     * Returns the immediate master Repository, for manual comparison. Direct
+     * updates to the master will likely create inconsistencies.
+     */
+    Repository getMasterRepository();
 }
