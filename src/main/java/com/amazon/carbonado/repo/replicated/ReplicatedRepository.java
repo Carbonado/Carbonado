@@ -168,6 +168,11 @@ class ReplicatedRepository
         return mName;
     }
 
+    // Used by test suite.
+    Repository getReplicaRepository() {
+        return mReplicaRepository;
+    }
+
     public Repository getMasterRepository() {
         return mMasterRepository;
     }
