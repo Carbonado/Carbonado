@@ -50,6 +50,7 @@ import com.amazon.carbonado.capability.ShutdownCapability;
 import com.amazon.carbonado.capability.StorableInfoCapability;
 
 import com.amazon.carbonado.info.Direction;
+import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 
 import com.amazon.carbonado.spi.StorageCollection;
@@ -152,13 +153,31 @@ class ReplicatedRepository
             protected <S extends Storable> Storage<S> createStorage(Class<S> type)
                 throws SupportException, RepositoryException
             {
-                Storage<S> replicaStorage = mReplicaRepository.storageFor(type);
+                StorableInfo<S> info = StorableIntrospector.examine(type);
 
-                try {
-                    return new ReplicatedStorage<S>(ReplicatedRepository.this, replicaStorage);
-                } catch (UnsupportedTypeException e) {
-                    // Okay, no master.
-                    return replicaStorage;
+                if (info.isAuthoritative()) {
+                    // Cannot rely on replica to be up-to-date, so always go to master.
+                    try {
+                        return mMasterRepository.storageFor(type);
+                    } catch (UnsupportedTypeException e) {
+                        if (info.isIndependent()) {
+                            // Okay, no master. A standalone replica is
+                            // considered to be authoritative.
+                            return mReplicaRepository.storageFor(type);
+                        }
+                        throw e;
+                    }
+                } else {
+                    Storage<S> replicaStorage = mReplicaRepository.storageFor(type);
+                    try {
+                        return new ReplicatedStorage<S>(ReplicatedRepository.this, replicaStorage);
+                    } catch (UnsupportedTypeException e) {
+                        if (info.isIndependent()) {
+                            // Okay, no master.
+                            return replicaStorage;
+                        }
+                        throw e;
+                    }
                 }
             }
         };

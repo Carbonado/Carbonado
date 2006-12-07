@@ -1020,6 +1020,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mMainInfo.isIndependent();
         }
 
+        public boolean isAuthoritative() {
+            return mMainInfo.isAuthoritative();
+        }
+
         public boolean isSupported() {
             return mTableName != null;
         }

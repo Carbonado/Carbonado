@@ -48,6 +48,7 @@ import org.cojen.util.WeakIdentityMap;
 
 import com.amazon.carbonado.Alias;
 import com.amazon.carbonado.AlternateKeys;
+import com.amazon.carbonado.Authoritative;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Index;
 import com.amazon.carbonado.Indexes;
@@ -220,7 +221,8 @@ public class StorableIntrospector {
 
             info = new Info<S>(type, aliases, indexes, properties,
                                primaryKey, alternateKeys,
-                               type.getAnnotation(Independent.class) != null);
+                               type.getAnnotation(Independent.class) != null,
+                               type.getAnnotation(Authoritative.class) != null);
             cCache.put(type, new SoftReference<StorableInfo<?>>(info));
 
             // Finish resolving join properties, after properties have been
@@ -1121,6 +1123,7 @@ public class StorableIntrospector {
         private final StorableKey<S> mPrimaryKey;
         private final StorableKey<S>[] mAltKeys;
         private final boolean mIndependent;
+        private final boolean mAuthoritative;
 
         private transient String mName;
         private transient Map<String, StorableProperty<S>> mPrimaryKeyProperties;
@@ -1131,7 +1134,8 @@ public class StorableIntrospector {
              Map<String, StorableProperty<S>> properties,
              StorableKey<S> primaryKey,
              StorableKey<S>[] altKeys,
-             boolean independent)
+             boolean independent,
+             boolean authoritative)
         {
             mType = type;
             mAliases = aliases;
@@ -1140,6 +1144,7 @@ public class StorableIntrospector {
             mPrimaryKey = primaryKey;
             mAltKeys = altKeys;
             mIndependent = independent;
+            mAuthoritative = authoritative;
         }
 
         public String getName() {
@@ -1281,6 +1286,10 @@ public class StorableIntrospector {
 
         public final boolean isIndependent() {
             return mIndependent;
+        }
+
+        public final boolean isAuthoritative() {
+            return mAuthoritative;
         }
     }
 

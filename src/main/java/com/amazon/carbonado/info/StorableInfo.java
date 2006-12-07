@@ -126,4 +126,9 @@ public interface StorableInfo<S extends Storable> {
      * @see com.amazon.carbonado.Independent
      */
     boolean isIndependent();
+
+    /**
+     * @see com.amazon.carbonado.Authoritative
+     */
+    boolean isAuthoritative();
 }

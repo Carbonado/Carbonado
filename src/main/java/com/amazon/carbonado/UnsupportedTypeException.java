@@ -19,8 +19,8 @@
 package com.amazon.carbonado;
 
 /**
- * Thrown by a dependent {@link Repository} which cannot support an {@link
- * Independent} {@link Storable}.
+ * Thrown by a {@link Repository} which cannot support a {@link Storable} which
+ * is declared as {@link Independent} or {@link Authoritative}.
  *
  * @author Brian S O'Neill
  */

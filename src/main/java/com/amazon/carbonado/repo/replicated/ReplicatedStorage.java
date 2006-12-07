@@ -64,7 +64,7 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
         Storage<S> masterStorage =
             creator.get(ReplicatedRepositoryBuilder.DEFAULT_MASTER_TIMEOUT_MILLIS);
         mTrigger = new ReplicationTrigger<S>(aRepository, mReplicaStorage, masterStorage);
-        addTrigger(mTrigger);
+        mReplicaStorage.addTrigger(mTrigger);
     }
 
     /**
@@ -76,7 +76,7 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
     {
         mReplicaStorage = replicaStorage;
         mTrigger = new ReplicationTrigger<S>(aRepository, mReplicaStorage, masterStorage);
-        addTrigger(mTrigger);
+        mReplicaStorage.addTrigger(mTrigger);
     }
 
     public Class<S> getStorableType() {
@@ -100,10 +100,12 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
     }
 
     public boolean addTrigger(Trigger<? super S> trigger) {
+        // FIXME: Should trigger be added to master?
         return mReplicaStorage.addTrigger(trigger);
     }
 
     public boolean removeTrigger(Trigger<? super S> trigger) {
+        // FIXME: Should trigger be added to master?
         return mReplicaStorage.removeTrigger(trigger);
     }
 

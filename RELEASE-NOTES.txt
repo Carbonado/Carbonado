@@ -1,6 +1,10 @@
 Carbonado change history
 ------------------------
 
+1.1-BETA6 to 1.1-BETA7
+-------------------------------
+- Added @Authoritative annotation.
+
 1.1-BETA5 to 1.1-BETA6
 -------------------------------
 - Added automatic repair for broken layout metadata.
