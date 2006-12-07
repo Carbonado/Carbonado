@@ -42,6 +42,7 @@ import com.amazon.carbonado.spi.BelatedStorageCreator;
  */
 class ReplicatedStorage<S extends Storable> implements Storage<S> {
     final Storage<S> mReplicaStorage;
+    final Storage<S> mMasterStorage;
     final ReplicationTrigger<S> mTrigger;
 
     /**
@@ -61,9 +62,8 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
             (log, aRepository.getMasterRepository(), replicaStorage.getStorableType(),
              ReplicatedRepositoryBuilder.DEFAULT_RETRY_MILLIS);
 
-        Storage<S> masterStorage =
-            creator.get(ReplicatedRepositoryBuilder.DEFAULT_MASTER_TIMEOUT_MILLIS);
-        mTrigger = new ReplicationTrigger<S>(aRepository, mReplicaStorage, masterStorage);
+        mMasterStorage = creator.get(ReplicatedRepositoryBuilder.DEFAULT_MASTER_TIMEOUT_MILLIS);
+        mTrigger = new ReplicationTrigger<S>(aRepository, mReplicaStorage, mMasterStorage);
         mReplicaStorage.addTrigger(mTrigger);
     }
 
@@ -75,6 +75,7 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
                       Storage<S> masterStorage)
     {
         mReplicaStorage = replicaStorage;
+        mMasterStorage = masterStorage;
         mTrigger = new ReplicationTrigger<S>(aRepository, mReplicaStorage, masterStorage);
         mReplicaStorage.addTrigger(mTrigger);
     }
@@ -99,14 +100,18 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
         return mReplicaStorage.query(filter);
     }
 
+    // Note: All user triggers must be added to the master storage. Otherwise,
+    // resync operations can cause the triggers to run again, which can be
+    // disastrous. If triggers ever support "after load" events, things get
+    // complicated. Perhaps this use case is a good example for why supporting
+    // "after load" events might be bad.
+
     public boolean addTrigger(Trigger<? super S> trigger) {
-        // FIXME: Should trigger be added to master?
-        return mReplicaStorage.addTrigger(trigger);
+        return mMasterStorage.addTrigger(trigger);
     }
 
     public boolean removeTrigger(Trigger<? super S> trigger) {
-        // FIXME: Should trigger be added to master?
-        return mReplicaStorage.removeTrigger(trigger);
+        return mMasterStorage.removeTrigger(trigger);
     }
 
     ReplicationTrigger<S> getTrigger() {

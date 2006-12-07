@@ -4,6 +4,8 @@ Carbonado change history
 1.1-BETA6 to 1.1-BETA7
 -------------------------------
 - Added @Authoritative annotation.
+- ReplicatedRepository installs user triggers on the master, not the
+  replica. This fixes errors caused by resync running user triggers.
 
 1.1-BETA5 to 1.1-BETA6
 -------------------------------
