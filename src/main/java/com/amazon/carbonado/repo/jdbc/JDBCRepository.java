@@ -212,7 +212,7 @@ public class JDBCRepository
                 synchronized (mAllTxnMgrs) {
                     JDBCStorableInfo<S> info = examineStorable(type);
                     if (!info.isSupported()) {
-                        throw new UnsupportedTypeException(type);
+                        throw new UnsupportedTypeException("Independent type not supported", type);
                     }
                     return new JDBCStorage<S>(JDBCRepository.this, info);
                 }

@@ -360,7 +360,7 @@ class ReplicatedRepository
         if (storageFor(type) instanceof ReplicatedStorage) {
             trigger = ((ReplicatedStorage) storageFor(type)).getTrigger();
         } else {
-            throw new UnsupportedTypeException(type);
+            throw new UnsupportedTypeException("Storable type is not replicated", type);
         }
 
         Storage<S> replicaStorage, masterStorage;

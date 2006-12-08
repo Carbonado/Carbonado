@@ -29,12 +29,27 @@ public class UnsupportedTypeException extends SupportException {
 
     private final Class<? extends Storable> mType;
 
-    public UnsupportedTypeException(Class<? extends Storable> type) {
-        super("Independent type not supported: " + type.getName());
+    public UnsupportedTypeException(String message, Class<? extends Storable> type) {
+        super(message);
         mType = type;
     }
 
     public Class<? extends Storable> getType() {
         return mType;
+    }
+
+    @Override
+    public String getMessage() {
+        String message = super.getMessage();
+        
+        if (mType != null) {
+            if (message == null) {
+                message = mType.getName();
+            } else {
+                message = message + ": " + mType.getName();
+            }
+        }
+
+        return message;
     }
 }
