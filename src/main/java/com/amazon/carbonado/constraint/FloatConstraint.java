@@ -61,12 +61,12 @@ public @interface FloatConstraint {
     /**
      * Specify minimum allowed value for float/double property. Default is unlimited.
      */
-    double min() default Double.MIN_VALUE;
+    double min() default Double.NEGATIVE_INFINITY;
 
     /**
      * Specify maximum allowed value for float/double property. Default is unlimited.
      */
-    double max() default Double.MAX_VALUE;
+    double max() default Double.POSITIVE_INFINITY;
 
     /**
      * Constraint implementation for {@link FloatConstraint}.
