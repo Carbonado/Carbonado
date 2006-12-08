@@ -72,7 +72,7 @@ public class QuickConstructorGenerator {
      * }
      * </pre>
      *
-     * Here's an example if it being used:
+     * Here's an example of it being used:
      *
      * <pre>
      * StringFactory sf = QuickConstructorGenerator.getInstance(String.class, StringFactory.class);
