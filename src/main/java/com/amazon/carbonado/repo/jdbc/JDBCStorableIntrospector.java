@@ -370,9 +370,12 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         }
 
         // Gather index info...
-        IndexInfo[] indexInfo;
+        IndexInfo[] indexInfo = new IndexInfo[0];
         boolean hasIndexInfo = false;
 
+        /* Oracle driver has a bug that always causes an analyze to run when
+           requesting index info. Checking indexes is not that important so
+           don't bother checking. Revisit if Oracle bug ever gets fixed.
         gatherIndexInfo: {
             if (resolvedTableName == null) {
                 indexInfo = new IndexInfo[0];
@@ -449,6 +452,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             indexInfo = infoList.toArray(new IndexInfo[0]);
             hasIndexInfo = true;
         }
+        */
 
         // Now verify that primary keys match.
 

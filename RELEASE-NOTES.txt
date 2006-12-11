@@ -1,6 +1,11 @@
 Carbonado change history
 ------------------------
 
+1.1-BETA7 to 1.1-BETA8
+-------------------------------
+- Removed call to get index metadata in JDBC repository. Oracle bug causes a
+  table analyze to run.
+
 1.1-BETA6 to 1.1-BETA7
 -------------------------------
 - Added @Authoritative annotation.
