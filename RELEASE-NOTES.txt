@@ -5,6 +5,8 @@ Carbonado change history
 -------------------------------
 - Removed call to get index metadata in JDBC repository. Oracle bug causes a
   table analyze to run.
+- When a property evolves from a boxed primitive to an unboxed primitive, null
+  is converted to zero or false instead of throwing a NullPointerException.
 
 1.1-BETA6 to 1.1-BETA7
 -------------------------------

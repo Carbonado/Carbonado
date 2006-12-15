@@ -1840,6 +1840,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                         if (prop.getType() == type.toClass()) {
                             break doDrop;
                         }
+
                         // Types differ, but if primitive types, perform conversion.
                         TypeDesc primType = type.toPrimitiveType();
                         if (primType != null) {
@@ -1847,7 +1848,42 @@ public class GenericEncodingStrategy<S extends Storable> {
                             TypeDesc primPropType = propType.toPrimitiveType();
                             if (primPropType != null) {
                                 // Apply conversion and store property.
+
+                                Label convertLabel = a.createLabel();
+                                Label convertedLabel = a.createLabel();
+
+                                if (!type.isPrimitive() && propType.isPrimitive()) {
+                                    // Might attempt to unbox null, which
+                                    // throws NullPointerException. Instead,
+                                    // convert null to zero or false.
+
+                                    a.dup();
+                                    a.ifNullBranch(convertLabel, false);
+                                    a.pop(); // pop null off stack
+
+                                    switch (propType.getTypeCode()) {
+                                    default:
+                                        a.loadConstant(0);
+                                        break;
+                                    case TypeDesc.LONG_CODE:
+                                        a.loadConstant(0L);
+                                        break;
+                                    case TypeDesc.FLOAT_CODE:
+                                        a.loadConstant(0.0f);
+                                        break;
+                                    case TypeDesc.DOUBLE_CODE:
+                                        a.loadConstant(0.0d);
+                                        break;
+                                    }
+
+                                    a.branch(convertedLabel);
+                                }
+
+                                convertLabel.setLocation();
                                 a.convert(type, propType);
+
+                                convertedLabel.setLocation();
+
                                 type = propType;
                                 break doDrop;
                             }
