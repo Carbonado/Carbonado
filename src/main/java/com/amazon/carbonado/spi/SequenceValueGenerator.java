@@ -110,7 +110,9 @@ public class SequenceValueGenerator extends AbstractSequenceValueProducer {
                 mStoredSequence.setInitialValue(initialValue);
                 // Start as small as possible to allow signed long comparisons to work.
                 mStoredSequence.setNextValue(Long.MIN_VALUE);
-                mStoredSequence.insert();
+                if (!mStoredSequence.tryInsert()) {
+                    mStoredSequence.load();
+                }
             }
             txn.commit();
         } finally {
