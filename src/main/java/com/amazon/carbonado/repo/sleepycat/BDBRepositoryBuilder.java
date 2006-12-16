@@ -52,7 +52,7 @@ import com.amazon.carbonado.ConfigurationException;
  * builder.setProduct("JE");
  * builder.setName("test");
  * builder.setEnvironmentHome("/tmp/testRepo");
- * builder.setTransactionNoSync(true);
+ * builder.setTransactionWriteNoSync(true);
  *
  * Repository repo = builder.build();
  * </pre>
