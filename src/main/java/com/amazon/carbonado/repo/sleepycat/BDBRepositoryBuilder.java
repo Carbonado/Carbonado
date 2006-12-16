@@ -91,6 +91,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private double mLockTimeout = 0.5;
     private double mTxnTimeout = 300.0;
     private boolean mTxnNoSync;
+    private boolean mTxnWriteNoSync;
     private Boolean mDatabasesTransactional = null;
     private Map<Class<?>, Integer> mDatabasePageSizes;
     private boolean mPrivate;
@@ -422,19 +423,35 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     }
 
     /**
-     * When true, commits are not forcibly flushed to disk. This improves
-     * performance, but there is a chance of losing the most recent commits if
-     * the machine crashes.
+     * When true, commits are not immediately written or flushed to disk. This
+     * improves performance, but there is a chance of losing the most recent
+     * commits if the process is killed or if the machine crashes.
      */
     public void setTransactionNoSync(boolean noSync) {
         mTxnNoSync = noSync;
     }
 
     /**
-     * Returns true if transactions are forcibly flushed to disk.
+     * Returns true if transactions are not written or flushed to disk.
      */
     public boolean getTransactionNoSync() {
         return mTxnNoSync;
+    }
+
+    /**
+     * When true, commits are written, but they are not flushed to disk. This
+     * improves performance, but there is a chance of losing the most recent
+     * commits if the machine crashes.
+     */
+    public void setTransactionWriteNoSync(boolean noSync) {
+        mTxnWriteNoSync = noSync;
+    }
+
+    /**
+     * Returns true if transactions are not flushed to disk.
+     */
+    public boolean getTransactionWriteNoSync() {
+        return mTxnWriteNoSync;
     }
 
     /**

@@ -7,6 +7,7 @@ Carbonado change history
   table analyze to run.
 - When a property evolves from a boxed primitive to an unboxed primitive, null
   is converted to zero or false instead of throwing a NullPointerException.
+- Support write-no-sync mode for Sleepycat repositories.
 
 1.1-BETA6 to 1.1-BETA7
 -------------------------------
