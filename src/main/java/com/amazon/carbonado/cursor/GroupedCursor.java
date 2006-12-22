@@ -27,7 +27,7 @@ import com.amazon.carbonado.FetchInterruptedException;
 
 /**
  * Abstract cursor for aggregation and finding distinct data. The source cursor
- * must be ordered in some fashion by the grouping properties. The sequence of
+ * must be ordered in some fashion by the grouping properties. The arrangement of
  * properties must match, but it does not matter if they are ascending or
  * descending.
  *
