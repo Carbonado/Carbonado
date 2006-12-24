@@ -512,7 +512,8 @@ public final class MasterStorableGenerator<S extends Storable> {
             CodeBuilder b = new CodeBuilder(mi);
 
             if ((!mFeatures.contains(MasterFeature.VERSIONING)) &&
-                (!mFeatures.contains(MasterFeature.UPDATE_FULL)))
+                (!mFeatures.contains(MasterFeature.UPDATE_FULL)) &&
+                (!mFeatures.contains(MasterFeature.UPDATE_TXN)))
             {
                 // Nothing special needs to be done, so just delegate and return.
                 b.loadThis();
