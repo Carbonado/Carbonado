@@ -155,11 +155,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         if (mainInfo.getAliasCount() > 0) {
             tableAliases = mainInfo.getAliases();
         } else {
-            String name = mainInfo.getStorableType().getName();
-            int index = name.lastIndexOf('.');
-            if (index >= 0) {
-                name = name.substring(index + 1);
-            }
+            String name = mainInfo.getStorableType().getSimpleName();
             tableAliases = generateAliases(name);
         }
 
