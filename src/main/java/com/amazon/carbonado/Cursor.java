@@ -75,7 +75,7 @@ public interface Cursor<S> {
 
     /**
      * Skips forward by the specified amount of elements, returning the actual
-     * amount skipped. The actual amount may be less than the requested amount
+     * amount skipped. The actual amount is less than the requested amount only
      * if the end of the results was reached.
      *
      * @param amount maximum amount of elements to skip
