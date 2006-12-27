@@ -1,6 +1,10 @@
 Carbonado change history
 ------------------------
 
+1.1-BETA8 to 1.1-BETA9
+-------------------------------
+- Fixed bug in JDBC repository which caused cursor skip to skip everything.
+
 1.1-BETA7 to 1.1-BETA8
 -------------------------------
 - Removed call to get index metadata in JDBC repository. Oracle bug causes a
