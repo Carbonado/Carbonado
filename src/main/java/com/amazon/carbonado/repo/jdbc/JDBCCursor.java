@@ -105,26 +105,12 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
             return 0;
         }
 
-        ResultSet rs = mResultSet;
-        if (rs == null) {
-            return 0;
-        }
-
-        mHasNext = true;
-
         int actual = 0;
         while (amount > 0) {
-            try {
-                if (rs.next()) {
-                    actual++;
-                    amount--;
-                } else {
-                    mHasNext = false;
-                    close();
-                    break;
-                }
-            } catch (SQLException e) {
-                throw mStorage.getJDBCRepository().toFetchException(e);
+            if (hasNext()) {
+                actual++;
+                amount--;
+                mHasNext = false;
             }
         }
 
