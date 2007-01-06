@@ -954,15 +954,6 @@ public final class StorableGenerator<S extends Storable> {
                         CodeBuilderUtil.throwException(b, IllegalArgumentException.class, null);
                         notNull.setLocation();
 
-                        // TODO: why was this here? It has the negative
-                        // side-effect of allowing clean pk properties to be
-                        // modified.
-                        /*
-                        if (mGenMode == GEN_ABSTRACT) {
-                            markInternalJoinElementsDirty(b, property);
-                        }
-                        */
-
                         // Copy internal properties from joined object.
                         int count = property.getJoinElementCount();
                         for (int i=0; i<count; i++) {
