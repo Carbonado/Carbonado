@@ -27,7 +27,7 @@ public class CorruptEncodingException extends FetchException {
 
     private static final long serialVersionUID = 4543503149683482362L;
 
-    private Storable mStorable;
+    private transient Storable mStorable;
 
     public CorruptEncodingException() {
         super();

@@ -385,7 +385,7 @@ class ReplicatedRepository
             if (orderBy == null) {
                 Set<String> pkSet =
                     StorableIntrospector.examine(type).getPrimaryKeyProperties().keySet();
-                orderBy = pkSet.toArray(new String[0]);
+                orderBy = pkSet.toArray(new String[pkSet.size()]);
             }
         }
 
@@ -565,11 +565,15 @@ class ReplicatedRepository
                     lastMasterEntry = masterEntry;
                     masterEntry = null;
                 } else {
+                    // If compare is zero, replicaEntry and masterEntry are
+                    // either both null or both non-null.
+
                     if (replicaEntry == null && masterEntry == null) {
                         // Both cursors exhausted -- resync is complete.
                         break;
                     }
 
+                    // Both replicaEntry and masterEntry are non-null.
                     if (!replicaEntry.equalProperties(masterEntry)) {
                         // Replica is stale.
                         resyncTask = prepareResyncTask(trigger, replicaEntry, masterEntry);

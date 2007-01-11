@@ -257,7 +257,7 @@ public class LobEngine {
                 throw new PersistNoneException("Lob deleted: " + this);
             }
 
-            OutputStream out = new Output(lob, 0, txn);
+            Output out = new Output(lob, 0, txn);
 
             byte[] buffer = new byte[lob.getBlockSize()];
 
@@ -271,12 +271,18 @@ public class LobEngine {
             } finally {
                 data.close();
             }
-            out.close();
 
             if (total < lob.getLength()) {
                 new BlobImpl(lob).setLength(total);
             }
 
+            // Note: Closing Output commits the transaction. No other resources
+            // are freed. This close is explicitly not put into a finally block
+            // in order for an exception to cause the transaction to rollback.
+            out.close();
+
+            // This isn't really needed due to closing Output, but it is good
+            // practice to include it anyhow.
             txn.commit();
         } catch (IOException e) {
             if (e.getCause() instanceof RepositoryException) {

@@ -91,19 +91,22 @@ public abstract class AbstractClob implements Clob {
             try {
                 Reader r = openReader();
 
-                char[] buf = new char[iLen];
-                int offset = 0;
-                int amt;
-                while ((amt = r.read(buf, offset, iLen - offset)) > 0) {
-                    offset += amt;
-                }
-                r.close();
+                try {
+                    char[] buf = new char[iLen];
+                    int offset = 0;
+                    int amt;
+                    while ((amt = r.read(buf, offset, iLen - offset)) > 0) {
+                        offset += amt;
+                    }
 
-                if (offset <= 0) {
-                    return "";
-                }
+                    if (offset <= 0) {
+                        return "";
+                    }
 
-                return new String(buf, 0, offset);
+                    return new String(buf, 0, offset);
+                } finally {
+                    r.close();
+                }
             } catch (IOException e) {
                 throw toFetchException(e);
             }
@@ -140,8 +143,11 @@ public abstract class AbstractClob implements Clob {
 
                 try {
                     Writer w = openWriter();
-                    w.write(value);
-                    w.close();
+                    try {
+                        w.write(value);
+                    } finally {
+                        w.close();
+                    }
                 } catch (IOException e) {
                     throw toPersistException(e);
                 }

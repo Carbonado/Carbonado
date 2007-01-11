@@ -82,7 +82,9 @@ public abstract class RawCursor<S> extends AbstractCursor<S> {
         if (maxPrefix <= 0 || startBound == null && endBound == null) {
             mPrefixLength = 0;
         } else {
-            int len = Math.min(maxPrefix, Math.min(startBound.length, endBound.length));
+            int len = Math.min(maxPrefix, 
+                               Math.min(startBound == null ? 0 : startBound.length, 
+                                        endBound == null ? 0 : endBound.length));
             int i;
             for (i=0; i<len; i++) {
                 if (startBound[i] != endBound[i]) {

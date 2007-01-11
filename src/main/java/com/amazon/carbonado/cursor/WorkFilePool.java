@@ -141,6 +141,7 @@ class WorkFilePool {
     void unregisterWorkFileUser(MergeSortBuffer<?> buffer) {
         synchronized (mWorkFileUsers) {
             mWorkFileUsers.remove(buffer);
+            // Only one wait condition, so okay to not call notifyAll.
             mWorkFileUsers.notify();
         }
     }

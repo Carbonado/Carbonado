@@ -262,7 +262,7 @@ public class SequenceValueGenerator extends AbstractSequenceValueProducer {
             long next = mStoredSequence.getNextValue();
             long nextStored = next + mReserveAmount * mIncrement;
 
-            if (next >= 0 & nextStored < 0) {
+            if (next >= 0 && nextStored < 0) {
                 // Wrapped around. There might be just a few values left.
                 long avail = (Long.MAX_VALUE - next) / mIncrement;
                 if (avail > 0) {

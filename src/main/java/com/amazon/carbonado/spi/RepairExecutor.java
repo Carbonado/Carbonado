@@ -132,6 +132,7 @@ public class RepairExecutor {
         while (true) {
             synchronized (this) {
                 mIdle = true;
+                // Only one wait condition, so okay to not call notifyAll.
                 notify();
             }
             Runnable task = mQueue.poll(mKeepAliveSeconds, TimeUnit.SECONDS);
@@ -141,6 +142,7 @@ public class RepairExecutor {
                     return task;
                 }
                 if (mQueue.size() == 0) {
+                    // Only one wait condition, so okay to not call notifyAll.
                     notify();
                     mWorker = null;
                     return null;

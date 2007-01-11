@@ -115,7 +115,7 @@ public class StorableIndex<S extends Storable> implements Appender {
 
         int size = properties.size();
         if (size == 0 || size != directions.size()) {
-            new IllegalArgumentException("No properties specified");
+            throw new IllegalArgumentException("No properties specified");
         }
 
         StorableIndex<S> index = new StorableIndex<S>

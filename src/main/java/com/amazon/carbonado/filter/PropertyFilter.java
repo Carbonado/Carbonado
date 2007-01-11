@@ -222,7 +222,11 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
      */
     public PropertyFilter<S> constant(Object value) {
         if (mBindID == BOUND_CONSTANT) {
-            if (mConstant == null && value == null || mConstant.equals(value)) {
+            if (mConstant == null) {
+                if (value == null) {
+                    return this;
+                }
+            } else if (mConstant.equals(value)) {
                 return this;
             }
         }

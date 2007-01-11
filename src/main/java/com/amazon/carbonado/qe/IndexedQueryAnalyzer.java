@@ -113,7 +113,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
 
         // Now try to find best foreign index.
 
-        if (bestLocalScore.getFilteringScore().isKeyMatch()) {
+        if (bestLocalScore != null && bestLocalScore.getFilteringScore().isKeyMatch()) {
             // Don't bother checking foreign indexes. The local one is perfect.
             return new Result(filter, bestLocalScore, bestLocalIndex, null, null);
         }

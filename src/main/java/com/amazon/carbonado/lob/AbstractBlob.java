@@ -90,30 +90,34 @@ public abstract class AbstractBlob implements Blob {
 
             char[] buffer = new char[(int) charLength];
 
-            Reader r = new InputStreamReader(openInputStream(), decoder);
-
             try {
-                int offset = 0;
-                int amt;
-                while ((amt = r.read(buffer, offset, buffer.length - offset)) >= 0) {
-                    offset += amt;
-                    if (amt == 0 && offset >= buffer.length) {
-                        // Expand capacity.
-                        charLength *= 2;
-                        if (charLength >= Integer.MAX_VALUE) {
-                            charLength = Integer.MAX_VALUE;
-                        }
-                        if (charLength <= buffer.length) {
-                            throw new IllegalArgumentException
-                                ("Blob is too long to fit in a String");
-                        }
-                        char[] newBuffer = new char[(int) charLength];
-                        System.arraycopy(buffer, 0, newBuffer, 0, buffer.length);
-                        buffer = newBuffer;
-                    }
-                }
+                Reader r = new InputStreamReader(openInputStream(), decoder);
 
-                return new String(buffer, 0, offset);
+                try {
+                    int offset = 0;
+                    int amt;
+                    while ((amt = r.read(buffer, offset, buffer.length - offset)) >= 0) {
+                        offset += amt;
+                        if (amt == 0 && offset >= buffer.length) {
+                            // Expand capacity.
+                            charLength *= 2;
+                            if (charLength >= Integer.MAX_VALUE) {
+                                charLength = Integer.MAX_VALUE;
+                            }
+                            if (charLength <= buffer.length) {
+                                throw new IllegalArgumentException
+                                    ("Blob is too long to fit in a String");
+                            }
+                            char[] newBuffer = new char[(int) charLength];
+                            System.arraycopy(buffer, 0, newBuffer, 0, buffer.length);
+                            buffer = newBuffer;
+                        }
+                    }
+
+                    return new String(buffer, 0, offset);
+                } finally {
+                    r.close();
+                }
             } catch (IOException e) {
                 throw AbstractClob.toFetchException(e);
             }
@@ -145,8 +149,11 @@ public abstract class AbstractBlob implements Blob {
             setLength(0);
             try {
                 Writer w = new OutputStreamWriter(openOutputStream(), charset);
-                w.write(value);
-                w.close();
+                try {
+                    w.write(value);
+                } finally {
+                    w.close();
+                }
             } catch (IOException e) {
                 throw AbstractClob.toPersistException(e);
             }
@@ -159,8 +166,11 @@ public abstract class AbstractBlob implements Blob {
                 try {
                     DataOutputStream out = new DataOutputStream(openOutputStream());
                     Writer w = new OutputStreamWriter(out, charset);
-                    w.write(value);
-                    w.close();
+                    try {
+                        w.write(value);
+                    } finally {
+                        w.close();
+                    }
                     newLength = out.size();
                 } catch (IOException e) {
                     throw AbstractClob.toPersistException(e);

@@ -30,7 +30,7 @@ public class OptimisticLockException extends PersistException {
 
     private static final long serialVersionUID = 4081788711829580886L;
 
-    private final Storable mStorable;
+    private final transient Storable mStorable;
 
     public OptimisticLockException() {
         super();

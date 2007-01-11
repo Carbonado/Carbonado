@@ -718,6 +718,7 @@ abstract class BDBRepository<Txn>
                     } finally {
                         synchronized (this) {
                             mInProgress = false;
+                            // Only wait condition is mInProgress, so okay to not call notifyAll.
                             notify();
                         }
                         repository = null;
@@ -726,6 +727,7 @@ abstract class BDBRepository<Txn>
             } finally {
                 synchronized (this) {
                     mInProgress = false;
+                    // Only wait condition is mInProgress, so okay to not call notifyAll.
                     notify();
                 }
             }
@@ -802,12 +804,10 @@ abstract class BDBRepository<Txn>
 
         public void run() {
             while (true) {
-                synchronized (this) {
-                    try {
-                        wait(mSleepInterval);
-                    } catch (InterruptedException e) {
-                        break;
-                    }
+                try {
+                    Thread.sleep(mSleepInterval);
+                } catch (InterruptedException e) {
+                    break;
                 }
 
                 BDBRepository repository = mRepository.get();

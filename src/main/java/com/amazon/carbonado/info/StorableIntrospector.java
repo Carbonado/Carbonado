@@ -250,6 +250,12 @@ public class StorableIntrospector {
             this.name = name;
             this.direction = direction;
         }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode() + direction.hashCode();
+        }
+
         @Override
         public boolean equals(Object obj) {
             if (this == obj) {

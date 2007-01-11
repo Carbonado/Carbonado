@@ -233,8 +233,11 @@ public @interface TextAdapter {
 
             Writer w = new OutputStreamWriter(blob.openOutputStream(), encoder);
             try {
-                w.write(text, 0, text.length());
-                w.close();
+                try {
+                    w.write(text, 0, text.length());
+                } finally {
+                    w.close();
+                }
             } catch (IOException e) {
                 throw toPersistException(e);
             }

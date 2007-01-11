@@ -169,12 +169,12 @@ class IndexedRepository implements Repository,
 
     public boolean isSupported(Class<Storable> type) {
         StorableInfoCapability cap = mRepository.getCapability(StorableInfoCapability.class);
-        return (cap == null) ? null : cap.isSupported(type);
+        return (cap == null) ? false : cap.isSupported(type);
     }
 
     public boolean isPropertySupported(Class<Storable> type, String name) {
         StorableInfoCapability cap = mRepository.getCapability(StorableInfoCapability.class);
-        return (cap == null) ? null : cap.isPropertySupported(type, name);
+        return (cap == null) ? false : cap.isPropertySupported(type, name);
     }
 
     public void close() {

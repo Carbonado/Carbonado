@@ -330,7 +330,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
         OrderingScore<S> score = result.getCompositeScore().getOrderingScore();
         OrderingList<S> handled = score.getHandledOrdering();
         for (OrderedProperty<S> property : handled) {
-            if (chained.equals(property)) {
+            if (chained.equals(property.getChainedProperty())) {
                 return property.getDirection();
             }
         }
