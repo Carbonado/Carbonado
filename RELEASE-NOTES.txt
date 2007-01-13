@@ -4,6 +4,7 @@ Carbonado change history
 1.1-BETA8 to 1.1-BETA9
 -------------------------------
 - Fixed bug in JDBC repository which caused cursor skip to skip everything.
+- Fix for getting supplied filter values when duplicate property filters exist.
 
 1.1-BETA7 to 1.1-BETA8
 -------------------------------
