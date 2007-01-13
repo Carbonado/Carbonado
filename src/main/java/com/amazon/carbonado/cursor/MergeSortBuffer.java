@@ -123,6 +123,8 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
     }
 
     public boolean add(S storable) {
+        Comparator<S> comparator = comparator();
+
         arrayPrep:
         if (mSize >= mElements.length) {
             if (mElements.length < mMaxArrayCapacity) {
@@ -152,7 +154,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
                 }
             }
 
-            Arrays.sort(mElements, mComparator);
+            Arrays.sort(mElements, comparator);
 
             RandomAccessFile raf;
             try {
@@ -248,6 +250,8 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
     }
 
     private Iterator<S> iterator(List<RandomAccessFile> filesToMerge) {
+        Comparator<S> comparator = comparator();
+
         if (mSerializer == null) {
             return new ObjectArrayIterator<S>(mElements, 0, mSize);
         }
@@ -256,7 +260,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
         // next buffer to pull an element from.
 
         PriorityQueue<Iter<S>> pq = new PriorityQueue<Iter<S>>(1 + mFilesInUse.size());
-        pq.add(new ArrayIter<S>(mComparator, mElements, mSize));
+        pq.add(new ArrayIter<S>(comparator, mElements, mSize));
         for (RandomAccessFile raf : filesToMerge) {
             try {
                 raf.seek(0);
@@ -266,7 +270,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
 
             InputStream in = new BufferedInputStream(new RAFInputStream(raf));
 
-            pq.add(new InputIter<S>(mComparator, mSerializer, mStorage, in));
+            pq.add(new InputIter<S>(comparator, mSerializer, mStorage, in));
         }
 
         return new Merger<S>(pq);
@@ -286,10 +290,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
     public void sort() {
         // Sort current in-memory results. Anything residing in files has
         // already been sorted.
-        if (mComparator == null) {
-            throw new IllegalStateException("Buffer was not prepared");
-        }
-        Arrays.sort(mElements, 0, mSize, mComparator);
+        Arrays.sort(mElements, 0, mSize, comparator());
     }
 
     public void close() {
@@ -301,6 +302,14 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
 
     void stop() {
         mStop = true;
+    }
+
+    private Comparator<S> comparator() {
+        Comparator<S> comparator = mComparator;
+        if (comparator == null) {
+            throw new IllegalStateException("Buffer was not prepared with a Comparator");
+        }
+        return comparator;
     }
 
     private void interruptCheck(int count) {
