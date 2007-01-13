@@ -525,14 +525,15 @@ public class FilterValues<S extends Storable> implements Appender {
         }
 
         FilterValues<S> prevValues = mPrevValues;
-        int blankCount;
-        if (prevValues == null || (blankCount= prevValues.mCurrentProperty.getBlankCount()) == 0) {
+        if (prevValues == null) {
             return NO_VALUES;
         }
 
         int i = list.getPreviousRemaining() + 1;
 
-        int valuesPos = Math.min(i, blankCount);
+        // Array is sized assuming that no constants are encountered and all
+        // filters are assigned values. Array is trimmed later if necessary.
+        int valuesPos = i;
         Object[] values = new Object[valuesPos];
 
         FilterValues filterValues = this;
@@ -588,8 +589,17 @@ public class FilterValues<S extends Storable> implements Appender {
             }
 
             values[--valuesPos] = value;
-            if (valuesPos <= 0) {
-                break;
+        }
+
+        if (valuesPos != 0) {
+            // Trim array.
+            int newValuesSize = values.length - valuesPos;
+            if (newValuesSize == 0) {
+                values = NO_VALUES;
+            } else {
+                Object[] newValues = new Object[newValuesSize];
+                System.arraycopy(values, valuesPos, newValues, 0, newValuesSize);
+                values = newValues;
             }
         }
 
