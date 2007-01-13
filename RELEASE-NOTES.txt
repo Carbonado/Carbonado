@@ -5,6 +5,7 @@ Carbonado change history
 -------------------------------
 - Fixed bug in JDBC repository which caused cursor skip to skip everything.
 - Fix for getting supplied filter values when duplicate property filters exist.
+- Fixes for bugs found using FindBugs.
 
 1.1-BETA7 to 1.1-BETA8
 -------------------------------
