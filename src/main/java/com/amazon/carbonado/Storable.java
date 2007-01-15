@@ -27,7 +27,7 @@ package com.amazon.carbonado;
  * Version} property.
  *
  * <p>Storable instances are mutable, but they must be thread-safe. Although
- * there may be race conditions if multiple threads are mutating the Storable,
+ * race conditions are possible if multiple threads are mutating the Storable,
  * the Storable instance will not get into a corrupt state.
  *
  * @author Brian S O'Neill
