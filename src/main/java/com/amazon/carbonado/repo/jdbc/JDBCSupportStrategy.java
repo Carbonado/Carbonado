@@ -41,19 +41,29 @@ import com.amazon.carbonado.spi.SequenceValueProducer;
  * Allows database product specific features to be abstracted.
  *
  * @author Brian S O'Neill
+ * @author bcastill
+ * @author Matt Tucker
  */
 class JDBCSupportStrategy {
     private static final int BLOB_BUFFER_SIZE = 4000;
     private static final int CLOB_BUFFER_SIZE = 2000;
 
+    /**
+     * Create a strategy based on the name of the database product.
+     * If one can't be found by product name the default will be used.
+     */
+    @SuppressWarnings("unchecked")
     static JDBCSupportStrategy createStrategy(JDBCRepository repo) {
-        String databaseProductName = repo.getDatabaseProductName();
+        String databaseProductName = repo.getDatabaseProductName().trim();
         if (databaseProductName != null && databaseProductName.length() > 0) {
+            String strategyName = Character.toUpperCase(databaseProductName.charAt(0))
+                + databaseProductName.substring(1).toLowerCase();
+            if (strategyName.indexOf(' ') > 0) {
+                strategyName = strategyName.substring(0, strategyName.indexOf(' '));
+            }
+            strategyName = strategyName.replaceAll("[^A-Za-z0-9]", "");
             String className =
-                "com.amazon.carbonado.repo.jdbc." +
-                Character.toUpperCase(databaseProductName.charAt(0)) +
-                databaseProductName.substring(1).toLowerCase() +
-                "SupportStrategy";
+                "com.amazon.carbonado.repo.jdbc." + strategyName + "SupportStrategy";
             try {
                 Class<JDBCSupportStrategy> clazz =
                     (Class<JDBCSupportStrategy>) Class.forName(className);

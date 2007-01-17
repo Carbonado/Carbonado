@@ -87,6 +87,12 @@
     </developer>
   </developers>
 
+  <contributors>
+    <contributor>
+      <name>Matt Tucker</name>
+    </contributor>
+  </contributors>
+
   <dependencies>
     <dependency>
       <groupId>org.cojen</groupId>
