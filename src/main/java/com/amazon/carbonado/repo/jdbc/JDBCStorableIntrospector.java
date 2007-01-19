@@ -702,6 +702,20 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             } else if (desiredClass == BigDecimal.class) {
                 actualClass = BigDecimal.class;
                 suffix = "BigDecimal";
+            } else if (desiredClass == short.class) {
+                if (decimalDigits == 0) {
+                    actualClass = short.class;
+                    suffix = "Short";
+                } else {
+                    return null;
+                }
+            } else if (desiredClass == byte.class) {
+                if (decimalDigits == 0) {
+                    actualClass = byte.class;
+                    suffix = "Byte";
+                } else {
+                    return null;
+                }
             } else {
                 return null;
             }
