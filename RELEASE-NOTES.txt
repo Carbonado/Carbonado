@@ -7,6 +7,7 @@ Carbonado change history
   determine custom support strategy class name.
 - Added additional index selection tie-breaker if index is most likely defined
   to support desired ordering.
+- Support mapping JDBC numeric column to short or byte.
 
 1.1-BETA8 to 1.1-BETA9
 -------------------------------
