@@ -1,6 +1,13 @@
 Carbonado change history
 ------------------------
 
+1.1-BETA9 to 1.1-BETA10
+-------------------------------
+- JDBCSupportStrategy cleans up database product name before using it to
+  determine custom support strategy class name.
+- Added additional index selection tie-breaker if index is most likely defined
+  to support desired ordering.
+
 1.1-BETA8 to 1.1-BETA9
 -------------------------------
 - Fixed bug in JDBC repository which caused cursor skip to skip everything.

@@ -224,8 +224,18 @@ public class CompositeScore<S extends Storable> {
                     return preferenceResult;
                 }
 
-                // Preference scores are the same? That seems unlikely, but
-                // choose the better filtering index.
+                // Okay, preference is not helping. If handled filter count is
+                // the same, choose the better ordering. Why? Most likely a nearly
+                // identical index was created specifically for ordering. One index
+                // might look better for filtering just because it is clustered.
+
+                if (firstScore.getHandledCount() == secondScore.getHandledCount()) {
+                    if (handledScore != 0) {
+                        return handledScore;
+                    }
+                }
+
+                // Just return the result for the better filtering index.
                 return result;
             }
 
