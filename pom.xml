@@ -85,6 +85,12 @@
       <name>Doug Treder</name>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
+    <developer>
+    	<name>Tom Keller</name>
+    	<organization>Amazon Technologies, Inc.</organization>
+    	<id>keller_tl</id>
+    	<email>keller_tl@users.sourceforge.net</email>
+    </developer>
   </developers>
 
   <contributors>

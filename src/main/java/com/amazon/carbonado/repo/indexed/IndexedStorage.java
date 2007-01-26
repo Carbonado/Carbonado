@@ -446,7 +446,37 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
 
         // Doesn't completely remove the index, but it should free up space.
         // TODO: when truncate method exists, call that instead
-        indexEntryStorage.query().deleteAll();
+        // TODO: set batchsize based on repository locktable size
+        int batchSize = 10;
+        while (true) {
+            Transaction txn = mRepository.getWrappedRepository()
+                .enterTopTransaction(IsolationLevel.READ_COMMITTED);
+            txn.setForUpdate(true);
+
+            try {
+                Cursor<? extends Storable> cursor = indexEntryStorage.query().fetch();
+                if (!cursor.hasNext()) {
+                    break;
+                }
+                int count = 0;
+                try {
+                    while (count++ < batchSize && cursor.hasNext()) {
+                        cursor.next().tryDelete();
+                    }
+                } finally {
+                    cursor.close();
+                }
+                if (txn != null) {
+                    txn.commit();
+                }
+            } catch (FetchException e) {
+                throw e.toPersistException();
+            } finally {
+                if (txn != null) {
+                    txn.exit();
+                }
+            }
+        }
         unregisterIndex(index);
     }
 }
