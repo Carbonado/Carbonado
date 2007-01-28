@@ -9,7 +9,8 @@ Carbonado change history
   to support desired ordering.
 - Support mapping JDBC numeric column to short or byte.
 - Index removal is now batched - reducing memory requirements when removing
-  large indexes
+  large indexes.
+- Fixed bug when filtering against negative floating point values.
 
 1.1-BETA8 to 1.1-BETA9
 -------------------------------

@@ -5,7 +5,7 @@
   <artifactId>carbonado</artifactId>
   <packaging>jar</packaging>
   <name>Carbonado</name>
-  <version>1.1-BETA9</version>
+  <version>1.1-BETA10</version>
   <description>
     Extensible, high performance persistence abstraction layer for Java applications with a relational view to the underlying persistence technology.
   </description>
@@ -85,6 +85,7 @@
       <name>Doug Treder</name>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
+
     <developer>
     	<name>Tom Keller</name>
     	<organization>Amazon Technologies, Inc.</organization>

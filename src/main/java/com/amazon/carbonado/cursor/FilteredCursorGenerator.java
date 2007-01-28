@@ -282,7 +282,7 @@ class FilteredCursorGenerator {
             b.loadConstant(mPropertyOrdinal);
             b.loadFromArray(OBJECT);
             b.checkCast(type.toObjectType());
-            b.convert(type.toObjectType(), fieldType, CodeAssembler.CONVERT_FP_BITS);
+            convertProperty(b, type.toObjectType(), fieldType);
             b.storeField(fieldName, fieldType);
 
             // Add code to load property value to stack.
@@ -457,10 +457,10 @@ class FilteredCursorGenerator {
                 // Floating point values are compared based on actual
                 // bits. This allows NaN to be considered in the comparison.
                 if (primitiveType == FLOAT) {
-                    b.convert(primitiveType, INT, CodeBuilder.CONVERT_FP_BITS);
+                    convertProperty(b, primitiveType, INT);
                     primitiveType = INT;
                 } else if (primitiveType == DOUBLE) {
-                    b.convert(primitiveType, LONG, CodeBuilder.CONVERT_FP_BITS);
+                    convertProperty(b, primitiveType, LONG);
                     primitiveType = LONG;
                 }
 
@@ -503,6 +503,65 @@ class FilteredCursorGenerator {
                 }
             }
             return type;
+        }
+
+        /**
+         * Converts property value on the stack.
+         */
+        private void convertProperty(CodeBuilder b, TypeDesc fromType, TypeDesc toType) {
+            TypeDesc fromPrimType = fromType.toPrimitiveType();
+
+            if (fromPrimType != TypeDesc.FLOAT && fromPrimType != TypeDesc.DOUBLE) {
+                // Not converting floating point, so just convert as normal.
+                b.convert(fromType, toType);
+                return;
+            }
+
+            TypeDesc toPrimType = toType.toPrimitiveType();
+
+            if (toPrimType != TypeDesc.INT && toPrimType != TypeDesc.LONG) {
+                // Floating point not being converted to bits, so just convert as normal.
+                b.convert(fromType, toType);
+                return;
+            }
+
+            Label done = b.createLabel();
+            
+            if (!fromType.isPrimitive() && !toType.isPrimitive()) {
+                b.dup();
+                Label notNull = b.createLabel();
+                b.ifNullBranch(notNull, false);
+                // Need to replace one null with another null.
+                b.pop();
+                b.loadNull();
+                b.branch(done);
+                notNull.setLocation();
+            }
+
+            b.convert(fromType, toPrimType, CodeAssembler.CONVERT_FP_BITS);
+
+            Label box = b.createLabel();
+
+            // Floating point bits need to be flipped for negative values.
+
+            if (toPrimType == TypeDesc.INT) {
+                b.dup();
+                b.ifZeroComparisonBranch(box, ">=");
+                b.loadConstant(0x7fffffff);
+                b.math(Opcode.IXOR);
+            } else {
+                b.dup2();
+                b.loadConstant(0L);
+                b.math(Opcode.LCMP);
+                b.ifZeroComparisonBranch(box, ">=");
+                b.loadConstant(0x7fffffffffffffffL);
+                b.math(Opcode.LXOR);
+            }
+
+            box.setLocation();
+            b.convert(toPrimType, toType);
+
+            done.setLocation();
         }
 
         /**
