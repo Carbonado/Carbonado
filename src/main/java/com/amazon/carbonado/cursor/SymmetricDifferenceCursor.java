@@ -68,7 +68,16 @@ public class SymmetricDifferenceCursor<S> extends AbstractCursor<S> {
     }
 
     public boolean hasNext() throws FetchException {
-        return compareNext() != 0;
+        try {
+            return compareNext() != 0;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     /**
@@ -81,43 +90,61 @@ public class SymmetricDifferenceCursor<S> extends AbstractCursor<S> {
             return mCompareResult;
         }
 
-        while (true) {
-            if (mNextLeft == null && mLeftCursor.hasNext()) {
-                mNextLeft = mLeftCursor.next();
-            }
-            if (mNextRight == null && mRightCursor.hasNext()) {
-                mNextRight = mRightCursor.next();
-            }
+        try {
+            while (true) {
+                if (mNextLeft == null && mLeftCursor.hasNext()) {
+                    mNextLeft = mLeftCursor.next();
+                }
+                if (mNextRight == null && mRightCursor.hasNext()) {
+                    mNextRight = mRightCursor.next();
+                }
 
-            if (mNextLeft == null) {
-                return mNextRight != null ? 1 : 0;
-            }
-            if (mNextRight == null) {
-                return -1;
-            }
+                if (mNextLeft == null) {
+                    return mNextRight != null ? 1 : 0;
+                }
+                if (mNextRight == null) {
+                    return -1;
+                }
 
-            if ((mCompareResult = mOrder.compare(mNextLeft, mNextRight)) == 0) {
-                mNextLeft = null;
-                mNextRight = null;
-            } else {
-                return mCompareResult;
+                if ((mCompareResult = mOrder.compare(mNextLeft, mNextRight)) == 0) {
+                    mNextLeft = null;
+                    mNextRight = null;
+                } else {
+                    return mCompareResult;
+                }
             }
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
     }
 
     public S next() throws FetchException {
-        S next;
-        int result = compareNext();
-        if (result < 0) {
-            next = mNextLeft;
-            mNextLeft = null;
-        } else if (result > 0) {
-            next = mNextRight;
-            mNextRight = null;
-        } else {
-            throw new NoSuchElementException();
+        try {
+            S next;
+            int result = compareNext();
+            if (result < 0) {
+                next = mNextLeft;
+                mNextLeft = null;
+            } else if (result > 0) {
+                next = mNextRight;
+                mNextRight = null;
+            } else {
+                throw new NoSuchElementException();
+            }
+            mCompareResult = 0;
+            return next;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
-        mCompareResult = 0;
-        return next;
     }
 }

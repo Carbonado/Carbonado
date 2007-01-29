@@ -61,12 +61,30 @@ public class ThrottledCursor<S> extends AbstractCursor<S> {
     }
 
     public boolean hasNext() throws FetchException {
-        return mCursor.hasNext();
+        try {
+            return mCursor.hasNext();
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     public S next() throws FetchException {
-        throttle();
-        return mCursor.next();
+        try {
+            throttle();
+            return mCursor.next();
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     public int skipNext(int amount) throws FetchException {
@@ -77,16 +95,25 @@ public class ThrottledCursor<S> extends AbstractCursor<S> {
             return 0;
         }
 
-        int count = 0;
-        while (--amount >= 0) {
-            throttle();
-            if (skipNext(1) <= 0) {
-                break;
+        try {
+            int count = 0;
+            while (--amount >= 0) {
+                throttle();
+                if (skipNext(1) <= 0) {
+                    break;
+                }
+                count++;
             }
-            count++;
-        }
 
-        return count;
+            return count;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     private void throttle() throws FetchInterruptedException {

@@ -11,6 +11,8 @@ Carbonado change history
 - Index removal is now batched - reducing memory requirements when removing
   large indexes.
 - Fixed bug when filtering against negative floating point values.
+- Fixed multiple cursor implementations to be extra paranoid and close the
+  cursor when an exception is thrown.
 
 1.1-BETA8 to 1.1-BETA9
 -------------------------------

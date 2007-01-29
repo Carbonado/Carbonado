@@ -74,15 +74,31 @@ public abstract class TransformedCursor<S, T> extends AbstractCursor<T> {
                 interruptCheck(++count);
             }
         } catch (NoSuchElementException e) {
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         return false;
     }
 
     public T next() throws FetchException {
-        if (hasNext()) {
-            T next = mNext;
-            mNext = null;
-            return next;
+        try {
+            if (hasNext()) {
+                T next = mNext;
+                mNext = null;
+                return next;
+            }
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         throw new NoSuchElementException();
     }
@@ -95,13 +111,22 @@ public abstract class TransformedCursor<S, T> extends AbstractCursor<T> {
             return 0;
         }
 
-        int count = 0;
-        while (--amount >= 0 && hasNext()) {
-            interruptCheck(++count);
-            mNext = null;
-        }
+        try {
+            int count = 0;
+            while (--amount >= 0 && hasNext()) {
+                interruptCheck(++count);
+                mNext = null;
+            }
 
-        return count;
+            return count;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     private void interruptCheck(int count) throws FetchException {

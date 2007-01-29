@@ -157,16 +157,32 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
                 }
             }
         } catch (NoSuchElementException e) {
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
 
         return false;
     }
 
     public G next() throws FetchException {
-        if (hasNext()) {
-            G next = mNextAggregate;
-            mNextAggregate = null;
-            return next;
+        try {
+            if (hasNext()) {
+                G next = mNextAggregate;
+                mNextAggregate = null;
+                return next;
+            }
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         throw new NoSuchElementException();
     }
@@ -179,13 +195,22 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
             return 0;
         }
 
-        int count = 0;
-        while (--amount >= 0 && hasNext()) {
-            interruptCheck(++count);
-            mNextAggregate = null;
-        }
+        try {
+            int count = 0;
+            while (--amount >= 0 && hasNext()) {
+                interruptCheck(++count);
+                mNextAggregate = null;
+            }
 
-        return count;
+            return count;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     private void interruptCheck(int count) throws FetchException {

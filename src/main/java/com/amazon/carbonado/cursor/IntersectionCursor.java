@@ -71,47 +71,65 @@ public class IntersectionCursor<S> extends AbstractCursor<S> {
 
         S nextLeft, nextRight;
 
-        if (mLeftCursor.hasNext()) {
-            nextLeft = mLeftCursor.next();
-        } else {
-            close();
-            return false;
-        }
-        if (mRightCursor.hasNext()) {
-            nextRight = mRightCursor.next();
-        } else {
-            close();
-            return false;
-        }
-
-        while (true) {
-            int result = mOrder.compare(nextLeft, nextRight);
-            if (result < 0) {
-                if (mLeftCursor.hasNext()) {
-                    nextLeft = mLeftCursor.next();
-                } else {
-                    close();
-                    return false;
-                }
-            } else if (result > 0) {
-                if (mRightCursor.hasNext()) {
-                    nextRight = mRightCursor.next();
-                } else {
-                    close();
-                    return false;
-                }
+        try {
+            if (mLeftCursor.hasNext()) {
+                nextLeft = mLeftCursor.next();
             } else {
-                mNext = nextLeft;
-                return true;
+                close();
+                return false;
             }
+            if (mRightCursor.hasNext()) {
+                nextRight = mRightCursor.next();
+            } else {
+                close();
+                return false;
+            }
+
+            while (true) {
+                int result = mOrder.compare(nextLeft, nextRight);
+                if (result < 0) {
+                    if (mLeftCursor.hasNext()) {
+                        nextLeft = mLeftCursor.next();
+                    } else {
+                        close();
+                        return false;
+                    }
+                } else if (result > 0) {
+                    if (mRightCursor.hasNext()) {
+                        nextRight = mRightCursor.next();
+                    } else {
+                        close();
+                        return false;
+                    }
+                } else {
+                    mNext = nextLeft;
+                    return true;
+                }
+            }
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
     }
 
     public S next() throws FetchException {
-        if (hasNext()) {
-            S next = mNext;
-            mNext = null;
-            return next;
+        try {
+            if (hasNext()) {
+                S next = mNext;
+                mNext = null;
+                return next;
+            }
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         throw new NoSuchElementException();
     }

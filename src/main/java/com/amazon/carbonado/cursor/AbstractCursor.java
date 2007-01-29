@@ -37,31 +37,67 @@ public abstract class AbstractCursor<S> implements Cursor<S> {
     }
 
     public int copyInto(Collection<? super S> c) throws FetchException {
-        int originalSize = c.size();
-        while (hasNext()) {
-            c.add(next());
+        try {
+            int originalSize = c.size();
+            while (hasNext()) {
+                c.add(next());
+            }
+            return c.size() - originalSize;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
-        return c.size() - originalSize;
     }
 
     public int copyInto(Collection<? super S> c, int limit) throws FetchException {
-        int originalSize = c.size();
-        while (--limit >= 0 && hasNext()) {
-            c.add(next());
+        try {
+            int originalSize = c.size();
+            while (--limit >= 0 && hasNext()) {
+                c.add(next());
+            }
+            return c.size() - originalSize;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
-        return c.size() - originalSize;
     }
 
     public List<S> toList() throws FetchException {
-        List<S> list = new ArrayList<S>();
-        copyInto(list);
-        return list;
+        try {
+            List<S> list = new ArrayList<S>();
+            copyInto(list);
+            return list;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     public List<S> toList(int limit) throws FetchException {
-        List<S> list = new ArrayList<S>();
-        copyInto(list, limit);
-        return list;
+        try {
+            List<S> list = new ArrayList<S>();
+            copyInto(list, limit);
+            return list;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     public int skipNext(int amount) throws FetchException {
@@ -72,12 +108,21 @@ public abstract class AbstractCursor<S> implements Cursor<S> {
             return 0;
         }
 
-        int count = 0;
-        while (--amount >= 0 && hasNext()) {
-            next();
-            count++;
-        }
+        try {
+            int count = 0;
+            while (--amount >= 0 && hasNext()) {
+                next();
+                count++;
+            }
 
-        return count;
+            return count;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 }

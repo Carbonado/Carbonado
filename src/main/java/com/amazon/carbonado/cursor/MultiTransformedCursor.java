@@ -64,34 +64,52 @@ public abstract class MultiTransformedCursor<S, T> extends AbstractCursor<T> {
     }
 
     public boolean hasNext() throws FetchException {
-        if (mNextCursor != null) {
-            if (mNextCursor.hasNext()) {
-                return true;
-            }
-            mNextCursor.close();
-            mNextCursor = null;
-        }
         try {
-            int count = 0;
-            while (mCursor.hasNext()) {
-                Cursor<T> nextCursor = transform(mCursor.next());
-                if (nextCursor != null) {
-                    if (nextCursor.hasNext()) {
-                        mNextCursor = nextCursor;
-                        return true;
-                    }
-                    nextCursor.close();
+            if (mNextCursor != null) {
+                if (mNextCursor.hasNext()) {
+                    return true;
                 }
-                interruptCheck(++count);
+                mNextCursor.close();
+                mNextCursor = null;
             }
-        } catch (NoSuchElementException e) {
+            try {
+                int count = 0;
+                while (mCursor.hasNext()) {
+                    Cursor<T> nextCursor = transform(mCursor.next());
+                    if (nextCursor != null) {
+                        if (nextCursor.hasNext()) {
+                            mNextCursor = nextCursor;
+                            return true;
+                        }
+                        nextCursor.close();
+                    }
+                    interruptCheck(++count);
+                }
+            } catch (NoSuchElementException e) {
+            }
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         return false;
     }
 
     public T next() throws FetchException {
-        if (hasNext()) {
-            return mNextCursor.next();
+        try {
+            if (hasNext()) {
+                return mNextCursor.next();
+            }
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         throw new NoSuchElementException();
     }
@@ -104,17 +122,26 @@ public abstract class MultiTransformedCursor<S, T> extends AbstractCursor<T> {
             return 0;
         }
 
-        int count = 0;
-        while (hasNext()) {
-            int chunk = mNextCursor.skipNext(amount);
-            count += chunk;
-            if ((amount -= chunk) <= 0) {
-                break;
+        try {
+            int count = 0;
+            while (hasNext()) {
+                int chunk = mNextCursor.skipNext(amount);
+                count += chunk;
+                if ((amount -= chunk) <= 0) {
+                    break;
+                }
+                interruptCheck(count);
             }
-            interruptCheck(count);
-        }
 
-        return count;
+            return count;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     private void interruptCheck(int count) throws FetchException {

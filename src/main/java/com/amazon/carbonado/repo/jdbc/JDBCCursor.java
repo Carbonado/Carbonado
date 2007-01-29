@@ -35,10 +35,10 @@ import com.amazon.carbonado.cursor.AbstractCursor;
  */
 class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
     private final JDBCStorage<S> mStorage;
-    private Connection mConnection;
-    private PreparedStatement mStatement;
-    private ResultSet mResultSet;
+    private final Connection mConnection;
+    private final PreparedStatement mStatement;
 
+    private ResultSet mResultSet;
     private boolean mHasNext;
 
     JDBCCursor(JDBCStorage<S> storage,
@@ -49,7 +49,17 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
         mStorage = storage;
         mConnection = con;
         mStatement = statement;
-        mResultSet = statement.executeQuery();
+        try {
+            mResultSet = statement.executeQuery();
+        } catch (SQLException e) {
+            try {
+                statement.close();
+                storage.mRepository.yieldConnection(con);
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     public void close() throws FetchException {
@@ -62,6 +72,7 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
                 throw mStorage.getJDBCRepository().toFetchException(e);
             } finally {
                 mResultSet = null;
+                mHasNext = false;
             }
         }
     }
@@ -75,6 +86,11 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
             try {
                 mHasNext = rs.next();
             } catch (SQLException e) {
+                try {
+                    close();
+                } catch (FetchException e2) {
+                    // Don't care.
+                }
                 throw mStorage.getJDBCRepository().toFetchException(e);
             }
             if (!mHasNext) {
@@ -93,6 +109,11 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
             mHasNext = false;
             return obj;
         } catch (SQLException e) {
+            try {
+                close();
+            } catch (FetchException e2) {
+                // Don't care.
+            }
             throw mStorage.getJDBCRepository().toFetchException(e);
         }
     }

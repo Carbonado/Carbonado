@@ -67,39 +67,57 @@ public class UnionCursor<S> extends AbstractCursor<S> {
     }
 
     public boolean hasNext() throws FetchException {
-        if (mNextLeft == null && mLeftCursor.hasNext()) {
-            mNextLeft = mLeftCursor.next();
-        }
-        if (mNextRight == null && mRightCursor.hasNext()) {
-            mNextRight = mRightCursor.next();
+        try {
+            if (mNextLeft == null && mLeftCursor.hasNext()) {
+                mNextLeft = mLeftCursor.next();
+            }
+            if (mNextRight == null && mRightCursor.hasNext()) {
+                mNextRight = mRightCursor.next();
+            }
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         return mNextLeft != null || mNextRight != null;
     }
 
     public S next() throws FetchException {
-        if (hasNext()) {
-            S next;
-            if (mNextLeft == null) {
-                next = mNextRight;
-                mNextRight = null;
-            } else if (mNextRight == null) {
-                next = mNextLeft;
-                mNextLeft = null;
-            } else {
-                int result = mOrder.compare(mNextLeft, mNextRight);
-                if (result < 0) {
-                    next = mNextLeft;
-                    mNextLeft = null;
-                } else if (result > 0) {
+        try {
+            if (hasNext()) {
+                S next;
+                if (mNextLeft == null) {
                     next = mNextRight;
                     mNextRight = null;
-                } else {
+                } else if (mNextRight == null) {
                     next = mNextLeft;
                     mNextLeft = null;
-                    mNextRight = null;
+                } else {
+                    int result = mOrder.compare(mNextLeft, mNextRight);
+                    if (result < 0) {
+                        next = mNextLeft;
+                        mNextLeft = null;
+                    } else if (result > 0) {
+                        next = mNextRight;
+                        mNextRight = null;
+                    } else {
+                        next = mNextLeft;
+                        mNextLeft = null;
+                        mNextRight = null;
+                    }
                 }
+                return next;
             }
-            return next;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         throw new NoSuchElementException();
     }

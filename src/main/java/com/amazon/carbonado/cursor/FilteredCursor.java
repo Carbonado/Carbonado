@@ -101,15 +101,31 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
                 interruptCheck(++count);
             }
         } catch (NoSuchElementException e) {
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         return false;
     }
 
     public S next() throws FetchException {
-        if (hasNext()) {
-            S next = mNext;
-            mNext = null;
-            return next;
+        try {
+            if (hasNext()) {
+                S next = mNext;
+                mNext = null;
+                return next;
+            }
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         throw new NoSuchElementException();
     }
@@ -122,13 +138,22 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
             return 0;
         }
 
-        int count = 0;
-        while (--amount >= 0 && hasNext()) {
-            interruptCheck(++count);
-            mNext = null;
-        }
+        try {
+            int count = 0;
+            while (--amount >= 0 && hasNext()) {
+                interruptCheck(++count);
+                mNext = null;
+            }
 
-        return count;
+            return count;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     private void interruptCheck(int count) throws FetchException {

@@ -205,28 +205,46 @@ public class SortedCursor<S> extends AbstractCursor<S> {
     }
 
     public boolean hasNext() throws FetchException {
-        prepareNextChunk();
         try {
-            if (mChunkIterator.hasNext()) {
-                return true;
+            prepareNextChunk();
+            try {
+                if (mChunkIterator.hasNext()) {
+                    return true;
+                }
+            } catch (UndeclaredThrowableException e) {
+                throw toFetchException(e);
             }
-        } catch (UndeclaredThrowableException e) {
-            throw toFetchException(e);
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
         }
         close();
         return false;
     }
 
     public S next() throws FetchException {
-        prepareNextChunk();
         try {
-            return mChunkIterator.next();
-        } catch (UndeclaredThrowableException e) {
-            throw toFetchException(e);
-        } catch (NoSuchElementException e) {
+            prepareNextChunk();
+            try {
+                return mChunkIterator.next();
+            } catch (UndeclaredThrowableException e) {
+                throw toFetchException(e);
+            } catch (NoSuchElementException e) {
+                try {
+                    close();
+                } catch (FetchException e2) {
+                    // Don't care.
+                }
+                throw e;
+            }
+        } catch (FetchException e) {
             try {
                 close();
-            } catch (FetchException e2) {
+            } catch (Exception e2) {
                 // Don't care.
             }
             throw e;
@@ -241,13 +259,22 @@ public class SortedCursor<S> extends AbstractCursor<S> {
             return 0;
         }
 
-        int count = 0;
-        while (--amount >= 0 && hasNext()) {
-            next();
-            count++;
-        }
+        try {
+            int count = 0;
+            while (--amount >= 0 && hasNext()) {
+                next();
+                count++;
+            }
 
-        return count;
+            return count;
+        } catch (FetchException e) {
+            try {
+                close();
+            } catch (Exception e2) {
+                // Don't care.
+            }
+            throw e;
+        }
     }
 
     private void prepareNextChunk() throws FetchException {
