@@ -75,6 +75,13 @@
     </developer>
 
     <developer>
+      <name>James Willeford</name>
+      <id>jameswil</id>
+      <email>jameswil@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
+
+    <developer>
       <name>Justin Rudd</name>
       <id>justrudd</id>
       <email>justrudd@users.sourceforge.net</email>
