@@ -460,14 +460,24 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             Connection con = mRepository.getConnection();
             try {
                 PreparedStatement ps = con.prepareStatement(prepareSelect(values, forUpdate));
-                setParameters(ps, values);
-                return new JDBCCursor<S>(JDBCStorage.this, con, ps);
+                try {
+                    setParameters(ps, values);
+                    return new JDBCCursor<S>(JDBCStorage.this, con, ps);
+                } catch (Exception e) {
+                    // in case of exception, close statement
+                    try {
+                        ps.close();
+                    } catch (SQLException e2) {
+                        // ignore and allow triggering exception to propagate
+                    }
+                    throw e;
+                }
             } catch (Exception e) {
-                //in case of exception, yield connection
+                // in case of exception, yield connection
                 try {
                     mRepository.yieldConnection(con);
                 } catch (FetchException e2) {
-                   //ignore and allow triggering exception to propagate
+                   // ignore and allow triggering exception to propagate
                 }
                 throw mRepository.toFetchException(e);
             }
@@ -478,13 +488,17 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             Connection con = mRepository.getConnection();
             try {
                 PreparedStatement ps = con.prepareStatement(prepareCount(values));
-                setParameters(ps, values);
-                ResultSet rs = ps.executeQuery();
                 try {
-                    rs.next();
-                    return rs.getLong(1);
+                    setParameters(ps, values);
+                    ResultSet rs = ps.executeQuery();
+                    try {
+                        rs.next();
+                        return rs.getLong(1);
+                    } finally {
+                        rs.close();
+                    }
                 } finally {
-                    rs.close();
+                    ps.close();
                 }
             } catch (Exception e) {
                 throw mRepository.toFetchException(e);
@@ -536,8 +550,12 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             }
             try {
                 PreparedStatement ps = con.prepareStatement(prepareDelete(filterValues));
-                setParameters(ps, filterValues);
-                return ps.executeUpdate();
+                try {
+                    setParameters(ps, filterValues);
+                    return ps.executeUpdate();
+                } finally {
+                    ps.close();
+                }
             } catch (Exception e) {
                 throw mRepository.toPersistException(e);
             } finally {

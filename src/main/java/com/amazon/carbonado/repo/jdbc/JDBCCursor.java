@@ -41,6 +41,10 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
     private ResultSet mResultSet;
     private boolean mHasNext;
 
+    /**
+     * @throws SQLException from executeQuery on statement. Caller must clean
+     * up when this happens by closing statement and connection.
+     */
     JDBCCursor(JDBCStorage<S> storage,
                Connection con,
                PreparedStatement statement)
@@ -49,17 +53,7 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
         mStorage = storage;
         mConnection = con;
         mStatement = statement;
-        try {
-            mResultSet = statement.executeQuery();
-        } catch (SQLException e) {
-            try {
-                statement.close();
-                storage.mRepository.yieldConnection(con);
-            } catch (Exception e2) {
-                // Don't care.
-            }
-            throw e;
-        }
+        mResultSet = statement.executeQuery();
     }
 
     public void close() throws FetchException {
