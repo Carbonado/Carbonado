@@ -245,16 +245,20 @@ abstract class BDBRepository<Txn>
             metaRepo.storageFor(StoredDatabaseInfo.class)
             .query().orderBy("databaseName").fetch();
 
-        ArrayList<String> names = new ArrayList<String>();
-        while (cursor.hasNext()) {
-            StoredDatabaseInfo info = cursor.next();
-            // Ordinary user types support evolution.
-            if (info.getEvolutionStrategy() != StoredDatabaseInfo.EVOLUTION_NONE) {
-                names.add(info.getDatabaseName());
+        try {
+            ArrayList<String> names = new ArrayList<String>();
+            while (cursor.hasNext()) {
+                StoredDatabaseInfo info = cursor.next();
+                // Ordinary user types support evolution.
+                if (info.getEvolutionStrategy() != StoredDatabaseInfo.EVOLUTION_NONE) {
+                    names.add(info.getDatabaseName());
+                }
             }
-        }
 
-        return names.toArray(new String[names.size()]);
+            return names.toArray(new String[names.size()]);
+        } finally {
+            cursor.close();
+        }
     }
 
     public boolean isSupported(Class<Storable> type) {

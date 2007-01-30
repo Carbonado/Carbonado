@@ -159,9 +159,13 @@ class IndexedRepository implements Repository,
             mRepository.storageFor(StoredIndexInfo.class)
             .query().fetch();
 
-        while (cursor.hasNext()) {
-            StoredIndexInfo info = cursor.next();
-            names.remove(info.getIndexName());
+        try {
+            while (cursor.hasNext()) {
+                StoredIndexInfo info = cursor.next();
+                names.remove(info.getIndexName());
+            }
+        } finally {
+            cursor.close();
         }
 
         return names.toArray(new String[names.size()]);

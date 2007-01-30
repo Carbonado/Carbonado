@@ -302,37 +302,40 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         Transaction txn = repo.enterTopTransaction(IsolationLevel.NONE);
         try {
             Cursor<S> cursor = masterStorage.query().fetch();
-            if (!cursor.hasNext()) {
-                // Nothing exists in master, so nothing to populate.
-                cursor.close();
-                return;
-            }
-
-            Log log = LogFactory.getLog(IndexedStorage.class);
-            if (log.isInfoEnabled()) {
-                StringBuilder b = new StringBuilder();
-                b.append("Populating index on ");
-                b.append(masterStorage.getStorableType().getName());
-                b.append(": ");
-                try {
-                    mIndex.appendTo(b);
-                } catch (java.io.IOException e) {
-                    // Not gonna happen.
+            try {
+                if (!cursor.hasNext()) {
+                    // Nothing exists in master, so nothing to populate.
+                    return;
                 }
-                log.info(b.toString());
+
+                Log log = LogFactory.getLog(IndexedStorage.class);
+                if (log.isInfoEnabled()) {
+                    StringBuilder b = new StringBuilder();
+                    b.append("Populating index on ");
+                    b.append(masterStorage.getStorableType().getName());
+                    b.append(": ");
+                    try {
+                        mIndex.appendTo(b);
+                    } catch (java.io.IOException e) {
+                        // Not gonna happen.
+                    }
+                    log.info(b.toString());
+                }
+
+                // Preload and sort all index entries for improved performance.
+
+                buffer = new MergeSortBuffer(mIndexEntryStorage);
+                c = mGenerator.getComparator();
+                buffer.prepare(c);
+
+                while (cursor.hasNext()) {
+                    buffer.add(makeIndexEntry(cursor.next()));
+                }
+
+                // No need to commit transaction because no changes should have been made.
+            } finally {
+                cursor.close();
             }
-
-            // Preload and sort all index entries for improved performance.
-
-            buffer = new MergeSortBuffer(mIndexEntryStorage);
-            c = mGenerator.getComparator();
-            buffer.prepare(c);
-
-            while (cursor.hasNext()) {
-                buffer.add(makeIndexEntry(cursor.next()));
-            }
-
-            // No need to commit transaction because no changes should have been made.
         } finally {
             txn.exit();
         }

@@ -231,13 +231,17 @@ public class Layout {
                 .orderBy("ordinal")
                 .fetch();
 
-            List<LayoutProperty> list = new ArrayList<LayoutProperty>();
+            try {
+                List<LayoutProperty> list = new ArrayList<LayoutProperty>();
 
-            while (cursor.hasNext()) {
-                list.add(new LayoutProperty(cursor.next()));
+                while (cursor.hasNext()) {
+                    list.add(new LayoutProperty(cursor.next()));
+                }
+
+                mAllProperties = Collections.unmodifiableList(list);
+            } finally {
+                cursor.close();
             }
-
-            mAllProperties = Collections.unmodifiableList(list);
         }
 
         return mAllProperties;
