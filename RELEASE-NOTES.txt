@@ -13,7 +13,8 @@ Carbonado change history
 - Fixed bug when filtering against negative floating point values.
 - Fixed multiple cursor implementations to be extra paranoid and close the
   cursor when an exception is thrown.
-- Fixed JDBC cursor implementation to close the connection when an exception is thrown.
+- Fixed JDBC cursor implementation to close the connection when an exception is
+  thrown during cursor construction.
 
 1.1-BETA8 to 1.1-BETA9
 -------------------------------

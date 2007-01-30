@@ -457,12 +457,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
             boolean forUpdate = mRepository.openTransactionManager().isForUpdate();
-            Connection con;
-            try {
-                con = mRepository.getConnection();
-            } catch (FetchException e) {
-                throw e.toPersistException();
-            }
+            Connection con = mRepository.getConnection();
             try {
                 PreparedStatement ps = con.prepareStatement(prepareSelect(values, forUpdate));
                 setParameters(ps, values);
@@ -471,7 +466,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 //in case of exception, yield connection
                 try {
                     mRepository.yieldConnection(con);
-                } catch (FetchException e) {
+                } catch (FetchException e2) {
                    //ignore and allow triggering exception to propagate
                 }
                 throw mRepository.toFetchException(e);
