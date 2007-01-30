@@ -375,7 +375,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                 if (totalInserted % POPULATE_BATCH_SIZE == 0) {
                     txn.commit();
                     txn.exit();
-                    txn = repo.enterTransaction();
+                    txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
                 }
             }
             txn.commit();
