@@ -1,6 +1,11 @@
 Carbonado change history
 ------------------------
 
+1.1-BETA10 to 1.1-BETA11
+-------------------------------
+- Fixed bug when decoding old Storable generations - new properties must be
+  cleared. Otherwise, indexes on newly added properties might not get updated.
+
 1.1-BETA9 to 1.1-BETA10
 -------------------------------
 - JDBCSupportStrategy cleans up database product name before using it to

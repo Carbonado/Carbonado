@@ -708,9 +708,10 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
 
     private Decoder<S> generateDecoder(int generation) throws FetchException {
         // Create an encoding strategy against the reconstructed storable.
+        Class<? extends Storable> altStorable;
         GenericEncodingStrategy<? extends Storable> altStrategy;
         try {
-            Class<? extends Storable> altStorable = mLayout.getGeneration(generation)
+            altStorable = mLayout.getGeneration(generation)
                 .reconstruct(mStorableClass.getClassLoader());
             altStrategy = mFactory.createStrategy(altStorable, null);
         } catch (RepositoryException e) {
@@ -756,6 +757,45 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                 (b, null, destVar, null, false, generation, null, dataVar);
         } catch (SupportException e) {
             throw new CorruptEncodingException(e);
+        }
+
+        // Clear all properties available in the current generation which
+        // aren't in the alt generation.
+
+        Map<String, ? extends StorableProperty> currentProps =
+            StorableIntrospector.examine(mType).getAllProperties();
+
+        Map<String, ? extends StorableProperty> altProps =
+            StorableIntrospector.examine(altStorable).getAllProperties();
+
+        for (StorableProperty prop : currentProps.values()) {
+            if (altProps.keySet().contains(prop.getName())) {
+                continue;
+            }
+
+            b.loadLocal(destVar);
+
+            TypeDesc propType = TypeDesc.forClass(prop.getType());
+
+            switch (propType.getTypeCode()) {
+            case TypeDesc.OBJECT_CODE:
+                b.loadNull();
+                break;
+            case TypeDesc.LONG_CODE:
+                b.loadConstant(0L);
+                break;
+            case TypeDesc.FLOAT_CODE:
+                b.loadConstant(0.0f);
+                break;
+            case TypeDesc.DOUBLE_CODE:
+                b.loadConstant(0.0d);
+                break;
+            default:
+                b.loadConstant(0);
+                break;
+            }
+
+            b.storeField(destVar.getType(), prop.getName(), propType);
         }
 
         b.returnVoid();
