@@ -116,7 +116,8 @@ public class LoggingRepositoryBuilder extends AbstractRepositoryBuilder {
     }
 
     public boolean isMaster() {
-        return mMaster;
+        return mMaster != null ? mMaster
+            : (mRepoBuilder != null ? mRepoBuilder.isMaster() : false);
     }
 
     /**
