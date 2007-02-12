@@ -20,6 +20,7 @@ package com.amazon.carbonado.cursor;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.EOFException;
@@ -51,6 +52,28 @@ import com.amazon.carbonado.spi.StorableSerializer;
  * storables to fit in the reserved memory buffer, they are sorted and
  * serialized to temporary files.
  *
+ * <p>The following system properties can be set to change the default
+ * performance characteristics of the merge sort. Each property name must be
+ * prefixed with "com.amazon.carbonado.MergeSortBuffer."
+ *
+ * <pre>
+ * Property            Default    Notes
+ * ------------------- ---------- ----------------------------------------------
+ * maxArrayCapacity    8192       Larger value greatly improves performance, but
+ *                                more memory is used for each running sort.
+ *
+ * maxOpenFileCount    100        Larger value may reduce the amount of file
+ *                                merges, but there is an increased risk of
+ *                                running out of file descriptors.
+ *
+ * outputBufferSize    10000      Larger value may improve performance of file
+ *                                writing, but not by much.
+ *
+ * tmpdir                         Merge sort files by default are placed in the
+ *                                Java temp directory. Override to place them
+ *                                somewhere else.
+ * </pre>
+ *
  * @author Brian S O'Neill
  * @see SortedCursor
  */
@@ -60,13 +83,43 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
     private static final int MIN_ARRAY_CAPACITY = 64;
 
     // Bigger means better performance, but more memory is used.
-    private static final int MAX_ARRAY_CAPACITY = 8192;
+    private static final int MAX_ARRAY_CAPACITY;
+    private static final int DEFAULT_MAX_ARRAY_CAPACITY = 8192;
 
     // Bigger means better performance, but more file handles may be used.
-    private static final int MAX_FILE_COUNT = 100;
+    private static final int MAX_OPEN_FILE_COUNT;
+    private static final int DEFAULT_MAX_OPEN_FILE_COUNT = 100;
 
     // Bigger may improve write performance, but not by much.
-    private static final int OUTPUT_BUFFER_SIZE = 10000;
+    private static final int OUTPUT_BUFFER_SIZE;
+    private static final int DEFAULT_OUTPUT_BUFFER_SIZE = 10000;
+
+    private static final String TEMP_DIR;
+
+    static {
+        String prefix = MergeSortBuffer.class.getName() + '.';
+
+        MAX_ARRAY_CAPACITY = Integer.getInteger(prefix + "maxArrayCapacity",
+                                                DEFAULT_MAX_ARRAY_CAPACITY);
+
+        MAX_OPEN_FILE_COUNT = Integer.getInteger(prefix + "maxOpenFileCount",
+                                                 DEFAULT_MAX_OPEN_FILE_COUNT);
+
+        OUTPUT_BUFFER_SIZE = Integer.getInteger(prefix + "outputBufferSize",
+                                                DEFAULT_OUTPUT_BUFFER_SIZE);
+
+        // Null means use system temp dir.
+        String tempDir = System.getProperty(prefix + "tmpdir", null);
+
+        if (tempDir != null) {
+            File f = new File(tempDir);
+            if (!f.exists() || !f.isDirectory() || !f.canRead() || !f.canWrite()) {
+                tempDir = null;
+            }
+        }
+
+        TEMP_DIR = tempDir;
+    }
 
     private final Storage<S> mStorage;
     private final String mTempDir;
@@ -104,9 +157,13 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
      * @param tempDir directory to store temp files for merging, or null for default
      * @param maxArrayCapacity maximum amount of storables to keep in an array
      * before serializing to a file
+     * @throws IllegalArgumentException if storage is null
      */
     @SuppressWarnings("unchecked")
     public MergeSortBuffer(Storage<S> storage, String tempDir, int maxArrayCapacity) {
+        if (storage == null) {
+            throw new IllegalArgumentException();
+        }
         mStorage = storage;
         mTempDir = tempDir;
         mMaxArrayCapacity = maxArrayCapacity;
@@ -164,7 +221,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
 
                 StorableSerializer<S> serializer = mSerializer;
 
-                if (mFilesInUse.size() < (MAX_FILE_COUNT - 1)) {
+                if (mFilesInUse.size() < (MAX_OPEN_FILE_COUNT - 1)) {
                     mFilesInUse.add(raf);
                     int count = 0;
                     for (S element : mElements) {

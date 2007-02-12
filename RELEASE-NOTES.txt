@@ -5,6 +5,7 @@ Carbonado change history
 -------------------------------
 - Fixed bug when decoding old Storable generations - new properties must be
   cleared. Otherwise, indexes on newly added properties might not get updated.
+- Added system properties to control performance characteristics of MergeSortBuffer.
 
 1.1-BETA9 to 1.1-BETA10
 -------------------------------
