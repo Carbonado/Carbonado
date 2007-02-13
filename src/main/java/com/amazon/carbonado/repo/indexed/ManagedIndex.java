@@ -297,6 +297,8 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         MergeSortBuffer buffer;
         Comparator c;
 
+        Log log = LogFactory.getLog(IndexedStorage.class);
+
         // Enter top transaction with isolation level of none to make sure
         // preload operation does not run in a long nested transaction.
         Transaction txn = repo.enterTopTransaction(IsolationLevel.NONE);
@@ -308,7 +310,6 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                     return;
                 }
 
-                Log log = LogFactory.getLog(IndexedStorage.class);
                 if (log.isInfoEnabled()) {
                     StringBuilder b = new StringBuilder();
                     b.append("Populating index on ");
@@ -361,9 +362,11 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             }
         }
 
+        final int bufferSize = buffer.size();
+        int totalInserted = 0;
+
         txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
         try {
-            int totalInserted = 0;
             for (Object obj : buffer) {
                 Storable indexEntry = (Storable) obj;
                 if (!indexEntry.tryInsert()) {
@@ -375,6 +378,13 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                 if (totalInserted % POPULATE_BATCH_SIZE == 0) {
                     txn.commit();
                     txn.exit();
+
+                    if (log.isInfoEnabled()) {
+                        String format = "Committed %d new index entries (%.3f%%)";
+                        double percent = 100.0 * totalInserted / bufferSize;
+                        log.info(String.format(format, totalInserted, percent));
+                    }
+
                     txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
                 }
             }
@@ -382,6 +392,10 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         } finally {
             txn.exit();
             buffer.close();
+        }
+
+        if (log.isInfoEnabled()) {
+            log.info("Finished inserting " + totalInserted + " new index entries");
         }
     }
 
