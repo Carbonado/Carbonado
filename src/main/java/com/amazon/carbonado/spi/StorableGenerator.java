@@ -2382,15 +2382,7 @@ public final class StorableGenerator<S extends Storable> {
             if ((ordinal & 0xf) == 0 || ordinal >= count) {
                 String stateFieldName = PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4);
                 if (name == MARK_ALL_PROPERTIES_DIRTY) {
-                    if (orMask == 0) {
-                        if (andMask != 0) {
-                            b.loadThis();
-                            b.loadField(stateFieldName, TypeDesc.INT);
-                            b.loadConstant(~andMask);
-                            b.math(Opcode.IAND);
-                            b.storeField(stateFieldName, TypeDesc.INT);
-                        }
-                    } else {
+                    if (orMask != 0 || andMask != 0) {
                         b.loadThis(); // [this
                         b.loadThis(); // [this, this
                         b.loadField(stateFieldName, TypeDesc.INT); // [this, this.stateField
@@ -2398,8 +2390,10 @@ public final class StorableGenerator<S extends Storable> {
                             b.loadConstant(~andMask);
                             b.math(Opcode.IAND);
                         }
-                        b.loadConstant(orMask);
-                        b.math(Opcode.IOR);
+                        if (orMask != 0) {
+                            b.loadConstant(orMask);
+                            b.math(Opcode.IOR);
+                        }
                         b.storeField(stateFieldName, TypeDesc.INT);
                     }
                 } else {
