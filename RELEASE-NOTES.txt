@@ -7,6 +7,9 @@ Carbonado change history
   cleared. Otherwise, indexes on newly added properties might not get updated.
 - Added system properties to control performance characteristics of MergeSortBuffer.
 - Fixed verify error in generation of markPropertiesDirty.
+- ReplicatedRepository installs user triggers on the replica again, but it now
+  disables all triggers during resync to prevent errors. When triggers were on
+  master, downstream triggers would not see changes made by earlier triggers.
 
 1.1-BETA9 to 1.1-BETA10
 -------------------------------

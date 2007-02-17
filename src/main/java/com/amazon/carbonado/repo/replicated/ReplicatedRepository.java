@@ -356,9 +356,9 @@ class ReplicatedRepository
                                             Object... filterValues)
         throws RepositoryException
     {
-        ReplicationTrigger<S> trigger;
+        ReplicationTrigger<S> replicationTrigger;
         if (storageFor(type) instanceof ReplicatedStorage) {
-            trigger = ((ReplicatedStorage) storageFor(type)).getTrigger();
+            replicationTrigger = ((ReplicatedStorage) storageFor(type)).getReplicationTrigger();
         } else {
             throw new UnsupportedTypeException("Storable type is not replicated", type);
         }
@@ -413,7 +413,7 @@ class ReplicatedRepository
         try {
             replicaTxn.setForUpdate(true);
 
-            resync(trigger,
+            resync(replicationTrigger,
                    replicaStorage, replicaQuery,
                    masterStorage, masterQuery,
                    throttle, desiredSpeed,
@@ -426,7 +426,7 @@ class ReplicatedRepository
     }
 
     @SuppressWarnings("unchecked")
-    private <S extends Storable> void resync(ReplicationTrigger<S> trigger,
+    private <S extends Storable> void resync(ReplicationTrigger<S> replicationTrigger,
                                              Storage<S> replicaStorage, Query<S> replicaQuery,
                                              Storage<S> masterStorage, Query<S> masterQuery,
                                              Throttle throttle, double desiredSpeed,
@@ -493,7 +493,7 @@ class ReplicatedRepository
                             if (replicaWithKeyOnly != null) {
                                 // Delete corrupt replica entry.
                                 try {
-                                    trigger.deleteReplica(replicaWithKeyOnly);
+                                    replicationTrigger.deleteReplica(replicaWithKeyOnly);
                                     log.info("Deleted corrupt replica entry: " +
                                              replicaWithKeyOnly.toStringKeyOnly(), e);
                                     skip = false;
@@ -551,7 +551,7 @@ class ReplicatedRepository
 
                 if (compare < 0) {
                     // Bogus record exists only in replica so delete it.
-                    resyncTask = prepareResyncTask(trigger, replicaEntry, null);
+                    resyncTask = prepareResyncTask(replicationTrigger, replicaEntry, null);
                     // Allow replica to advance.
                     if (replicaCursor == null) {
                         replicaCursor = replicaQuery.fetchAfter(replicaEntry);
@@ -560,7 +560,7 @@ class ReplicatedRepository
                     replicaEntry = null;
                 } else if (compare > 0) {
                     // Replica cursor is missing an entry so copy it.
-                    resyncTask = prepareResyncTask(trigger, null, masterEntry);
+                    resyncTask = prepareResyncTask(replicationTrigger, null, masterEntry);
                     // Allow master to advance.
                     lastMasterEntry = masterEntry;
                     masterEntry = null;
@@ -576,7 +576,8 @@ class ReplicatedRepository
                     // Both replicaEntry and masterEntry are non-null.
                     if (!replicaEntry.equalProperties(masterEntry)) {
                         // Replica is stale.
-                        resyncTask = prepareResyncTask(trigger, replicaEntry, masterEntry);
+                        resyncTask = prepareResyncTask
+                            (replicationTrigger, replicaEntry, masterEntry);
                     }
 
                     // Entries are synchronized so allow both cursors to advance.
@@ -607,9 +608,10 @@ class ReplicatedRepository
         }
     }
 
-    private <S extends Storable> Runnable prepareResyncTask(final ReplicationTrigger<S> trigger,
-                                                            final S replicaEntry,
-                                                            final S masterEntry)
+    private <S extends Storable> Runnable prepareResyncTask
+                       (final ReplicationTrigger<S> replicationTrigger,
+                        final S replicaEntry,
+                        final S masterEntry)
         throws RepositoryException
     {
         if (replicaEntry == null && masterEntry == null) {
@@ -622,7 +624,7 @@ class ReplicatedRepository
         Runnable task = new Runnable() {
             public void run() {
                 try {
-                    trigger.resyncEntries(replicaEntry, masterEntry);
+                    replicationTrigger.resyncEntries(replicaEntry, masterEntry);
                 } catch (Exception e) {
                     LogFactory.getLog(ReplicatedRepository.class).error(null, e);
                 }

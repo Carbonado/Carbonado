@@ -43,7 +43,7 @@ import com.amazon.carbonado.spi.BelatedStorageCreator;
 class ReplicatedStorage<S extends Storable> implements Storage<S> {
     final Storage<S> mReplicaStorage;
     final Storage<S> mMasterStorage;
-    final ReplicationTrigger<S> mTrigger;
+    final ReplicationTrigger<S> mReplicationTrigger;
 
     /**
      * @throws UnsupportedTypeException if master doesn't support Storable, but
@@ -63,8 +63,13 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
              ReplicatedRepositoryBuilder.DEFAULT_RETRY_MILLIS);
 
         mMasterStorage = creator.get(ReplicatedRepositoryBuilder.DEFAULT_MASTER_TIMEOUT_MILLIS);
-        mTrigger = new ReplicationTrigger<S>(aRepository, mReplicaStorage, mMasterStorage);
-        mReplicaStorage.addTrigger(mTrigger);
+
+        // ReplicationTrigger contains internal TriggerManager, and all other
+        // triggers should register with the ReplicationTrigger. This allows
+        // all triggers to be easily disabled during resync and repairs.
+
+        mReplicationTrigger = new ReplicationTrigger<S>
+            (aRepository, mReplicaStorage, mMasterStorage);
     }
 
     /**
@@ -76,8 +81,8 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
     {
         mReplicaStorage = replicaStorage;
         mMasterStorage = masterStorage;
-        mTrigger = new ReplicationTrigger<S>(aRepository, mReplicaStorage, masterStorage);
-        mReplicaStorage.addTrigger(mTrigger);
+        mReplicationTrigger = new ReplicationTrigger<S>
+            (aRepository, mReplicaStorage, masterStorage);
     }
 
     public Class<S> getStorableType() {
@@ -100,21 +105,15 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
         return mReplicaStorage.query(filter);
     }
 
-    // Note: All user triggers must be added to the master storage. Otherwise,
-    // resync operations can cause the triggers to run again, which can be
-    // disastrous. If triggers ever support "after load" events, things get
-    // complicated. Perhaps this use case is a good example for why supporting
-    // "after load" events might be bad.
-
     public boolean addTrigger(Trigger<? super S> trigger) {
-        return mMasterStorage.addTrigger(trigger);
+        return mReplicationTrigger.addTrigger(trigger);
     }
 
     public boolean removeTrigger(Trigger<? super S> trigger) {
-        return mMasterStorage.removeTrigger(trigger);
+        return mReplicationTrigger.removeTrigger(trigger);
     }
 
-    ReplicationTrigger<S> getTrigger() {
-        return mTrigger;
+    ReplicationTrigger<S> getReplicationTrigger() {
+        return mReplicationTrigger;
     }
 }

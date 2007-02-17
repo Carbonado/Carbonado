@@ -18,8 +18,6 @@
 
 package com.amazon.carbonado.repo.replicated;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -36,6 +34,7 @@ import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.UniqueConstraintException;
 
 import com.amazon.carbonado.spi.RepairExecutor;
+import com.amazon.carbonado.spi.TriggerManager;
 
 /**
  * All inserts/updates/deletes are first committed to the master storage, then
@@ -49,7 +48,7 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
     private final Storage<S> mReplicaStorage;
     private final Storage<S> mMasterStorage;
 
-    private final ThreadLocal<AtomicInteger> mDisabled = new ThreadLocal<AtomicInteger>();
+    private final TriggerManager<S> mTriggerManager;
 
     ReplicationTrigger(Repository repository,
                        Storage<S> replicaStorage,
@@ -58,6 +57,11 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         mRepository = repository;
         mReplicaStorage = replicaStorage;
         mMasterStorage = masterStorage;
+        // Use TriggerManager to locally disable trigger execution during
+        // resync and repairs.
+        mTriggerManager = new TriggerManager<S>();
+        mTriggerManager.addTrigger(this);
+        replicaStorage.addTrigger(mTriggerManager);
     }
 
     @Override
@@ -71,10 +75,6 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
     }
 
     private Object beforeInsert(S replica, boolean forTry) throws PersistException {
-        if (isReplicationDisabled()) {
-            return null;
-        }
-
         final S master = mMasterStorage.prepare();
         replica.copyAllProperties(master);
 
@@ -129,10 +129,6 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
     }
 
     private Object beforeUpdate(S replica, boolean forTry) throws PersistException {
-        if (isReplicationDisabled()) {
-            return null;
-        }
-
         final S master = mMasterStorage.prepare();
         replica.copyPrimaryKeyProperties(master);
 
@@ -209,10 +205,6 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
 
     @Override
     public Object beforeDelete(S replica) throws PersistException {
-        if (isReplicationDisabled()) {
-            return null;
-        }
-
         S master = mMasterStorage.prepare();
         replica.copyPrimaryKeyProperties(master);
 
@@ -373,6 +365,14 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         });
     }
 
+    boolean addTrigger(Trigger<? super S> trigger) {
+        return mTriggerManager.addTrigger(trigger);
+    }
+
+    boolean removeTrigger(Trigger<? super S> trigger) {
+        return mTriggerManager.removeTrigger(trigger);
+    }
+
     /**
      * Deletes the replica entry with replication disabled.
      */
@@ -401,35 +401,13 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         }
     }
 
-    /**
-     * Returns true if replication is disabled for the current thread.
-     */
-    private boolean isReplicationDisabled() {
-        // Count indicates how many times disabled (nested)
-        AtomicInteger i = mDisabled.get();
-        return i != null && i.get() > 0;
-    }
-
-    /**
-     * By default, replication is enabled for the current thread. Pass true to
-     * disable during re-sync operations.
-     */
-    private void setReplicationDisabled(boolean disabled) {
-        // Using a count allows this method call to be nested. Based on the
-        // current implementation, it should never be nested, so this extra
-        // work is just a safeguard.
-        AtomicInteger i = mDisabled.get();
+    void setReplicationDisabled(boolean disabled) {
+        // This method disables not only this trigger, but all triggers added
+        // to manager.
         if (disabled) {
-            if (i == null) {
-                i = new AtomicInteger(1);
-                mDisabled.set(i);
-            } else {
-                i.incrementAndGet();
-            }
+            mTriggerManager.localDisable();
         } else {
-            if (i != null) {
-                i.decrementAndGet();
-            }
+            mTriggerManager.localEnable();
         }
     }
 }
