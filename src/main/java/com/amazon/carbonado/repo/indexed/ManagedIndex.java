@@ -370,9 +370,21 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             for (Object obj : buffer) {
                 Storable indexEntry = (Storable) obj;
                 if (!indexEntry.tryInsert()) {
-                    // repair
-                    indexEntry.tryDelete();
-                    indexEntry.tryInsert();
+                    // Couldn't insert because an index entry already exists.
+                    Storable existing = indexEntry.copy();
+                    if (existing.tryLoad()) {
+                        if (!existing.equalProperties(indexEntry)) {
+                            // Existing entry differs, so update it.
+                            indexEntry.copyUnequalProperties(existing);
+                            existing.tryUpdate();
+                            indexEntry = existing;
+                        }
+                    } else {
+                        // Couldn't find existing entry for some reason, so
+                        // repair by brute force.
+                        indexEntry.tryDelete();
+                        indexEntry.tryInsert();
+                    }
                 }
                 totalInserted++;
                 if (totalInserted % POPULATE_BATCH_SIZE == 0) {

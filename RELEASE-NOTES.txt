@@ -10,6 +10,8 @@ Carbonado change history
 - ReplicatedRepository installs user triggers on the replica again, but it now
   disables all triggers during resync to prevent errors. When triggers were on
   master, downstream triggers would not see changes made by earlier triggers.
+- Index creation does a better job of picking up where it left off, avoiding
+  unnecessary delete/insert pairs.
 
 1.1-BETA9 to 1.1-BETA10
 -------------------------------
