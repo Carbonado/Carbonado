@@ -12,6 +12,8 @@ Carbonado change history
   master, downstream triggers would not see changes made by earlier triggers.
 - Index creation does a better job of picking up where it left off, avoiding
   unnecessary delete/insert pairs.
+- JDBCRepository is more lenient with primary key validation. This allows
+  Storables to be more easily mapped to views.
 
 1.1-BETA9 to 1.1-BETA10
 -------------------------------

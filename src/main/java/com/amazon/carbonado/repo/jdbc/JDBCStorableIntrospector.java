@@ -466,7 +466,15 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             }
 
             try {
-                while (rs.next()) {
+                if (!rs.next()) {
+                    // If no primary keys are reported, don't even bother checking.
+                    // There's no consistent way to get primary keys, and entities
+                    // like views and synonyms don't usually report primary keys.
+                    // A primary key might even be logically defined as a unique
+                    // constraint.
+                    break checkPrimaryKey;
+                }
+                do {
                     String columnName = rs.getString("COLUMN_NAME");
                     String propertyName = columnToProperty.remove(columnName);
                     StorableProperty mainProperty = mainProperties.get(propertyName);
@@ -476,7 +484,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                             ("Property \"" + propertyName +
                              "\" must have a PrimaryKey annotation");
                     }
-                }
+                } while (rs.next());
             } finally {
                 rs.close();
             }
