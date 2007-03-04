@@ -21,8 +21,8 @@ package com.amazon.carbonado;
 /**
  * A data access object in a {@link Repository}. User defined storables must
  * either extend or implement this interface via an interface or abstract
- * class. Bean properties defined in the storable are persisted into the
- * repository. At least one property must be annotated as the {@link
+ * class. Abstract bean properties defined in the storable are persisted into
+ * the repository. At least one property must be annotated as the {@link
  * PrimaryKey}. At most one property may be annotated as being the {@link
  * Version} property.
  *
