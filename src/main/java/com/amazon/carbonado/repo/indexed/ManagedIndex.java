@@ -45,13 +45,19 @@ import com.amazon.carbonado.spi.RepairExecutor;
 
 import com.amazon.carbonado.qe.BoundaryType;
 
+import com.amazon.carbonado.util.Throttle;
+
 /**
  * Encapsulates info and operations for a single index.
  *
  * @author Brian S O'Neill
  */
 class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
-    private static final int POPULATE_BATCH_SIZE = 256;
+    private static final int POPULATE_SORT_BUFFER_SIZE = 65536;
+    private static final int POPULATE_INFO_DELAY_MILLIS = 5000;
+    static final int POPULATE_BATCH_SIZE = 128;
+    static final int POPULATE_THROTTLE_WINDOW = POPULATE_BATCH_SIZE * 10;
+    static final int POPULATE_THROTTLE_SLEEP_PRECISION = 10;
 
     private final StorableIndex mIndex;
     private final IndexEntryGenerator<S> mGenerator;
@@ -293,7 +299,9 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
      *
      * @param repo used to enter transactions
      */
-    void populateIndex(Repository repo, Storage<S> masterStorage) throws RepositoryException {
+    void populateIndex(Repository repo, Storage<S> masterStorage, double desiredSpeed)
+        throws RepositoryException
+    {
         MergeSortBuffer buffer;
         Comparator c;
 
@@ -325,12 +333,21 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
 
                 // Preload and sort all index entries for improved performance.
 
-                buffer = new MergeSortBuffer(mIndexEntryStorage);
+                buffer = new MergeSortBuffer(mIndexEntryStorage, null, POPULATE_SORT_BUFFER_SIZE);
                 c = mGenerator.getComparator();
                 buffer.prepare(c);
 
+                long nextReportTime = System.currentTimeMillis() + POPULATE_INFO_DELAY_MILLIS;
                 while (cursor.hasNext()) {
                     buffer.add(makeIndexEntry(cursor.next()));
+
+                    if (log.isInfoEnabled()) {
+                        long now = System.currentTimeMillis();
+                        if (now >= nextReportTime) {
+                            log.info("Prepared " + buffer.size() + " new index entries");
+                            nextReportTime = now + POPULATE_INFO_DELAY_MILLIS;
+                        }
+                    }
                 }
 
                 // No need to commit transaction because no changes should have been made.
@@ -341,12 +358,18 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             txn.exit();
         }
 
+        // This is not expected to take long, since MergeSortBuffer sorts as
+        // needed. This just finishes off what was not written to a file.
         buffer.sort();
 
         if (isUnique()) {
             // If index is unique, scan buffer and check for duplicates
             // _before_ inserting index entries. If there are duplicates,
             // fail, since unique index cannot be built.
+
+            if (log.isInfoEnabled()) {
+                log.info("Verifying unique index");
+            }
 
             Object last = null;
             for (Object obj : buffer) {
@@ -363,6 +386,13 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         }
 
         final int bufferSize = buffer.size();
+
+        if (log.isInfoEnabled()) {
+            log.info("Begin insert of " + bufferSize + " new index entries");
+        }
+
+        Throttle throttle = desiredSpeed < 1.0 ? new Throttle(POPULATE_THROTTLE_WINDOW) : null;
+
         int totalInserted = 0;
 
         txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
@@ -386,6 +416,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                         indexEntry.tryInsert();
                     }
                 }
+
                 totalInserted++;
                 if (totalInserted % POPULATE_BATCH_SIZE == 0) {
                     txn.commit();
@@ -399,7 +430,16 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
 
                     txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
                 }
+
+                if (throttle != null) {
+                    try {
+                        throttle.throttle(desiredSpeed, POPULATE_THROTTLE_SLEEP_PRECISION);
+                    } catch (InterruptedException e) {
+                        throw new RepositoryException("Index populate interrupted");
+                    }
+                }
             }
+
             txn.commit();
         } finally {
             txn.exit();

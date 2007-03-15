@@ -60,12 +60,20 @@ class IndexedRepository implements Repository,
     private final AtomicReference<Repository> mRootRef;
     private final Repository mRepository;
     private final String mName;
+    private final boolean mIndexRepairEnabled;
+    private final double mIndexThrottle;
     private final StorageCollection mStorages;
 
-    IndexedRepository(AtomicReference<Repository> rootRef, String name, Repository repository) {
+    IndexedRepository(AtomicReference<Repository> rootRef, String name,
+                      Repository repository,
+                      boolean indexRepairEnabled,
+                      double indexThrottle)
+    {
         mRootRef = rootRef;
         mRepository = repository;
         mName = name;
+        mIndexRepairEnabled = indexRepairEnabled;
+        mIndexThrottle = indexThrottle;
 
         mStorages = new StorageCollection() {
             protected <S extends Storable> Storage<S> createStorage(Class<S> type)
@@ -76,7 +84,7 @@ class IndexedRepository implements Repository,
                 if (Unindexed.class.isAssignableFrom(type)) {
                     // Verify no indexes.
                     int indexCount = IndexedStorage
-                        .gatherRequiredIndexes(StorableIntrospector.examine(type)).size();
+                        .gatherDesiredIndexes(StorableIntrospector.examine(type)).size();
                     if (indexCount > 0) {
                         throw new MalformedTypeException
                             (type, "Storable cannot have any indexes: " + type +
@@ -91,7 +99,8 @@ class IndexedRepository implements Repository,
 
         if (repository.getCapability(IndexInfoCapability.class) == null) {
             throw new UnsupportedOperationException
-                ("Wrapped repository doesn't support being indexed");
+                ("Wrapped repository doesn't support being indexed -- " +
+                 "it must support IndexInfoCapability.");
         }
     }
 
@@ -203,5 +212,13 @@ class IndexedRepository implements Repository,
 
     Repository getWrappedRepository() {
         return mRepository;
+    }
+
+    boolean isIndexRepairEnabled() {
+        return mIndexRepairEnabled;
+    }
+
+    double getIndexRepairThrottle() {
+        return mIndexThrottle;
     }
 }

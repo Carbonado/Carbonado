@@ -14,6 +14,7 @@ Carbonado change history
   unnecessary delete/insert pairs.
 - JDBCRepository is more lenient with primary key validation. This allows
   Storables to be more easily mapped to views.
+- IndexedRepository supports optional and throttled index repair.
 
 1.1-BETA9 to 1.1-BETA10
 -------------------------------

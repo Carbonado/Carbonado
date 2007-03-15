@@ -58,13 +58,17 @@ import com.amazon.carbonado.qe.StorageAccess;
 
 import com.amazon.carbonado.spi.StorableIndexSet;
 
+import com.amazon.carbonado.util.Throttle;
+
+import static com.amazon.carbonado.repo.indexed.ManagedIndex.*;
+
 /**
  *
  *
  * @author Brian S O'Neill
  */
 class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S> {
-    static <S extends Storable> StorableIndexSet<S> gatherRequiredIndexes(StorableInfo<S> info) {
+    static <S extends Storable> StorableIndexSet<S> gatherDesiredIndexes(StorableInfo<S> info) {
         StorableIndexSet<S> indexSet = new StorableIndexSet<S>();
         indexSet.addIndexes(info);
         indexSet.addAlternateKeys(info);
@@ -74,8 +78,11 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
     final IndexedRepository mRepository;
     final Storage<S> mMasterStorage;
 
-    private final Map<StorableIndex<S>, IndexInfo> mIndexInfoMap;
-    private final StorableIndexSet<S> mIndexSet;
+    // Maps managed and queryable indexes to IndexInfo objects.
+    private final Map<StorableIndex<S>, IndexInfo> mAllIndexInfoMap;
+
+    // Set of indexes available for queries to use.
+    private final StorableIndexSet<S> mQueryableIndexSet;
 
     private final QueryEngine<S> mQueryEngine;
 
@@ -87,78 +94,69 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
     {
         mRepository = repository;
         mMasterStorage = masterStorage;
-        mIndexInfoMap = new IdentityHashMap<StorableIndex<S>, IndexInfo>();
+        mAllIndexInfoMap = new IdentityHashMap<StorableIndex<S>, IndexInfo>();
 
         StorableInfo<S> info = StorableIntrospector.examine(masterStorage.getStorableType());
 
-        // Determine what the set of indexes should be.
-        StorableIndexSet<S> newIndexSet = gatherRequiredIndexes(info);
-
-        // Mix in the indexes we get for free, but remove after reduce. A free
-        // index is one that the underlying storage is providing for us. We
-        // don't want to create redundant indexes.
-        IndexInfo[] infos = repository.getWrappedRepository()
-            .getCapability(IndexInfoCapability.class)
-            .getIndexInfo(masterStorage.getStorableType());
-
-        StorableIndex<S>[] freeIndexes = new StorableIndex[infos.length];
-        for (int i=0; i<infos.length; i++) {
-            try {
-                freeIndexes[i] = new StorableIndex<S>(masterStorage.getStorableType(), infos[i]);
-                newIndexSet.add(freeIndexes[i]);
-                mIndexInfoMap.put(freeIndexes[i], infos[i]);
-            } catch (IllegalArgumentException e) {
-                // Assume index is bogus, so ignore it.
-            }
+        // The set of indexes that the Storable defines, reduced.
+        final StorableIndexSet<S> desiredIndexSet;
+        {
+            desiredIndexSet = gatherDesiredIndexes(info);
+            desiredIndexSet.reduce(Direction.ASCENDING);
         }
 
-        newIndexSet.reduce(Direction.ASCENDING);
+        // The set of indexes that are populated and available for use. This is
+        // determined by examining index metadata. If the Storable has not
+        // changed, it will be the same as desiredIndexSet. If any existing
+        // indexes use a property whose type has changed, it is added to
+        // bogusIndexSet. Bogus indexes are removed if repair is enabled.
+        final StorableIndexSet<S> existingIndexSet;
+        final StorableIndexSet<S> bogusIndexSet;
+        {
+            existingIndexSet = new StorableIndexSet<S>();
+            bogusIndexSet = new StorableIndexSet<S>();
 
-        // Gather current indexes.
-        StorableIndexSet<S> currentIndexSet = new StorableIndexSet<S>();
-        // Gather indexes to remove.
-        StorableIndexSet<S> indexesToRemove = new StorableIndexSet<S>();
+            Query<StoredIndexInfo> query = repository.getWrappedRepository()
+                .storageFor(StoredIndexInfo.class)
+                // Primary key of StoredIndexInfo is an index descriptor, which
+                // starts with the storable type name. This emulates a
+                // "wildcard at the end" search.
+                .query("indexName >= ? & indexName < ?")
+                .with(getStorableType().getName() + '~')
+                .with(getStorableType().getName() + '~' + '\uffff');
 
-        Query<StoredIndexInfo> query = repository.getWrappedRepository()
-            .storageFor(StoredIndexInfo.class)
-            // Primary key of StoredIndexInfo is an index descriptor, which
-            // starts with the storable type name. This emulates a "wildcard at
-            // the end" search.
-            .query("indexName >= ? & indexName < ?")
-            .with(getStorableType().getName() + '~')
-            .with(getStorableType().getName() + '~' + '\uffff');
-
-        List<StoredIndexInfo> storedInfos;
-        Transaction txn = repository.getWrappedRepository()
-            .enterTopTransaction(IsolationLevel.READ_COMMITTED);
-        try {
-            storedInfos = query.fetch().toList();
-        } finally {
-            txn.exit();
-        }
-
-        for (StoredIndexInfo indexInfo : storedInfos) {
-            String name = indexInfo.getIndexName();
-            StorableIndex index;
+            List<StoredIndexInfo> storedInfos;
+            Transaction txn = repository.getWrappedRepository()
+                .enterTopTransaction(IsolationLevel.READ_COMMITTED);
             try {
-                index = StorableIndex.parseNameDescriptor(name, info);
-            } catch (IllegalArgumentException e) {
-                // Remove unrecognized descriptors.
-                unregisterIndex(name);
-                continue;
+                storedInfos = query.fetch().toList();
+            } finally {
+                txn.exit();
             }
-            if (index.getTypeDescriptor().equals(indexInfo.getIndexTypeDescriptor())) {
-                currentIndexSet.add(index);
-            } else {
-                indexesToRemove.add(index);
+
+            for (StoredIndexInfo indexInfo : storedInfos) {
+                String name = indexInfo.getIndexName();
+                StorableIndex index;
+                try {
+                    index = StorableIndex.parseNameDescriptor(name, info);
+                } catch (IllegalArgumentException e) {
+                    // Remove unrecognized descriptors.
+                    unregisterIndex(name);
+                    continue;
+                }
+                if (index.getTypeDescriptor().equals(indexInfo.getIndexTypeDescriptor())) {
+                    existingIndexSet.add(index);
+                } else {
+                    bogusIndexSet.add(index);
+                }
             }
         }
 
         nonUniqueSearch: {
-            // If any current indexes are non-unique, then indexes are for an
+            // If any existing indexes are non-unique, then indexes are for an
             // older version. For compatibility, don't uniquify the
             // indexes. Otherwise, these indexes would need to be rebuilt.
-            for (StorableIndex<S> index : currentIndexSet) {
+            for (StorableIndex<S> index : existingIndexSet) {
                 if (!index.isUnique()) {
                     break nonUniqueSearch;
                 }
@@ -169,58 +167,129 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
             // properties. As a side-effect of uniquify, all indexes are
             // unique, and thus have 'U' in the descriptor. Each time
             // nonUniqueSearch is run, it will not find any non-unique indexes.
-            newIndexSet.uniquify(info);
+            desiredIndexSet.uniquify(info);
         }
 
-        // Remove any old indexes.
+        // Gather free indexes, which are already provided by the underlying
+        // storage. They can be used for querying, but we should not manage them.
+        final StorableIndexSet<S> freeIndexSet;
         {
-            indexesToRemove.addAll(currentIndexSet);
+            freeIndexSet = new StorableIndexSet<S>();
 
-            // Remove "free" indexes, since they don't need to be built.
-            for (int i=0; i<freeIndexes.length; i++) {
-                newIndexSet.remove(freeIndexes[i]);
-            }
+            IndexInfoCapability cap = repository.getWrappedRepository()
+                .getCapability(IndexInfoCapability.class);
 
-            indexesToRemove.removeAll(newIndexSet);
-
-            for (StorableIndex<S> index : indexesToRemove) {
-                removeIndex(index);
+            if (cap != null) {
+                for (IndexInfo ii : cap.getIndexInfo(masterStorage.getStorableType())) {
+                    StorableIndex<S> freeIndex;
+                    try {
+                        freeIndex = new StorableIndex<S>(masterStorage.getStorableType(), ii);
+                    } catch (IllegalArgumentException e) {
+                        // Assume index is malformed, so ignore it.
+                        continue;
+                    }
+                    mAllIndexInfoMap.put(freeIndex, ii);
+                    freeIndexSet.add(freeIndex);
+                }
             }
         }
 
-        currentIndexSet = newIndexSet;
+        // The set of indexes that can actually be used for querying. If index
+        // repair is enabled, this set will be the same as
+        // desiredIndexSet. Otherwise, it will be the intersection of
+        // existingIndexSet and desiredIndexSet. In both cases, "free" indexes
+        // are added to the set too.
+        final StorableIndexSet<S> queryableIndexSet;
+        {
+            queryableIndexSet = new StorableIndexSet<S>(desiredIndexSet);
 
-        // Open all the indexes.
-        List<ManagedIndex<S>> managedIndexList = new ArrayList<ManagedIndex<S>>();
-        for (StorableIndex<S> index : currentIndexSet) {
-            IndexEntryGenerator<S> builder = IndexEntryGenerator.getInstance(index);
-            Class<? extends Storable> indexEntryClass = builder.getIndexEntryClass();
-            Storage<?> indexEntryStorage = repository.getIndexEntryStorageFor(indexEntryClass);
-            ManagedIndex managedIndex = new ManagedIndex<S>(index, builder, indexEntryStorage);
+            if (!mRepository.isIndexRepairEnabled()) {
+                // Can only query the intersection.
+                queryableIndexSet.retainAll(existingIndexSet);
+            }
 
-            registerIndex(managedIndex);
-
-            mIndexInfoMap.put(index, managedIndex);
-            managedIndexList.add(managedIndex);
+            // Add the indexes we get for free.
+            queryableIndexSet.addAll(freeIndexSet);
         }
 
-        if (managedIndexList.size() > 0) {
-            // Add trigger to keep indexes up-to-date.
-            ManagedIndex<S>[] managedIndexes =
-                managedIndexList.toArray(new ManagedIndex[managedIndexList.size()]);
+        // The set of indexes that should be kept up-to-date. If index repair
+        // is enabled, this set will be the same as desiredIndexSet. Otherwise,
+        // it will be the union of existingIndexSet and desiredIndexSet. In
+        // both cases, "free" indexes are removed from the set too. By doing a
+        // union, no harm is caused by changing the index set and then reverting.
+        final StorableIndexSet<S> managedIndexSet;
+        {
+            managedIndexSet = new StorableIndexSet<S>(desiredIndexSet);
+
+            if (!mRepository.isIndexRepairEnabled()) {
+                // Must manage the union.
+                managedIndexSet.addAll(existingIndexSet);
+            }
+
+            // Remove the indexes we get for free.
+            managedIndexSet.removeAll(freeIndexSet);
+        }
+
+        // The set of indexes that should be removed and no longer managed. If
+        // index repair is enabled, this set will be the existingIndexSet minus
+        // desiredIndexSet minus freeIndexSet plus bogusIndexSet. Otherwise, it
+        // will be empty.
+        final StorableIndexSet<S> removeIndexSet;
+        {
+            removeIndexSet = new StorableIndexSet<S>();
+
+            if (mRepository.isIndexRepairEnabled()) {
+                removeIndexSet.addAll(existingIndexSet);
+                removeIndexSet.removeAll(desiredIndexSet);
+                removeIndexSet.removeAll(freeIndexSet);
+                removeIndexSet.addAll(bogusIndexSet);
+            }
+        }
+
+        // The set of indexes that should be freshly populated. If index repair
+        // is enabled, this set will be the desiredIndexSet minus
+        // existingIndexSet minus freeIndexSet. Otherwise, it will be empty.
+        final StorableIndexSet<S> addIndexSet;
+        {
+            addIndexSet = new StorableIndexSet<S>();
+
+            if (mRepository.isIndexRepairEnabled()) {
+                addIndexSet.addAll(desiredIndexSet);
+                addIndexSet.removeAll(existingIndexSet);
+                addIndexSet.removeAll(freeIndexSet);
+            }
+        }
+
+        // Support for managed indexes...
+        if (managedIndexSet.size() > 0) {
+            ManagedIndex<S>[] managedIndexes = new ManagedIndex[managedIndexSet.size()];
+            int i = 0;
+            for (StorableIndex<S> index : managedIndexSet) {
+                IndexEntryGenerator<S> builder = IndexEntryGenerator.getInstance(index);
+                Class<? extends Storable> indexEntryClass = builder.getIndexEntryClass();
+                Storage<?> indexEntryStorage = repository.getIndexEntryStorageFor(indexEntryClass);
+                ManagedIndex managedIndex = new ManagedIndex<S>(index, builder, indexEntryStorage);
+
+                mAllIndexInfoMap.put(index, managedIndex);
+                managedIndexes[i++] = managedIndex;
+            }
 
             if (!addTrigger(new IndexesTrigger<S>(managedIndexes))) {
                 throw new RepositoryException("Unable to add trigger for managing indexes");
             }
         }
 
-        // Add "free" indexes back, in order for query engine to consider them.
-        for (int i=0; i<freeIndexes.length; i++) {
-            currentIndexSet.add(freeIndexes[i]);
+        // Okay, now start doing some damage. First, remove unnecessary indexes.
+        for (StorableIndex<S> index : removeIndexSet) {
+            removeIndex(index);
         }
 
-        mIndexSet = currentIndexSet;
+        // Now add new indexes.
+        for (StorableIndex<S> index : addIndexSet) {
+            registerIndex((ManagedIndex) mAllIndexInfoMap.get(index));
+        }
 
+        mQueryableIndexSet = queryableIndexSet;
         mQueryEngine = new QueryEngine<S>(masterStorage.getStorableType(), repository);
     }
 
@@ -252,16 +321,18 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         return mMasterStorage.removeTrigger(trigger);
     }
 
+    // Required by IndexInfoCapability.
     public IndexInfo[] getIndexInfo() {
-        IndexInfo[] infos = new IndexInfo[mIndexInfoMap.size()];
-        return mIndexInfoMap.values().toArray(infos);
+        IndexInfo[] infos = new IndexInfo[mAllIndexInfoMap.size()];
+        return mAllIndexInfoMap.values().toArray(infos);
     }
 
+    // Required by IndexEntryAccessCapability.
     @SuppressWarnings("unchecked")
     public IndexEntryAccessor<S>[] getIndexEntryAccessors() {
         List<IndexEntryAccessor<S>> accessors =
-            new ArrayList<IndexEntryAccessor<S>>(mIndexInfoMap.size());
-        for (IndexInfo info : mIndexInfoMap.values()) {
+            new ArrayList<IndexEntryAccessor<S>>(mAllIndexInfoMap.size());
+        for (IndexInfo info : mAllIndexInfoMap.values()) {
             if (info instanceof IndexEntryAccessor) {
                 accessors.add((IndexEntryAccessor<S>) info);
             }
@@ -269,16 +340,19 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         return accessors.toArray(new IndexEntryAccessor[accessors.size()]);
     }
 
+    // Required by StorageAccess.
     public QueryExecutorFactory<S> getQueryExecutorFactory() {
         return mQueryEngine;
     }
 
+    // Required by StorageAccess.
     public Collection<StorableIndex<S>> getAllIndexes() {
-        return mIndexSet;
+        return mQueryableIndexSet;
     }
 
+    // Required by StorageAccess.
     public Storage<S> storageDelegate(StorableIndex<S> index) {
-        if (mIndexInfoMap.get(index) instanceof ManagedIndex) {
+        if (mAllIndexInfoMap.get(index) instanceof ManagedIndex) {
             // Index is managed by this storage, which is typical.
             return null;
         }
@@ -336,7 +410,7 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         // reversal. Only the lowest storage layer should examine this
         // parameter.
 
-        ManagedIndex<S> indexInfo = (ManagedIndex<S>) mIndexInfoMap.get(index);
+        ManagedIndex<S> indexInfo = (ManagedIndex<S>) mAllIndexInfoMap.get(index);
 
         Query<?> query = indexInfo.getIndexEntryQueryFor
             (identityValues == null ? 0 : identityValues.length,
@@ -383,7 +457,8 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         }
 
         // New index, so populate it.
-        managedIndex.populateIndex(mRepository, mMasterStorage);
+        managedIndex.populateIndex(mRepository, mMasterStorage,
+                                   mRepository.getIndexRepairThrottle());
 
         txn = mRepository.getWrappedRepository()
             .enterTopTransaction(IsolationLevel.READ_COMMITTED);
@@ -444,39 +519,60 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
             return;
         }
 
-        // Doesn't completely remove the index, but it should free up space.
-        // TODO: when truncate method exists, call that instead
-        // TODO: set batchsize based on repository locktable size
-        int batchSize = 10;
-        while (true) {
-            Transaction txn = mRepository.getWrappedRepository()
-                .enterTopTransaction(IsolationLevel.READ_COMMITTED);
-            txn.setForUpdate(true);
+        {
+            // Doesn't completely remove the index, but it should free up space.
+            double desiredSpeed = mRepository.getIndexRepairThrottle();
+            Throttle throttle = desiredSpeed < 1.0 ? new Throttle(POPULATE_THROTTLE_WINDOW) : null;
 
-            try {
-                Cursor<? extends Storable> cursor = indexEntryStorage.query().fetch();
-                if (!cursor.hasNext()) {
-                    break;
-                }
-                int count = 0;
+            long totalDropped = 0;
+            while (true) {
+                Transaction txn = mRepository.getWrappedRepository()
+                    .enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                txn.setForUpdate(true);
                 try {
-                    while (count++ < batchSize && cursor.hasNext()) {
-                        cursor.next().tryDelete();
+                    Cursor<? extends Storable> cursor = indexEntryStorage.query().fetch();
+                    if (!cursor.hasNext()) {
+                        break;
                     }
-                } finally {
-                    cursor.close();
-                }
-                if (txn != null) {
+                    int count = 0;
+                        final long savedTotal = totalDropped;
+                        boolean anyFailure = false;
+                        try {
+                            while (count++ < POPULATE_BATCH_SIZE && cursor.hasNext()) {
+                                if (cursor.next().tryDelete()) {
+                                    totalDropped++;
+                                } else {
+                                    anyFailure = true;
+                                }
+                        }
+                    } finally {
+                        cursor.close();
+                    }
                     txn.commit();
-                }
-            } catch (FetchException e) {
-                throw e.toPersistException();
-            } finally {
-                if (txn != null) {
+                    if (log.isInfoEnabled()) {
+                        log.info("Removed " + totalDropped + " index entries");
+                    }
+                        if (anyFailure && totalDropped <= savedTotal) {
+                            log.warn("No indexes removed in last batch. " +
+                                     "Aborting index removal cleanup");
+                            break;
+                        }
+                } catch (FetchException e) {
+                    throw e.toPersistException();
+                } finally {
                     txn.exit();
+                }
+
+                if (throttle != null) {
+                    try {
+                        throttle.throttle(desiredSpeed, POPULATE_THROTTLE_SLEEP_PRECISION);
+                    } catch (InterruptedException e) {
+                        throw new RepositoryException("Index removal interrupted");
+                    }
                 }
             }
         }
+
         unregisterIndex(index);
     }
 }
