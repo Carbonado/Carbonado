@@ -141,7 +141,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
      * @param storage storage type of elements
      */
     public MergeSortBuffer(Storage<S> storage) {
-        this(storage, null, MAX_ARRAY_CAPACITY);
+        this(storage, TEMP_DIR, MAX_ARRAY_CAPACITY);
     }
 
     /**
