@@ -206,19 +206,11 @@ JDBC DataSource that logs all activity. Provided in the JDBC repository package
 is the LoggingDataSource class, which does this. As a convenience, it can be
 installed simply by calling setDataSourceLogging(true) on the
 JDBCRepositoryBuilder.
-       </p>
-     </answer>
-   </faq>
-
-   <faq id="jdbc-indexes">
-     <question>What happens if JDBC repository cannot get index info?</question>
-     <answer>
-       <p>
-The JDBC repository checks if the Storable alternate keys match those defined
-in the database. To do this, it tries to get the index info. If the user
-account does not have permissions, a message is logged and this check is
-skipped. This should not cause any harm, unless the alternate keys don't
-match. This can cause unexpected errors when using the replicated repository.
+</p>
+<p>
+Alternatively, you can call Query.printNative(), which by default prints the
+native query to standard out. When using the JDBC repository, this will print
+the SQL statement.
        </p>
      </answer>
    </faq>
@@ -227,10 +219,8 @@ match. This can cause unexpected errors when using the replicated repository.
      <question>How do I use MySQL auto-increment columns?</question>
      <answer>
        <p>
-As of 2006-10-23, Carbonado MySQL support is very thin. The @Sequence
-annotation is intended to be used for mapping to auto-increment columns, if the
-database does not support proper sequences. Until support is added,
-auto-increment columns will not work.
+Carbonado version 1.1 has thin support for MySQL. Version 1.2 (in the 1.2-dev branch)
+supports an @Automatic annotation for supporting MySQL auto-increment columns.
        </p>
      </answer>
    </faq>
@@ -243,6 +233,24 @@ The @AlternateKeys annotation is provided specifically for this purpose. Both
 @PrimaryKey and @AlternateKeys define unique indexes. The only real difference
 is that there can be only one primary, but many alternate keys are allowed.
        </p>
+     </answer>
+   </faq>
+
+   <faq id="caching">
+     <question>What kind of caching does Carbonado provide?</question>
+     <answer>
+       <p>
+Carbonado does not require repository implementations to perform any
+caching. If you're using just the JDBC repository, there's no cache. A general
+purpose caching repository was in development, but it was shelved because there
+was no immediate need for it. The replicated repository however, can be
+considered to be a complete cache.
+</p>
+<p>
+The only built in caching is for join properties on Storable instances. It just
+lazily sets the join result to an internal field of the Storable instance. The
+join property value is not shared with other Storable instances.
+        </p>
      </answer>
    </faq>
 
@@ -316,8 +324,68 @@ the repository might hold in advance?
 </p>
 <p>
 Repositories that implement StorableInfoCapability provide this
-functionality. The reason its a capability is that some repos (JDBC) don't have
-a registry of storables. BDB based ones do, and so this capability works.
+functionality. The reason it's a capability is that some repos (JDBC) don't have
+a registry of storables. BDB based ones do, and so this capability works for that.
+</p>
+     </answer>
+   </faq>
+
+   <faq id="index-integrity">
+     <question>Are explicit transactions required to ensure index integrity?</question>
+     <answer>
+       <p>
+The short answer is no -- index integrity is ensured automatically. More details follow:
+</p>
+<p>
+When using the JDBC repository, it is up to the database vendor to ensure that
+insert/update/delete operations include index updates within an implicit
+auto-commit transaction. All the major database vendors do this properly
+already, so nothing special needs to be done here.
+</p>
+<p>
+When using a BDB backed repository, it is up to Carbonado to ensure implicit
+transactions are used. Carbonado sets up BDB to be in transaction mode, and
+there's no Carbonado level config to disable this. So you're always using BDB
+with transactions, and that is good. When you do a lone Carbonado
+insert/update/delete operation, it will pass null to BDB for the transaction
+object, which implies auto-commit. BDB will automatically enter a tiny
+transaction to protect that little change.
+</p>
+<p>
+If the Storable you're updating has any indexes on it, a Carbonado trigger is
+installed that updates the affected indexes when you do an
+insert/update/delete. The presence of the trigger changes how the
+auto-generated Storable behaves. The insert/update/delete operation enters a
+transaction automatically, and it doesn't commit until all triggers have
+run. Index updates are therefore guarded by transactions, even if you don't
+explicitly specify one. In addition, all changes made by your own triggers are
+always guarded by a transaction.
+</p>
+     </answer>
+   </faq>
+
+   <faq id="delete-from-cursor">
+     <question> How do I delete Storables returned by a Cursor without deadlocks?</question>
+     <answer>
+       <p>
+The cursor iteration and delete operations must be enclosed in the same
+transaction. Auto-commit delete while iterating over a cursor fails for some
+databases, BDB and BDB-JE in particular. Although BDB supports a delete
+operation on the cursor itself, the transaction requirement remains.
+</p>
+<p>
+A workaround exists when using BDB-JE, which works only due to its use of
+record-level locks. Calling Cursor.hasNext() forces the cursor to move past the
+current record, releasing the lock on the record to be deleted. BDB native uses
+page locks, so this trick will only work in the occasional case that the next
+record is on another page.
+</p>
+<p>
+The BDB-JE cursor implementation could be changed to automatically move to the
+next record, but this reduces portability. Also, the cursor should not move
+past the current record automatically if in a transaction. It would allow
+another thread to sneak in and modify the record. An isolation level of
+repeatable read would be required to keep the lock.
 </p>
      </answer>
    </faq>
