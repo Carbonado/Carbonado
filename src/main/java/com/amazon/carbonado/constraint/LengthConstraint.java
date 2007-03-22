@@ -25,7 +25,7 @@ import com.amazon.carbonado.MalformedTypeException;
 /**
  * Limits the value of a property to lie within a specific length range. The
  * property value may be a String, CharSequence, or any kind of array. If the
- * set property size is outside the range, an IllegalArgumentException is
+ * set property length is outside the range, an IllegalArgumentException is
  * thrown.
  *
  * <p>Example:<pre>
@@ -46,12 +46,12 @@ import com.amazon.carbonado.MalformedTypeException;
 @ConstraintDefinition
 public @interface LengthConstraint {
     /**
-     * Specify minimum allowed size for property. Default is zero.
+     * Specify minimum allowed length for property. Default is zero.
      */
     int min() default 0;
 
     /**
-     * Specify maximum allowed value for property. Default is unlimited.
+     * Specify maximum allowed length for property. Default is unlimited.
      */
     int max() default Integer.MAX_VALUE;
 
@@ -75,8 +75,8 @@ public @interface LengthConstraint {
         /**
          * @param type type of object that contains the constrained property
          * @param propertyName name of property with constraint
-         * @param min minimum allowed size
-         * @param max maximum allowed size
+         * @param min minimum allowed length
+         * @param max maximum allowed length
          */
         public Constraint(Class<?> type, String propertyName, int min, int max) {
             mPropertyName = propertyName;
