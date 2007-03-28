@@ -87,7 +87,9 @@ public class SimpleDataSource implements DataSource {
         return 0;
     }
 
-    /* JDK 1.6 features
+    public void close() throws SQLException {
+    }
+
     public <T> T unwrap(Class<T> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }
@@ -95,5 +97,4 @@ public class SimpleDataSource implements DataSource {
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }
-    */
 }

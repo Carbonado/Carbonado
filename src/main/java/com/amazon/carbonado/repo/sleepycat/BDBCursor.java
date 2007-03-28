@@ -25,6 +25,8 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.raw.RawCursor;
 import com.amazon.carbonado.raw.RawUtil;
 
+import com.amazon.carbonado.spi.TransactionManager;
+
 /**
  *
  *
@@ -33,7 +35,7 @@ import com.amazon.carbonado.raw.RawUtil;
 abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
     private static final byte[] NO_DATA = new byte[0];
 
-    private final BDBTransactionManager<Txn> mTxnMgr;
+    private final TransactionManager<Txn> mTxnMgr;
     private final BDBStorage<Txn, S> mStorage;
     /**
      * @param txnMgr
@@ -48,7 +50,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
      * @throws ClassCastException if lock is not an object passed by
      * {@link BDBStorage#openCursor BDBStorage.openCursor}
      */
-    protected BDBCursor(BDBTransactionManager<Txn> txnMgr,
+    protected BDBCursor(TransactionManager<Txn> txnMgr,
                         byte[] startBound, boolean inclusiveStart,
                         byte[] endBound, boolean inclusiveEnd,
                         int maxPrefix,

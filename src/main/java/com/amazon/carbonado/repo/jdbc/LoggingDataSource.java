@@ -91,7 +91,14 @@ public class LoggingDataSource implements DataSource {
         return mDataSource.getLoginTimeout();
     }
 
-    /* JDK 1.6 features
+    public void close() throws SQLException {
+        mLog.debug("DataSource.close()");
+        if (!JDBCRepository.closeDataSource(mDataSource)) {
+            mLog.debug("DataSource doesn't have a close method: " +
+                       mDataSource.getClass().getName());
+        }
+    }
+
     public <T> T unwrap(Class<T> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }
@@ -99,5 +106,4 @@ public class LoggingDataSource implements DataSource {
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }
-    */
 }

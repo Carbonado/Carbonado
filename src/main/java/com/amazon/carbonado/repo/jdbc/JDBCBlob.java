@@ -126,7 +126,7 @@ class JDBCBlob extends AbstractBlob implements JDBCLob {
                 throw new FetchException("Blob value is null");
             }
             try {
-                JDBCTransaction txn = mRepo.openTransactionManager().getTxn();
+                JDBCTransaction txn = mRepo.localTxnManager().getTxn();
                 if (txn != null) {
                     txn.register(this);
                 }
@@ -143,7 +143,7 @@ class JDBCBlob extends AbstractBlob implements JDBCLob {
                 if ((mBlob = mLoader.load(mRepo)) == null) {
                     throw new PersistException("Blob value is null");
                 }
-                JDBCTransaction txn = mRepo.openTransactionManager().getTxn();
+                JDBCTransaction txn = mRepo.localTxnManager().getTxn();
                 if (txn != null) {
                     txn.register(this);
                 }

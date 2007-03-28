@@ -20,6 +20,8 @@ package com.amazon.carbonado.repo.jdbc;
 
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -49,15 +51,18 @@ import com.amazon.carbonado.spi.AbstractRepositoryBuilder;
  * <li>{@link com.amazon.carbonado.capability.IndexInfoCapability IndexInfoCapability}
  * <li>{@link com.amazon.carbonado.capability.StorableInfoCapability StorableInfoCapability}
  * <li>{@link com.amazon.carbonado.capability.ShutdownCapability ShutdownCapability}
+ * <li>{@link com.amazon.carbonado.sequence.SequenceCapability SequenceCapability}
  * <li>{@link JDBCConnectionCapability JDBCConnectionCapability}
  * </ul>
  *
  * @author Brian S O'Neill
+ * @author bcastill
  */
 public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     private String mName;
     private boolean mIsMaster = true;
     private DataSource mDataSource;
+    private boolean mDataSourceClose;
     private boolean mDataSourceLogging;
     private String mCatalog;
     private String mSchema;
@@ -65,7 +70,10 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     private String mURL;
     private String mUsername;
     private String mPassword;
-
+    private Map<String, Boolean> mAutoVersioningMap;
+    private String mSequenceSelectStatement;
+    private boolean mForceStoredSequence;
+    
     public JDBCRepositoryBuilder() {
     }
 
@@ -73,7 +81,10 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
         assertReady();
         JDBCRepository repo = new JDBCRepository
             (rootRef, getName(), isMaster(), getTriggerFactories(),
-             getDataSource(), mCatalog, mSchema);
+             getDataSource(), getDataSourceCloseOnShutdown(),
+             mCatalog, mSchema,
+             getAutoVersioningMap(),
+             mSequenceSelectStatement, mForceStoredSequence);
         rootRef.set(repo);
         return repo;
     }
@@ -135,6 +146,22 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
         }
 
         return ds;
+    }
+
+    /**
+     * Pass true to cause the DataSource to be closed when the repository is
+     * closed or shutdown. By default, this option is false.
+     */
+    public void setDataSourceCloseOnShutdown(boolean b) {
+        mDataSourceClose = b;
+    }
+
+    /**
+     * Returns true if DataSource is closed when the repository is closed or
+     * shutdown. By default, this option is false.
+     */
+    public boolean getDataSourceCloseOnShutdown() {
+        return mDataSourceClose;
     }
 
     /**
@@ -239,6 +266,64 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public String getPassword() {
         return mPassword;
+    }
+
+    /**
+     * By default, JDBCRepository assumes that {@link
+     * com.amazon.carbonado.Version version numbers} are initialized and
+     * incremented by triggers installed on the database. Enabling automatic
+     * versioning here causes the JDBCRepository to manage these operations
+     * itself.
+     *
+     * @param enabled true to enable, false to disable
+     * @param className name of Storable type to enable automatic version
+     * management on; pass null to enable all
+     */
+    public void setAutoVersioningEnabled(boolean enabled, String className) {
+        if (mAutoVersioningMap == null) {
+            mAutoVersioningMap = new HashMap<String, Boolean>();
+        }
+        mAutoVersioningMap.put(className, enabled);
+    }
+
+    private Map<String, Boolean> getAutoVersioningMap() {
+        if (mAutoVersioningMap == null) {
+            return null;
+        }
+        return new HashMap<String, Boolean>(mAutoVersioningMap);
+    }
+
+    /**
+     * Returns the native sequence select statement, which is null if the
+     * default is chosen.
+     */
+    public String getSequenceSelectStatement() {
+        return mSequenceSelectStatement;
+    }
+
+    /**
+     * Override the default native sequence select statement with a printf.
+     * For example, "SELECT %s.NEXTVAL FROM DUAL".
+     */
+    public void setSequenceSelectStatement(String sequenceSelectStatement) {
+        mSequenceSelectStatement = sequenceSelectStatement;
+    }
+
+    /**
+     * Returns true if native sequences should not be used.
+     */
+    public boolean isForceStoredSequence() {
+        return mForceStoredSequence;
+    }
+
+    /**
+     * By default, native sequences are used if supported. Otherwise, a table
+     * named "CARBONADO_SEQUENCE" or "CARBONADO_SEQUENCES" is used instead to
+     * hold sequence values. When forced, the table is always used instead of
+     * native sequences.
+     */
+    public void setForceStoredSequence(boolean forceStoredSequence) {
+        mForceStoredSequence = forceStoredSequence;
     }
 
     public void errorCheck(Collection<String> messages) throws ConfigurationException {

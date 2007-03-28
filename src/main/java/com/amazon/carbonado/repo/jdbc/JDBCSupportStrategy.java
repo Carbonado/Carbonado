@@ -18,8 +18,8 @@
 
 package com.amazon.carbonado.repo.jdbc;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
@@ -27,15 +27,16 @@ import java.io.Writer;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
+import com.amazon.carbonado.RepositoryException;
+import com.amazon.carbonado.UnsupportedTypeException;
+
+import com.amazon.carbonado.sequence.SequenceValueGenerator;
+import com.amazon.carbonado.sequence.SequenceValueProducer;
+import com.amazon.carbonado.sequence.StoredSequence;
 
 import com.amazon.carbonado.util.ThrowUnchecked;
-
-import com.amazon.carbonado.spi.SequenceValueProducer;
 
 /**
  * Allows database product specific features to be abstracted.
@@ -77,11 +78,12 @@ class JDBCSupportStrategy {
 
         return new JDBCSupportStrategy(repo);
     }
-
+    
     protected final JDBCRepository mRepo;
-
-    private Map<String, SequenceValueProducer> mSequences;
-
+    private String mSequenceSelectStatement;
+    private boolean mForceStoredSequence = false;
+    private String mTruncateTableStatement;
+    
     protected JDBCSupportStrategy(JDBCRepository repo) {
         mRepo = repo;
     }
@@ -89,38 +91,30 @@ class JDBCSupportStrategy {
     JDBCExceptionTransformer createExceptionTransformer() {
         return new JDBCExceptionTransformer();
     }
-
-    /**
-     * Utility method used by generated storables to get sequence values during
-     * an insert operation.
-     *
-     * @param sequenceName name of sequence
-     * @throws PersistException instead of FetchException since this code is
-     * called during an insert operation
-     */
-    synchronized SequenceValueProducer getSequenceValueProducer(String sequenceName)
-        throws PersistException
+    
+    SequenceValueProducer createSequenceValueProducer(String name) 
+        throws RepositoryException
     {
-        SequenceValueProducer sequence = mSequences == null ? null : mSequences.get(sequenceName);
-
-        if (sequence == null) {
-            String sequenceQuery = createSequenceQuery(sequenceName);
-            sequence = new JDBCSequenceValueProducer(mRepo, sequenceQuery);
-            if (mSequences == null) {
-                mSequences = new HashMap<String, SequenceValueProducer>();
-            }
-            mSequences.put(sequenceName, sequence);
+        if (name == null) {
+            throw new IllegalArgumentException("Sequence name is null");
         }
-
-        return sequence;
-    }
-
-    String createSequenceQuery(String sequenceName) {
-        throw new UnsupportedOperationException
-            ("Sequences are not supported by default JDBC support strategy. " +
-             "If \"" + mRepo.getDatabaseProductName() + "\" actually does support sequences, " +
-             "then a custom support strategy might be available in a separate jar. " +
-             "If so, simply add it to your classpath.");
+        String format = getSequenceSelectStatement();
+        if (format != null && format.length() > 0 && !isForceStoredSequence()) {
+            String sequenceQuery = String.format(format, name);
+            return new JDBCSequenceValueProducer(mRepo, sequenceQuery);
+        } else {
+            try {
+                return new SequenceValueGenerator(mRepo, name);
+            } catch (UnsupportedTypeException e) {
+                if (e.getType() != StoredSequence.class) {
+                    throw e;
+                }
+                throw new PersistException
+                    ("Native sequences are not currently supported for \"" +
+                     mRepo.getDatabaseProductName() + "\". Instead, define a table named " +
+                     "CARBONADO_SEQUENCE as required by " + StoredSequence.class.getName() + '.');
+            }
+        }
     }
 
     /**
@@ -239,5 +233,40 @@ class JDBCSupportStrategy {
         throws FetchException, IOException
     {
         return false;
+    }
+
+    /**
+     * Returns the optional sequence select statement format. The format is
+     * printf style with 1 string parameter which can be passed through {@link
+     * String#format(String, Object[])} to create a sql statement.
+     * @return
+     */
+    String getSequenceSelectStatement() {
+        return mSequenceSelectStatement;
+    }
+
+    void setSequenceSelectStatement(String sequenceSelectStatement) {
+        mSequenceSelectStatement = sequenceSelectStatement;
+    }
+
+    boolean isForceStoredSequence() {
+        return mForceStoredSequence;
+    }
+
+    void setForceStoredSequence(boolean forceStoredSequence) {
+        mForceStoredSequence = forceStoredSequence;
+    }
+
+    /**
+     * Return the optional truncate table statement format. The format is
+     * printf style with 1 string parameter which can be passed through {@link
+     * String#format(String, Object[])} to create a sql statement.
+     */
+    String getTruncateTableStatement() {
+        return mTruncateTableStatement;
+    }
+
+    void setTruncateTableStatement(String truncateTableStatement) {
+        mTruncateTableStatement = truncateTableStatement;
     }
 }

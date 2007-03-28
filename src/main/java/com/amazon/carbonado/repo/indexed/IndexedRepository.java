@@ -43,7 +43,7 @@ import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.qe.RepositoryAccess;
 import com.amazon.carbonado.qe.StorageAccess;
 
-import com.amazon.carbonado.spi.StorageCollection;
+import com.amazon.carbonado.spi.StoragePool;
 
 /**
  * Wraps another repository in order to make it support indexes. The wrapped
@@ -62,20 +62,23 @@ class IndexedRepository implements Repository,
     private final String mName;
     private final boolean mIndexRepairEnabled;
     private final double mIndexThrottle;
-    private final StorageCollection mStorages;
+    private final boolean mAllClustered;
+    private final StoragePool mStoragePool;
 
     IndexedRepository(AtomicReference<Repository> rootRef, String name,
                       Repository repository,
                       boolean indexRepairEnabled,
-                      double indexThrottle)
+                      double indexThrottle,
+                      boolean allClustered)
     {
         mRootRef = rootRef;
         mRepository = repository;
         mName = name;
         mIndexRepairEnabled = indexRepairEnabled;
         mIndexThrottle = indexThrottle;
+        mAllClustered = allClustered;
 
-        mStorages = new StorageCollection() {
+        mStoragePool = new StoragePool() {
             protected <S extends Storable> Storage<S> createStorage(Class<S> type)
                 throws RepositoryException
             {
@@ -112,7 +115,7 @@ class IndexedRepository implements Repository,
     public <S extends Storable> Storage<S> storageFor(Class<S> type)
         throws MalformedTypeException, SupportException, RepositoryException
     {
-        return mStorages.storageFor(type);
+        return mStoragePool.get(type);
     }
 
     public Transaction enterTransaction() {
@@ -220,5 +223,9 @@ class IndexedRepository implements Repository,
 
     double getIndexRepairThrottle() {
         return mIndexThrottle;
+    }
+
+    boolean isAllClustered() {
+        return mAllClustered;
     }
 }

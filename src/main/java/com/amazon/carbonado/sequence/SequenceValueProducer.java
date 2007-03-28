@@ -16,14 +16,16 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.sequence;
 
+import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 
 /**
  * Produces values for sequences.
  *
  * @author Brian S O'Neill
+ * @author bcastill
  * @see com.amazon.carbonado.Sequence
  */
 public interface SequenceValueProducer {
@@ -84,4 +86,18 @@ public interface SequenceValueProducer {
      * @throws PersistException for fetch/persist failure or if sequence is exhausted.
      */
     public String nextNumericalValue(int radix, int minLength) throws PersistException;
+    
+    /**
+     * Allow any unused reserved values to be returned for re-use. If the
+     * repository is shared by other processes, then reserved values might not
+     * be returnable.
+     *
+     * <p>This method should be called during the shutdown process of a
+     * repository, although calling it does not invalidate this
+     * SequenceValueGenerator. If getNextValue is called again, it will reserve
+     * values again.
+     *
+     * @return true if reserved values were returned
+     */
+    public boolean returnReservedValues() throws FetchException, PersistException;
 }

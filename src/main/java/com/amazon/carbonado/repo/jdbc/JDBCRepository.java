@@ -18,45 +18,45 @@
 
 package com.amazon.carbonado.repo.jdbc;
 
+import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.IdentityHashMap;
-
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import org.cojen.util.WeakIdentityMap;
-
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
-import com.amazon.carbonado.Storage;
-import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.MalformedTypeException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
+import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.Storage;
+import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.TriggerFactory;
 import com.amazon.carbonado.UnsupportedTypeException;
-
-import com.amazon.carbonado.capability.Capability;
 import com.amazon.carbonado.capability.IndexInfo;
 import com.amazon.carbonado.capability.IndexInfoCapability;
 import com.amazon.carbonado.capability.ShutdownCapability;
 import com.amazon.carbonado.capability.StorableInfoCapability;
-
 import com.amazon.carbonado.info.StorableProperty;
-
-import com.amazon.carbonado.spi.StorageCollection;
+import com.amazon.carbonado.sequence.SequenceCapability;
+import com.amazon.carbonado.sequence.SequenceValueProducer;
+import com.amazon.carbonado.spi.AbstractRepository;
+import com.amazon.carbonado.spi.TransactionManager;
+import com.amazon.carbonado.util.ThrowUnchecked;
 
 /**
  * Repository implementation backed by a JDBC accessible database.
@@ -66,16 +66,37 @@ import com.amazon.carbonado.spi.StorageCollection;
  * control precisely which tables and columns must be matched up.
  *
  * @author Brian S O'Neill
+ * @author bcastill
  * @see JDBCRepositoryBuilder
  */
 // Note: this class must be public because auto-generated code needs access to it
-public class JDBCRepository
+public class JDBCRepository extends AbstractRepository<JDBCTransaction>
     implements Repository,
                IndexInfoCapability,
                ShutdownCapability,
                StorableInfoCapability,
-               JDBCConnectionCapability
+               JDBCConnectionCapability,
+               SequenceCapability
 {
+    /**
+     * Attempts to close a DataSource by searching for a "close" method. For
+     * some reason, there's no standard way to close a DataSource.
+     *
+     * @return false if DataSource doesn't have a close method.
+     */
+    public static boolean closeDataSource(DataSource ds) throws SQLException {
+        try {
+            Method closeMethod = ds.getClass().getMethod("close");
+            try {
+                closeMethod.invoke(ds);
+            } catch (Throwable e) {
+                ThrowUnchecked.fireFirstDeclaredCause(e, SQLException.class);
+            }
+            return true;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
 
     static IsolationLevel mapIsolationLevelFromJdbc(int jdbcLevel) {
         switch (jdbcLevel) {
@@ -142,27 +163,26 @@ public class JDBCRepository
 
     private final Log mLog = LogFactory.getLog(getClass());
 
-    private final String mName;
     final boolean mIsMaster;
     final Iterable<TriggerFactory> mTriggerFactories;
     private final AtomicReference<Repository> mRootRef;
     private final String mDatabaseProductName;
     private final DataSource mDataSource;
+    private final boolean mDataSourceClose;
     private final String mCatalog;
     private final String mSchema;
-    private final StorageCollection mStorages;
+
+    // Maps Storable types which should have automatic version management.
+    private Map<String, Boolean> mAutoVersioningMap;
 
     // Track all open connections so that they can be closed when this
     // repository is closed.
     private Map<Connection, Object> mOpenConnections;
-
-    private final ThreadLocal<JDBCTransactionManager> mCurrentTxnMgr;
-
-    // Weakly tracks all JDBCTransactionManager instances for shutdown.
-    private final Map<JDBCTransactionManager, ?> mAllTxnMgrs;
+    private final Lock mOpenConnectionsLock;
 
     private final boolean mSupportsSavepoints;
     private final boolean mSupportsSelectForUpdate;
+    private final boolean mSupportsScrollInsensitiveReadOnly;
 
     private final IsolationLevel mDefaultIsolationLevel;
     private final int mJdbcDefaultIsolationLevel;
@@ -184,47 +204,41 @@ public class JDBCRepository
      * @param catalog optional catalog to search for tables -- actual meaning
      * is database independent
      * @param schema optional schema to search for tables -- actual meaning is
-     * database independent
+     * is database independent
+     * @param forceStoredSequence tells the repository to use a stored sequence
+     * even if the database supports native sequences
      */
     @SuppressWarnings("unchecked")
     JDBCRepository(AtomicReference<Repository> rootRef,
                    String name, boolean isMaster,
                    Iterable<TriggerFactory> triggerFactories,
-                   DataSource dataSource, String catalog, String schema)
+                   DataSource dataSource, boolean dataSourceClose,
+                   String catalog, String schema,
+                   Map<String, Boolean> autoVersioningMap,
+                   String sequenceSelectStatement, boolean forceStoredSequence)
         throws RepositoryException
     {
-        if (name == null || dataSource == null) {
-            throw new IllegalArgumentException();
+        super(name);
+        if (dataSource == null) {
+            throw new IllegalArgumentException("DataSource cannot be null");
         }
-        mName = name;
         mIsMaster = isMaster;
         mTriggerFactories = triggerFactories;
         mRootRef = rootRef;
         mDataSource = dataSource;
+        mDataSourceClose = dataSourceClose;
         mCatalog = catalog;
         mSchema = schema;
 
-        mStorages = new StorageCollection() {
-            protected <S extends Storable> Storage<S> createStorage(Class<S> type)
-                throws RepositoryException
-            {
-                // Lock on mAllTxnMgrs to prevent databases from being opened during shutdown.
-                synchronized (mAllTxnMgrs) {
-                    JDBCStorableInfo<S> info = examineStorable(type);
-                    if (!info.isSupported()) {
-                        throw new UnsupportedTypeException("Independent type not supported", type);
-                    }
-                    return new JDBCStorage<S>(JDBCRepository.this, info);
-                }
-            }
-        };
+        mAutoVersioningMap = autoVersioningMap;
 
         mOpenConnections = new IdentityHashMap<Connection, Object>();
-        mCurrentTxnMgr = new ThreadLocal<JDBCTransactionManager>();
-        mAllTxnMgrs = new WeakIdentityMap();
+        mOpenConnectionsLock = new ReentrantLock(true);
 
         // Temporarily set to generic one, in case there's a problem during initialization.
         mExceptionTransformer = new JDBCExceptionTransformer();
+
+        getLog().info("Opening repository \"" + getName() + '"');
 
         // Test connectivity and get some info on transaction isolation levels.
         Connection con = getConnection();
@@ -261,6 +275,8 @@ public class JDBCRepository
 
             mSupportsSavepoints = supportsSavepoints;
             mSupportsSelectForUpdate = md.supportsSelectForUpdate();
+            mSupportsScrollInsensitiveReadOnly = md.supportsResultSetConcurrency
+                (ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
 
             mJdbcDefaultIsolationLevel = md.getDefaultTransactionIsolation();
             mDefaultIsolationLevel = mapIsolationLevelFromJdbc(mJdbcDefaultIsolationLevel);
@@ -269,7 +285,6 @@ public class JDBCRepository
             mReadCommittedLevel   = selectIsolationLevel(md, IsolationLevel.READ_COMMITTED);
             mRepeatableReadLevel  = selectIsolationLevel(md, IsolationLevel.REPEATABLE_READ);
             mSerializableLevel    = selectIsolationLevel(md, IsolationLevel.SERIALIZABLE);
-
         } catch (SQLException e) {
             throw toRepositoryException(e);
         } finally {
@@ -277,43 +292,27 @@ public class JDBCRepository
         }
 
         mSupportStrategy = JDBCSupportStrategy.createStrategy(this);
+        if (forceStoredSequence) {
+            mSupportStrategy.setSequenceSelectStatement(null);
+        } else if (sequenceSelectStatement != null && sequenceSelectStatement.length() > 0) {
+            mSupportStrategy.setSequenceSelectStatement(sequenceSelectStatement);
+        }
+        mSupportStrategy.setForceStoredSequence(forceStoredSequence);
         mExceptionTransformer = mSupportStrategy.createExceptionTransformer();
+
+        setAutoShutdownEnabled(true);
     }
 
     public DataSource getDataSource() {
         return mDataSource;
     }
 
-    public String getName() {
-        return mName;
-    }
-
-    @SuppressWarnings("unchecked")
-    public <S extends Storable> Storage<S> storageFor(Class<S> type) throws RepositoryException {
-        return mStorages.storageFor(type);
-    }
-
-    public Transaction enterTransaction() {
-        return openTransactionManager().enter(null);
-    }
-
-    public Transaction enterTransaction(IsolationLevel level) {
-        return openTransactionManager().enter(level);
-    }
-
-    public Transaction enterTopTransaction(IsolationLevel level) {
-        return openTransactionManager().enterTop(level);
-    }
-
-    public IsolationLevel getTransactionIsolationLevel() {
-        return openTransactionManager().getIsolationLevel();
-    }
-
     /**
      * Returns true if a transaction is in progress and it is for update.
      */
+    // Is called by auto-generated code and must be public.
     public boolean isTransactionForUpdate() {
-        return openTransactionManager().isForUpdate();
+        return localTransactionManager().isForUpdate();
     }
 
     /**
@@ -334,14 +333,6 @@ public class JDBCRepository
         }
     }
 
-    @SuppressWarnings("unchecked")
-    public <C extends Capability> C getCapability(Class<C> capabilityType) {
-        if (capabilityType.isInstance(this)) {
-            return (C) this;
-        }
-        return null;
-    }
-
     public <S extends Storable> IndexInfo[] getIndexInfo(Class<S> storableType)
         throws RepositoryException
     {
@@ -352,7 +343,7 @@ public class JDBCRepository
         // We don't register Storable types persistently, so just return what
         // we know right now.
         ArrayList<String> names = new ArrayList<String>();
-        for (Storage storage : mStorages.allStorage()) {
+        for (Storage storage : allStorage()) {
             names.add(storage.getStorableType().getName());
         }
         return names.toArray(new String[names.size()]);
@@ -401,72 +392,6 @@ public class JDBCRepository
         return jProperty;
     }
 
-    /**
-     * Returns the thread-local JDBCTransactionManager instance, creating it if
-     * needed.
-     */
-    JDBCTransactionManager openTransactionManager() {
-        JDBCTransactionManager txnMgr = mCurrentTxnMgr.get();
-        if (txnMgr == null) {
-            synchronized (mAllTxnMgrs) {
-                txnMgr = new JDBCTransactionManager(this);
-                mCurrentTxnMgr.set(txnMgr);
-                mAllTxnMgrs.put(txnMgr, null);
-            }
-        }
-        return txnMgr;
-    }
-
-    public void close() {
-        shutdown(false);
-    }
-
-    public boolean isAutoShutdownEnabled() {
-        return false;
-    }
-
-    public void setAutoShutdownEnabled(boolean enabled) {
-    }
-
-    public void shutdown() {
-        shutdown(true);
-    }
-
-    private void shutdown(boolean suspendThreads) {
-        synchronized (mAllTxnMgrs) {
-            // Close transactions and cursors.
-            for (JDBCTransactionManager txnMgr : mAllTxnMgrs.keySet()) {
-                if (suspendThreads) {
-                    // Lock transaction manager but don't release it. This
-                    // prevents other threads from beginning work during
-                    // shutdown, which will likely fail along the way.
-                    txnMgr.getLock().lock();
-                }
-                try {
-                    txnMgr.close();
-                } catch (Throwable e) {
-                    getLog().error(null, e);
-                }
-            }
-
-            // Now close all open connections.
-            if (mOpenConnections != null) {
-                for (Connection con : mOpenConnections.keySet()) {
-                    try {
-                        con.close();
-                    } catch (SQLException e) {
-                        getLog().warn(null, e);
-                    }
-                }
-                mOpenConnections = null;
-            }
-        }
-    }
-
-    protected Log getLog() {
-        return mLog;
-    }
-
     public String getDatabaseProductName() {
         return mDatabaseProductName;
     }
@@ -482,22 +407,25 @@ public class JDBCRepository
                 throw new FetchException("Repository is closed");
             }
 
-            JDBCTransaction txn = openTransactionManager().getTxn();
+            JDBCTransaction txn = localTransactionManager().getTxn();
             if (txn != null) {
                 // Return the connection used by the current transaction.
                 return txn.getConnection();
             }
 
-            // Get connection outside synchronized section since it may block.
+            // Get connection outside lock section since it may block.
             Connection con = mDataSource.getConnection();
             con.setAutoCommit(true);
 
-            synchronized (mAllTxnMgrs) {
+            mOpenConnectionsLock.lock();
+            try {
                 if (mOpenConnections == null) {
                     con.close();
                     throw new FetchException("Repository is closed");
                 }
                 mOpenConnections.put(con, null);
+            } finally {
+                mOpenConnectionsLock.unlock();
             }
 
             return con;
@@ -515,7 +443,7 @@ public class JDBCRepository
                 throw new FetchException("Repository is closed");
             }
 
-            // Get connection outside synchronized section since it may block.
+            // Get connection outside lock section since it may block.
             Connection con = mDataSource.getConnection();
 
             if (level == IsolationLevel.NONE) {
@@ -527,12 +455,15 @@ public class JDBCRepository
                 }
             }
 
-            synchronized (mAllTxnMgrs) {
+            mOpenConnectionsLock.lock();
+            try {
                 if (mOpenConnections == null) {
                     con.close();
                     throw new FetchException("Repository is closed");
                 }
                 mOpenConnections.put(con, null);
+            } finally {
+                mOpenConnectionsLock.unlock();
             }
 
             return con;
@@ -549,12 +480,15 @@ public class JDBCRepository
     public void yieldConnection(Connection con) throws FetchException {
         try {
             if (con.getAutoCommit()) {
-                synchronized (mAllTxnMgrs) {
+                mOpenConnectionsLock.lock();
+                try {
                     if (mOpenConnections != null) {
                         mOpenConnections.remove(con);
                     }
+                } finally {
+                    mOpenConnectionsLock.unlock();
                 }
-                // Close connection outside synchronized section since it may block.
+                // Close connection outside lock section since it may block.
                 if (con.getTransactionIsolation() != mJdbcDefaultIsolationLevel) {
                     con.setTransactionIsolation(mJdbcDefaultIsolationLevel);
                 }
@@ -574,12 +508,15 @@ public class JDBCRepository
      * any exceptions too.
      */
     private void forceYieldConnection(Connection con) {
-        synchronized (mAllTxnMgrs) {
+        mOpenConnectionsLock.lock();
+        try {
             if (mOpenConnections != null) {
                 mOpenConnections.remove(con);
             }
+        } finally {
+            mOpenConnectionsLock.unlock();
         }
-        // Close connection outside synchronized section since it may block.
+        // Close connection outside lock section since it may block.
         try {
             con.close();
         } catch (SQLException e) {
@@ -593,6 +530,10 @@ public class JDBCRepository
 
     boolean supportsSelectForUpdate() {
         return mSupportsSelectForUpdate;
+    }
+
+    boolean supportsScrollInsensitiveReadOnly() {
+        return mSupportsScrollInsensitiveReadOnly;
     }
 
     /**
@@ -684,5 +625,81 @@ public class JDBCRepository
 
     JDBCExceptionTransformer getExceptionTransformer() {
         return mExceptionTransformer;
+    }
+    
+    protected void shutdownHook() {
+        // Close all open connections.
+        mOpenConnectionsLock.lock();
+        try {
+            if (mOpenConnections != null) {
+                for (Connection con : mOpenConnections.keySet()) {
+                    try {
+                        con.close();
+                    } catch (SQLException e) {
+                        getLog().warn(null, e);
+                    }
+                }
+                mOpenConnections = null;
+            }
+        } finally {
+            mOpenConnectionsLock.unlock();
+        }
+
+        if (mDataSourceClose) {
+            mLog.info("Closing DataSource: " + mDataSource);
+            try {
+                if (!closeDataSource(mDataSource)) {
+                    mLog.info("DataSource doesn't have a close method: " +
+                              mDataSource.getClass().getName());
+                }
+            } catch (SQLException e) {
+                mLog.error("Failed to close DataSource", e);
+            }
+        }
+    }
+
+    protected Log getLog() {
+        return mLog;
+    }
+
+    protected TransactionManager<JDBCTransaction> createTransactionManager() {
+        return new JDBCTransactionManager(this);
+    }
+
+    protected <S extends Storable> Storage<S> createStorage(Class<S> type)
+        throws RepositoryException
+    {
+        JDBCStorableInfo<S> info = examineStorable(type);
+        if (!info.isSupported()) {
+            throw new UnsupportedTypeException("Independent type not supported", type);
+        }
+
+        Boolean autoVersioning = false;
+        if (mAutoVersioningMap != null) {
+            autoVersioning = mAutoVersioningMap.get(type.getName());
+            if (autoVersioning == null) {
+                // No explicit setting, so check wildcard setting.
+                autoVersioning = mAutoVersioningMap.get(null);
+                if (autoVersioning == null) {
+                    autoVersioning = false;
+                }
+            }
+        }
+
+        return new JDBCStorage<S>(this, info, autoVersioning);
+    }
+
+    protected SequenceValueProducer createSequenceValueProducer(String name)
+        throws RepositoryException
+    {
+        return mSupportStrategy.createSequenceValueProducer(name);
+    }
+
+    /**
+     * Returns the thread-local JDBCTransactionManager, creating it if needed.
+     */
+    // Provides access to transaction manager from other classes.
+    TransactionManager<JDBCTransaction> localTxnManager() {
+        return localTransactionManager();
     }
 }

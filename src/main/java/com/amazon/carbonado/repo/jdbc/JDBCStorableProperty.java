@@ -46,6 +46,12 @@ public interface JDBCStorableProperty<S extends Storable> extends StorableProper
     boolean isSelectable();
 
     /**
+     * Returns true if property is declared as @Automatic and column is
+     * designated as auto-increment.
+     */
+    boolean isAutoIncrement();
+
+    /**
      * Returns the table column for this property.
      *
      * @return null if property is unsupported

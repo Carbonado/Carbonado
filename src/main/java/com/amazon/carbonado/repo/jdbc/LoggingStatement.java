@@ -198,7 +198,6 @@ class LoggingStatement implements Statement {
         return mStatement.getResultSetHoldability();
     }
 
-    /* JDK 1.6 features
     public boolean isClosed() throws SQLException {
         return mStatement.isClosed();
     }
@@ -218,5 +217,4 @@ class LoggingStatement implements Statement {
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }
-    */
 }

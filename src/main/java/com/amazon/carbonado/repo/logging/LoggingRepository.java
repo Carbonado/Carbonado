@@ -31,7 +31,7 @@ import com.amazon.carbonado.TriggerFactory;
 
 import com.amazon.carbonado.capability.Capability;
 
-import com.amazon.carbonado.spi.StorageCollection;
+import com.amazon.carbonado.spi.StoragePool;
 
 /**
  *
@@ -44,7 +44,7 @@ class LoggingRepository implements Repository, LogAccessCapability {
     private final Repository mRepo;
     private final Log mLog;
 
-    private final StorageCollection mStorages;
+    private final StoragePool mStoragePool;
 
     LoggingRepository(AtomicReference<Repository> rootRef,
                       Iterable<TriggerFactory> triggerFactories,
@@ -55,7 +55,7 @@ class LoggingRepository implements Repository, LogAccessCapability {
         mRepo = actual;
         mLog = log;
 
-        mStorages = new StorageCollection() {
+        mStoragePool = new StoragePool() {
             protected <S extends Storable> Storage<S> createStorage(Class<S> type)
                 throws RepositoryException
             {
@@ -71,7 +71,7 @@ class LoggingRepository implements Repository, LogAccessCapability {
     public <S extends Storable> Storage<S> storageFor(Class<S> type)
         throws SupportException, RepositoryException
     {
-        return mStorages.storageFor(type);
+        return mStoragePool.get(type);
     }
 
     public Transaction enterTransaction() {

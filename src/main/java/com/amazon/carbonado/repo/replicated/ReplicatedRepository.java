@@ -53,7 +53,7 @@ import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 
-import com.amazon.carbonado.spi.StorageCollection;
+import com.amazon.carbonado.spi.StoragePool;
 import com.amazon.carbonado.spi.TransactionPair;
 
 import com.amazon.carbonado.util.Throttle;
@@ -140,7 +140,7 @@ class ReplicatedRepository
     private Repository mReplicaRepository;
     private Repository mMasterRepository;
 
-    private final StorageCollection mStorages;
+    private final StoragePool mStoragePool;
 
     ReplicatedRepository(String aName,
                          Repository aReplicaRepository,
@@ -149,7 +149,7 @@ class ReplicatedRepository
         mReplicaRepository = aReplicaRepository;
         mMasterRepository = aMasterRepository;
 
-        mStorages = new StorageCollection() {
+        mStoragePool = new StoragePool() {
             protected <S extends Storable> Storage<S> createStorage(Class<S> type)
                 throws SupportException, RepositoryException
             {
@@ -199,7 +199,7 @@ class ReplicatedRepository
     public <S extends Storable> Storage<S> storageFor(Class<S> type)
         throws MalformedTypeException, SupportException, RepositoryException
     {
-        return mStorages.storageFor(type);
+        return mStoragePool.get(type);
     }
 
     public Transaction enterTransaction() {

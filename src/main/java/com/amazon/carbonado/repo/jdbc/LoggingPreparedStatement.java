@@ -249,7 +249,6 @@ class LoggingPreparedStatement extends LoggingStatement implements PreparedState
         return ps().getParameterMetaData();
     }
 
-    /* JDK 1.6 features
     public void setRowId(int parameterIndex, RowId x) throws SQLException {
         ps().setRowId(parameterIndex, x);
     }
@@ -339,7 +338,6 @@ class LoggingPreparedStatement extends LoggingStatement implements PreparedState
     public void setNClob(int parameterIndex, java.io.Reader reader) throws SQLException {
         ps().setNClob(parameterIndex, reader);
     }
-    */
 
     private PreparedStatement ps() {
         return (PreparedStatement) mStatement;

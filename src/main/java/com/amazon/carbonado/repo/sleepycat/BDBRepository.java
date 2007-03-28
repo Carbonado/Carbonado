@@ -22,23 +22,15 @@ import java.io.File;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
-import org.cojen.util.WeakIdentityMap;
 
 import com.amazon.carbonado.ConfigurationException;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
-import com.amazon.carbonado.MalformedTypeException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
@@ -63,11 +55,14 @@ import com.amazon.carbonado.qe.StorageAccess;
 
 import com.amazon.carbonado.raw.StorableCodecFactory;
 
+import com.amazon.carbonado.sequence.SequenceCapability;
+import com.amazon.carbonado.sequence.SequenceValueGenerator;
+import com.amazon.carbonado.sequence.SequenceValueProducer;
+
+import com.amazon.carbonado.spi.AbstractRepository;
 import com.amazon.carbonado.spi.ExceptionTransformer;
 import com.amazon.carbonado.spi.LobEngine;
-import com.amazon.carbonado.spi.SequenceValueGenerator;
-import com.amazon.carbonado.spi.SequenceValueProducer;
-import com.amazon.carbonado.spi.StorageCollection;
+import com.amazon.carbonado.spi.TransactionManager;
 
 /**
  * Repository implementation backed by a Berkeley DB. Data is encoded in the
@@ -78,42 +73,31 @@ import com.amazon.carbonado.spi.StorageCollection;
  * @author Brian S O'Neill
  * @author Vidya Iyer
  * @author Nicole Deflaux
+ * @author bcastill
  */
-abstract class BDBRepository<Txn>
+abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     implements Repository,
                RepositoryAccess,
                IndexInfoCapability,
                CheckpointCapability,
                EnvironmentCapability,
                ShutdownCapability,
-               StorableInfoCapability
+               StorableInfoCapability,
+               SequenceCapability
 {
     private final Log mLog = LogFactory.getLog(getClass());
 
-    private final String mName;
     private final boolean mIsMaster;
     final Iterable<TriggerFactory> mTriggerFactories;
     private final AtomicReference<Repository> mRootRef;
     private final StorableCodecFactory mStorableCodecFactory;
     private final ExceptionTransformer mExTransformer;
-    private final StorageCollection mStorages;
-    private final Map<String, SequenceValueGenerator> mSequences;
-    private final ThreadLocal<BDBTransactionManager<Txn>> mCurrentTxnMgr;
-
-    private final Lock mShutdownLock;
-    private final Condition mShutdownCondition;
-    private int mShutdownBlockerCount;
-
-    // Weakly tracks all BDBTransactionManager instances for shutdown hook.
-    private final Map<BDBTransactionManager<Txn>, ?> mAllTxnMgrs;
 
     Checkpointer mCheckpointer;
     DeadlockDetector mDeadlockDetector;
 
-    private ShutdownHook mShutdownHook;
-    final Runnable mPreShutdownHook;
-    final Runnable mPostShutdownHook;
-    volatile boolean mHasShutdown;
+    private final Runnable mPreShutdownHook;
+    private final Runnable mPostShutdownHook;
 
     private final Object mInitialDBConfig;
     private final BDBRepositoryBuilder.DatabaseHook mDatabaseHook;
@@ -125,8 +109,6 @@ abstract class BDBRepository<Txn>
     final File mDataHome;
     final File mEnvHome;
     final String mSingleFileName;
-
-    private final String mMergeSortTempDir;
 
     private LayoutFactory mLayoutFactory;
 
@@ -146,40 +128,19 @@ abstract class BDBRepository<Txn>
                   ExceptionTransformer exTransformer)
         throws ConfigurationException
     {
+        super(builder.getName());
+
         builder.assertReady();
 
         if (exTransformer == null) {
             throw new IllegalArgumentException("Exception transformer must not be null");
         }
 
-        mName = builder.getName();
         mIsMaster = builder.isMaster();
         mTriggerFactories = builder.getTriggerFactories();
         mRootRef = rootRef;
         mExTransformer = exTransformer;
 
-        mStorages = new StorageCollection() {
-            protected <S extends Storable> Storage<S> createStorage(Class<S> type)
-                throws RepositoryException
-            {
-                lockoutShutdown();
-                try {
-                    try {
-                        return BDBRepository.this.createStorage(type);
-                    } catch (Exception e) {
-                        throw toRepositoryException(e);
-                    }
-                } finally {
-                    unlockoutShutdown();
-                }
-            }
-        };
-
-        mSequences = new ConcurrentHashMap<String, SequenceValueGenerator>();
-        mCurrentTxnMgr = new ThreadLocal<BDBTransactionManager<Txn>>();
-        mShutdownLock = new ReentrantLock();
-        mShutdownCondition = mShutdownLock.newCondition();
-        mAllTxnMgrs = new WeakIdentityMap();
         mRunCheckpointer = !builder.getReadOnly() && builder.getRunCheckpointer();
         mRunDeadlockDetector = builder.getRunDeadlockDetector();
         mStorableCodecFactory = builder.getStorableCodecFactory();
@@ -191,40 +152,13 @@ abstract class BDBRepository<Txn>
         mDataHome = builder.getDataHomeFile();
         mEnvHome = builder.getEnvironmentHomeFile();
         mSingleFileName = builder.getSingleFileName();
-        // FIXME: see comments in builder
-        mMergeSortTempDir = null; //builder.getMergeSortTempDirectory();
-    }
-
-    public String getName() {
-        return mName;
-    }
-
-    public <S extends Storable> BDBStorage<Txn, S> storageFor(Class<S> type)
-        throws MalformedTypeException, RepositoryException
-    {
-        return (BDBStorage<Txn, S>) mStorages.storageFor(type);
-    }
-
-    public Transaction enterTransaction() {
-        return openTransactionManager().enter(null);
-    }
-
-    public Transaction enterTransaction(IsolationLevel level) {
-        return openTransactionManager().enter(level);
-    }
-
-    public Transaction enterTopTransaction(IsolationLevel level) {
-        return openTransactionManager().enterTop(level);
-    }
-
-    public IsolationLevel getTransactionIsolationLevel() {
-        return openTransactionManager().getIsolationLevel();
     }
 
     @SuppressWarnings("unchecked")
     public <C extends Capability> C getCapability(Class<C> capabilityType) {
-        if (capabilityType.isInstance(this)) {
-            return (C) this;
+        C cap = super.getCapability(capabilityType);
+        if (cap != null) {
+            return cap;
         }
         if (capabilityType == LayoutCapability.class) {
             return (C) mLayoutFactory;
@@ -274,65 +208,6 @@ abstract class BDBRepository<Txn>
             return false;
         }
         return StorableIntrospector.examine(type).getAllProperties().get(name) != null;
-    }
-
-    public void close() {
-        shutdown(false);
-    }
-
-    public boolean isAutoShutdownEnabled() {
-        return mShutdownHook != null;
-    }
-
-    public void setAutoShutdownEnabled(boolean enabled) {
-        if (mShutdownHook == null) {
-            if (enabled) {
-                mShutdownHook = new ShutdownHook(this);
-                try {
-                    Runtime.getRuntime().addShutdownHook(mShutdownHook);
-                } catch (IllegalStateException e) {
-                    // Shutdown in progress, so immediately run hook.
-                    mShutdownHook.run();
-                }
-            }
-        } else {
-            if (!enabled) {
-                try {
-                    Runtime.getRuntime().removeShutdownHook(mShutdownHook);
-                } catch (IllegalStateException e) {
-                    // Shutdown in progress, hook is running.
-                }
-                mShutdownHook = null;
-            }
-        }
-    }
-
-    public void shutdown() {
-        shutdown(true);
-    }
-
-    private void shutdown(boolean suspendThreads) {
-        if (!mHasShutdown) {
-            // Since this repository is being closed before system shutdown,
-            // remove shutdown hook and run it now.
-            ShutdownHook hook = mShutdownHook;
-            if (hook != null) {
-                try {
-                    Runtime.getRuntime().removeShutdownHook(hook);
-                } catch (IllegalStateException e) {
-                    // Shutdown in progress, hook is running.
-                    hook = null;
-                }
-            } else {
-                // If hook is null, auto-shutdown was disabled. Make a new
-                // instance to use, but don't register it.
-                hook = new ShutdownHook(this);
-            }
-            if (hook != null) {
-                hook.run(suspendThreads);
-            }
-            mHasShutdown = true;
-        }
     }
 
     /**
@@ -390,12 +265,84 @@ abstract class BDBRepository<Txn>
     public <S extends Storable> StorageAccess<S> storageAccessFor(Class<S> type)
         throws RepositoryException
     {
-        return storageFor(type);
+        return (BDBStorage<Txn, S>) storageFor(type);
     }
 
     @Override
     protected void finalize() {
         close();
+    }
+
+    protected void shutdownHook() {
+        // Run any external shutdown logic that needs to happen before the
+        // databases and the environment are actually closed
+        if (mPreShutdownHook != null) {
+            mPreShutdownHook.run();
+        }
+
+        // Close database handles.
+        for (Storage storage : allStorage()) {
+            try {
+                if (storage instanceof BDBStorage) {
+                    ((BDBStorage) storage).close();
+                }
+            } catch (Throwable e) {
+                getLog().error(null, e);
+            }
+        }
+
+        // Wait for checkpointer to finish.
+        if (mCheckpointer != null) {
+            mCheckpointer.interrupt();
+            try {
+                mCheckpointer.join();
+            } catch (InterruptedException e) {
+            }
+        }
+
+        // Wait for deadlock detector to finish.
+        if (mDeadlockDetector != null) {
+            mDeadlockDetector.interrupt();
+            try {
+                mDeadlockDetector.join();
+            } catch (InterruptedException e) {
+            }
+        }
+
+        // Close environment.
+        try {
+            env_close();
+        } catch (Throwable e) {
+            getLog().error(null, e);
+        }
+
+        if (mPostShutdownHook != null) {
+            mPostShutdownHook.run();
+        }
+    }
+
+    protected Log getLog() {
+        return mLog;
+    }
+
+    protected TransactionManager createTransactionManager() {
+        return new BDBTransactionManager(mExTransformer, this);
+    }
+
+    protected <S extends Storable> Storage createStorage(Class<S> type)
+        throws RepositoryException
+    {
+        try {
+            return createBDBStorage(type);
+        } catch (Exception e) {
+            throw toRepositoryException(e);
+        }
+    }
+
+    protected SequenceValueProducer createSequenceValueProducer(String name)
+        throws RepositoryException
+    {
+        return new SequenceValueGenerator(BDBRepository.this, name);
     }
 
     /**
@@ -417,40 +364,6 @@ abstract class BDBRepository<Txn>
         return dbName;
     }
 
-    String getMergeSortTempDirectory() {
-        if (mMergeSortTempDir != null) {
-            new File(mMergeSortTempDir).mkdirs();
-        }
-        return mMergeSortTempDir;
-    }
-
-    SequenceValueProducer getSequenceValueProducer(String name) throws PersistException {
-        SequenceValueGenerator producer = mSequences.get(name);
-        if (producer == null) {
-            lockoutShutdown();
-            try {
-                producer = mSequences.get(name);
-                if (producer == null) {
-                    Repository metaRepo = getRootRepository();
-                    try {
-                        producer = new SequenceValueGenerator(metaRepo, name);
-                    } catch (RepositoryException e) {
-                        throw toPersistException(e);
-                    }
-                    mSequences.put(name, producer);
-                }
-                return producer;
-            } finally {
-                unlockoutShutdown();
-            }
-        }
-        return producer;
-    }
-
-    Log getLog() {
-        return mLog;
-    }
-
     StorableCodecFactory getStorableCodecFactory() {
         return mStorableCodecFactory;
     }
@@ -464,7 +377,7 @@ abstract class BDBRepository<Txn>
 
     LobEngine getLobEngine() throws RepositoryException {
         if (mLobEngine == null) {
-            mLobEngine = new LobEngine(getRootRepository());
+            mLobEngine = new LobEngine(this, getRootRepository());
         }
         return mLobEngine;
     }
@@ -555,7 +468,7 @@ abstract class BDBRepository<Txn>
      */
     abstract void env_close() throws Exception;
 
-    abstract <S extends Storable> BDBStorage<Txn, S> createStorage(Class<S> type)
+    abstract <S extends Storable> BDBStorage<Txn, S> createBDBStorage(Class<S> type)
         throws Exception;
 
     FetchException toFetchException(Throwable e) {
@@ -571,70 +484,11 @@ abstract class BDBRepository<Txn>
     }
 
     /**
-     * Returns the thread-local BDBTransactionManager instance, creating it if
-     * needed.
+     * Returns the thread-local BDBTransactionManager, creating it if needed.
      */
-    BDBTransactionManager<Txn> openTransactionManager() {
-        BDBTransactionManager<Txn> txnMgr = mCurrentTxnMgr.get();
-        if (txnMgr == null) {
-            lockoutShutdown();
-            try {
-                txnMgr = new BDBTransactionManager<Txn>(mExTransformer, this);
-                mCurrentTxnMgr.set(txnMgr);
-                mAllTxnMgrs.put(txnMgr, null);
-            } finally {
-                unlockoutShutdown();
-            }
-        }
-        return txnMgr;
-    }
-
-    /**
-     * Call to prevent shutdown hook from running. Be sure to call
-     * unlockoutShutdown afterwards.
-     */
-    private void lockoutShutdown() {
-        mShutdownLock.lock();
-        try {
-            mShutdownBlockerCount++;
-        } finally {
-            mShutdownLock.unlock();
-        }
-    }
-
-    /**
-     * Only call this to release lockoutShutdown.
-     */
-    private void unlockoutShutdown() {
-        mShutdownLock.lock();
-        try {
-            if (--mShutdownBlockerCount == 0) {
-                mShutdownCondition.signalAll();
-            }
-        } finally {
-            mShutdownLock.unlock();
-        }
-    }
-
-    /**
-     * Only to be called by shutdown hook itself.
-     */
-    void lockForShutdown() {
-        mShutdownLock.lock();
-        while (mShutdownBlockerCount > 0) {
-            try {
-                mShutdownCondition.await();
-            } catch (InterruptedException e) {
-                mLog.warn("Ignoring interruption for shutdown");
-            }
-        }
-    }
-
-    /**
-     * Only to be called by shutdown hook itself.
-     */
-    void unlockForShutdown() {
-        mShutdownLock.unlock();
+    // Provides access to transaction manager from other classes.
+    TransactionManager<Txn> localTxnManager() {
+        return localTransactionManager();
     }
 
     /**
@@ -667,7 +521,8 @@ abstract class BDBRepository<Txn>
          * since last checkpoint
          */
         Checkpointer(BDBRepository repository, long sleepInterval, int kBytes, int minutes) {
-            super("BDBRepository checkpointer (" + repository.getName() + ')');
+            super(repository.getClass().getSimpleName() + " checkpointer (" +
+                  repository.getName() + ')');
             setDaemon(true);
             mRepository = new WeakReference<BDBRepository>(repository);
             mSleepInterval = sleepInterval;
@@ -800,7 +655,8 @@ abstract class BDBRepository<Txn>
          * @param sleepInterval milliseconds to sleep before running deadlock detection
          */
         DeadlockDetector(BDBRepository repository, long sleepInterval) {
-            super("BDBRepository deadlock detector (" + repository.getName() + ')');
+            super(repository.getClass().getSimpleName() + " deadlock detector (" +
+                  repository.getName() + ')');
             setDaemon(true);
             mRepository = new WeakReference<BDBRepository>(repository);
             mSleepInterval = sleepInterval;
@@ -828,113 +684,6 @@ abstract class BDBRepository<Txn>
                 } finally {
                     repository = null;
                 }
-            }
-        }
-    }
-
-    private static class ShutdownHook extends Thread {
-        private final WeakReference<BDBRepository<?>> mRepository;
-
-        ShutdownHook(BDBRepository repository) {
-            super("BDBRepository shutdown (" + repository.getName() + ')');
-            mRepository = new WeakReference<BDBRepository<?>>(repository);
-        }
-
-        public void run() {
-            run(true);
-        }
-
-        public void run(boolean suspendThreads) {
-            BDBRepository<?> repository = mRepository.get();
-            if (repository == null) {
-                return;
-            }
-
-            repository.getLog().info("Closing repository \"" + repository.getName() + '"');
-
-            try {
-                doShutdown(repository, suspendThreads);
-            } finally {
-                repository.mHasShutdown = true;
-                mRepository.clear();
-                repository.getLog().info
-                    ("Finished closing repository \"" + repository.getName() + '"');
-            }
-        }
-
-        private void doShutdown(BDBRepository<?> repository, boolean suspendThreads) {
-            repository.lockForShutdown();
-            try {
-                // Return unused sequence values.
-                for (SequenceValueGenerator generator : repository.mSequences.values()) {
-                    try {
-                        generator.returnReservedValues();
-                    } catch (RepositoryException e) {
-                        repository.getLog().warn(null, e);
-                    }
-                }
-
-                // Close transactions and cursors.
-                for (BDBTransactionManager<?> txnMgr : repository.mAllTxnMgrs.keySet()) {
-                    if (suspendThreads) {
-                        // Lock transaction manager but don't release it. This
-                        // prevents other threads from beginning work during
-                        // shutdown, which will likely fail along the way.
-                        txnMgr.getLock().lock();
-                    }
-                    try {
-                        txnMgr.close();
-                    } catch (Throwable e) {
-                        repository.getLog().error(null, e);
-                    }
-                }
-
-                // Run any external shutdown logic that needs to
-                // happen before the databases and the environment are
-                // actually closed
-                if (repository.mPreShutdownHook != null) {
-                    repository.mPreShutdownHook.run();
-                }
-
-                // Close database handles.
-                for (Storage storage : repository.mStorages.allStorage()) {
-                    try {
-                        ((BDBStorage) storage).close();
-                    } catch (Throwable e) {
-                        repository.getLog().error(null, e);
-                    }
-                }
-
-                // Wait for checkpointer to finish.
-                if (repository.mCheckpointer != null) {
-                    repository.mCheckpointer.interrupt();
-                    try {
-                        repository.mCheckpointer.join();
-                    } catch (InterruptedException e) {
-                    }
-                }
-
-                // Wait for deadlock detector to finish.
-                if (repository.mDeadlockDetector != null) {
-                    repository.mDeadlockDetector.interrupt();
-                    try {
-                        repository.mDeadlockDetector.join();
-                    } catch (InterruptedException e) {
-                    }
-                }
-
-                // Close environment.
-                try {
-                    repository.env_close();
-                } catch (Throwable e) {
-                    repository.getLog().error(null, e);
-                }
-
-                if (repository.mPostShutdownHook != null) {
-                    repository.mPostShutdownHook.run();
-                }
-            } finally {
-                repository.unlockForShutdown();
             }
         }
     }

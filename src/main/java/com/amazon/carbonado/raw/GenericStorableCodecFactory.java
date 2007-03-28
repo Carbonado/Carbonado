@@ -57,8 +57,29 @@ public class GenericStorableCodecFactory implements StorableCodecFactory {
                                                                     Layout layout)
         throws SupportException
     {
+        return createCodec(type, pkIndex, isMaster, layout, null);
+    }
+
+    /**
+     * @param type type of storable to create codec for
+     * @param pkIndex suggested index for primary key (optional)
+     * @param isMaster when true, version properties and sequences are managed
+     * @param layout when non-null, encode a storable layout generation
+     * value in one or four bytes. Generation 0..127 is encoded in one byte, and
+     * 128..max is encoded in four bytes, with the most significant bit set.
+     * @param support binds generated storable with a storage layer
+     * @throws SupportException if type is not supported
+     */
+    @SuppressWarnings("unchecked")
+    public <S extends Storable> GenericStorableCodec<S> createCodec(Class<S> type,
+                                                                    StorableIndex pkIndex,
+                                                                    boolean isMaster,
+                                                                    Layout layout,
+                                                                    RawSupport support)
+        throws SupportException
+    {
         return GenericStorableCodec.getInstance
-            (this, createStrategy(type, pkIndex), isMaster, layout);
+            (this, createStrategy(type, pkIndex), isMaster, layout, support);
     }
 
     /**

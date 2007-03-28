@@ -30,9 +30,7 @@ import com.amazon.carbonado.Storable;
 public interface GenericInstanceFactory {
     Storable instantiate(RawSupport support);
 
-    Storable instantiate(RawSupport support, byte[] key)
-        throws FetchException;
+    Storable instantiate(RawSupport support, byte[] key) throws FetchException;
 
-    Storable instantiate(RawSupport support, byte[] key, byte[] value)
-        throws FetchException;
+    Storable instantiate(RawSupport support, byte[] key, byte[] value) throws FetchException;
 }

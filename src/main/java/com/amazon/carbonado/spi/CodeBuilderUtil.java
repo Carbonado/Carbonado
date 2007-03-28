@@ -21,7 +21,9 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Map;
 import java.util.HashMap;
+
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 
 import org.cojen.classfile.ClassFile;
 import org.cojen.classfile.Modifiers;
@@ -31,9 +33,11 @@ import org.cojen.classfile.Label;
 import org.cojen.classfile.TypeDesc;
 import org.cojen.classfile.LocalVariable;
 import org.cojen.classfile.MethodDesc;
+import org.cojen.classfile.Opcode;
 import org.cojen.util.ClassInjector;
 
 import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.SupportException;
 
 import static com.amazon.carbonado.spi.CommonMethodNames.*;
 
@@ -133,7 +137,7 @@ public class CodeBuilderUtil {
     public static void defineCopyBridges(ClassFile cf, Class leaf) {
         for (Class c : gatherAllBridgeTypes(new HashSet<Class>(), leaf)) {
             if (c != Object.class) {
-                defineCopyBridge(cf, c);
+                defineCopyBridge(cf, leaf, c);
             }
         }
     }
@@ -144,10 +148,16 @@ public class CodeBuilderUtil {
      * return it as the correct type.
      *
      * @param cf file to which to add the copy bridge
+     * @param leaf leaf class
      * @param returnClass type returned from generated bridge method
      */
-    public static void defineCopyBridge(ClassFile cf, Class returnClass) {
+    private static void defineCopyBridge(ClassFile cf, Class leaf, Class returnClass) {
         TypeDesc returnType = TypeDesc.forClass(returnClass);
+
+        if (isPublicMethodFinal(leaf, COPY_METHOD_NAME, returnType, null)) {
+            // Cannot override.
+            return;
+        }
 
         MethodInfo mi = cf.addMethod(Modifiers.PUBLIC.toBridge(true),
                                      COPY_METHOD_NAME, returnType, null);
@@ -183,6 +193,38 @@ public class CodeBuilderUtil {
         for (Class c : clazz.getInterfaces()) {
             gatherAllDeclaredMethods(methods, c);
         }
+    }
+
+    /**
+     * Returns true if a public final method exists which matches the given
+     * specification.
+     */
+    public static boolean isPublicMethodFinal(Class clazz, String name,
+                                              TypeDesc retType, TypeDesc[] params)
+    {
+        if (!clazz.isInterface()) {
+            Class[] paramClasses;
+            if (params == null || params.length == 0) {
+                paramClasses =  null;
+            } else {
+                paramClasses = new Class[params.length];
+                for (int i=0; i<params.length; i++) {
+                    paramClasses[i] = params[i].toClass();
+                }
+            }
+            try {
+                Method existing = clazz.getMethod(name, paramClasses);
+                if (Modifier.isFinal(existing.getModifiers())) {
+                    if (TypeDesc.forClass(existing.getReturnType()) == retType) {
+                        // Method is already implemented and is final.
+                        return true;
+                    }
+                }
+            } catch (NoSuchMethodException e) {
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -382,6 +424,78 @@ public class CodeBuilderUtil {
     }
 
     /**
+     * Generates code to push an initial version property value on the stack.
+     *
+     * @throws SupportException if version type is not supported
+     */
+    public static void initialVersion(CodeBuilder b, TypeDesc type, int value)
+        throws SupportException
+    {
+        adjustVersion(b, type, value, false);
+    }
+
+    /**
+     * Generates code to increment a version property value, already on the stack.
+     *
+     * @throws SupportException if version type is not supported
+     */
+    public static void incrementVersion(CodeBuilder b, TypeDesc type)
+        throws SupportException
+    {
+        adjustVersion(b, type, 0, true);
+    }
+
+    private static void adjustVersion(CodeBuilder b, TypeDesc type, int value, boolean increment)
+        throws SupportException
+    {
+        TypeDesc primitiveType = type.toPrimitiveType();
+        supportCheck: {
+            if (primitiveType != null) {
+                switch (primitiveType.getTypeCode()) {
+                case TypeDesc.INT_CODE:
+                case TypeDesc.LONG_CODE:
+                    break supportCheck;
+                }
+            }
+            throw new SupportException("Unsupported version type: " + type.getFullName());
+        }
+
+        if (!increment) {
+            if (primitiveType == TypeDesc.LONG) {
+                b.loadConstant((long) value);
+            } else {
+                b.loadConstant(value);
+            }
+        } else {
+            Label setVersion = b.createLabel();
+            if (!type.isPrimitive()) {
+                b.dup();
+                Label versionNotNull = b.createLabel();
+                b.ifNullBranch(versionNotNull, false);
+                b.pop();
+                if (primitiveType == TypeDesc.LONG) {
+                    b.loadConstant(1L);
+                } else {
+                    b.loadConstant(1);
+                }
+                b.branch(setVersion);
+                versionNotNull.setLocation();
+                b.convert(type, primitiveType);
+            }
+            if (primitiveType == TypeDesc.LONG) {
+                b.loadConstant(1L);
+                b.math(Opcode.LADD);
+            } else {
+                b.loadConstant(1);
+                b.math(Opcode.IADD);
+            }
+            setVersion.setLocation();
+        }
+
+        b.convert(primitiveType, type);
+    }
+
+    /**
      * Determines which overloaded "with" method on Query should be bound to.
      */
     public static TypeDesc bindQueryParam(Class clazz) {
@@ -402,5 +516,59 @@ public class CodeBuilderUtil {
             }
         }
         return TypeDesc.OBJECT;
+    }
+
+    /**
+     * Appends a String to a StringBuilder. A StringBuilder and String must be
+     * on the stack, and a StringBuilder is left on the stack after the call.
+     */
+    public static void callStringBuilderAppendString(CodeBuilder b) {
+        // Because of JDK1.5 bug which exposes AbstractStringBuilder class,
+        // cannot use reflection to get method signature.
+        TypeDesc stringBuilder = TypeDesc.forClass(StringBuilder.class);
+        b.invokeVirtual(stringBuilder, "append", stringBuilder, new TypeDesc[] {TypeDesc.STRING});
+    }
+
+    /**
+     * Appends a char to a StringBuilder. A StringBuilder and char must be on
+     * the stack, and a StringBuilder is left on the stack after the call.
+     */
+    public static void callStringBuilderAppendChar(CodeBuilder b) {
+        // Because of JDK1.5 bug which exposes AbstractStringBuilder class,
+        // cannot use reflection to get method signature.
+        TypeDesc stringBuilder = TypeDesc.forClass(StringBuilder.class);
+        b.invokeVirtual(stringBuilder, "append", stringBuilder, new TypeDesc[] {TypeDesc.CHAR});
+    }
+
+    /**
+     * Calls length on a StringBuilder on the stack, leaving an int on the stack.
+     */
+    public static void callStringBuilderLength(CodeBuilder b) {
+        // Because of JDK1.5 bug which exposes AbstractStringBuilder class,
+        // cannot use reflection to get method signature.
+        TypeDesc stringBuilder = TypeDesc.forClass(StringBuilder.class);
+        b.invokeVirtual(stringBuilder, "length", TypeDesc.INT, null);
+    }
+
+    /**
+     * Calls setLength on a StringBuilder. A StringBuilder and int must be on
+     * the stack, and both are consumed after the call.
+     */
+    public static void callStringBuilderSetLength(CodeBuilder b) {
+        // Because of JDK1.5 bug which exposes AbstractStringBuilder class,
+        // cannot use reflection to get method signature.
+        TypeDesc stringBuilder = TypeDesc.forClass(StringBuilder.class);
+        b.invokeVirtual(stringBuilder, "setLength", null, new TypeDesc[] {TypeDesc.INT});
+    }
+
+    /**
+     * Calls toString on a StringBuilder. A StringBuilder must be on the stack,
+     * and a String is left on the stack after the call.
+     */
+    public static void callStringBuilderToString(CodeBuilder b) {
+        // Because of JDK1.5 bug which exposes AbstractStringBuilder class,
+        // cannot use reflection to get method signature.
+        TypeDesc stringBuilder = TypeDesc.forClass(StringBuilder.class);
+        b.invokeVirtual(stringBuilder, "toString", TypeDesc.STRING, null);
     }
 }

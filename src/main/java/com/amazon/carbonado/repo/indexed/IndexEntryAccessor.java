@@ -20,7 +20,6 @@ package com.amazon.carbonado.repo.indexed;
 
 import java.util.Comparator;
 
-import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 

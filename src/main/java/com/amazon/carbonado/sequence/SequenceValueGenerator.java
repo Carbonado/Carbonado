@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.sequence;
 
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
@@ -29,13 +29,14 @@ import com.amazon.carbonado.Transaction;
  * General purpose implementation of a sequence value generator.
  *
  * @author Brian S O'Neill
+ * @author bcastill
  * @see com.amazon.carbonado.Sequence
  * @see StoredSequence
  */
 public class SequenceValueGenerator extends AbstractSequenceValueProducer {
-    private static final int DEFAULT_RESERVE_AMOUNT = 100;
-    private static final int DEFAULT_INITIAL_VALUE = 1;
-    private static final int DEFAULT_INCREMENT = 1;
+    public static final int DEFAULT_RESERVE_AMOUNT = 100;
+    public static final int DEFAULT_INITIAL_VALUE = 1;
+    public static final int DEFAULT_INCREMENT = 1;
 
     private final Repository mRepository;
     private final Storage<StoredSequence> mStorage;
@@ -107,10 +108,40 @@ public class SequenceValueGenerator extends AbstractSequenceValueProducer {
         txn.setForUpdate(true);
         try {
             if (!mStoredSequence.tryLoad()) {
+                // Create a new sequence.
+
                 mStoredSequence.setInitialValue(initialValue);
                 // Start as small as possible to allow signed long comparisons to work.
                 mStoredSequence.setNextValue(Long.MIN_VALUE);
-                if (!mStoredSequence.tryInsert()) {
+
+                // Try to transfer values from a deprecated sequence.
+                com.amazon.carbonado.spi.StoredSequence oldSequence;
+                try {
+                    oldSequence = repo
+                        .storageFor(com.amazon.carbonado.spi.StoredSequence.class).prepare();
+                    oldSequence.setName(name);
+                    if (oldSequence.tryLoad()) {
+                        mStoredSequence.setInitialValue(oldSequence.getInitialValue());
+                        mStoredSequence.setNextValue(oldSequence.getNextValue());
+                    } else {
+                        oldSequence = null;
+                    }
+                } catch (RepositoryException e) {
+                    // Okay, perhaps no old sequence.
+                    oldSequence = null;
+                }
+
+                if (mStoredSequence.tryInsert()) {
+                    if (oldSequence != null) {
+                        try {
+                            // Get rid of deprecated sequence.
+                            oldSequence.tryDelete();
+                        } catch (RepositoryException e) {
+                            // Oh well.
+                        }
+                    }
+                } else {
+                    // A race condition likely. Load again.
                     mStoredSequence.load();
                 }
             }

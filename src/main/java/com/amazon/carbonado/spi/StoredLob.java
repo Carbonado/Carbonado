@@ -19,10 +19,8 @@
 package com.amazon.carbonado.spi;
 
 import com.amazon.carbonado.Alias;
-import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Independent;
 import com.amazon.carbonado.PrimaryKey;
-import com.amazon.carbonado.Sequence;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Version;
 
@@ -38,7 +36,6 @@ import com.amazon.carbonado.constraint.IntegerConstraint;
 @Independent
 @Alias("CARBONADO_LOB")
 public abstract class StoredLob implements Storable<StoredLob> {
-    @Sequence("com.amazon.carbonado.spi.StoredLob")
     public abstract long getLocator();
     public abstract void setLocator(long locator);
 

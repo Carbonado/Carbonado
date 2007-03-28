@@ -38,6 +38,27 @@ import com.amazon.carbonado.filter.OpenFilter;
  */
 public abstract class FilteredCursor<S> extends AbstractCursor<S> {
     /**
+     * Returns a Cursor that is filtered by the given filter expression and values.
+     *
+     * @param cursor cursor to wrap
+     * @param type type of storable
+     * @param filter filter to apply
+     * @param filterValues values for filter
+     * @return wrapped cursor which filters results
+     * @throws IllegalStateException if any values are not specified
+     * @throws IllegalArgumentException if any argument is null
+     */
+    public static <S extends Storable> Cursor<S> applyFilter(Cursor<S> cursor,
+                                                             Class<S> type,
+                                                             String filter,
+                                                             Object... filterValues)
+    {
+        Filter<S> f = Filter.filterFor(type, filter).bind();
+        FilterValues<S> fv = f.initialFilterValues().withValues(filterValues);
+        return applyFilter(f, fv, cursor);
+    }
+
+    /**
      * Returns a Cursor that is filtered by the given Filter and FilterValues.
      * The given Filter must be composed only of the same PropertyFilter
      * instances as used to construct the FilterValues. An
@@ -60,6 +81,9 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
         if (filter instanceof ClosedFilter) {
             throw new IllegalArgumentException();
         }
+
+        // Make sure the filter is the same one that filterValues should be using.
+        filter = filter.bind();
 
         return FilteredCursorGenerator.getFactory(filter)
             .newFilteredCursor(cursor, filterValues.getValuesFor(filter));

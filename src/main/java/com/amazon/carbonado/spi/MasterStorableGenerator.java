@@ -47,6 +47,8 @@ import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 
+import com.amazon.carbonado.sequence.SequenceValueProducer;
+
 import static com.amazon.carbonado.spi.CommonMethodNames.*;
 
 /**
@@ -409,7 +411,8 @@ public final class MasterStorableGenerator<S extends Storable> {
                     ordinal++;
 
                     if (property.isJoin() || property.isPrimaryKeyMember()
-                        || property.isNullable())
+                        || property.isNullable()
+                        || property.isAutomatic() || property.isVersion())
                     {
                         continue;
                     }
@@ -808,63 +811,25 @@ public final class MasterStorableGenerator<S extends Storable> {
                                           int value)
         throws SupportException
     {
-        StorableProperty<?> versionProperty = mInfo.getVersionProperty();
-
-        TypeDesc versionType = TypeDesc.forClass(versionProperty.getType());
-        TypeDesc versionPrimitiveType = versionType.toPrimitiveType();
-        supportCheck: {
-            if (versionPrimitiveType != null) {
-                switch (versionPrimitiveType.getTypeCode()) {
-                case TypeDesc.INT_CODE:
-                case TypeDesc.LONG_CODE:
-                    break supportCheck;
-                }
-            }
-            throw new SupportException
-                ("Unsupported version type: " + versionType.getFullName());
-        }
-
+        // Push storable to stack in preparation for calling set method below.
         if (storableVar == null) {
             b.loadThis();
         } else {
             b.loadLocal(storableVar);
         }
 
+        StorableProperty<?> versionProperty = mInfo.getVersionProperty();
+        TypeDesc versionType = TypeDesc.forClass(versionProperty.getType());
+
         if (value >= 0) {
-            if (versionPrimitiveType == TypeDesc.LONG) {
-                b.loadConstant((long) value);
-            } else {
-                b.loadConstant(value);
-            }
+            CodeBuilderUtil.initialVersion(b, versionType, value);
         } else {
+            // Load current property value.
             b.dup();
             b.invoke(versionProperty.getReadMethod());
-            Label setVersion = b.createLabel();
-            if (!versionType.isPrimitive()) {
-                b.dup();
-                Label versionNotNull = b.createLabel();
-                b.ifNullBranch(versionNotNull, false);
-                b.pop();
-                if (versionPrimitiveType == TypeDesc.LONG) {
-                    b.loadConstant(1L);
-                } else {
-                    b.loadConstant(1);
-                }
-                b.branch(setVersion);
-                versionNotNull.setLocation();
-                b.convert(versionType, versionPrimitiveType);
-            }
-            if (versionPrimitiveType == TypeDesc.LONG) {
-                b.loadConstant(1L);
-                b.math(Opcode.LADD);
-            } else {
-                b.loadConstant(1);
-                b.math(Opcode.IADD);
-            }
-            setVersion.setLocation();
+            CodeBuilderUtil.incrementVersion(b, versionType);
         }
 
-        b.convert(versionPrimitiveType, versionType);
         b.invoke(versionProperty.getWriteMethod());
     }
 }

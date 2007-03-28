@@ -21,6 +21,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Storable;
@@ -103,6 +104,11 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
 
     public Query<S> query(Filter<S> filter) throws FetchException {
         return mReplicaStorage.query(filter);
+    }
+
+    public void truncate() throws PersistException {
+        mMasterStorage.truncate();
+        mReplicaStorage.truncate();
     }
 
     public boolean addTrigger(Trigger<? super S> trigger) {

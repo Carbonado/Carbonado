@@ -16,23 +16,23 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.repo.jdbc;
+package com.amazon.carbonado.sequence;
+
+import com.amazon.carbonado.RepositoryException;
+import com.amazon.carbonado.capability.Capability;
 
 /**
+ * Capability to use sequences.
+ * 
+ * @author bcastill
  *
- *
- * @author Brian S O'Neill
  */
-class MysqlSupportStrategy extends JDBCSupportStrategy {
-    private static final String TRUNCATE_STATEMENT = "TRUNCATE TABLE %s";
-
-    protected MysqlSupportStrategy(JDBCRepository repo) {
-        super(repo);
-
-        setTruncateTableStatement(TRUNCATE_STATEMENT);
-    }
-
-    JDBCExceptionTransformer createExceptionTransformer() {
-        return new MysqlExceptionTransformer();
-    }
+public interface SequenceCapability extends Capability {
+    
+    /**
+     * Retrieve and/or generate a SequenceValueProducer for the given name.
+     * 
+     * @param name sequence name
+     */
+    SequenceValueProducer getSequenceValueProducer(String name) throws RepositoryException;
 }

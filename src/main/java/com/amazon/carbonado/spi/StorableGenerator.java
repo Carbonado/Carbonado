@@ -24,6 +24,7 @@ import java.lang.ref.SoftReference;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.math.BigInteger;
@@ -583,8 +584,11 @@ public final class StorableGenerator<S extends Storable> {
                     requireStateField = true;
                 } else if (mGenMode == GEN_ABSTRACT) {
                     // Only define regular property fields if abstract
-                    // class. Wrapped class doesn't reference them.
-                    mClassFile.addField(Modifiers.PROTECTED, name, type);
+                    // class. Wrapped class doesn't reference them. Double
+                    // words are volatile to prevent word tearing without
+                    // explicit synchronization.
+                    mClassFile.addField(Modifiers.PROTECTED.toVolatile(type.isDoubleWord()),
+                                        name, type);
                     requireStateField = true;
                 }
 
@@ -617,11 +621,9 @@ public final class StorableGenerator<S extends Storable> {
                         }
                     }
 
-                    if (mGenMode == GEN_ABSTRACT && (type.isDoubleWord() || property.isJoin())) {
-                        // Even if read method just reads a field,
-                        // synchronization is needed if type is a double
-                        // word. Synchronization is also required for join
-                        // property accessors, as they may alter bit masks.
+                    if (mGenMode == GEN_ABSTRACT && property.isJoin()) {
+                        // Synchronization is required for join property
+                        // accessors, as they may alter bit masks.
                         mi.setModifiers(mi.getModifiers().toSynchronized(true));
                     }
 
@@ -1061,12 +1063,6 @@ public final class StorableGenerator<S extends Storable> {
                             (Modifiers.PROTECTED, readName, toType, null);
                         mi.markSynthetic();
 
-                        if (type.isDoubleWord()) {
-                            // Even if read method just reads a field,
-                            // synchronization is needed if type is a double word.
-                            mi.setModifiers(mi.getModifiers().toSynchronized(true));
-                        }
-
                         // Now add code that actually gets the property value and
                         // then invokes adapt method.
                         CodeBuilder b = new CodeBuilder(mi);
@@ -1130,9 +1126,14 @@ public final class StorableGenerator<S extends Storable> {
         // Add tryLoad method which delegates to abstract doTryLoad method.
         addTryLoad: {
             // Define the tryLoad method.
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC.toSynchronized(mGenMode == GEN_ABSTRACT),
                  TRY_LOAD_METHOD_NAME, TypeDesc.BOOLEAN, null);
+
+            if (mi == null) {
+                break addTryLoad;
+            }
+
             mi.addException(TypeDesc.forClass(FetchException.class));
 
             if (mGenMode == GEN_WRAPPED) {
@@ -1269,9 +1270,14 @@ public final class StorableGenerator<S extends Storable> {
         // Add load method which calls tryLoad.
         addLoad: {
             // Define the load method.
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC.toSynchronized(mGenMode == GEN_ABSTRACT),
                  LOAD_METHOD_NAME, null, null);
+
+            if (mi == null) {
+                break addLoad;
+            }
+
             mi.addException(TypeDesc.forClass(FetchException.class));
 
             if (mGenMode == GEN_WRAPPED) {
@@ -1370,8 +1376,13 @@ public final class StorableGenerator<S extends Storable> {
 
         // Add insert method which calls insert(forTry = false)
         addInsert: {
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC, INSERT_METHOD_NAME, null, null);
+
+            if (mi == null) {
+                break addInsert;
+            }
+
             mi.addException(TypeDesc.forClass(PersistException.class));
 
             if (mGenMode == GEN_WRAPPED) {
@@ -1391,8 +1402,13 @@ public final class StorableGenerator<S extends Storable> {
 
         // Add tryInsert method which calls insert(forTry = true)
         addTryInsert: {
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC, TRY_INSERT_METHOD_NAME, TypeDesc.BOOLEAN, null);
+
+            if (mi == null) {
+                break addTryInsert;
+            }
+
             mi.addException(TypeDesc.forClass(PersistException.class));
 
             if (mGenMode == GEN_WRAPPED) {
@@ -1534,8 +1550,13 @@ public final class StorableGenerator<S extends Storable> {
 
         // Add update method which calls update(forTry = false)
         addUpdate: {
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC, UPDATE_METHOD_NAME, null, null);
+
+            if (mi == null) {
+                break addUpdate;
+            }
+
             mi.addException(TypeDesc.forClass(PersistException.class));
 
             if (mGenMode == GEN_WRAPPED) {
@@ -1555,8 +1576,13 @@ public final class StorableGenerator<S extends Storable> {
 
         // Add tryUpdate method which calls update(forTry = true)
         addTryUpdate: {
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC, TRY_UPDATE_METHOD_NAME, TypeDesc.BOOLEAN, null);
+
+            if (mi == null) {
+                break addTryUpdate;
+            }
+
             mi.addException(TypeDesc.forClass(PersistException.class));
 
             if (mGenMode == GEN_WRAPPED) {
@@ -1642,8 +1668,13 @@ public final class StorableGenerator<S extends Storable> {
         // Add delete method which calls delete(forTry = false)
         addDelete: {
             // Define the delete method.
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC, DELETE_METHOD_NAME, null, null);
+
+            if (mi == null) {
+                break addDelete;
+            }
+
             mi.addException(TypeDesc.forClass(PersistException.class));
 
             if (mGenMode == GEN_WRAPPED) {
@@ -1664,8 +1695,13 @@ public final class StorableGenerator<S extends Storable> {
         // Add tryDelete method which calls delete(forTry = true)
         addTryDelete: {
             // Define the delete method.
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC, TRY_DELETE_METHOD_NAME, TypeDesc.BOOLEAN, null);
+
+            if (mi == null) {
+                break addTryDelete;
+            }
+
             mi.addException(TypeDesc.forClass(PersistException.class));
 
             if (mGenMode == GEN_WRAPPED) {
@@ -1683,24 +1719,34 @@ public final class StorableGenerator<S extends Storable> {
         }
 
         // Add storableType method
-        {
+        addStorableType: {
             final TypeDesc type = TypeDesc.forClass(mStorableType);
             final TypeDesc storableClassType = TypeDesc.forClass(Class.class);
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC, STORABLE_TYPE_METHOD_NAME, storableClassType, null);
+
+            if (mi == null) {
+                break addStorableType;
+            }
+
             CodeBuilder b = new CodeBuilder(mi);
             b.loadConstant(type);
             b.returnValue(storableClassType);
         }
 
-        // Add copy methods.
-        {
+        // Add copy method.
+        addCopy: {
             TypeDesc type = TypeDesc.forClass(mInfo.getStorableType());
 
             // Add copy method.
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC.toSynchronized(mGenMode == GEN_ABSTRACT),
                  COPY_METHOD_NAME, mClassFile.getType(), null);
+
+            if (mi == null) {
+                break addCopy;
+            }
+
             CodeBuilder b = new CodeBuilder(mi);
             b.loadThis();
             b.invokeVirtual(CLONE_METHOD_NAME, TypeDesc.OBJECT, null);
@@ -1739,9 +1785,11 @@ public final class StorableGenerator<S extends Storable> {
             }
 
             b.returnValue(type);
-
-            CodeBuilderUtil.defineCopyBridges(mClassFile, mInfo.getStorableType());
         }
+
+        // Part of properly defining copy method, except needs to be added even
+        // if copy method was not added because it is inherited and final.
+        CodeBuilderUtil.defineCopyBridges(mClassFile, mInfo.getStorableType());
 
         // Create all the property copier methods.
         // Boolean params: pkProperties, versionProperty, dataProperties, unequalOnly, dirtyOnly
@@ -1758,8 +1806,12 @@ public final class StorableGenerator<S extends Storable> {
 
         // Define hasDirtyProperties method.
         addHasDirtyProps: {
-            MethodInfo mi = mClassFile.addMethod
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC, HAS_DIRTY_PROPERTIES, TypeDesc.BOOLEAN, null);
+
+            if (mi == null) {
+                break addHasDirtyProps;
+            }
 
             if (mGenMode == GEN_WRAPPED) {
                 callWrappedStorable(mi);
@@ -1783,10 +1835,15 @@ public final class StorableGenerator<S extends Storable> {
         addPropertyStateCheckMethod(IS_PROPERTY_CLEAN, PROPERTY_STATE_CLEAN);
 
         // Define isPropertySupported method.
-        {
-            MethodInfo mi = mClassFile.addMethod
+        addIsPropertySupported: {
+            MethodInfo mi = addMethodIfNotFinal
                 (Modifiers.PUBLIC, IS_PROPERTY_SUPPORTED,
                  TypeDesc.BOOLEAN, new TypeDesc[] {TypeDesc.STRING});
+
+            if (mi == null) {
+                break addIsPropertySupported;
+            }
+
             CodeBuilder b = new CodeBuilder(mi);
 
             b.loadThis();
@@ -2027,11 +2084,15 @@ public final class StorableGenerator<S extends Storable> {
         TypeDesc[] param = { TypeDesc.forClass(Storable.class) };
         TypeDesc storableTypeDesc = TypeDesc.forClass(mStorableType);
 
-        MethodInfo mi= mClassFile.addMethod
+        MethodInfo mi= addMethodIfNotFinal
             (Modifiers.PUBLIC.toSynchronized(mGenMode == GEN_ABSTRACT),
              methodName,
              null,
              param);
+
+        if (mi == null) {
+            return;
+        }
 
         if (mGenMode == GEN_WRAPPED) {
             callWrappedStorable(mi);
@@ -2298,7 +2359,13 @@ public final class StorableGenerator<S extends Storable> {
     }
 
     private void addMarkCleanMethod(String name) {
-        MethodInfo mi = mClassFile.addMethod(Modifiers.PUBLIC, name, null, null);
+        MethodInfo mi =
+            addMethodIfNotFinal (Modifiers.PUBLIC.toSynchronized(true), name, null, null);
+
+        if (mi == null) {
+            return;
+        }
+
         CodeBuilder b = new CodeBuilder(mi);
 
         if (mGenMode == GEN_WRAPPED) {
@@ -2353,7 +2420,13 @@ public final class StorableGenerator<S extends Storable> {
     }
 
     private void addMarkDirtyMethod(String name) {
-        MethodInfo mi = mClassFile.addMethod(Modifiers.PUBLIC, name, null, null);
+        MethodInfo mi =
+            addMethodIfNotFinal(Modifiers.PUBLIC.toSynchronized(true), name, null, null);
+
+        if (mi == null) {
+            return;
+        }
+
         CodeBuilder b = new CodeBuilder(mi);
 
         if (mGenMode == GEN_WRAPPED) {
@@ -2506,6 +2579,22 @@ public final class StorableGenerator<S extends Storable> {
     private void addIsInitializedMethod
         (String name, Map<String, ? extends StorableProperty<S>> properties)
     {
+        // Don't check Automatic properties.
+        {
+            boolean cloned = false;
+            for (StorableProperty<S> prop : properties.values()) {
+                if (prop.isAutomatic() || prop.isVersion()) {
+                    if (!cloned) {
+                        properties = new LinkedHashMap<String, StorableProperty<S>>(properties);
+                        cloned = true;
+                    }
+                    // This isn't concurrent modification since the loop is
+                    // still operating on the original properties map.
+                    properties.remove(prop.getName());
+                }
+            }
+        }
+
         MethodInfo mi = mClassFile.addMethod(Modifiers.PROTECTED, name, TypeDesc.BOOLEAN, null);
         CodeBuilder b = new CodeBuilder(mi);
 
@@ -2624,7 +2713,7 @@ public final class StorableGenerator<S extends Storable> {
         CodeBuilder b = new CodeBuilder(mi);
 
         // Generate big switch statement that operates on Strings. See also
-        // cojen.util.BeanPropertyAccessor, which also generates this kind of
+        // org.cojen.util.BeanPropertyAccessor, which also generates this kind of
         // switch.
 
         // For switch case count, obtain a prime number, at least twice as
@@ -2792,8 +2881,13 @@ public final class StorableGenerator<S extends Storable> {
      * @param state property state to check
      */
     private void addPropertyStateCheckMethod(String name, int state) {
-        MethodInfo mi = mClassFile.addMethod(Modifiers.PUBLIC, name,
-                                             TypeDesc.BOOLEAN, new TypeDesc[] {TypeDesc.STRING});
+        MethodInfo mi = addMethodIfNotFinal(Modifiers.PUBLIC, name,
+                                            TypeDesc.BOOLEAN, new TypeDesc[] {TypeDesc.STRING});
+
+        if (mi == null) {
+            return;
+        }
+
         CodeBuilder b = new CodeBuilder(mi);
 
         if (mGenMode == GEN_WRAPPED) {
@@ -2825,7 +2919,11 @@ public final class StorableGenerator<S extends Storable> {
      */
     private void addHashCodeMethod() {
         Modifiers modifiers = Modifiers.PUBLIC.toSynchronized(mGenMode == GEN_ABSTRACT);
-        MethodInfo mi = mClassFile.addMethod(modifiers, "hashCode", TypeDesc.INT, null);
+        MethodInfo mi = addMethodIfNotFinal(modifiers, "hashCode", TypeDesc.INT, null);
+
+        if (mi == null) {
+            return;
+        }
 
         if (mGenMode == GEN_WRAPPED) {
             callWrappedStorable(mi);
@@ -2968,8 +3066,12 @@ public final class StorableGenerator<S extends Storable> {
         }
 
         Modifiers modifiers = Modifiers.PUBLIC.toSynchronized(mGenMode == GEN_ABSTRACT);
-        MethodInfo mi = mClassFile.addMethod
+        MethodInfo mi = addMethodIfNotFinal
             (modifiers, equalsMethodName, TypeDesc.BOOLEAN, objectParam);
+
+        if (mi == null) {
+            return;
+        }
 
         if (mGenMode == GEN_WRAPPED && equalityType != EQUAL_FULL) {
             callWrappedStorable(mi);
@@ -3051,11 +3153,15 @@ public final class StorableGenerator<S extends Storable> {
         TypeDesc[] charParam = {TypeDesc.CHAR};
 
         Modifiers modifiers = Modifiers.PUBLIC.toSynchronized(mGenMode == GEN_ABSTRACT);
-        MethodInfo mi = mClassFile.addMethod(modifiers,
-                                             keyOnly ?
-                                             TO_STRING_KEY_ONLY_METHOD_NAME :
-                                             TO_STRING_METHOD_NAME,
-                                             TypeDesc.STRING, null);
+        MethodInfo mi = addMethodIfNotFinal(modifiers,
+                                            keyOnly ?
+                                            TO_STRING_KEY_ONLY_METHOD_NAME :
+                                            TO_STRING_METHOD_NAME,
+                                            TypeDesc.STRING, null);
+
+        if (mi == null) {
+            return;
+        }
 
         if (mGenMode == GEN_WRAPPED) {
             callWrappedStorable(mi);
@@ -3547,5 +3653,19 @@ public final class StorableGenerator<S extends Storable> {
         b.invokeInterface(handlerType, "uncaughtException", null,
                           new TypeDesc[] {threadType, TypeDesc.forClass(Throwable.class)});
         b.returnVoid();
+    }
+
+    /**
+     * @return MethodInfo for completing definition or null if superclass
+     * already implements method as final.
+     */
+    private MethodInfo addMethodIfNotFinal(Modifiers modifiers, String name,
+                                           TypeDesc retType, TypeDesc[] params)
+    {
+        if (CodeBuilderUtil.isPublicMethodFinal(mStorableType, name, retType, params)) {
+            return null;
+        }
+
+        return mClassFile.addMethod(modifiers, name, retType, params);
     }
 }

@@ -165,6 +165,25 @@ public class ChainedProperty<S extends Storable> implements Appender {
     }
 
     /**
+     * Returns true if any property in the chain can be null.
+     *
+     * @see com.amazon.carbonado.Nullable
+     */
+    public boolean isNullable() {
+        if (mPrime.isNullable()) {
+            return true;
+        }
+        if (mChain != null) {
+            for (StorableProperty<?> prop : mChain) {
+                if (prop.isNullable()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns the last property in the chain, or the prime property if chain
      * is empty.
      */
@@ -293,7 +312,8 @@ public class ChainedProperty<S extends Storable> implements Appender {
     }
 
     /**
-     * Returns the chained property in a parseable form.
+     * Returns the chained property in a parseable form. The format is
+     * "name.subname.subsubname".
      */
     @Override
     public String toString() {
@@ -310,7 +330,8 @@ public class ChainedProperty<S extends Storable> implements Appender {
     }
 
     /**
-     * Appends the chained property in a parseable form.
+     * Appends the chained property in a parseable form. The format is
+     * "name.subname.subsubname".
      */
     public void appendTo(Appendable app) throws IOException {
         app.append(mPrime.getName());

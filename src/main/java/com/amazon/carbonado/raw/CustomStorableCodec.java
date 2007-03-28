@@ -232,6 +232,10 @@ public abstract class CustomStorableCodec<S extends Storable> implements Storabl
     private final int mPkPropertyCount;
     private final InstanceFactory mInstanceFactory;
 
+    // Modified by CustomStorableCodecFactory after construction. This provides
+    // backwards compatibility with implementations of CustomStorableCodecFactory.
+    RawSupport<S> mSupport;
+
     public interface InstanceFactory {
         Storable instantiate(RawSupport support, CustomStorableCodec codec);
 
@@ -245,15 +249,38 @@ public abstract class CustomStorableCodec<S extends Storable> implements Storabl
      * @throws SupportException if Storable is not supported
      */
     public CustomStorableCodec(Class<S> type, boolean isMaster) throws SupportException {
+        this(type, isMaster, null);
+    }
+
+    /**
+     * @param isMaster when true, version properties and sequences are managed
+     * @throws SupportException if Storable is not supported
+     */
+    public CustomStorableCodec(Class<S> type, boolean isMaster, RawSupport<S> support)
+        throws SupportException
+    {
         mType = type;
         mPkPropertyCount = getPrimaryKeyIndex().getPropertyCount();
         Class<? extends S> storableClass = getStorableClass(type, isMaster);
         mInstanceFactory = QuickConstructorGenerator
             .getInstance(storableClass, InstanceFactory.class);
+        mSupport = support;
     }
 
     public Class<S> getStorableType() {
         return mType;
+    }
+
+    @SuppressWarnings("unchecked")
+    public S instantiate() {
+        return (S) mInstanceFactory.instantiate(support(), this);
+    }
+
+    @SuppressWarnings("unchecked")
+    public S instantiate(byte[] key, byte[] value)
+        throws FetchException
+    {
+        return (S) mInstanceFactory.instantiate(support(), key, value, this);
     }
 
     @SuppressWarnings("unchecked")
@@ -274,6 +301,18 @@ public abstract class CustomStorableCodec<S extends Storable> implements Storabl
 
     public byte[] encodePrimaryKey(Object[] values) {
         return encodePrimaryKey(values, 0, mPkPropertyCount);
+    }
+
+    public RawSupport<S> getSupport() {
+        return mSupport;
+    }
+
+    private RawSupport<S> support() {
+        RawSupport<S> support = mSupport;
+        if (support == null) {
+            throw new IllegalStateException("No RawSupport");
+        }
+        return support;
     }
 
     /**

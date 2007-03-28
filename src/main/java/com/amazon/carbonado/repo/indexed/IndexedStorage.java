@@ -30,6 +30,7 @@ import org.apache.commons.logging.LogFactory;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
+import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
@@ -188,6 +189,9 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
                         // Assume index is malformed, so ignore it.
                         continue;
                     }
+                    if (mRepository.isAllClustered()) {
+                        freeIndex = freeIndex.clustered(true);
+                    }
                     mAllIndexInfoMap.put(freeIndex, ii);
                     freeIndexSet.add(freeIndex);
                 }
@@ -210,6 +214,10 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
 
             // Add the indexes we get for free.
             queryableIndexSet.addAll(freeIndexSet);
+
+            if (mRepository.isAllClustered()) {
+                queryableIndexSet.markClustered(true);
+            }
         }
 
         // The set of indexes that should be kept up-to-date. If index repair
@@ -313,6 +321,36 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         return mQueryEngine.query(filter);
     }
 
+    public void truncate() throws PersistException {
+        hasManagedIndexes: {
+            for (IndexInfo info : mAllIndexInfoMap.values()) {
+                if (info instanceof ManagedIndex) {
+                    break hasManagedIndexes;
+                }
+            }
+
+            // No managed indexes, so nothing special to do.
+            mMasterStorage.truncate();
+            return;
+        }
+
+        Transaction txn = mRepository.enterTransaction();
+        try {
+            mMasterStorage.truncate();
+
+            // Now truncate the indexes.
+            for (IndexInfo info : mAllIndexInfoMap.values()) {
+                if (info instanceof ManagedIndex) {
+                    ((ManagedIndex) info).getIndexEntryStorage().truncate();
+                }
+            }
+
+            txn.commit();
+        } finally {
+            txn.exit();
+        }
+    }
+
     public boolean addTrigger(Trigger<? super S> trigger) {
         return mMasterStorage.addTrigger(trigger);
     }
@@ -372,9 +410,6 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
             }
         }
 
-        // FIXME: sort buffer should be on repository access. Also, create abstract
-        // repository access that creates the correct merge sort buffer. And more:
-        // create capability for managing merge sort buffers.
         return new MergeSortBuffer<S>(mRootStorage);
     }
 
@@ -521,20 +556,24 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
 
         {
             // Doesn't completely remove the index, but it should free up space.
+
             double desiredSpeed = mRepository.getIndexRepairThrottle();
             Throttle throttle = desiredSpeed < 1.0 ? new Throttle(POPULATE_THROTTLE_WINDOW) : null;
 
-            long totalDropped = 0;
-            while (true) {
-                Transaction txn = mRepository.getWrappedRepository()
-                    .enterTopTransaction(IsolationLevel.READ_COMMITTED);
-                txn.setForUpdate(true);
-                try {
-                    Cursor<? extends Storable> cursor = indexEntryStorage.query().fetch();
-                    if (!cursor.hasNext()) {
-                        break;
-                    }
-                    int count = 0;
+            if (throttle == null) {
+                indexEntryStorage.truncate();
+            } else {
+                long totalDropped = 0;
+                while (true) {
+                    Transaction txn = mRepository.getWrappedRepository()
+                        .enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                    txn.setForUpdate(true);
+                    try {
+                        Cursor<? extends Storable> cursor = indexEntryStorage.query().fetch();
+                        if (!cursor.hasNext()) {
+                            break;
+                        }
+                        int count = 0;
                         final long savedTotal = totalDropped;
                         boolean anyFailure = false;
                         try {
@@ -544,26 +583,25 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
                                 } else {
                                     anyFailure = true;
                                 }
+                            }
+                        } finally {
+                            cursor.close();
                         }
-                    } finally {
-                        cursor.close();
-                    }
-                    txn.commit();
-                    if (log.isInfoEnabled()) {
-                        log.info("Removed " + totalDropped + " index entries");
-                    }
+                        txn.commit();
+                        if (log.isInfoEnabled()) {
+                            log.info("Removed " + totalDropped + " index entries");
+                        }
                         if (anyFailure && totalDropped <= savedTotal) {
                             log.warn("No indexes removed in last batch. " +
                                      "Aborting index removal cleanup");
                             break;
                         }
-                } catch (FetchException e) {
-                    throw e.toPersistException();
-                } finally {
-                    txn.exit();
-                }
+                    } catch (FetchException e) {
+                        throw e.toPersistException();
+                    } finally {
+                        txn.exit();
+                    }
 
-                if (throttle != null) {
                     try {
                         throttle.throttle(desiredSpeed, POPULATE_THROTTLE_SLEEP_PRECISION);
                     } catch (InterruptedException e) {

@@ -225,7 +225,6 @@ class LoggingConnection implements Connection {
         mCon.releaseSavepoint(savepoint);
     }
 
-    /* JDK 1.6 features
     public Clob createClob() throws SQLException {
         return mCon.createClob();
     }
@@ -277,5 +276,4 @@ class LoggingConnection implements Connection {
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }
-    */
 }

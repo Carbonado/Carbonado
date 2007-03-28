@@ -20,7 +20,6 @@ package com.amazon.carbonado.layout;
 
 import com.amazon.carbonado.Alias;
 import com.amazon.carbonado.AlternateKeys;
-import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Independent;
 import com.amazon.carbonado.Key;
 import com.amazon.carbonado.Nullable;

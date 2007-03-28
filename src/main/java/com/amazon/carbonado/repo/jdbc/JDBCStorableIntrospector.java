@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -56,7 +55,6 @@ import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 
-import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
@@ -65,8 +63,6 @@ import com.amazon.carbonado.info.StorableKey;
 import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.info.StorablePropertyAdapter;
 import com.amazon.carbonado.info.StorablePropertyConstraint;
-
-import com.amazon.carbonado.spi.IndexInfoImpl;
 
 /**
  * Provides additional metadata for a {@link Storable} type needed by
@@ -335,7 +331,31 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                         }
                     }
 
+                    boolean autoIncrement = mainProperty.isAutomatic();
+                    if (autoIncrement) {
+                        // Need to execute a little query to check if column is
+                        // auto-increment or not. This information is not available in
+                        // the regular database metadata prior to jdk1.6.
+
+                        PreparedStatement ps = con.prepareStatement
+                            ("SELECT " + columnInfo.columnName +
+                             " FROM " + tableName +
+                             " WHERE 1=0");
+
+                        try {
+                            ResultSet rs = ps.executeQuery();
+                            try {
+                                autoIncrement = rs.getMetaData().isAutoIncrement(1);
+                            } finally {
+                                rs.close();
+                            }
+                        } finally {
+                            ps.close();
+                        }
+                    }
+
                     jProperty = new JProperty<S>(mainProperty, columnInfo,
+                                                 autoIncrement,
                                                  accessInfo.mResultSetGet,
                                                  accessInfo.mPreparedStatementSet,
                                                  accessInfo.getAdapter());
@@ -974,6 +994,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         private transient Map<String, JDBCStorableProperty<S>> mPrimaryKeyProperties;
         private transient Map<String, JDBCStorableProperty<S>> mDataProperties;
+        private transient Map<String, JDBCStorableProperty<S>> mIdentityProperties;
         private transient JDBCStorableProperty<S> mVersionProperty;
 
         JInfo(StorableInfo<S> mainInfo,
@@ -1104,6 +1125,23 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mDataProperties;
         }
 
+        public Map<String, JDBCStorableProperty<S>> getIdentityProperties() {
+            if (mIdentityProperties == null) {
+                Map<String, JDBCStorableProperty<S>> idProps =
+                    new LinkedHashMap<String, JDBCStorableProperty<S>>(1);
+                for (Map.Entry<String, JDBCStorableProperty<S>> entry :
+                         getPrimaryKeyProperties().entrySet())
+                {
+                    JDBCStorableProperty<S> property = entry.getValue();
+                    if (property.isAutoIncrement()) {
+                        idProps.put(entry.getKey(), property);
+                    }
+                }
+                mIdentityProperties = Collections.unmodifiableMap(idProps);
+            }
+            return mIdentityProperties;
+        }
+
         public JDBCStorableProperty<S> getVersionProperty() {
             if (mVersionProperty == null) {
                 for (JDBCStorableProperty<S> property : mAllProperties.values()) {
@@ -1133,6 +1171,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         private final Integer mDecimalDigits;
         private final Integer mCharOctetLength;
         private final Integer mOrdinalPosition;
+        private final boolean mAutoIncrement;
 
         private JDBCStorableProperty<S>[] mInternal;
         private JDBCStorableProperty<?>[] mExternal;
@@ -1140,9 +1179,13 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         /**
          * Join properties need to be filled in later.
          */
-        JProperty(StorableProperty<S> mainProperty, ColumnInfo columnInfo,
-                  Method resultSetGet, Method preparedStatementSet,
-                  StorablePropertyAdapter adapter) {
+        JProperty(StorableProperty<S> mainProperty,
+                  ColumnInfo columnInfo,
+                  boolean autoIncrement,
+                  Method resultSetGet,
+                  Method preparedStatementSet,
+                  StorablePropertyAdapter adapter)
+        {
             mMainProperty = mainProperty;
             mColumnName = columnInfo.columnName;
             mDataType = columnInfo.dataType;
@@ -1154,6 +1197,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             mDecimalDigits = columnInfo.decimalDigits;
             mCharOctetLength = columnInfo.charOctetLength;
             mOrdinalPosition = columnInfo.ordinalPosition;
+            mAutoIncrement = autoIncrement;
         }
 
         JProperty(StorableProperty<S> mainProperty) {
@@ -1168,6 +1212,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             mDecimalDigits = null;
             mCharOctetLength = null;
             mOrdinalPosition = null;
+            mAutoIncrement = false;
         }
 
         public String getName() {
@@ -1258,6 +1303,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mMainProperty.getSequenceName();
         }
 
+        public boolean isAutomatic() {
+            return mMainProperty.isAutomatic();
+        }
+
         public boolean isVersion() {
             return mMainProperty.isVersion();
         }
@@ -1277,6 +1326,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         public boolean isSelectable() {
             return mColumnName != null && !isJoin();
+        }
+
+        public boolean isAutoIncrement() {
+            return mAutoIncrement;
         }
 
         public String getColumnName() {

@@ -58,6 +58,10 @@ public class CorruptEncodingException extends FetchException {
      * If the decoder can at least extract the primary key, it should set it here.
      */
     public void setStorableWithPrimaryKey(Storable s) {
+        if (s != null) {
+            // Do this to ensure that primary key is known to be defined.
+            s.markAllPropertiesClean();
+        }
         mStorable = s;
     }
 

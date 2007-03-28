@@ -59,6 +59,30 @@ public abstract class CustomStorableCodecFactory implements StorableCodecFactory
 
     /**
      * @param type type of storable to create codec for
+     * @param pkIndex ignored
+     * @param isMaster when true, version properties and sequences are managed
+     * @param layout when non-null, attempt to encode a storable layout
+     * generation value in each storable
+     * @param support binds generated storable with a storage layer
+     * @throws SupportException if type is not supported
+     */
+    public <S extends Storable> CustomStorableCodec<S> createCodec(Class<S> type,
+                                                                   StorableIndex pkIndex,
+                                                                   boolean isMaster,
+                                                                   Layout layout,
+                                                                   RawSupport support)
+        throws SupportException
+    {
+        CustomStorableCodec<S> codec = createCodec(type, isMaster, layout, support);
+        // Possibly set support after construction, for backwards compatibility.
+        if (codec.mSupport == null) {
+            codec.mSupport = support;
+        }
+        return codec;
+    }
+
+    /**
+     * @param type type of storable to create codec for
      * @param isMaster when true, version properties and sequences are managed
      * @param layout when non-null, attempt to encode a storable layout
      * generation value in each storable
@@ -67,4 +91,20 @@ public abstract class CustomStorableCodecFactory implements StorableCodecFactory
     protected abstract <S extends Storable> CustomStorableCodec<S>
         createCodec(Class<S> type, boolean isMaster, Layout layout)
         throws SupportException;
+
+    /**
+     * @param type type of storable to create codec for
+     * @param isMaster when true, version properties and sequences are managed
+     * @param layout when non-null, attempt to encode a storable layout
+     * generation value in each storable
+     * @param support binds generated storable with a storage layer
+     * @throws SupportException if type is not supported
+     */
+    // Note: This factory method is not abstract for backwards compatibility.
+    protected <S extends Storable> CustomStorableCodec<S>
+        createCodec(Class<S> type, boolean isMaster, Layout layout, RawSupport support)
+        throws SupportException
+    {
+        return createCodec(type, isMaster, layout);
+    }
 }

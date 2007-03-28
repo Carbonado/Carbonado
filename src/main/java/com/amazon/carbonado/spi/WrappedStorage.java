@@ -78,6 +78,10 @@ public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
         return wrap(mStorage.query(filter));
     }
 
+    public void truncate() throws PersistException {
+        mStorage.truncate();
+    }
+
     public boolean addTrigger(Trigger<? super S> trigger) {
         return mTriggerManager.addTrigger(trigger);
     }

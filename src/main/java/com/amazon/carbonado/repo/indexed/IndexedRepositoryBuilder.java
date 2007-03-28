@@ -49,6 +49,7 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
     private RepositoryBuilder mRepoBuilder;
     private boolean mIndexRepairEnabled = true;
     private double mIndexThrottle = 1.0;
+    private boolean mAllClustered;
 
     public IndexedRepositoryBuilder() {
     }
@@ -75,7 +76,8 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
 
         Repository repo = new IndexedRepository(rootRef, getName(), wrapped,
                                                 isIndexRepairEnabled(),
-                                                getIndexRepairThrottle());
+                                                getIndexRepairThrottle(),
+                                                isAllClustered());
         rootRef.set(repo);
         return repo;
     }
@@ -165,6 +167,23 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
             desiredSpeed = 1.0;
         }
         mIndexThrottle = desiredSpeed;
+    }
+
+    /**
+     * Returns true if all indexes should be identified as clustered. This
+     * affects how indexes are selected by the query analyzer.
+     */
+    public boolean isAllClustered() {
+        return mAllClustered;
+    }
+
+    /**
+     * When all indexes are identified as clustered, the query analyzer treats
+     * all indexes as performing equally well. This is suitable for indexing
+     * repositories that never read from a slow storage medium.
+     */
+    public void setAllClustered(boolean clustered) {
+        mAllClustered = clustered;
     }
 
     public void errorCheck(Collection<String> messages) throws ConfigurationException {

@@ -201,6 +201,26 @@ public class StorableIndexSet<S extends Storable> extends TreeSet<StorableIndex<
     }
 
     /**
+     * Marks all indexes as clustered or non-clustered.
+     *
+     * @param clustered true to mark clustered; false to mark non-clustered
+     * @see StorableIndex#isClustered()
+     */
+    public void markClustered(boolean clustered) {
+        Map<StorableIndex<S>, StorableIndex<S>> replacements = null;
+        for (StorableIndex<S> index : this) {
+            StorableIndex<S> replacement = index.clustered(clustered);
+            if (replacement != index) {
+                if (replacements == null) {
+                    replacements = new HashMap<StorableIndex<S>, StorableIndex<S>>();
+                }
+                replacements.put(index, replacement);
+            }
+        }
+        replaceEntries(replacements);
+    }
+
+    /**
      * Augment non-unique indexes with primary key properties, thus making them
      * unique.
      *

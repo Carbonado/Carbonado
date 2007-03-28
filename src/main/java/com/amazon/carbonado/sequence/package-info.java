@@ -16,23 +16,11 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.repo.jdbc;
-
 /**
+ * Support for generating sequences of values, intended for creating surrogate
+ * keys. Most repository implementations support sequences already, but direct
+ * control over sequences might be desired.
  *
- *
- * @author Brian S O'Neill
+ * @see com.amazon.carbonado.Sequence
  */
-class MysqlSupportStrategy extends JDBCSupportStrategy {
-    private static final String TRUNCATE_STATEMENT = "TRUNCATE TABLE %s";
-
-    protected MysqlSupportStrategy(JDBCRepository repo) {
-        super(repo);
-
-        setTruncateTableStatement(TRUNCATE_STATEMENT);
-    }
-
-    JDBCExceptionTransformer createExceptionTransformer() {
-        return new MysqlExceptionTransformer();
-    }
-}
+package com.amazon.carbonado.sequence;

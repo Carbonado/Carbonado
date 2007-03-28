@@ -184,8 +184,17 @@ public interface StorableProperty<S extends Storable> extends Appender {
 
     /**
      * Returns the property's sequence name, or null if none.
+     *
+     * @see com.amazon.carbonado.Sequence
      */
     String getSequenceName();
+
+    /**
+     * Returns true of this property is given an automatic value upon insert.
+     *
+     * @see com.amazon.carbonado.Automatic
+     */
+    boolean isAutomatic();
 
     /**
      * Returns true if this property is the designated version number for the

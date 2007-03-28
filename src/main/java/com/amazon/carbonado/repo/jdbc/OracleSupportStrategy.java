@@ -18,29 +18,28 @@
 
 package com.amazon.carbonado.repo.jdbc;
 
-import java.io.IOException;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-
-import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.sql.SQLException;
 
 import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
-import com.amazon.carbonado.Transaction;
 
 /**
  *
  *
  * @author Brian S O'Neill
+ * @author bcastill
  */
 class OracleSupportStrategy extends JDBCSupportStrategy {
+    
+    private static final String DEFAULT_SEQUENCE_SELECT_STATEMENT = "SELECT %s.NEXTVAL FROM DUAL";
+
+    private static final String TRUNCATE_STATEMENT = "TRUNCATE TABLE %s";
+    
     private static final int LOB_CHUNK_LIMIT = 4000;
 
     private static final String PLAN_TABLE_NAME = "TEMP_CARBONADO_PLAN_TABLE";
@@ -60,6 +59,11 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
     protected OracleSupportStrategy(JDBCRepository repo) {
         super(repo);
 
+        // Set printf style format to create sequence query
+        setSequenceSelectStatement(DEFAULT_SEQUENCE_SELECT_STATEMENT);
+
+        setTruncateTableStatement(TRUNCATE_STATEMENT);
+        
         // Access all the custom oracle.sql.BLOB methods via reflection.
         {
             Method blob_empty_lob = null;
@@ -124,13 +128,6 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
     @Override
     JDBCExceptionTransformer createExceptionTransformer() {
         return new OracleExceptionTransformer();
-    }
-
-    @Override
-    String createSequenceQuery(String sequenceName) {
-        return new StringBuilder(25 + sequenceName.length())
-            .append("SELECT ").append(sequenceName).append(".NEXTVAL FROM DUAL")
-            .toString();
     }
 
     @Override

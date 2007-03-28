@@ -35,19 +35,36 @@ public interface StorableCodec<S extends Storable> {
     Class<S> getStorableType();
 
     /**
-     * Instantiate a Storable with no key or value defined yet.
+     * Instantiate a Storable with no key or value defined yet. The default
+     * {@link RawSupport} is supplied to the instance.
+     *
+     * @throws IllegalStateException if no default support exists
+     */
+    S instantiate();
+
+    /**
+     * Instantiate a Storable with a specific key and value. The default
+     * {@link RawSupport} is supplied to the instance.
+     *
+     * @throws IllegalStateException if no default support exists
+     */
+    S instantiate(byte[] key, byte[] value) throws FetchException;
+
+    /**
+     * Instantiate a Storable with no key or value defined yet. Any
+     * {@link RawSupport} can be supplied to the instance.
      *
      * @param support binds generated storable with a storage layer
      */
     S instantiate(RawSupport<S> support);
 
     /**
-     * Instantiate a Storable with a specific key and value.
+     * Instantiate a Storable with a specific key and value. Any
+     * {@link RawSupport} can be supplied to the instance.
      *
      * @param support binds generated storable with a storage layer
      */
-    S instantiate(RawSupport<S> support, byte[] key, byte[] value)
-        throws FetchException;
+    S instantiate(RawSupport<S> support, byte[] key, byte[] value) throws FetchException;
 
     /**
      * Returns the sequence and directions of properties that make up the
@@ -113,4 +130,10 @@ public interface StorableCodec<S extends Storable> {
      * prefix. Returned value may be null if no prefix is defined.
      */
     byte[] encodePrimaryKeyPrefix();
+
+    /**
+     * Returns the default {@link RawSupport} object that is supplied to
+     * Storable instances produced by this codec.
+     */
+    RawSupport<S> getSupport();
 }

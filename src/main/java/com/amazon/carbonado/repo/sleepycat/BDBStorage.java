@@ -71,10 +71,12 @@ import com.amazon.carbonado.raw.StorableCodecFactory;
 import com.amazon.carbonado.raw.RawSupport;
 import com.amazon.carbonado.raw.RawUtil;
 
+import com.amazon.carbonado.sequence.SequenceValueProducer;
+
 import com.amazon.carbonado.spi.IndexInfoImpl;
 import com.amazon.carbonado.spi.LobEngine;
-import com.amazon.carbonado.spi.SequenceValueProducer;
 import com.amazon.carbonado.spi.StorableIndexSet;
+import com.amazon.carbonado.spi.TransactionManager;
 import com.amazon.carbonado.spi.TriggerManager;
 
 /**
@@ -154,7 +156,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     }
 
     public S prepare() {
-        return mStorableCodec.instantiate(mRawSupport);
+        return mStorableCodec.instantiate();
     }
 
     public Query<S> query() throws FetchException {
@@ -167,6 +169,48 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
     public Query<S> query(Filter<S> filter) throws FetchException {
         return mQueryEngine.query(filter);
+    }
+
+    public void truncate() throws PersistException {
+        if (mTriggerManager.getDeleteTrigger() != null || mRepository.mSingleFileName != null) {
+            final int batchSize = 100;
+
+            while (true) {
+                Transaction txn = mRepository.enterTransaction(IsolationLevel.READ_COMMITTED);
+                txn.setForUpdate(true);
+                try {
+                    Cursor<S> cursor = query().fetch();
+                    if (!cursor.hasNext()) {
+                        break;
+                    }
+                    int count = 0;
+                    do {
+                        cursor.next().tryDelete();
+                    } while (count++ < batchSize && cursor.hasNext());
+                    txn.commit();
+                } catch (FetchException e) {
+                    throw e.toPersistException();
+                } finally {
+                    txn.exit();
+                }
+
+                return;
+            }
+        }
+
+        TransactionManager<Txn> txnMgr = localTxnManager();
+
+        // Lock out shutdown task.
+        txnMgr.getLock().lock();
+        try {
+            try {
+                db_truncate(txnMgr.getTxn());
+            } catch (Exception e) {
+                throw toPersistException(e);
+            }
+        } finally {
+            txnMgr.getLock().unlock();
+        }
     }
 
     public boolean addTrigger(Trigger<? super S> trigger) {
@@ -222,9 +266,6 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             }
         }
 
-        // FIXME: sort buffer should be on repository access. Also, create abstract
-        // repository access that creates the correct merge sort buffer. And more:
-        // create capability for managing merge sort buffers.
         return new MergeSortBuffer<S>(mRootStorage);
     }
 
@@ -262,7 +303,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                                  boolean reverseOrder)
         throws FetchException
     {
-        BDBTransactionManager<Txn> txnMgr = openTransactionManager();
+        TransactionManager<Txn> txnMgr = localTxnManager();
 
         if (reverseRange) {
             {
@@ -367,6 +408,12 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
      * differences between the current index set and the desired index set.
      */
     protected void open(boolean readOnly) throws RepositoryException {
+        open(readOnly, null, true);
+    }
+
+    protected void open(boolean readOnly, Txn openTxn, boolean installTriggers)
+        throws RepositoryException
+    {
         final Layout layout = getLayout();
 
         StorableInfo<S> info = StorableIntrospector.examine(getStorableType());
@@ -386,11 +433,11 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         boolean isPrimaryEmpty;
 
         try {
-            BDBTransactionManager<Txn> txnMgr = mRepository.openTransactionManager();
+            TransactionManager<Txn> txnMgr = mRepository.localTxnManager();
             // Lock out shutdown task.
             txnMgr.getLock().lock();
             try {
-                primaryDatabase = env_openPrimaryDatabase(null, databaseName);
+                primaryDatabase = env_openPrimaryDatabase(openTxn, databaseName);
                 primaryInfo = registerPrimaryDatabase(readOnly, layout);
                 isPrimaryEmpty = db_isEmpty(null, primaryDatabase, txnMgr.isForUpdate());
             } finally {
@@ -446,7 +493,8 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
         try {
             mStorableCodec = codecFactory
-                .createCodec(getStorableType(), pkIndex, mRepository.isMaster(), layout);
+                .createCodec(getStorableType(), pkIndex, mRepository.isMaster(), layout,
+                             mRawSupport);
         } catch (SupportException e) {
             // We've opened the database prematurely, since type isn't
             // supported by encoding strategy. Close it down and unregister.
@@ -468,12 +516,14 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
         mQueryEngine = new QueryEngine<S>(getStorableType(), mRepository);
 
-        // Don't install automatic triggers until we're completely ready.
-        mTriggerManager.addTriggers(getStorableType(), mRepository.mTriggerFactories);
+        if (installTriggers) {
+            // Don't install automatic triggers until we're completely ready.
+            mTriggerManager.addTriggers(getStorableType(), mRepository.mTriggerFactories);
+        }
     }
 
     protected S instantiate(byte[] key, byte[] value) throws FetchException {
-        return mStorableCodec.instantiate(mRawSupport, key, value);
+        return mStorableCodec.instantiate(key, value);
     }
 
     protected CompactionCapability.Result<S> compact() throws RepositoryException {
@@ -493,7 +543,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         try {
-            Txn txn = mRepository.openTransactionManager().getTxn();
+            Txn txn = mRepository.localTxnManager().getTxn();
             return db_compact(txn, mPrimaryDatabase, start, end);
         } catch (Exception e) {
             throw mRepository.toRepositoryException(e);
@@ -568,7 +618,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
      * @param database database to use
      */
     protected abstract BDBCursor<Txn, S> openCursor
-        (BDBTransactionManager<Txn> txnMgr,
+        (TransactionManager<Txn> txnMgr,
          byte[] startBound, boolean inclusiveStart,
          byte[] endBound, boolean inclusiveEnd,
          int maxPrefix,
@@ -588,8 +638,8 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         return mRepository.toRepositoryException(e);
     }
 
-    BDBTransactionManager<Txn> openTransactionManager() {
-        return mRepository.openTransactionManager();
+    TransactionManager<Txn> localTxnManager() {
+        return mRepository.localTxnManager();
     }
 
     /**
@@ -647,7 +697,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
      * prevent threads from starting work that will likely fail along the way.
      */
     void checkClosed() throws FetchException {
-        BDBTransactionManager<Txn> txnMgr = openTransactionManager();
+        TransactionManager<Txn> txnMgr = localTxnManager();
 
         // Lock out shutdown task.
         txnMgr.getLock().lock();
@@ -668,7 +718,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     }
 
     void close() throws Exception {
-        BDBTransactionManager<Txn> txnMgr = mRepository.openTransactionManager();
+        TransactionManager<Txn> txnMgr = mRepository.localTxnManager();
         txnMgr.getLock().lock();
         try {
             if (mPrimaryDatabase != null) {
@@ -811,7 +861,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public byte[] tryLoad(byte[] key) throws FetchException {
-            BDBTransactionManager<Txn> txnMgr = mStorage.openTransactionManager();
+            TransactionManager<Txn> txnMgr = mStorage.localTxnManager();
             byte[] result;
             // Lock out shutdown task.
             txnMgr.getLock().lock();
@@ -834,7 +884,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public boolean tryInsert(S storable, byte[] key, byte[] value) throws PersistException {
-            BDBTransactionManager<Txn> txnMgr = mStorage.openTransactionManager();
+            TransactionManager<Txn> txnMgr = mStorage.localTxnManager();
             Object result;
             // Lock out shutdown task.
             txnMgr.getLock().lock();
@@ -857,7 +907,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public void store(S storable, byte[] key, byte[] value) throws PersistException {
-            BDBTransactionManager<Txn> txnMgr = mStorage.openTransactionManager();
+            TransactionManager<Txn> txnMgr = mStorage.localTxnManager();
             // Lock out shutdown task.
             txnMgr.getLock().lock();
             try {
@@ -874,7 +924,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public boolean tryDelete(byte[] key) throws PersistException {
-            BDBTransactionManager<Txn> txnMgr = mStorage.openTransactionManager();
+            TransactionManager<Txn> txnMgr = mStorage.localTxnManager();
             // Lock out shutdown task.
             txnMgr.getLock().lock();
             try {
@@ -907,7 +957,11 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         public SequenceValueProducer getSequenceValueProducer(String name)
             throws PersistException
         {
-            return mStorage.mRepository.getSequenceValueProducer(name);
+            try {
+                return mStorage.mRepository.getSequenceValueProducer(name);
+            } catch (RepositoryException e) {
+                throw e.toPersistException();
+            }
         }
 
         public Trigger<? super S> getInsertTrigger() {

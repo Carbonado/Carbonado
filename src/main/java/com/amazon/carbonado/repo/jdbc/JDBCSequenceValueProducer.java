@@ -23,8 +23,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 
 import com.amazon.carbonado.PersistException;
-
-import com.amazon.carbonado.spi.AbstractSequenceValueProducer;
+import com.amazon.carbonado.sequence.AbstractSequenceValueProducer;
 
 /**
  *
@@ -64,5 +63,9 @@ class JDBCSequenceValueProducer extends AbstractSequenceValueProducer {
         } catch (Exception e) {
             throw mRepo.toPersistException(e);
         }
+    }
+
+    public boolean returnReservedValues() {
+        return false;
     }
 }

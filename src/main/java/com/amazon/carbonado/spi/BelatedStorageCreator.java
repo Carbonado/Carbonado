@@ -120,6 +120,10 @@ public class BelatedStorageCreator<S extends Storable>
             return mRepo;
         }
 
+        public void truncate() {
+            throw error();
+        }
+
         public boolean addTrigger(Trigger<? super S> trigger) {
             throw error();
         }

@@ -79,6 +79,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
      * @param layout when non-null, encode a storable layout generation
      * value in one or four bytes. Generation 0..127 is encoded in one byte, and
      * 128..max is encoded in four bytes, with the most significant bit set.
+     * @param support binds generated storable with a storage layer
      * @throws SupportException if Storable is not supported
      * @throws amazon.carbonado.MalformedTypeException if Storable type is not well-formed
      * @throws IllegalArgumentException if type is null
@@ -86,29 +87,25 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
     @SuppressWarnings("unchecked")
     static synchronized <S extends Storable> GenericStorableCodec<S> getInstance
         (GenericStorableCodecFactory factory,
-         GenericEncodingStrategy<S> encodingStrategy, boolean isMaster, Layout layout)
+         GenericEncodingStrategy<S> encodingStrategy, boolean isMaster,
+         Layout layout, RawSupport support)
         throws SupportException
     {
-        Object key;
-        if (layout == null) {
-            key = KeyFactory.createKey(new Object[] {encodingStrategy, isMaster});
-        } else {
-            key = KeyFactory.createKey
-                (new Object[] {encodingStrategy, isMaster, factory, layout.getGeneration()});
+        Object key = KeyFactory.createKey(new Object[] {encodingStrategy, isMaster, layout});
+
+        Class<? extends S> storableImpl = (Class<? extends S>) cCache.get(key);
+        if (storableImpl == null) {
+            storableImpl = generateStorable(encodingStrategy, isMaster, layout);
+            cCache.put(key, storableImpl);
         }
 
-        GenericStorableCodec<S> codec = (GenericStorableCodec<S>) cCache.get(key);
-        if (codec == null) {
-            codec = new GenericStorableCodec<S>
-                (factory,
-                 encodingStrategy.getType(),
-                 generateStorable(encodingStrategy, isMaster, layout),
-                 encodingStrategy,
-                 layout);
-            cCache.put(key, codec);
-        }
-
-        return codec;
+        return new GenericStorableCodec<S>
+            (factory,
+             encodingStrategy.getType(),
+             storableImpl,
+             encodingStrategy,
+             layout,
+             support);
     }
 
     @SuppressWarnings("unchecked")
@@ -325,10 +322,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
 
     private final Class<? extends S> mStorableClass;
 
-    // Weakly reference the encoding strategy because of the way
-    // GenericStorableCodec instances are cached in a SoftValuedHashMap.
-    // GenericStorableCodec can still be reclaimed by the garbage collector.
-    private final WeakReference<GenericEncodingStrategy<S>> mEncodingStrategy;
+    private final GenericEncodingStrategy<S> mEncodingStrategy;
 
     private final GenericInstanceFactory mInstanceFactory;
 
@@ -339,27 +333,30 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
 
     private final Layout mLayout;
 
+    private final RawSupport<S> mSupport;
+
     // Maps layout generations to Decoders.
     private IntHashMap mDecoders;
 
     private GenericStorableCodec(GenericStorableCodecFactory factory,
                                  Class<S> type, Class<? extends S> storableClass,
                                  GenericEncodingStrategy<S> encodingStrategy,
-                                 Layout layout) {
+                                 Layout layout, RawSupport<S> support)
+    {
         mFactory = factory;
         mType = type;
         mStorableClass = storableClass;
-        mEncodingStrategy = new WeakReference<GenericEncodingStrategy<S>>(encodingStrategy);
+        mEncodingStrategy = encodingStrategy;
         mInstanceFactory = QuickConstructorGenerator
             .getInstance(storableClass, GenericInstanceFactory.class);
         mPrimaryKeyFactory = getSearchKeyFactory(encodingStrategy.gatherAllKeyProperties());
         mLayout = layout;
+        mSupport = support;
 
         if (layout != null) {
             try {
                 // Assign static reference back to this codec.
-                Method m = storableClass.getMethod
-                    (ASSIGN_CODEC_METHOD_NAME, WeakReference.class);
+                Method m = storableClass.getMethod(ASSIGN_CODEC_METHOD_NAME, WeakReference.class);
                 m.invoke(null, new WeakReference(this));
             } catch (Exception e) {
                 ThrowUnchecked.fireFirstDeclaredCause(e);
@@ -375,7 +372,30 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
     }
 
     /**
-     * Instantiate a Storable with no key or value defined yet.
+     * Instantiate a Storable with no key or value defined yet. The default
+     * {@link RawSupport} is supplied to the instance.
+     *
+     * @throws IllegalStateException if no default support exists
+     */
+    @SuppressWarnings("unchecked")
+    public S instantiate() {
+        return (S) mInstanceFactory.instantiate(support());
+    }
+
+    /**
+     * Instantiate a Storable with a specific key and value. The default
+     * {@link RawSupport} is supplied to the instance.
+     *
+     * @throws IllegalStateException if no default support exists
+     */
+    @SuppressWarnings("unchecked")
+    public S instantiate(byte[] key, byte[] value) throws FetchException {
+        return (S) mInstanceFactory.instantiate(support(), key, value);
+    }
+
+    /**
+     * Instantiate a Storable with no key or value defined yet. Any
+     * {@link RawSupport} can be supplied to the instance.
      *
      * @param support binds generated storable with a storage layer
      */
@@ -385,14 +405,13 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
     }
 
     /**
-     * Instantiate a Storable with a specific key and value.
+     * Instantiate a Storable with a specific key and value. Any
+     * {@link RawSupport} can be supplied to the instance.
      *
      * @param support binds generated storable with a storage layer
      */
     @SuppressWarnings("unchecked")
-    public S instantiate(RawSupport<S> support, byte[] key, byte[] value)
-        throws FetchException
-    {
+    public S instantiate(RawSupport<S> support, byte[] key, byte[] value) throws FetchException {
         try {
             return (S) mInstanceFactory.instantiate(support, key, value);
         } catch (CorruptEncodingException e) {
@@ -407,11 +426,11 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
     }
 
     public StorableIndex<S> getPrimaryKeyIndex() {
-        return getEncodingStrategy().getPrimaryKeyIndex();
+        return mEncodingStrategy.getPrimaryKeyIndex();
     }
 
     public int getPrimaryKeyPrefixLength() {
-        return getEncodingStrategy().getConstantKeyPrefixLength();
+        return mEncodingStrategy.getConstantKeyPrefixLength();
     }
 
     public byte[] encodePrimaryKey(S storable) {
@@ -432,6 +451,18 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
 
     public byte[] encodePrimaryKeyPrefix() {
         return mPrimaryKeyFactory.encodeSearchKeyPrefix();
+    }
+
+    public RawSupport<S> getSupport() {
+        return mSupport;
+    }
+
+    private RawSupport<S> support() {
+        RawSupport<S> support = mSupport;
+        if (support == null) {
+            throw new IllegalStateException("No RawSupport");
+        }
+        return support;
     }
 
     /**
@@ -499,17 +530,8 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
         }
     }
 
-    private GenericEncodingStrategy<S> getEncodingStrategy() {
-        // Should never be null, even though it is weakly referenced. As long
-        // as this class can be reached by the cache, the encoding strategy
-        // object exists since it is the cache key.
-        return mEncodingStrategy.get();
-    }
-
     @SuppressWarnings("unchecked")
     private SearchKeyFactory<S> generateSearchKeyFactory(OrderedProperty<S>[] properties) {
-        GenericEncodingStrategy encodingStrategy = getEncodingStrategy();
-
         ClassInjector ci;
         {
             StringBuilder b = new StringBuilder();
@@ -562,7 +584,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             // useReadMethods       = false (will read fields directly)
             // partialStartVar      = null (only support encoding all properties)
             // partialEndVar        = null (only support encoding all properties)
-            LocalVariable encodedVar = encodingStrategy.buildKeyEncoding
+            LocalVariable encodedVar = mEncodingStrategy.buildKeyEncoding
                 (b, properties, instanceVar, null, false, null, null);
 
             b.loadLocal(encodedVar);
@@ -591,7 +613,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             // useReadMethods       = false (will read fields directly)
             // partialStartVar      = int parameter 1, references start property index
             // partialEndVar        = int parameter 2, references end property index
-            LocalVariable encodedVar = encodingStrategy.buildKeyEncoding
+            LocalVariable encodedVar = mEncodingStrategy.buildKeyEncoding
                 (b, properties, instanceVar, null, false, b.getParameter(1), b.getParameter(2));
 
             b.loadLocal(encodedVar);
@@ -623,7 +645,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             // useReadMethods       = false (will read fields directly)
             // partialStartVar      = null (only support encoding all properties)
             // partialEndVar        = null (only support encoding all properties)
-            LocalVariable encodedVar = encodingStrategy.buildKeyEncoding
+            LocalVariable encodedVar = mEncodingStrategy.buildKeyEncoding
                 (b, properties, b.getParameter(0), adapterInstanceClass, false, null, null);
 
             b.loadLocal(encodedVar);
@@ -648,7 +670,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             // useReadMethods       = false (will read fields directly)
             // partialStartVar      = int parameter 1, references start property index
             // partialEndVar        = int parameter 2, references end property index
-            LocalVariable encodedVar = encodingStrategy.buildKeyEncoding
+            LocalVariable encodedVar = mEncodingStrategy.buildKeyEncoding
                 (b, properties, b.getParameter(0), adapterInstanceClass,
                  false, b.getParameter(1), b.getParameter(2));
 
@@ -666,8 +688,8 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                 (Modifiers.PUBLIC, "encodeSearchKeyPrefix", byteArrayType, null);
             CodeBuilder b = new CodeBuilder(mi);
 
-            if (encodingStrategy.getKeyPrefixPadding() == 0 &&
-                encodingStrategy.getKeySuffixPadding() == 0) {
+            if (mEncodingStrategy.getKeyPrefixPadding() == 0 &&
+                mEncodingStrategy.getKeySuffixPadding() == 0) {
                 // Return null instead of a zero-length array.
                 b.loadNull();
                 b.returnValue(byteArrayType);
@@ -689,7 +711,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                 // useReadMethods       = false (no parameters means we don't need this)
                 // partialStartVar      = null (no parameters means we don't need this)
                 // partialEndVar        = null (no parameters means we don't need this)
-                LocalVariable encodedVar = encodingStrategy.buildKeyEncoding
+                LocalVariable encodedVar = mEncodingStrategy.buildKeyEncoding
                     (b, new OrderedProperty[0], null, null, false, null, null);
 
                 b.loadLocal(encodedVar);

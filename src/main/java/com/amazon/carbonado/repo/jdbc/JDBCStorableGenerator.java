@@ -40,6 +40,7 @@ import org.cojen.classfile.Modifiers;
 import org.cojen.classfile.Opcode;
 import org.cojen.classfile.TypeDesc;
 import org.cojen.util.ClassInjector;
+import org.cojen.util.KeyFactory;
 import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.FetchException;
@@ -77,43 +78,57 @@ class JDBCStorableGenerator<S extends Storable> {
     // Initial StringBuilder capactity for update statement.
     private static final int INITIAL_UPDATE_BUFFER_SIZE = 100;
 
-    private static final Map<Class<?>, Class<? extends Storable>> cCache;
+    // Modes for automatic versioning when setting PreparedStatement values.
+    private static final int NORMAL = 0;
+    private static final int INITIAL_VERSION = 1;
+    private static final int INCREMENT_VERSION = 2;
+
+    private static final Map<Object, Class<? extends Storable>> cCache;
 
     static {
         cCache = new SoftValuedHashMap();
     }
 
-    static <S extends Storable> Class<? extends S> getGeneratedClass(JDBCStorableInfo<S> info)
+    static <S extends Storable> Class<? extends S> getGeneratedClass(JDBCStorableInfo<S> info,
+                                                                     boolean autoVersioning)
         throws SupportException
     {
-        Class<S> type = info.getStorableType();
+        Object key = KeyFactory.createKey(new Object[] {info, autoVersioning});
+
         synchronized (cCache) {
-            Class<? extends S> generatedClass = (Class<? extends S>) cCache.get(type);
+            Class<? extends S> generatedClass = (Class<? extends S>) cCache.get(key);
             if (generatedClass != null) {
                 return generatedClass;
             }
-            generatedClass = new JDBCStorableGenerator<S>(info).generateAndInjectClass();
-            cCache.put(type, generatedClass);
+            generatedClass =
+                new JDBCStorableGenerator<S>(info, autoVersioning).generateAndInjectClass();
+            cCache.put(key, generatedClass);
             return generatedClass;
         }
     }
 
     private final Class<S> mStorableType;
     private final JDBCStorableInfo<S> mInfo;
+    private final boolean mAutoVersioning;
     private final Map<String, ? extends JDBCStorableProperty<S>> mAllProperties;
 
     private final ClassLoader mParentClassLoader;
     private final ClassInjector mClassInjector;
     private final ClassFile mClassFile;
 
-    private JDBCStorableGenerator(JDBCStorableInfo<S> info) throws SupportException {
+    private JDBCStorableGenerator(JDBCStorableInfo<S> info, boolean autoVersioning)
+        throws SupportException
+    {
         mStorableType = info.getStorableType();
         mInfo = info;
+        mAutoVersioning = autoVersioning;
         mAllProperties = mInfo.getAllProperties();
 
         EnumSet<MasterFeature> features = EnumSet
             .of(MasterFeature.INSERT_SEQUENCES,
-                MasterFeature.INSERT_TXN, MasterFeature.UPDATE_TXN);
+                MasterFeature.INSERT_CHECK_REQUIRED, // Must use @Automatic to override.
+                MasterFeature.INSERT_TXN,            // Required because of reload after insert.
+                MasterFeature.UPDATE_TXN);           // Required because of reload after update.
 
         final Class<? extends S> abstractClass =
             MasterStorableGenerator.getAbstractClass(mStorableType, features);
@@ -127,7 +142,7 @@ class JDBCStorableGenerator<S extends Storable> {
         mClassFile.setTarget("1.5");
     }
 
-    private Class<? extends S> generateAndInjectClass() {
+    private Class<? extends S> generateAndInjectClass() throws SupportException {
         // We'll need these "inner classes" which serve as Lob loading
         // callbacks. Lob's need to be reloaded if the original transaction has
         // been committed.
@@ -417,57 +432,169 @@ class JDBCStorableGenerator<S extends Storable> {
             // Push connection in preparation for preparing a statement.
             b.loadLocal(conVar);
 
-            // Only insert version property if DIRTY. Create two insert
-            // statements, with and without the version property.
-            StringBuilder sb = new StringBuilder();
-            createInsertStatement(sb, false);
-            String noVersion = sb.toString();
+            String staticInsertStatement;
+            {
+                // Build the full static insert statement, even though it might
+                // not be used. If not used, then the length of the full static
+                // statement is used to determine the initial buffer size of
+                // the dynamically generated statement.
+                StringBuilder sb = new StringBuilder();
 
-            sb.setLength(0);
-            int versionPropNumber = createInsertStatement(sb, true);
+                sb.append("INSERT INTO ");
+                sb.append(mInfo.getQualifiedTableName());
+                sb.append(" ( ");
 
-            LocalVariable includeVersion = null;
+                int ordinal = 0;
+                for (JDBCStorableProperty<?> property : mInfo.getAllProperties().values()) {
+                    if (!property.isSelectable()) {
+                        continue;
+                    }
+                    if (ordinal > 0) {
+                        sb.append(',');
+                    }
+                    sb.append(property.getColumnName());
+                    ordinal++;
+                }
 
-            if (versionPropNumber < 0) {
-                // No version property at all, so no need to determine which
-                // statement to execute.
-                b.loadConstant(noVersion);
-            } else {
-                includeVersion = b.createLocalVariable(null, TypeDesc.BOOLEAN);
+                sb.append(" ) VALUES (");
 
-                Label isDirty = b.createLabel();
-                branchIfDirty(b, versionPropNumber, isDirty, true);
+                for (int i=0; i<ordinal; i++) {
+                    if (i > 0) {
+                        sb.append(',');
+                    }
+                    sb.append('?');
+                }
 
-                // Version not dirty, so don't insert it. Assume database
-                // creates an initial version instead.
-                b.loadConstant(false);
-                b.storeLocal(includeVersion);
-                b.loadConstant(noVersion);
-                Label cont = b.createLabel();
-                b.branch(cont);
+                sb.append(')');
 
-                isDirty.setLocation();
-                // Including version property in statement.
-                b.loadConstant(true);
-                b.storeLocal(includeVersion);
-                b.loadConstant(sb.toString());
-
-                cont.setLocation();
+                staticInsertStatement = sb.toString();
             }
 
-            // At this point, the stack contains a connection and a SQL
-            // statement String.
+            boolean useStaticInsertStatement = true;
+            for (JDBCStorableProperty<?> property : mInfo.getAllProperties().values()) {
+                if (property.isVersion() || property.isAutomatic()) {
+                    useStaticInsertStatement = false;
+                    break;
+                }
+            }
+
+            // Count of inserted properties when using dynamically generated statement.
+            LocalVariable insertCountVar = null;
+
+            if (useStaticInsertStatement) {
+                // Load static insert statement to stack.
+                b.loadConstant(staticInsertStatement);
+            } else {
+                // Dynamically build insert statement, ignoring automatic and
+                // version properties which are not DIRTY.
+
+                insertCountVar = b.createLocalVariable(null, TypeDesc.INT);
+                int initialCount = 0;
+                for (JDBCStorableProperty<?> property : mInfo.getAllProperties().values()) {
+                    if (!property.isSelectable()) {
+                        continue;
+                    }
+                    if (isAlwaysInserted(property)) {
+                        // Don't bother dynamically counting properties which
+                        // will always be inserted.
+                        initialCount++;
+                    }
+                }
+
+                b.loadConstant(initialCount);
+                b.storeLocal(insertCountVar);
+
+                TypeDesc stringBuilderType = TypeDesc.forClass(StringBuilder.class);
+                b.newObject(stringBuilderType);
+                b.dup();
+                b.loadConstant(staticInsertStatement.length());
+                b.invokeConstructor(stringBuilderType, new TypeDesc[] {TypeDesc.INT});
+
+                // Note extra space after left paren. This is required for case
+                // where no properties are explicitly inserted. The logic below
+                // to blindly delete the last character with a (thinking it is
+                // a comma) causes no harm when there are no properties.
+                b.loadConstant("INSERT INTO " + mInfo.getQualifiedTableName() + " ( ");
+                CodeBuilderUtil.callStringBuilderAppendString(b);
+
+                int propNumber = -1;
+                for (JDBCStorableProperty<?> property : mInfo.getAllProperties().values()) {
+                    propNumber++;
+                    if (!property.isSelectable()) {
+                        continue;
+                    }
+
+                    Label nextProperty = b.createLabel();
+                    if (!isAlwaysInserted(property)) {
+                        // Property is set only if value manually supplied.
+                        branchIfDirty(b, propNumber, nextProperty, false);
+                        b.integerIncrement(insertCountVar, 1);
+                    }
+
+                    // Append property name (with trailing comma) to StringBuilder.
+                    b.loadConstant(property.getColumnName() + ',');
+                    CodeBuilderUtil.callStringBuilderAppendString(b);
+
+                    nextProperty.setLocation();
+                }
+
+                // Blindly delete last character, assuming it is a trailing comma.
+                LocalVariable sbVar = b.createLocalVariable(null, stringBuilderType);
+                b.storeLocal(sbVar);
+                b.loadLocal(sbVar);
+                b.loadLocal(sbVar);
+                CodeBuilderUtil.callStringBuilderLength(b);
+                b.loadConstant(1);
+                b.math(Opcode.ISUB);
+                CodeBuilderUtil.callStringBuilderSetLength(b);
+                b.loadLocal(sbVar); // Load StringBuilder to stack as before.
+
+                b.loadConstant(" ) VALUES (");
+                CodeBuilderUtil.callStringBuilderAppendString(b);
+
+                // Append all the necessary question marks.
+                b.loadLocal(insertCountVar);
+                Label finishStatement = b.createLabel();
+                b.ifZeroComparisonBranch(finishStatement, "<=");
+
+                b.loadConstant('?');
+                CodeBuilderUtil.callStringBuilderAppendChar(b);
+
+                Label loopStart = b.createLabel().setLocation();
+                b.integerIncrement(insertCountVar, -1);
+                b.loadLocal(insertCountVar);
+                b.ifZeroComparisonBranch(finishStatement, "<=");
+                b.loadConstant(",?");
+                CodeBuilderUtil.callStringBuilderAppendString(b);
+                b.branch(loopStart);
+
+                finishStatement.setLocation();
+                b.loadConstant(')');
+                CodeBuilderUtil.callStringBuilderAppendChar(b);
+                CodeBuilderUtil.callStringBuilderToString(b);
+            }
+
+            // At this point, the stack contains a connection and a complete
+            // SQL insert statement String.
+
+            // Determine if generated keys need to be retrieved.
+            Collection<JDBCStorableProperty<S>> identityProperties =
+                mInfo.getIdentityProperties().values();
 
             LocalVariable psVar = b.createLocalVariable("ps", preparedStatementType);
-            b.invokeInterface(connectionType, "prepareStatement", preparedStatementType,
-                              new TypeDesc[] {TypeDesc.STRING});
+            if (identityProperties.size() == 0) {
+                b.invokeInterface(connectionType, "prepareStatement", preparedStatementType,
+                                  new TypeDesc[] {TypeDesc.STRING});
+            } else {
+                b.loadConstant(Statement.RETURN_GENERATED_KEYS);
+                b.invokeInterface(connectionType, "prepareStatement", preparedStatementType,
+                                  new TypeDesc[] {TypeDesc.STRING, TypeDesc.INT});
+            }
             b.storeLocal(psVar);
 
             Label tryAfterPs = b.createLabel().setLocation();
 
             // Now fill in parameters with property values.
-
-            JDBCStorableProperty<S> versionProperty = null;
 
             // Gather all Lob properties to track if a post-insert update is required.
             Map<JDBCStorableProperty<S>, Integer> lobIndexMap = findLobs();
@@ -481,43 +608,85 @@ class JDBCStorableGenerator<S extends Storable> {
             }
 
             int ordinal = 0;
+            LocalVariable ordinalVar = null;
+            if (!useStaticInsertStatement) {
+                // Increment parameter ordinal at runtime.
+                ordinalVar = b.createLocalVariable(null, TypeDesc.INT);
+                b.loadConstant(0);
+                b.storeLocal(ordinalVar);
+            }
+
+            int propNumber = -1;
             for (JDBCStorableProperty<S> property : mAllProperties.values()) {
+                propNumber++;
                 if (!property.isSelectable()) {
                     continue;
                 }
-                if (property.isVersion()) {
-                    if (includeVersion != null) {
-                        // Fill in version later, but check against boolean
-                        // local variable to decide if it is was dirty.
-                        versionProperty = property;
-                    }
-                    continue;
+
+                Label nextProperty = b.createLabel();
+                if (!isAlwaysInserted(property)) {
+                    // Property is set only if value manually supplied.
+                    branchIfDirty(b, propNumber, nextProperty, false);
+                }
+                        
+                b.loadLocal(psVar);
+                if (ordinalVar == null) {
+                    b.loadConstant(++ordinal);
+                } else {
+                    b.integerIncrement(ordinalVar, 1);
+                    b.loadLocal(ordinalVar);
                 }
 
-                b.loadLocal(psVar);
-                b.loadConstant(++ordinal);
+                Label setNormally = b.createLabel();
+                if (property.isVersion() && mAutoVersioning) {
+                    // Automatically supply initial value unless manually supplied.
+                    branchIfDirty(b, propNumber, setNormally, true);
+                    setPreparedStatementValue
+                        (b, property, INITIAL_VERSION,
+                         repoVar, null, lobArrayVar, lobIndexMap.get(property));
+                    b.branch(nextProperty);
+                }
+
+                setNormally.setLocation();
 
                 setPreparedStatementValue
-                    (b, property, repoVar, null, lobArrayVar, lobIndexMap.get(property));
-            }
+                    (b, property, NORMAL, repoVar, null, lobArrayVar, lobIndexMap.get(property));
 
-            if (versionProperty != null) {
-                // Fill in version property now, but only if was dirty.
-                b.loadLocal(includeVersion);
-                Label skipVersion = b.createLabel();
-                b.ifZeroComparisonBranch(skipVersion, "==");
-
-                b.loadLocal(psVar);
-                b.loadConstant(++ordinal);
-                setPreparedStatementValue(b, versionProperty, repoVar, null, null, null);
-
-                skipVersion.setLocation();
+                nextProperty.setLocation();
             }
 
             // Execute the statement.
             b.loadLocal(psVar);
             b.invokeInterface(preparedStatementType, "executeUpdate", TypeDesc.INT, null);
             b.pop();
+
+            if (identityProperties.size() > 0) {
+                // Get the generated keys and set the properties.
+                b.loadLocal(psVar);
+                b.invokeInterface(preparedStatementType, "getGeneratedKeys", resultSetType, null);
+
+                LocalVariable rsVar = b.createLocalVariable("rs", resultSetType);
+                b.storeLocal(rsVar);
+                Label tryAfterRs = b.createLabel().setLocation();
+
+                b.loadLocal(rsVar);
+                b.invokeInterface(resultSetType, "next", TypeDesc.BOOLEAN, null);
+                Label noResults = b.createLabel();
+                b.ifZeroComparisonBranch(noResults, "==");
+
+                // Set property value.
+                LocalVariable initialOffsetVar = b.createLocalVariable(null, TypeDesc.INT);
+                b.loadConstant(1);
+                b.storeLocal(initialOffsetVar);
+                defineExtract(b, rsVar, initialOffsetVar, null, // no lobArrayVar
+                              mInfo.getIdentityProperties().values(),
+                              lobLoaderMap);
+
+                noResults.setLocation();
+
+                closeResultSet(b, rsVar, tryAfterRs);
+            }
+
             closeStatement(b, psVar, tryAfterPs);
 
             // Immediately reload object, to ensure that any database supplied
@@ -573,18 +742,6 @@ class JDBCStorableGenerator<S extends Storable> {
             b.loadConstant(INITIAL_UPDATE_BUFFER_SIZE);
             b.invokeConstructor(stringBuilderType, new TypeDesc[] {TypeDesc.INT});
 
-            // Methods on StringBuilder.
-            final Method appendStringMethod;
-            final Method appendCharMethod;
-            final Method toStringMethod;
-            try {
-                appendStringMethod = StringBuilder.class.getMethod("append", String.class);
-                appendCharMethod = StringBuilder.class.getMethod("append", char.class);
-                toStringMethod = StringBuilder.class.getMethod("toString", (Class[]) null);
-            } catch (NoSuchMethodException e) {
-                throw new UndeclaredThrowableException(e);
-            }
-
             {
                 StringBuilder sqlBuilder = new StringBuilder();
                 sqlBuilder.append("UPDATE ");
@@ -592,7 +749,8 @@ class JDBCStorableGenerator<S extends Storable> {
                 sqlBuilder.append(" SET ");
 
                 b.loadConstant(sqlBuilder.toString());
-                b.invoke(appendStringMethod); // method leaves StringBuilder on stack
+                // Method leaves StringBuilder on stack.
+                CodeBuilderUtil.callStringBuilderAppendString(b);
             }
 
             // Iterate over the properties, appending a set parameter for each
@@ -607,31 +765,36 @@ class JDBCStorableGenerator<S extends Storable> {
                 propNumber++;
 
                 if (property.isSelectable() && !property.isPrimaryKeyMember()) {
-                    if (property.isVersion()) {
-                        // TODO: Support option where version property is
-                        // updated on the Carbonado side rather than relying on
-                        // SQL trigger.
+                    // Assume database trigger manages version.
+                    if (property.isVersion() && !mAutoVersioning) {
                         continue;
                     }
 
-                    Label isNotDirty = b.createLabel();
-                    branchIfDirty(b, propNumber, isNotDirty, false);
+                    Label isNotDirty = null;
+                    if (!property.isVersion()) {
+                        // Version must always be updated, but all other
+                        // properties are updated only if dirty.
+                        isNotDirty = b.createLabel();
+                        branchIfDirty(b, propNumber, isNotDirty, false);
+                    }
 
                     b.loadLocal(countVar);
                     Label isZero = b.createLabel();
                     b.ifZeroComparisonBranch(isZero, "==");
                     b.loadConstant(',');
-                    b.invoke(appendCharMethod);
+                    CodeBuilderUtil.callStringBuilderAppendChar(b);
 
                     isZero.setLocation();
                     b.loadConstant(property.getColumnName());
-                    b.invoke(appendStringMethod);
+                    CodeBuilderUtil.callStringBuilderAppendString(b);
                     b.loadConstant("=?");
-                    b.invoke(appendStringMethod);
+                    CodeBuilderUtil.callStringBuilderAppendString(b);
 
                     b.integerIncrement(countVar, 1);
 
-                    isNotDirty.setLocation();
+                    if (isNotDirty != null) {
+                        isNotDirty.setLocation();
+                    }
                 }
             }
 
@@ -655,36 +818,36 @@ class JDBCStorableGenerator<S extends Storable> {
                 b.ifZeroComparisonBranch(notZero, "!=");
 
                 b.loadConstant(whereProperties.iterator().next().getColumnName());
-                b.invoke(appendStringMethod);
+                CodeBuilderUtil.callStringBuilderAppendString(b);
                 b.loadConstant("=?");
-                b.invoke(appendStringMethod);
+                CodeBuilderUtil.callStringBuilderAppendString(b);
 
                 notZero.setLocation();
             }
 
             b.loadConstant(" WHERE ");
-            b.invoke(appendStringMethod);
+            CodeBuilderUtil.callStringBuilderAppendString(b);
 
             int ordinal = 0;
             for (JDBCStorableProperty<S> property : whereProperties) {
                 if (ordinal > 0) {
                     b.loadConstant(" AND ");
-                    b.invoke(appendStringMethod);
+                    CodeBuilderUtil.callStringBuilderAppendString(b);
                 }
                 b.loadConstant(property.getColumnName());
-                b.invoke(appendStringMethod);
+                CodeBuilderUtil.callStringBuilderAppendString(b);
                 if (property.isNullable()) {
-                    // FIXME
+                    // TODO: Support null primary key or version property. Is this possible?
                     throw new UnsupportedOperationException();
                 } else {
                     b.loadConstant("=?");
-                    b.invoke(appendStringMethod);
+                    CodeBuilderUtil.callStringBuilderAppendString(b);
                 }
                 ordinal++;
             }
 
             // Convert StringBuilder value to a String.
-            b.invoke(toStringMethod);
+            CodeBuilderUtil.callStringBuilderToString(b);
 
             // At this point, the stack contains a connection and a SQL
             // statement String.
@@ -724,7 +887,7 @@ class JDBCStorableGenerator<S extends Storable> {
                 b.loadLocal(psVar);
                 b.loadLocal(indexVar);
                 setPreparedStatementValue
-                    (b, property, repoVar, null, lobArrayVar, lobIndexMap.get(property));
+                    (b, property, NORMAL, repoVar, null, lobArrayVar, lobIndexMap.get(property));
 
                 b.integerIncrement(indexVar, 1);
 
@@ -736,24 +899,30 @@ class JDBCStorableGenerator<S extends Storable> {
                 propNumber++;
 
                 if (property.isSelectable() && !property.isPrimaryKeyMember()) {
-                    if (property.isVersion()) {
-                        // TODO: Support option where version property is
-                        // updated on the Carbonado side rather than relying on
-                        // SQL trigger. Just add one to the value.
+                    // Assume database trigger manages version.
+                    if (property.isVersion() && !mAutoVersioning) {
                         continue;
                     }
 
-                    Label isNotDirty = b.createLabel();
-                    branchIfDirty(b, propNumber, isNotDirty, false);
+                    Label isNotDirty = null;
+                    if (!property.isVersion()) {
+                        // Version must always be updated, but all other
+                        // properties are updated only if dirty.
+                        isNotDirty = b.createLabel();
+                        branchIfDirty(b, propNumber, isNotDirty, false);
+                    }
 
                     b.loadLocal(psVar);
                     b.loadLocal(indexVar);
                     setPreparedStatementValue
-                        (b, property, repoVar, null, lobArrayVar, lobIndexMap.get(property));
+                        (b, property, property.isVersion() ? INCREMENT_VERSION : NORMAL,
+                         repoVar, null, lobArrayVar, lobIndexMap.get(property));
 
                     b.integerIncrement(indexVar, 1);
 
-                    isNotDirty.setLocation();
+                    if (isNotDirty != null) {
+                        isNotDirty.setLocation();
+                    }
                 }
             }
 
@@ -762,12 +931,12 @@ class JDBCStorableGenerator<S extends Storable> {
 
             for (JDBCStorableProperty<S> property : whereProperties) {
                 if (property.isNullable()) {
-                    // FIXME
+                    // TODO: Support null primary key or version property. Is this possible?
                     throw new UnsupportedOperationException();
                 } else {
                     b.loadLocal(psVar);
                     b.loadLocal(indexVar);
-                    setPreparedStatementValue(b, property, repoVar, null, null, null);
+                    setPreparedStatementValue(b, property, NORMAL, repoVar, null, null, null);
                 }
 
                 b.integerIncrement(indexVar, 1);
@@ -924,6 +1093,13 @@ class JDBCStorableGenerator<S extends Storable> {
     }
 
     /**
+     * Returns true if property value is always part of insert statement.
+     */
+    private boolean isAlwaysInserted(JDBCStorableProperty<?> property) {
+        return property.isVersion() ? mAutoVersioning : !property.isAutomatic();
+    }
+
+    /**
      * Finds all Lob properties and maps them to a zero-based index. This
      * information is used to update large Lobs after an insert or update.
      */
@@ -1037,6 +1213,7 @@ class JDBCStorableGenerator<S extends Storable> {
          LocalVariable psVar,
          LocalVariable jdbcRepoVar,
          LocalVariable instanceVar)
+        throws SupportException
     {
         final TypeDesc superType = TypeDesc.forClass(mClassFile.getSuperClassName());
         final Iterable<? extends JDBCStorableProperty<?>> properties =
@@ -1108,28 +1285,19 @@ class JDBCStorableGenerator<S extends Storable> {
             b.loadConstant(capacity);
             b.invokeConstructor(stringBuilderType, new TypeDesc[] {TypeDesc.INT});
 
-            // Methods on StringBuilder.
-            final Method appendStringMethod;
-            final Method toStringMethod;
-            try {
-                appendStringMethod = StringBuilder.class.getMethod("append", String.class);
-                toStringMethod = StringBuilder.class.getMethod("toString", (Class[]) null);
-            } catch (NoSuchMethodException e) {
-                throw new UndeclaredThrowableException(e);
-            }
-
             b.loadConstant(sqlBuilder.toString());
-            b.invoke(appendStringMethod); // method leaves StringBuilder on stack
+            // Method leaves StringBuilder on stack.
+            CodeBuilderUtil.callStringBuilderAppendString(b);
 
             ordinal = 0;
             for (JDBCStorableProperty property : nullableProperties) {
                 if (ordinal > 0) {
                     b.loadConstant(" AND ");
-                    b.invoke(appendStringMethod);
+                    CodeBuilderUtil.callStringBuilderAppendString(b);
                 }
 
                 b.loadConstant(property.getColumnName());
-                b.invoke(appendStringMethod);
+                CodeBuilderUtil.callStringBuilderAppendString(b);
 
                 b.loadThis();
 
@@ -1139,13 +1307,13 @@ class JDBCStorableGenerator<S extends Storable> {
                 Label notNull = b.createLabel();
                 b.ifNullBranch(notNull, false);
                 b.loadConstant("IS NULL");
-                b.invoke(appendStringMethod);
+                CodeBuilderUtil.callStringBuilderAppendString(b);
                 Label next = b.createLabel();
                 b.branch(next);
 
                 notNull.setLocation();
                 b.loadConstant("=?");
-                b.invoke(appendStringMethod);
+                CodeBuilderUtil.callStringBuilderAppendString(b);
 
                 next.setLocation();
                 ordinal++;
@@ -1160,13 +1328,13 @@ class JDBCStorableGenerator<S extends Storable> {
                 b.ifZeroComparisonBranch(notForUpdate, "==");
 
                 b.loadConstant(" FOR UPDATE");
-                b.invoke(appendStringMethod);
+                CodeBuilderUtil.callStringBuilderAppendString(b);
 
                 notForUpdate.setLocation();
             }
 
             // Convert StringBuilder to String.
-            b.invoke(toStringMethod);
+            CodeBuilderUtil.callStringBuilderToString(b);
         }
 
         // At this point, the stack contains a connection and a SQL statement String.
@@ -1186,7 +1354,7 @@ class JDBCStorableGenerator<S extends Storable> {
                 continue;
             }
 
-            Label skipProperty = b.createLabel();
+            Label nextProperty = b.createLabel();
 
             final TypeDesc propertyType = TypeDesc.forClass(property.getType());
 
@@ -1200,12 +1368,12 @@ class JDBCStorableGenerator<S extends Storable> {
                 // was appended earlier with "IS NULL".
                 b.loadThis();
                 b.loadField(superType, property.getName(), propertyType);
-                b.ifNullBranch(skipProperty, true);
+                b.ifNullBranch(nextProperty, true);
             }
 
-            setPreparedStatementValue(b, property, null, instanceVar, null, null);
+            setPreparedStatementValue(b, property, NORMAL, null, instanceVar, null, null);
 
-            skipProperty.setLocation();
+            nextProperty.setLocation();
         }
 
         return tryAfterPs;
@@ -1223,6 +1391,7 @@ class JDBCStorableGenerator<S extends Storable> {
      * the original lob. An update statement needs to be issued after the load
      * to insert/update the large value.
      *
+     * @param mode one of NORMAL, INITIAL_VERSION or INCREMENT_VERSION
      * @param instanceVar when null, assume properties are contained in
      * "this". Otherwise, invoke property access methods on storable referenced
      * in var.
@@ -1230,28 +1399,39 @@ class JDBCStorableGenerator<S extends Storable> {
      * @param lobIndex optional, used for lob properties
      */
     private void setPreparedStatementValue
-        (CodeBuilder b, JDBCStorableProperty<?> property, LocalVariable repoVar,
+        (CodeBuilder b,
+         JDBCStorableProperty<?> property,
+         int mode,
+         LocalVariable repoVar,
          LocalVariable instanceVar,
-         LocalVariable lobArrayVar, Integer lobIndex)
+         LocalVariable lobArrayVar,
+         Integer lobIndex)
+        throws SupportException
     {
-        if (instanceVar == null) {
-            b.loadThis();
-        } else {
-            b.loadLocal(instanceVar);
-        }
-
         Class psClass = property.getPreparedStatementSetMethod().getParameterTypes()[1];
         TypeDesc psType = TypeDesc.forClass(psClass);
         TypeDesc propertyType = TypeDesc.forClass(property.getType());
-
         StorablePropertyAdapter adapter = property.getAppliedAdapter();
-        TypeDesc fromType;
-        if (adapter == null) {
-            // Get protected field directly, since no adapter.
+
+        if (mode != INITIAL_VERSION) {
+            // Load storable to extract property value from.
             if (instanceVar == null) {
-                b.loadField(property.getName(), propertyType);
+                b.loadThis();
             } else {
-                b.loadField(instanceVar.getType(), property.getName(), propertyType);
+                b.loadLocal(instanceVar);
+            }
+        }
+
+        TypeDesc fromType;
+
+        if (adapter == null) {
+            if (mode != INITIAL_VERSION) {
+                // Get protected field directly, since no adapter.
+                if (instanceVar == null) {
+                    b.loadField(property.getName(), propertyType);
+                } else {
+                    b.loadField(instanceVar.getType(), property.getName(), propertyType);
+                }
             }
             fromType = propertyType;
         } else {
@@ -1263,21 +1443,27 @@ class JDBCStorableGenerator<S extends Storable> {
             }
             Method adaptMethod = adapter.findAdaptMethod(property.getType(), toClass);
             TypeDesc adaptType = TypeDesc.forClass(adaptMethod.getReturnType());
-            // Invoke special inherited protected method that gets the field
-            // and invokes the adapter. Method was generated by
-            // StorableGenerator.
-            String methodName = property.getReadMethodName() + '$';
-            if (instanceVar == null) {
-                b.invokeVirtual(methodName, adaptType, null);
-            } else {
-                b.invokeVirtual (instanceVar.getType(), methodName, adaptType, null);
+            if (mode != INITIAL_VERSION) {
+                // Invoke special inherited protected method that gets the field
+                // and invokes the adapter. Method was generated by
+                // StorableGenerator.
+                String methodName = property.getReadMethodName() + '$';
+                if (instanceVar == null) {
+                    b.invokeVirtual(methodName, adaptType, null);
+                } else {
+                    b.invokeVirtual (instanceVar.getType(), methodName, adaptType, null);
+                }
             }
             fromType = adaptType;
         }
 
         Label done = b.createLabel();
 
-        if (!fromType.isPrimitive()) {
+        if (mode == INITIAL_VERSION) {
+            CodeBuilderUtil.initialVersion(b, fromType, 1);
+        } else if (mode == INCREMENT_VERSION) {
+            CodeBuilderUtil.incrementVersion(b, fromType);
+        } else if (!fromType.isPrimitive()) {
             // Handle case where property value is null.
             b.dup();
             Label notNull = b.createLabel();
@@ -1695,65 +1881,9 @@ class JDBCStorableGenerator<S extends Storable> {
         }
     }
 
-    /**
-     * @param b builder to receive statement
-     * @param withVersion when false, ignore any version property
-     * @return version property number, or -1 if none
-     */
-    private int createInsertStatement(StringBuilder b, boolean withVersion) {
-        b.append("INSERT INTO ");
-        b.append(mInfo.getQualifiedTableName());
-        b.append(" (");
-
-        JDBCStorableProperty<?> versionProperty = null;
-        int versionPropNumber = -1;
-
-        int ordinal = 0;
-        int propNumber = -1;
-        for (JDBCStorableProperty<?> property : mInfo.getAllProperties().values()) {
-            propNumber++;
-            if (!property.isSelectable()) {
-                continue;
-            }
-            if (property.isVersion()) {
-                if (withVersion) {
-                    versionProperty = property;
-                    versionPropNumber = propNumber;
-                }
-                continue;
-            }
-            if (ordinal > 0) {
-                b.append(',');
-            }
-            b.append(property.getColumnName());
-            ordinal++;
-        }
-
-        // Insert version property at end, to make things easier for when the
-        // proper insert statement is selected.
-        if (versionProperty != null) {
-            if (ordinal > 0) {
-                b.append(',');
-            }
-            b.append(versionProperty.getColumnName());
-            ordinal++;
-        }
-
-        b.append(") VALUES (");
-
-        for (int i=0; i<ordinal; i++) {
-            if (i > 0) {
-                b.append(',');
-            }
-            b.append('?');
-        }
-
-        b.append(')');
-
-        return versionPropNumber;
-    }
-
-    private Map<JDBCStorableProperty<S>, Class<?>> generateLobLoaders() {
+    private Map<JDBCStorableProperty<S>, Class<?>> generateLobLoaders()
+        throws SupportException
+    {
         Map<JDBCStorableProperty<S>, Class<?>> lobLoaderMap =
             new IdentityHashMap<JDBCStorableProperty<S>, Class<?>>();
 
@@ -1789,7 +1919,9 @@ class JDBCStorableGenerator<S extends Storable> {
      *
      * @param loaderType either JDBCBlobLoader or JDBCClobLoader
      */
-    private Class<?> generateLobLoader(JDBCStorableProperty<S> property, Class<?> loaderType) {
+    private Class<?> generateLobLoader(JDBCStorableProperty<S> property, Class<?> loaderType)
+        throws SupportException
+    {
         ClassInjector ci = ClassInjector.create
             (property.getEnclosingType().getName(), mParentClassLoader);
 

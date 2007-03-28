@@ -49,6 +49,7 @@ import org.cojen.util.WeakIdentityMap;
 import com.amazon.carbonado.Alias;
 import com.amazon.carbonado.AlternateKeys;
 import com.amazon.carbonado.Authoritative;
+import com.amazon.carbonado.Automatic;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Index;
 import com.amazon.carbonado.Indexes;
@@ -696,6 +697,7 @@ public class StorableIntrospector {
         Alias alias = null;
         Version version = null;
         Sequence sequence = null;
+        Automatic automatic = null;
         Independent independent = null;
         Join join = null;
 
@@ -714,6 +716,7 @@ public class StorableIntrospector {
             alias = readMethod.getAnnotation(Alias.class);
             version = readMethod.getAnnotation(Version.class);
             sequence = readMethod.getAnnotation(Sequence.class);
+            automatic = readMethod.getAnnotation(Automatic.class);
             independent = readMethod.getAnnotation(Independent.class);
             join = readMethod.getAnnotation(Join.class);
         }
@@ -744,6 +747,10 @@ public class StorableIntrospector {
             if (writeMethod.getAnnotation(Sequence.class) != null) {
                 errorMessages.add
                     ("Sequence annotation not allowed on mutator: " + writeMethod);
+            }
+            if (writeMethod.getAnnotation(Automatic.class) != null) {
+                errorMessages.add
+                    ("Automatic annotation not allowed on mutator: " + writeMethod);
             }
             if (writeMethod.getAnnotation(Independent.class) != null) {
                 errorMessages.add
@@ -820,7 +827,7 @@ public class StorableIntrospector {
             return new SimpleProperty<S>
                 (property, enclosing, nullable != null, pk, altKey,
                  aliases, constraints, adapters == null ? null : adapters[0],
-                 version != null, sequenceName, independent != null);
+                 version != null, sequenceName, independent != null, automatic != null);
         }
 
         // Do additional work for join properties.
@@ -928,7 +935,8 @@ public class StorableIntrospector {
         return new JoinProperty<S>
             (property, enclosing, nullable != null, aliases,
              constraints, adapters == null ? null : adapters[0],
-             sequenceName, independent != null, joinedType, internal, external);
+             sequenceName, independent != null, automatic != null,
+             joinedType, internal, external);
     }
 
     private static StorablePropertyConstraint[] gatherConstraints
@@ -1379,12 +1387,15 @@ public class StorableIntrospector {
         private final boolean mIsVersion;
         private final String mSequence;
         private final boolean mIndependent;
+        private final boolean mAutomatic;
 
         SimpleProperty(BeanProperty property, Class<S> enclosing,
                        boolean nullable, boolean primaryKey, boolean alternateKey,
                        String[] aliases, StorablePropertyConstraint[] constraints,
                        StorablePropertyAdapter adapter,
-                       boolean isVersion, String sequence, boolean independent) {
+                       boolean isVersion, String sequence,
+                       boolean independent, boolean automatic)
+        {
             mBeanProperty = property;
             mEnclosingType = enclosing;
             mNullable = property.getType().isPrimitive() ? false : nullable;
@@ -1396,6 +1407,7 @@ public class StorableIntrospector {
             mIsVersion = isVersion;
             mSequence = sequence;
             mIndependent = independent;
+            mAutomatic = automatic;
         }
 
         public final String getName() {
@@ -1474,6 +1486,10 @@ public class StorableIntrospector {
 
         public final String getSequenceName() {
             return mSequence;
+        }
+
+        public final boolean isAutomatic() {
+            return mAutomatic;
         }
 
         public final boolean isIndependent() {
@@ -1601,11 +1617,12 @@ public class StorableIntrospector {
                      boolean nullable,
                      String[] aliases, StorablePropertyConstraint[] constraints,
                      StorablePropertyAdapter adapter,
-                     String sequence, boolean independent,
+                     String sequence, boolean independent, boolean automatic,
                      Class<? extends Storable> joinedType,
-                     String[] internal, String[] external) {
+                     String[] internal, String[] external)
+        {
             super(property, enclosing, nullable, false, false,
-                  aliases, constraints, adapter, false, sequence, independent);
+                  aliases, constraints, adapter, false, sequence, independent, automatic);
             mJoinedType = joinedType;
 
             int length = internal.length;

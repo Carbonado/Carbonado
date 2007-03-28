@@ -1318,8 +1318,11 @@ public class GenericEncodingStrategy<S extends Storable> {
      * Generates code to push RawSupport instance to the stack.  RawSupport is
      * available only in Storable instances. If instanceVar is an Object[], a
      * SupportException is thrown.
+     *
+     * @param instanceVar Storable instance or array of property values. Null
+     * is storable instance of "this".
      */
-    private void pushRawSupport(CodeAssembler a, LocalVariable instanceVar)
+    protected void pushRawSupport(CodeAssembler a, LocalVariable instanceVar)
         throws SupportException
     {
         boolean isObjectArrayInstanceVar = instanceVar != null

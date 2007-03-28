@@ -25,10 +25,8 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.info.Direction;

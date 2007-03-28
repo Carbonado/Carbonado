@@ -386,7 +386,6 @@ class LoggingCallableStatement extends LoggingPreparedStatement implements Calla
         return cs().getURL(parameterName);
     }
 
-    /* JDK 1.6 features
     public RowId getRowId(int parameterIndex) throws SQLException {
         return cs().getRowId(parameterIndex);
     }
@@ -542,7 +541,6 @@ class LoggingCallableStatement extends LoggingPreparedStatement implements Calla
     {
         cs().setNClob(parameterName, reader);
     }
-    */
 
     private CallableStatement cs() {
         return (CallableStatement) mStatement;

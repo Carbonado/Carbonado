@@ -112,6 +112,16 @@ public interface Storage<S extends Storable> {
     Query<S> query(Filter<S> filter) throws FetchException;
 
     /**
+     * Attempts to quickly delete all Storables instances in this
+     * Storage. Support for transactional truncation is not guaranteed.
+     *
+     * <p>If this Storage has any registered triggers which act on deletes, all
+     * Storables are deleted via {@code query().deleteAll()} instead to ensure
+     * these triggers get run.
+     */
+    void truncate() throws PersistException;
+
+    /**
      * Register a trigger which will be called for overridden methods in the given
      * trigger implementation. The newly added trigger is invoked before and
      * after all other triggers. In other words, it is added at the outermost

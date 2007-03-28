@@ -55,6 +55,9 @@ import com.amazon.carbonado.lob.BlobClob;
 import com.amazon.carbonado.lob.Clob;
 import com.amazon.carbonado.lob.Lob;
 
+import com.amazon.carbonado.sequence.SequenceValueGenerator;
+import com.amazon.carbonado.sequence.SequenceValueProducer;
+
 /**
  * Complete Lob support for repositories, although repository is responsible
  * for binding Lob properties to this engine. Lobs are referenced by locators,
@@ -83,16 +86,32 @@ public class LobEngine {
     final Repository mRepo;
     final Storage<StoredLob> mLobStorage;
     final Storage<StoredLob.Block> mLobBlockStorage;
+    final SequenceValueProducer mLocatorSequence;
 
     private Map mTriggers;
 
     /**
-     * @param repo storage for Lobs
+     * @param lobRepo storage for Lobs - should not be replicated
+     * @param locatorRepo storage for producing unique values for Lob locators
+     * - should be root repository
      */
-    public LobEngine(Repository repo) throws RepositoryException {
-        mRepo = repo;
-        mLobStorage = repo.storageFor(StoredLob.class);
-        mLobBlockStorage = repo.storageFor(StoredLob.Block.class);
+    public LobEngine(Repository lobRepo, Repository locatorRepo) throws RepositoryException {
+        // Cannot reliably use sequences provided by Lob repository, since
+        // LobEngine is used internally by repositories.
+        this(lobRepo, new SequenceValueGenerator(locatorRepo, StoredLob.class.getName()));
+    }
+
+    /**
+     * @param lobRepo storage for Lobs - should not be replicated
+     * @param locatorSequenceProducer source of unique values for Lob locators
+     */
+    public LobEngine(Repository lobRepo, SequenceValueProducer locatorSequenceProducer)
+        throws RepositoryException
+    {
+        mRepo = lobRepo;
+        mLobStorage = lobRepo.storageFor(StoredLob.class);
+        mLobBlockStorage = lobRepo.storageFor(StoredLob.Block.class);
+        mLocatorSequence = locatorSequenceProducer;
     }
 
     /**
@@ -103,6 +122,7 @@ public class LobEngine {
      */
     public Blob createNewBlob(int blockSize) throws PersistException {
         StoredLob lob = mLobStorage.prepare();
+        lob.setLocator(mLocatorSequence.nextLongValue());
         lob.setBlockSize(blockSize);
         lob.setLength(0);
         lob.insert();
@@ -117,6 +137,7 @@ public class LobEngine {
      */
     public Clob createNewClob(int blockSize) throws PersistException {
         StoredLob lob = mLobStorage.prepare();
+        lob.setLocator(mLocatorSequence.nextLongValue());
         lob.setBlockSize(blockSize);
         lob.setLength(0);
         lob.insert();

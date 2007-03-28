@@ -51,4 +51,20 @@ public interface StorableCodecFactory {
                                                       boolean isMaster,
                                                       Layout layout)
         throws SupportException;
+
+    /**
+     * @param type type of storable to create codec for
+     * @param pkIndex suggested index for primary key (optional)
+     * @param isMaster when true, version properties and sequences are managed
+     * @param layout when non-null, attempt to encode a storable layout
+     * generation value in each storable
+     * @param support binds generated storable with a storage layer
+     * @throws SupportException if type is not supported
+     */
+    <S extends Storable> StorableCodec<S> createCodec(Class<S> type,
+                                                      StorableIndex pkIndex,
+                                                      boolean isMaster,
+                                                      Layout layout,
+                                                      RawSupport support)
+        throws SupportException;
 }

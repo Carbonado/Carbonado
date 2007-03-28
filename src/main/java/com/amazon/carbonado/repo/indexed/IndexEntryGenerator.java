@@ -24,7 +24,6 @@ import java.util.WeakHashMap;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 
-import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.info.StorableIndex;

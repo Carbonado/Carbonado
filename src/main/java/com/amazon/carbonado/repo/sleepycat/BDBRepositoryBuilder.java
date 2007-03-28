@@ -64,6 +64,7 @@ import com.amazon.carbonado.ConfigurationException;
  * <li>{@link com.amazon.carbonado.capability.StorableInfoCapability StorableInfoCapability}
  * <li>{@link com.amazon.carbonado.capability.ShutdownCapability ShutdownCapability}
  * <li>{@link com.amazon.carbonado.layout.LayoutCapability LayoutCapability}
+ * <li>{@link com.amazon.carbonado.sequence.SequenceCapability SequenceCapability}
  * <li>{@link CheckpointCapability CheckpointCapability}
  * <li>{@link EnvironmentCapability EnvironmentCapability}
  * </ul>
@@ -82,7 +83,6 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private boolean mIsMaster = true;
     private BDBProduct mProduct = DEFAULT_PRODUCT;
     private File mEnvHome;
-    private String mMergeSortTempDir;
     private File mDataHome;
     private String mSingleFileName;
     private boolean mIndexSupport = true;
@@ -281,29 +281,6 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     public String getDataHome() {
         return getDataHomeFile().getPath();
     }
-
-    /**
-     * Sets the directory to use for creating temporary files needed for merge
-     * sorting. If null or not specified, the default temporary file directory is used.
-     *
-     * @param tempDir directory to store temp files for merge sorting, or null
-     * for default
-     */
-    /* FIXME: use common config somehow, since indexed repo needs this too
-    public void setMergeSortTempDirectory(String tempDir) {
-        mMergeSortTempDir = tempDir;
-    }
-    */
-
-    /**
-     * Returns the directory to use for creating temporary files needed for
-     * merge sorting. If null, the default temporary file directory is used.
-     */
-    /* FIXME: use common config somehow, since indexed repo needs this too
-    public String getMergeSortTempDirectory() {
-        return mMergeSortTempDir;
-    }
-    */
 
     /**
      * Specify that all BDB databases should reside in one file, except for log

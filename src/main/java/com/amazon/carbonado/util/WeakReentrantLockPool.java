@@ -16,23 +16,30 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.repo.jdbc;
+package com.amazon.carbonado.util;
+
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
- *
+ * A concurrent pool of weakly referenced {@link ReentrantLock} instances
+ * mapped by key. Locks are created (and recreated) as needed.
  *
  * @author Brian S O'Neill
  */
-class MysqlSupportStrategy extends JDBCSupportStrategy {
-    private static final String TRUNCATE_STATEMENT = "TRUNCATE TABLE %s";
+class WeakReentrantLockPool<K>
+    extends AbstractWeakPool<K, ReentrantLock, RuntimeException>
+{
+    private final boolean mFair;
 
-    protected MysqlSupportStrategy(JDBCRepository repo) {
-        super(repo);
-
-        setTruncateTableStatement(TRUNCATE_STATEMENT);
+    public WeakReentrantLockPool() {
+        this(false);
     }
 
-    JDBCExceptionTransformer createExceptionTransformer() {
-        return new MysqlExceptionTransformer();
+    public WeakReentrantLockPool(boolean fair) {
+        mFair = fair;
+    }
+
+    protected ReentrantLock create(K key) {
+        return new ReentrantLock(mFair);
     }
 }

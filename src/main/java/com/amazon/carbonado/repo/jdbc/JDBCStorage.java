@@ -18,20 +18,17 @@
 
 package com.amazon.carbonado.repo.jdbc;
 
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
-import java.io.IOException;
-
-import java.lang.reflect.Method;
-import java.lang.reflect.UndeclaredThrowableException;
-
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
 
 import org.apache.commons.logging.LogFactory;
 
@@ -47,7 +44,6 @@ import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.capability.IndexInfo;
-
 import com.amazon.carbonado.filter.AndFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
@@ -55,26 +51,22 @@ import com.amazon.carbonado.filter.OrFilter;
 import com.amazon.carbonado.filter.PropertyFilter;
 import com.amazon.carbonado.filter.RelOp;
 import com.amazon.carbonado.filter.Visitor;
-
 import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.info.StorablePropertyAdapter;
-
-import com.amazon.carbonado.spi.SequenceValueProducer;
-import com.amazon.carbonado.spi.TriggerManager;
-
-import com.amazon.carbonado.util.QuickConstructorGenerator;
-
 import com.amazon.carbonado.qe.AbstractQueryExecutor;
 import com.amazon.carbonado.qe.OrderingList;
 import com.amazon.carbonado.qe.QueryExecutor;
-import com.amazon.carbonado.qe.QueryExecutorFactory;
 import com.amazon.carbonado.qe.QueryExecutorCache;
+import com.amazon.carbonado.qe.QueryExecutorFactory;
 import com.amazon.carbonado.qe.QueryFactory;
 import com.amazon.carbonado.qe.StandardQuery;
 import com.amazon.carbonado.qe.StandardQueryFactory;
+import com.amazon.carbonado.sequence.SequenceValueProducer;
+import com.amazon.carbonado.spi.TriggerManager;
+import com.amazon.carbonado.util.QuickConstructorGenerator;
 
 /**
  *
@@ -95,7 +87,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
     final TriggerManager<S> mTriggerManager;
 
-    JDBCStorage(JDBCRepository repository, JDBCStorableInfo<S> info)
+    JDBCStorage(JDBCRepository repository, JDBCStorableInfo<S> info, boolean autoVersioning)
         throws SupportException, RepositoryException
     {
         super(info.getStorableType());
@@ -103,7 +95,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         mSupportStrategy = repository.getSupportStrategy();
         mInfo = info;
 
-        Class<? extends S> generatedStorableClass = JDBCStorableGenerator.getGeneratedClass(info);
+        Class<? extends S> generatedStorableClass = JDBCStorableGenerator
+            .getGeneratedClass(info, autoVersioning);
+
         mInstanceFactory = QuickConstructorGenerator
             .getInstance(generatedStorableClass, InstanceFactory.class);
 
@@ -134,6 +128,33 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         return property != null && property.isSupported();
     }
 
+    public void truncate() throws PersistException {
+        String truncateFormat = mSupportStrategy.getTruncateTableStatement();
+
+        try {
+            if (truncateFormat == null || mTriggerManager.getDeleteTrigger() != null) {
+                query().deleteAll();
+                return;
+            }
+
+            Connection con = mRepository.getConnection();
+            try {
+                java.sql.Statement st = con.createStatement();
+                try {
+                    st.execute(String.format(truncateFormat, mInfo.getQualifiedTableName()));
+                } finally {
+                    st.close();
+                }
+            } catch (SQLException e) {
+                throw JDBCExceptionTransformer.getInstance().toPersistException(e);
+            } finally {
+                mRepository.yieldConnection(con);
+            }
+        } catch (FetchException e) {
+            throw e.toPersistException();
+        }
+    }
+
     public boolean addTrigger(Trigger<? super S> trigger) {
         return mTriggerManager.addTrigger(trigger);
     }
@@ -147,7 +168,11 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     }
 
     public SequenceValueProducer getSequenceValueProducer(String name) throws PersistException {
-        return mSupportStrategy.getSequenceValueProducer(name);
+        try {
+            return mRepository.getSequenceValueProducer(name);
+        } catch (RepositoryException e) {
+            throw e.toPersistException();
+        }
     }
 
     public Trigger<? super S> getInsertTrigger() {
@@ -172,7 +197,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         if (jblob != null) {
             try {
-                JDBCTransaction txn = mRepository.openTransactionManager().getTxn();
+                JDBCTransaction txn = mRepository.localTxnManager().getTxn();
                 if (txn != null) {
                     txn.register(jblob);
                 }
@@ -194,7 +219,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         if (jclob != null) {
             try {
-                JDBCTransaction txn = mRepository.openTransactionManager().getTxn();
+                JDBCTransaction txn = mRepository.localTxnManager().getTxn();
                 if (txn != null) {
                     txn.register(jclob);
                 }
@@ -456,13 +481,27 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         }
 
         public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
-            boolean forUpdate = mRepository.openTransactionManager().isForUpdate();
+            boolean forUpdate = mRepository.localTxnManager().isForUpdate();
             Connection con = mRepository.getConnection();
             try {
-                PreparedStatement ps = con.prepareStatement(prepareSelect(values, forUpdate));
+                boolean scrollInsensitiveReadOnly =
+                    mRepository.supportsScrollInsensitiveReadOnly();
+
+                PreparedStatement ps;
+
+                if (scrollInsensitiveReadOnly) {
+                    // Can support fast skipping.
+                    ps = con.prepareStatement
+                        (prepareSelect(values, forUpdate),
+                         ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                } else {
+                    // Can't support fast skipping.
+                    ps = con.prepareStatement(prepareSelect(values, forUpdate));
+                }
+
                 try {
                     setParameters(ps, values);
-                    return new JDBCCursor<S>(JDBCStorage.this, con, ps);
+                    return new JDBCCursor<S>(JDBCStorage.this, con, ps, scrollInsensitiveReadOnly);
                 } catch (Exception e) {
                     // in case of exception, close statement
                     try {
@@ -519,7 +558,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             throws IOException
         {
             indent(app, indentLevel);
-            boolean forUpdate = mRepository.openTransactionManager().isForUpdate();
+            boolean forUpdate = mRepository.localTxnManager().isForUpdate();
             app.append(prepareSelect(values, forUpdate));
             app.append('\n');
             return true;
@@ -529,7 +568,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             throws IOException
         {
             try {
-                boolean forUpdate = mRepository.openTransactionManager().isForUpdate();
+                boolean forUpdate = mRepository.localTxnManager().isForUpdate();
                 String statement = prepareSelect(values, forUpdate);
                 return mRepository.getSupportStrategy().printPlan(app, indentLevel, statement);
             } catch (FetchException e) {
