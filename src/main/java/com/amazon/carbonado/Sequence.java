@@ -21,10 +21,10 @@ package com.amazon.carbonado;
 import java.lang.annotation.*;
 
 /**
- * Identifies a {@link Storable} property capable of selecting its own value
- * on insert, by a named sequence. Sequences are supported at the storage
- * layer, and implementions that do not support sequences ignore this
- * annotation.
+ * Identifies a {@link Storable} property capable of selecting its own value on
+ * insert, by a named sequence. Support for sequences is repository dependent,
+ * and if not supported, a {@link PersistException} is thrown when trying to
+ * insert. Explicitly specifying a value bypasses the sequence altogether.
  *
  * <p>Example:<pre>
  * &#64;PrimaryKey("userInfoID")
@@ -38,6 +38,7 @@ import java.lang.annotation.*;
  * </pre>
  *
  * @author Brian S O'Neill
+ * @see Automatic
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

@@ -39,7 +39,10 @@ public enum MasterFeature {
     /** Insert operation applies any sequences to unset properties */
     INSERT_SEQUENCES,
 
-    /** Insert operation checks that all required data properties have been set */
+    /**
+     * Insert operation checks that all required data properties have been set,
+     * excluding automatic properties and version property.
+     */
     INSERT_CHECK_REQUIRED,
 
     /** Ensure insert operation always is in a transaction */

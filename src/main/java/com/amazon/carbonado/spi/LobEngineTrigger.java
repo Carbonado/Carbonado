@@ -70,7 +70,9 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
     }
 
     public void afterInsert(S storable, Object state) throws PersistException {
-        // Save user lob value contents into new lobs.
+        // Save user lob value contents into new lobs. This is done after the
+        // insert of the enclosing record to avoid an expensive rollback if a
+        // constraint violation is detected.
         Object[] userLobs = (Object[]) state;
         int length = mLobProperties.length;
         for (int i=0; i<length; i++) {
