@@ -796,6 +796,7 @@ public class FilteringScore<S extends Storable> {
                 return 1;
             }
 
+            /* FIXME: utilize weak matches in index scans
             // Favor index which contains more weak matches.
             if (first.getWeakMatchCount() > second.getWeakMatchCount()) {
                 return -1;
@@ -803,6 +804,7 @@ public class FilteringScore<S extends Storable> {
             if (first.getWeakMatchCount() < second.getWeakMatchCount()) {
                 return 1;
             }
+            */
 
             // Favor index with fewer properties, under the assumption that fewer
             // properties means smaller sized records that need to be read in.
