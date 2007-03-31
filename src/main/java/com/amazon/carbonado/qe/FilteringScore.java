@@ -206,6 +206,22 @@ public class FilteringScore<S extends Storable> {
                 indexProperties[indexPropPos].getDirection() == Direction.DESCENDING;
         }
 
+        List<PropertyFilter<S>> weakMatchFilters = null;
+        if (!filterList.isEmpty()) {
+            // Any remainder property which is provided by the index is a weak match.
+            for (PropertyFilter<S> subFilter : filterList) {
+                ChainedProperty<S> filterProp = subFilter.getChainedProperty();
+                for (OrderedProperty<S> indexProp : indexProperties) {
+                    if (indexProp.getChainedProperty().equals(filterProp)) {
+                        if (weakMatchFilters == null) {
+                            weakMatchFilters = new ArrayList<PropertyFilter<S>>();
+                        }
+                        weakMatchFilters.add(subFilter);
+                    }
+                }
+            }
+        }
+
         return new FilteringScore<S>(clustered,
                                      unique,
                                      indexProperties.length,
@@ -215,6 +231,7 @@ public class FilteringScore<S extends Storable> {
                                      arrangementScore,
                                      preferenceScore,
                                      filterList,
+                                     weakMatchFilters,
                                      shouldReverseRange);
     }
 
@@ -275,11 +292,14 @@ public class FilteringScore<S extends Storable> {
     private final BigInteger mPreferenceScore;
 
     private final List<PropertyFilter<S>> mRemainderFilters;
+    private final List<PropertyFilter<S>> mWeakMatchFilters;
 
     private final boolean mShouldReverseRange;
 
     private transient Filter<S> mIdentityFilter;
     private transient Filter<S> mRemainderFilter;
+    private transient Filter<S> mWeakMatchFilter;
+    private transient Filter<S> mWeakMatchRemainderFilter;
 
     private FilteringScore(boolean indexClustered,
                            boolean indexUnique,
@@ -290,6 +310,7 @@ public class FilteringScore<S extends Storable> {
                            int arrangementScore,
                            BigInteger preferenceScore,
                            List<PropertyFilter<S>> remainderFilters,
+                           List<PropertyFilter<S>> weakMatchFilters,
                            boolean shouldReverseRange)
     {
         mIndexClustered = indexClustered;
@@ -301,6 +322,7 @@ public class FilteringScore<S extends Storable> {
         mArrangementScore = arrangementScore;
         mPreferenceScore = preferenceScore;
         mRemainderFilters = prepareList(remainderFilters);
+        mWeakMatchFilters = prepareList(weakMatchFilters);
         mShouldReverseRange = shouldReverseRange;
     }
 
@@ -519,6 +541,59 @@ public class FilteringScore<S extends Storable> {
     }
 
     /**
+     * Returns number of property filters which are weakly supported by the
+     * evaluated index. This count is no more than the remainder count.
+     */
+    public int getWeakMatchCount() {
+        return mWeakMatchFilters.size();
+    }
+
+    /**
+     * Returns the filters which are weakly supported by the evaluated index,
+     * which is a subset of the remainder filters.
+     */
+    public List<PropertyFilter<S>> getWeakMatchFilters() {
+        return mWeakMatchFilters;
+    }
+
+    /**
+     * Returns the composite weak match filter supported by the evaluated
+     * index, or null if no weak match.
+     */
+    public Filter<S> getWeakMatchFilter() {
+        if (mWeakMatchFilter == null) {
+            mWeakMatchFilter = buildCompositeFilter(getWeakMatchFilters());
+        }
+        return mWeakMatchFilter;
+    }
+
+    /**
+     * Returns the composite remainder filter without including the weak match
+     * filter. Returns null if no remainder.
+     */
+    public Filter<S> getWeakMatchRemainderFilter() {
+        if (mWeakMatchRemainderFilter == null) {
+            List<PropertyFilter<S>> remainderFilters = mRemainderFilters;
+            List<PropertyFilter<S>> weakMatchFilters = mWeakMatchFilters;
+            if (weakMatchFilters.size() < remainderFilters.size()) {
+                Filter<S> composite = null;
+                for (int i=0; i<remainderFilters.size(); i++) {
+                    Filter<S> subFilter = remainderFilters.get(i);
+                    if (!weakMatchFilters.contains(subFilter)) {
+                        if (composite == null) {
+                            composite = subFilter;
+                        } else {
+                            composite = composite.and(subFilter);
+                        }
+                    }
+                }
+                mWeakMatchRemainderFilter = composite;
+            }
+        }
+        return mWeakMatchRemainderFilter;
+    }
+
+    /**
      * Returns true if evaluated index is unique and each of its properties has
      * an identity match. When index and filter are used in a query, expect at
      * most one result.
@@ -589,6 +664,7 @@ public class FilteringScore<S extends Storable> {
             ", hasRangeStart=" + hasRangeStart() +
             ", hasRangeEnd=" + hasRangeEnd() +
             ", remainderCount=" + getRemainderCount() +
+            ", weakMatchCount=" + getWeakMatchCount() +
             '}';
     }
 
@@ -709,6 +785,13 @@ public class FilteringScore<S extends Storable> {
                     return -1;
                 }
             } else if (second.isIndexClustered()) {
+                return 1;
+            }
+
+            // Favor index which contains more weak matches.
+            if (first.getWeakMatchCount() > second.getWeakMatchCount()) {
+                return -1;
+            } else if (first.getWeakMatchCount() < second.getWeakMatchCount()) {
                 return 1;
             }
 
