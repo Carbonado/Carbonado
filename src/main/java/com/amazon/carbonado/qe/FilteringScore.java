@@ -788,10 +788,19 @@ public class FilteringScore<S extends Storable> {
                 return 1;
             }
 
+            // Favor index which contains fewer remainders.
+            if (first.getRemainderCount() < second.getRemainderCount()) {
+                return -1;
+            }
+            if (first.getRemainderCount() > second.getRemainderCount()) {
+                return 1;
+            }
+
             // Favor index which contains more weak matches.
             if (first.getWeakMatchCount() > second.getWeakMatchCount()) {
                 return -1;
-            } else if (first.getWeakMatchCount() < second.getWeakMatchCount()) {
+            }
+            if (first.getWeakMatchCount() < second.getWeakMatchCount()) {
                 return 1;
             }
 
