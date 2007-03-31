@@ -25,7 +25,7 @@ import com.amazon.carbonado.PrimaryKey;
 import com.amazon.carbonado.Storable;
 
 /**
- * Stores data for {@link SequenceValueGenerator}.
+ * Stores data for SequenceValueGenerator.
  *
  * @author Brian S O'Neill
  * @deprecated Replaced by {@link com.amazon.carbonado.sequence.StoredSequence}
