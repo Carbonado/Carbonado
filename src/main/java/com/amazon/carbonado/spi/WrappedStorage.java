@@ -31,6 +31,9 @@ import com.amazon.carbonado.TriggerFactory;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.util.QuickConstructorGenerator;
 
+import com.amazon.carbonado.gen.StorableGenerator;
+import com.amazon.carbonado.gen.WrappedSupport;
+
 /**
  * Abstract storage that wraps all returned Storables and Queries, including
  * those returned from joins. Property access methods (get and set) are

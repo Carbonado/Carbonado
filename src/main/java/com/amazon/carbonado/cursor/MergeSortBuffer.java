@@ -43,9 +43,10 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 
+import com.amazon.carbonado.gen.StorableSerializer;
+
 import com.amazon.carbonado.spi.RAFInputStream;
 import com.amazon.carbonado.spi.RAFOutputStream;
-import com.amazon.carbonado.spi.StorableSerializer;
 
 /**
  * Sort buffer implemented via a merge sort algorithm. If there are too many

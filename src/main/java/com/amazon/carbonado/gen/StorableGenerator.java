@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.gen;
 
 import java.lang.annotation.Annotation;
 import java.lang.ref.Reference;
@@ -66,7 +66,7 @@ import com.amazon.carbonado.info.StorablePropertyAdapter;
 import com.amazon.carbonado.info.StorablePropertyAnnotation;
 import com.amazon.carbonado.info.StorablePropertyConstraint;
 
-import static com.amazon.carbonado.spi.CommonMethodNames.*;
+import static com.amazon.carbonado.gen.CommonMethodNames.*;
 
 /**
  * Generates and caches abstract and wrapped implementations of {@link

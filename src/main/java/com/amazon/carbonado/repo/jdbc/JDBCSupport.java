@@ -24,7 +24,7 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 
-import com.amazon.carbonado.spi.MasterSupport;
+import com.amazon.carbonado.gen.MasterSupport;
 
 /**
  *

@@ -33,7 +33,7 @@ import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
-import com.amazon.carbonado.spi.CodeBuilderUtil;
+import com.amazon.carbonado.gen.CodeBuilderUtil;
 import com.amazon.carbonado.util.ThrowUnchecked;
 
 import org.cojen.classfile.ClassFile;

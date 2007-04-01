@@ -38,8 +38,8 @@ import com.amazon.carbonado.lob.Blob;
 import com.amazon.carbonado.lob.Clob;
 import com.amazon.carbonado.lob.Lob;
 
-import com.amazon.carbonado.spi.StorableGenerator;
-import com.amazon.carbonado.spi.TriggerSupport;
+import com.amazon.carbonado.gen.StorableGenerator;
+import com.amazon.carbonado.gen.TriggerSupport;
 
 import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.Direction;

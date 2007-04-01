@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.cojen.classfile.MethodDesc;
 import org.cojen.classfile.TypeDesc;
 import org.cojen.util.BeanComparator;
 import org.cojen.util.BeanProperty;
@@ -66,9 +67,6 @@ import com.amazon.carbonado.Version;
 import com.amazon.carbonado.adapter.AdapterDefinition;
 import com.amazon.carbonado.constraint.ConstraintDefinition;
 import com.amazon.carbonado.lob.Lob;
-
-import com.amazon.carbonado.spi.CodeBuilderUtil;
-import com.amazon.carbonado.spi.ConversionComparator;
 
 /**
  * Supports examination of {@link Storable} types, returning all metadata
@@ -470,7 +468,7 @@ public class StorableIntrospector {
         // Gather all methods.  We'll be removing them as we implement them,
         // and if there are any abstract ones left over at the end, why,
         // that would be bad.
-        Map<String, Method> methods = CodeBuilderUtil.gatherAllDeclaredMethods(type);
+        Map<String, Method> methods = gatherAllDeclaredMethods(type);
 
         // Remove methods not abstract or defined explicitly in
         // Storable. Storable methods still must be implemented, but not as
@@ -541,7 +539,7 @@ public class StorableIntrospector {
             }
 
             if (readMethod != null) {
-                String sig = CodeBuilderUtil.createSig(readMethod);
+                String sig = createSig(readMethod);
                 if (methods.containsKey(sig)) {
                     methods.remove(sig);
                     properties.put(property.getName(), storableProp);
@@ -551,7 +549,7 @@ public class StorableIntrospector {
             }
 
             if (writeMethod != null) {
-                String sig = CodeBuilderUtil.createSig(writeMethod);
+                String sig = createSig(writeMethod);
                 if (methods.containsKey(sig)) {
                     methods.remove(sig);
                     properties.put(property.getName(), storableProp);
@@ -1127,6 +1125,44 @@ public class StorableIntrospector {
         }
 
         return (StorablePropertyAdapter[]) list.toArray(new StorablePropertyAdapter[list.size()]);
+    }
+
+    /**
+     * Returns a new modifiable mapping of method signatures to methods.
+     *
+     * @return map of {@link #createSig signatures} to methods
+     */
+    private static Map<String, Method> gatherAllDeclaredMethods(Class clazz) {
+        Map<String, Method> methods = new HashMap<String, Method>();
+        gatherAllDeclaredMethods(methods, clazz);
+        return methods;
+    }
+
+    private static void gatherAllDeclaredMethods(Map<String, Method> methods, Class clazz) {
+        for (Method m : clazz.getDeclaredMethods()) {
+            String desc = createSig(m);
+            if (!methods.containsKey(desc)) {
+                methods.put(desc, m);
+            }
+        }
+
+        Class superclass = clazz.getSuperclass();
+        if (superclass != null) {
+            gatherAllDeclaredMethods(methods, superclass);
+        }
+        for (Class c : clazz.getInterfaces()) {
+            gatherAllDeclaredMethods(methods, c);
+        }
+    }
+
+    /**
+     * Create a representation of the signature which includes the method name.
+     * This uniquely identifies the method.
+     *
+     * @param m method to describe
+     */
+    private static String createSig(Method m) {
+        return m.getName() + ':' + MethodDesc.forMethod(m).getDescriptor();
     }
 
     private static final class Info<S extends Storable> implements StorableInfo<S> {

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.gen;
 
 import java.lang.reflect.Method;
 import java.util.EnumSet;
@@ -49,7 +49,7 @@ import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.sequence.SequenceValueProducer;
 
-import static com.amazon.carbonado.spi.CommonMethodNames.*;
+import static com.amazon.carbonado.gen.CommonMethodNames.*;
 
 /**
  * Generates and caches abstract implementations of {@link Storable} types

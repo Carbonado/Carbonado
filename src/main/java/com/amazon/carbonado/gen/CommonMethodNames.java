@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.gen;
 
 /**
  * Collection of constant method names for the public API.

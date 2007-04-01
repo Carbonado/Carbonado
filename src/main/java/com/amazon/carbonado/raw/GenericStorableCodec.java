@@ -50,7 +50,7 @@ import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.layout.Layout;
 
-import com.amazon.carbonado.spi.CodeBuilderUtil;
+import com.amazon.carbonado.gen.CodeBuilderUtil;
 
 import com.amazon.carbonado.util.ThrowUnchecked;
 import com.amazon.carbonado.util.QuickConstructorGenerator;

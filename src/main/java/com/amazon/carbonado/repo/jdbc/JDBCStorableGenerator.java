@@ -53,14 +53,13 @@ import com.amazon.carbonado.lob.Lob;
 
 import com.amazon.carbonado.info.StorablePropertyAdapter;
 
-import com.amazon.carbonado.spi.CodeBuilderUtil;
-import com.amazon.carbonado.spi.MasterFeature;
-import com.amazon.carbonado.spi.MasterStorableGenerator;
-import com.amazon.carbonado.spi.MasterSupport;
-import com.amazon.carbonado.spi.StorableGenerator;
-import com.amazon.carbonado.spi.TriggerSupport;
-
-import static com.amazon.carbonado.spi.CommonMethodNames.*;
+import com.amazon.carbonado.gen.CodeBuilderUtil;
+import com.amazon.carbonado.gen.MasterFeature;
+import com.amazon.carbonado.gen.MasterStorableGenerator;
+import com.amazon.carbonado.gen.MasterSupport;
+import com.amazon.carbonado.gen.StorableGenerator;
+import com.amazon.carbonado.gen.TriggerSupport;
+import static com.amazon.carbonado.gen.CommonMethodNames.*;
 
 /**
  * Generates concrete implementations of {@link Storable} types for

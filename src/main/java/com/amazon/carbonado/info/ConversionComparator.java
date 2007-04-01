@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.info;
 
 import java.util.Comparator;
 
@@ -27,7 +27,7 @@ import org.cojen.classfile.TypeDesc;
  *
  * @author Brian S O'Neill
  */
-public class ConversionComparator implements Comparator<Class> {
+class ConversionComparator implements Comparator<Class> {
     private final TypeDesc mFrom;
 
     public ConversionComparator(Class fromType) {

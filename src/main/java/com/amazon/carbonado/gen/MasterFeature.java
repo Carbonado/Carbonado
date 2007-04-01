@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.gen;
 
 /**
  * Master feature to enable when using {@link MasterStorableGenerator}.

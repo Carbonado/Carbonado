@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.gen;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -50,7 +50,7 @@ import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 
-import static com.amazon.carbonado.spi.CommonMethodNames.*;
+import static com.amazon.carbonado.gen.CommonMethodNames.*;
 
 import com.amazon.carbonado.raw.GenericEncodingStrategy;
 

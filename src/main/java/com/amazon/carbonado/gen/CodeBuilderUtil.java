@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.gen;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -39,7 +39,7 @@ import org.cojen.util.ClassInjector;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 
-import static com.amazon.carbonado.spi.CommonMethodNames.*;
+import static com.amazon.carbonado.gen.CommonMethodNames.*;
 
 /**
  * Collection of useful utilities for generating Carbonado code.
@@ -165,34 +165,6 @@ public class CodeBuilderUtil {
         b.loadThis();
         b.invokeVirtual(COPY_METHOD_NAME, cf.getType(), null);
         b.returnValue(returnType);
-    }
-
-    /**
-     * Returns a new modifiable mapping of method signatures to methods.
-     *
-     * @return map of {@link #createSig signatures} to methods
-     */
-    public static Map<String, Method> gatherAllDeclaredMethods(Class clazz) {
-        Map<String, Method> methods = new HashMap<String, Method>();
-        gatherAllDeclaredMethods(methods, clazz);
-        return methods;
-    }
-
-    private static void gatherAllDeclaredMethods(Map<String, Method> methods, Class clazz) {
-        for (Method m : clazz.getDeclaredMethods()) {
-            String desc = createSig(m);
-            if (!methods.containsKey(desc)) {
-                methods.put(desc, m);
-            }
-        }
-
-        Class superclass = clazz.getSuperclass();
-        if (superclass != null) {
-            gatherAllDeclaredMethods(methods, superclass);
-        }
-        for (Class c : clazz.getInterfaces()) {
-            gatherAllDeclaredMethods(methods, c);
-        }
     }
 
     /**
@@ -374,16 +346,6 @@ public class CodeBuilderUtil {
                 b.invokeVirtual(TypeDesc.OBJECT, "equals", TypeDesc.BOOLEAN, params);
             }
         }
-    }
-
-    /**
-     * Create a representation of the signature which includes the method name.
-     * This uniquely identifies the method.
-     *
-     * @param m method to describe
-     */
-    public static String createSig(Method m) {
-        return m.getName() + ':' + MethodDesc.forMethod(m).getDescriptor();
     }
 
     /**

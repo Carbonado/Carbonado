@@ -53,7 +53,7 @@ import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.util.QuickConstructorGenerator;
 
-import com.amazon.carbonado.spi.CodeBuilderUtil;
+import com.amazon.carbonado.gen.CodeBuilderUtil;
 
 /**
  * QueryExecutor which joins a <i>source</i> and <i>target</i> executor,
