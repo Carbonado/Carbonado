@@ -945,16 +945,18 @@ public final class StorableGenerator<S extends Storable> {
 
                         markOrdinaryPropertyDirty(b, property);
                     } else {
-                        // If passed value is null, throw an
-                        // IllegalArgumentException. Passing in null could also
-                        // indicate that the property should be unloaded, but
-                        // that is non-intuitive.
-
                         b.loadLocal(b.getParameter(0));
-                        Label notNull = b.createLabel();
-                        b.ifNullBranch(notNull, false);
-                        CodeBuilderUtil.throwException(b, IllegalArgumentException.class, null);
-                        notNull.setLocation();
+                        if (property.isNullable()) {
+                            // Don't attempt to extract internal properties from null.
+                            b.ifNullBranch(setValue, true);
+                        } else {
+                            Label notNull = b.createLabel();
+                            b.ifNullBranch(notNull, false);
+                            CodeBuilderUtil.throwException
+                                (b, IllegalArgumentException.class,
+                                 "Non-nullable join property cannot be set to null");
+                            notNull.setLocation();
+                        }
 
                         // Copy internal properties from joined object.
                         int count = property.getJoinElementCount();
