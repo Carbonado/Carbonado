@@ -53,7 +53,7 @@ import org.cojen.util.ClassInjector;
  * @author Brian S O'Neill
  */
 public abstract class ThrowUnchecked {
-    private static volatile ThrowUnchecked mImpl;
+    private static volatile ThrowUnchecked cImpl;
 
     /**
      * Throws the given exception, even though it may be checked. This method
@@ -71,12 +71,12 @@ public abstract class ThrowUnchecked {
                 throw (Error) t;
             }
 
-            ThrowUnchecked impl = mImpl;
+            ThrowUnchecked impl = cImpl;
             if (impl == null) {
                 synchronized (ThrowUnchecked.class) {
-                    impl = mImpl;
+                    impl = cImpl;
                     if (impl == null) {
-                        mImpl = impl = generateImpl();
+                        cImpl = impl = generateImpl();
                     }
                 }
             }
