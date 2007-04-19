@@ -55,7 +55,7 @@ import com.amazon.carbonado.spi.RAFOutputStream;
  *
  * <p>The following system properties can be set to change the default
  * performance characteristics of the merge sort. Each property name must be
- * prefixed with "com.amazon.carbonado.MergeSortBuffer."
+ * prefixed with "com.amazon.carbonado.cursor.MergeSortBuffer."
  *
  * <pre>
  * Property            Default    Notes
