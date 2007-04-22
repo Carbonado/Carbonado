@@ -24,6 +24,8 @@ import java.util.Map;
 
 import org.apache.commons.logging.LogFactory;
 
+import org.cojen.classfile.TypeDesc;
+
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
@@ -447,16 +449,8 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             throw toRepositoryException(e);
         }
 
-        StorableIndex<S> pkIndex;
-
-        if (!isPrimaryEmpty && primaryInfo != null
-            && primaryInfo.getIndexNameDescriptor() != null) {
-
-            // Entries already exist, so primary key format is locked in.
-            pkIndex = StorableIndex.parseNameDescriptor
-                (primaryInfo.getIndexNameDescriptor(), info);
-            // TODO: Verify index types match and throw error if not.
-        } else {
+        StorableIndex<S> desiredPkIndex;
+        {
             // In order to select the best index for the primary key, allow all
             // indexes to be considered.
             StorableIndexSet<S> indexSet = new StorableIndexSet<S>();
@@ -466,7 +460,30 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
             indexSet.reduce(Direction.ASCENDING);
 
-            pkIndex = indexSet.findPrimaryKeyIndex(info);
+            desiredPkIndex = indexSet.findPrimaryKeyIndex(info);
+        }
+
+        StorableIndex<S> pkIndex;
+
+        if (!isPrimaryEmpty && primaryInfo != null
+            && primaryInfo.getIndexNameDescriptor() != null)
+        {
+            // Entries already exist, so primary key format is locked in.
+            try {
+                pkIndex = verifyPrimaryKey(info, desiredPkIndex,
+                                           primaryInfo.getIndexNameDescriptor(),
+                                           primaryInfo.getIndexTypeDescriptor());
+            } catch (SupportException e) {
+                try {
+                    db_close(primaryDatabase);
+                } catch (Exception e2) {
+                    // Don't care.
+                }
+                throw e;
+            }
+        } else {
+            pkIndex = desiredPkIndex;
+
             if (primaryInfo != null) {
                 if (!pkIndex.getNameDescriptor().equals(primaryInfo.getIndexNameDescriptor()) ||
                     !pkIndex.getTypeDescriptor().equals(primaryInfo.getIndexTypeDescriptor())) {
@@ -830,6 +847,114 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                 txn.exit();
             }
         }
+    }
+
+    private StorableIndex<S> verifyPrimaryKey(StorableInfo<S> info,
+                                              StorableIndex<S> desiredPkIndex,
+                                              String nameDescriptor,
+                                              String typeDescriptor)
+        throws SupportException
+    {
+        StorableIndex<S> pkIndex;
+        try {
+            pkIndex = StorableIndex.parseNameDescriptor(nameDescriptor, info);
+        } catch (IllegalArgumentException e) {
+            throw new SupportException
+                ("Existing primary key apparently refers to properties which " +
+                 "no longer exist. Primary key cannot change if Storage<" +
+                 info.getStorableType().getName() + "> is not empty. " +
+                 "Primary key name descriptor: " + nameDescriptor + ", error: " +
+                 e.getMessage());
+        }
+
+        if (!nameDescriptor.equals(desiredPkIndex.getNameDescriptor())) {
+            throw new SupportException
+                (buildIndexMismatchMessage(info, pkIndex, desiredPkIndex, null, false));
+        }
+
+        if (!typeDescriptor.equals(desiredPkIndex.getTypeDescriptor())) {
+            throw new SupportException
+                (buildIndexMismatchMessage(info, pkIndex, desiredPkIndex, typeDescriptor, true));
+        }
+    
+        return pkIndex;
+    }
+
+    private String buildIndexMismatchMessage(StorableInfo<S> info,
+                                             StorableIndex<S> pkIndex,
+                                             StorableIndex<S> desiredPkIndex,
+                                             String typeDescriptor,
+                                             boolean showDesiredType)
+    {
+        StringBuilder message = new StringBuilder();
+        message.append("Cannot change primary key if Storage<" + info.getStorableType().getName() +
+                       "> is not empty. Primary key was ");
+        appendIndexDecl(message, pkIndex, typeDescriptor, false);
+        message.append(", but new specification is ");
+        appendIndexDecl(message, desiredPkIndex, null, showDesiredType);
+        return message.toString();
+    }
+
+    private void appendIndexDecl(StringBuilder buf, StorableIndex<S> index,
+                                 String typeDescriptor, boolean showDesiredType)
+    {
+        buf.append('[');
+        int count = index.getPropertyCount();
+
+        TypeDesc[] types = null;
+        boolean[] nullable = null;
+
+        if (typeDescriptor != null) {
+            System.out.println(typeDescriptor);
+            types = new TypeDesc[count];
+            nullable = new boolean[count];
+
+            try {
+                for (int i=0; i<count; i++) {
+                    if (typeDescriptor.charAt(0) == 'N') {
+                        typeDescriptor = typeDescriptor.substring(1);
+                        nullable[i] = true;
+                    }
+
+                    String typeStr;
+
+                    if (typeDescriptor.charAt(0) == 'L') {
+                        int end = typeDescriptor.indexOf(';');
+                        typeStr = typeDescriptor.substring(0, end + 1);
+                        typeDescriptor = typeDescriptor.substring(end + 1);
+                    } else {
+                        typeStr = typeDescriptor.substring(0, 1);
+                        typeDescriptor = typeDescriptor.substring(1);
+                    }
+
+                    types[i] = TypeDesc.forDescriptor(typeStr);
+                }
+            } catch (IndexOutOfBoundsException e) {
+            }
+        }
+
+        for (int i=0; i<count; i++) {
+            if (i > 0) {
+                buf.append(", ");
+            }
+            if (types != null) {
+                if (nullable[i]) {
+                    buf.append("@Nullable ");
+                }
+                buf.append(types[i].getFullName());
+                buf.append(' ');
+            } else if (showDesiredType) {
+                if (index.getProperty(i).isNullable()) {
+                    buf.append("@Nullable ");
+                }
+                buf.append(TypeDesc.forClass(index.getProperty(i).getType()).getFullName());
+                buf.append(' ');
+            }
+            buf.append(index.getPropertyDirection(i).toCharacter());
+            buf.append(index.getProperty(i).getName());
+        }
+
+        buf.append(']');
     }
 
     // Note: BDBStorage could just implement the RawSupport interface, but
