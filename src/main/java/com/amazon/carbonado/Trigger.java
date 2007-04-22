@@ -32,6 +32,18 @@ package com.amazon.carbonado;
  * "failed" events are run in the same order that the trigger was registered.
  * In other words, the last added trigger is at the outermost nesting level.
  *
+ * <p>Triggers always run within the same transaction as the triggering
+ * operation. The exact isolation level and update mode is outside the
+ * trigger's control. If an explicit isolation level or update mode is
+ * required, create a nested transaction within a trigger method. A trigger's
+ * nested transaction can also be defined span the entire triggering operation.
+ * To do this, enter the transaction in the "before" method, but return the
+ * transaction object without exiting it. The "after" method is responsible for
+ * exiting the transaction. It extracts (or simply casts) the transaction from
+ * the state object passed into it. When creating spanning transactions like
+ * this, it is critical that the "failed" method be defined to properly exit
+ * the transaction upon failure.
+ *
  * @author Brian S O'Neill
  */
 public abstract class Trigger<S> {
