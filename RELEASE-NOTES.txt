@@ -21,6 +21,7 @@ Carbonado change history
   the requirement that triggers be installed on the database.
 - FilteredCursor ensures that filter being used is bound.
 - BDBRepository detects if changes are made to primary key and throws exception.
+- Added support for derived properies.
 
 1.1-BETA11 to 1.1 (release)
 -------------------------------
