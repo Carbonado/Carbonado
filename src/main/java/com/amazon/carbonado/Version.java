@@ -27,7 +27,7 @@ import java.lang.annotation.*;
  *
  * <p>Philosophically, a version property can be considered part of the
  * identity of the storable. Unless the version is {@link Derived}, the
- * repository is responsibile for establishing the version on insert, and for
+ * repository is responsible for establishing the version on insert, and for
  * auto-incrementing it on update.  Under no circumstances should a normal
  * version property be incremented manually; this can result in a false {@link
  * OptimisticLockException}, or worse may allow the persistent record to become
