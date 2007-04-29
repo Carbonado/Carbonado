@@ -570,7 +570,6 @@ public class StorableIntrospector {
             Method readMethod = property.getReadMethod();
             Method writeMethod = property.getWriteMethod();
 
-            boolean isAbstract;
             if (readMethod == null) {
                 if (writeMethod == null) {
                     continue;

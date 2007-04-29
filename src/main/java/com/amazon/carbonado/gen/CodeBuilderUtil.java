@@ -19,9 +19,6 @@ package com.amazon.carbonado.gen;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.Map;
-import java.util.HashMap;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
@@ -32,7 +29,6 @@ import org.cojen.classfile.MethodInfo;
 import org.cojen.classfile.Label;
 import org.cojen.classfile.TypeDesc;
 import org.cojen.classfile.LocalVariable;
-import org.cojen.classfile.MethodDesc;
 import org.cojen.classfile.Opcode;
 import org.cojen.util.ClassInjector;
 

@@ -29,7 +29,6 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 
