@@ -29,6 +29,7 @@ import java.util.concurrent.locks.Lock;
  * lazily created and pooled.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 public abstract class AbstractPool<K, V, E extends Exception> {
     private final ConcurrentMap<K, V> mValues;

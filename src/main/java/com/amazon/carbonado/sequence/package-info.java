@@ -22,5 +22,6 @@
  * control over sequences might be desired.
  *
  * @see com.amazon.carbonado.Sequence
+ * @since 1.2
  */
 package com.amazon.carbonado.sequence;

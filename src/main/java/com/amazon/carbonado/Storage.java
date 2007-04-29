@@ -118,6 +118,8 @@ public interface Storage<S extends Storable> {
      * <p>If this Storage has any registered triggers which act on deletes, all
      * Storables are deleted via {@code query().deleteAll()} instead to ensure
      * these triggers get run.
+     *
+     * @since 1.2
      */
     void truncate() throws PersistException;
 

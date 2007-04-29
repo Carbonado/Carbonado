@@ -42,6 +42,7 @@ import com.amazon.carbonado.spi.StorableIndexSet;
  * Collection of static methods which perform index analysis.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 class IndexAnalysis {
     static <S extends Storable> StorableIndexSet<S> gatherDesiredIndexes(StorableInfo<S> info) {

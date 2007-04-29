@@ -63,6 +63,7 @@ import com.amazon.carbonado.raw.GenericEncodingStrategy;
  * Storables. When that happens, this class will be deprecated.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 public abstract class StorableSerializer<S extends Storable> {
     private static final String ENCODE_METHOD_NAME = "encode";

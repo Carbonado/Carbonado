@@ -35,6 +35,7 @@ import com.amazon.carbonado.info.ChainedProperty;
  * Handles index updates for derived-to properties.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 class DerivedIndexesTrigger<S extends Storable, D extends Storable> extends Trigger<S> {
     private final DependentStorableFetcher<S, D> mFetcher;

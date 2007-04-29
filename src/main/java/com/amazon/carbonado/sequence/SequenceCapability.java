@@ -25,7 +25,7 @@ import com.amazon.carbonado.capability.Capability;
  * Capability to use sequences.
  * 
  * @author bcastill
- *
+ * @since 1.2
  */
 public interface SequenceCapability extends Capability {
     

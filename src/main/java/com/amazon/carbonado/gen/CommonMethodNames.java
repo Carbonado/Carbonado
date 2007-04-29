@@ -22,6 +22,7 @@ package com.amazon.carbonado.gen;
  * Collection of constant method names for the public API.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 public class CommonMethodNames {
     /** Storable API method name */

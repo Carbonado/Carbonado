@@ -27,6 +27,7 @@ import com.amazon.carbonado.PersistException;
  * @author Brian S O'Neill
  * @author bcastill
  * @see com.amazon.carbonado.Sequence
+ * @since 1.2
  */
 public interface SequenceValueProducer {
     /**

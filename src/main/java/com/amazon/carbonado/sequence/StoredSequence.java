@@ -38,6 +38,7 @@ import com.amazon.carbonado.Version;
  * </pre>
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 @PrimaryKey("name")
 @Authoritative

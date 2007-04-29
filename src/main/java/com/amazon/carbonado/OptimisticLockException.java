@@ -94,6 +94,7 @@ public class OptimisticLockException extends PersistException {
      * @param savedVersion actual persistent version number of storable
      * @param s Storable which was acted upon
      * @param newVersion new version which was provided
+     * @since 1.2
      */
     public OptimisticLockException(Object savedVersion, Storable s, Object newVersion) {
         super(makeMessage(savedVersion, s, newVersion));

@@ -198,22 +198,37 @@ class LoggingStatement implements Statement {
         return mStatement.getResultSetHoldability();
     }
 
+    /**
+     * @since 1.2
+     */
     public boolean isClosed() throws SQLException {
         return mStatement.isClosed();
     }
 
+    /**
+     * @since 1.2
+     */
     public void setPoolable(boolean poolable) throws SQLException {
         mStatement.setPoolable(poolable);
     }
 
+    /**
+     * @since 1.2
+     */
     public boolean isPoolable() throws SQLException {
         return mStatement.isPoolable();
     }
 
+    /**
+     * @since 1.2
+     */
     public <T> T unwrap(Class<T> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * @since 1.2
+     */
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }

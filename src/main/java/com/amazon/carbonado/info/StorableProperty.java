@@ -125,6 +125,7 @@ public interface StorableProperty<S extends Storable> extends Appender {
      * Returns true if this property is one-to-one joined to another Storable.
      *
      * @see com.amazon.carbonado.Join
+     * @since 1.2
      */
     boolean isOneToOneJoin();
 
@@ -200,6 +201,7 @@ public interface StorableProperty<S extends Storable> extends Appender {
      * Returns true of this property is given an automatic value upon insert.
      *
      * @see com.amazon.carbonado.Automatic
+     * @since 1.2
      */
     boolean isAutomatic();
 
@@ -222,6 +224,7 @@ public interface StorableProperty<S extends Storable> extends Appender {
      * Returns true if this property is derived.
      *
      * @see com.amazon.carbonado.Derived
+     * @since 1.2
      */
     boolean isDerived();
 
@@ -230,6 +233,8 @@ public interface StorableProperty<S extends Storable> extends Appender {
      * if this is not a derived property. Otherwise, the set is the transitive
      * closure of all dependent properties. This set may include joins and
      * other derived properties.
+     *
+     * @since 1.2
      */
     ChainedProperty<S>[] getDerivedFromProperties();
 
@@ -242,6 +247,8 @@ public interface StorableProperty<S extends Storable> extends Appender {
      * property is the actual dependent property, and the tail is the path to
      * reach this property's enclosing type. If a derived property resides in
      * the same enclosing type as this one, the chain count is zero.
+     *
+     * @since 1.2
      */
     ChainedProperty<?>[] getDerivedToProperties();
 

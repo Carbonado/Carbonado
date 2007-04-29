@@ -42,6 +42,7 @@ import com.amazon.carbonado.info.StorableProperty;
  * Fetches Storables that have indexed derived-to properties which depend on S.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 class DependentStorableFetcher<S extends Storable, D extends Storable> {
     private final IndexedRepository mRepository;

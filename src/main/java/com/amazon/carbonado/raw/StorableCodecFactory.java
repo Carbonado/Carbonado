@@ -60,6 +60,7 @@ public interface StorableCodecFactory {
      * generation value in each storable
      * @param support binds generated storable with a storage layer
      * @throws SupportException if type is not supported
+     * @since 1.2
      */
     <S extends Storable> StorableCodec<S> createCodec(Class<S> type,
                                                       StorableIndex pkIndex,

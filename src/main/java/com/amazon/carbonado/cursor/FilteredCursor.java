@@ -47,6 +47,7 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
      * @return wrapped cursor which filters results
      * @throws IllegalStateException if any values are not specified
      * @throws IllegalArgumentException if any argument is null
+     * @since 1.2
      */
     public static <S extends Storable> Cursor<S> applyFilter(Cursor<S> cursor,
                                                              Class<S> type,

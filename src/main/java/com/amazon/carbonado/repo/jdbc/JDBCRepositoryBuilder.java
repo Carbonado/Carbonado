@@ -151,6 +151,8 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     /**
      * Pass true to cause the DataSource to be closed when the repository is
      * closed or shutdown. By default, this option is false.
+     *
+     * @since 1.2
      */
     public void setDataSourceCloseOnShutdown(boolean b) {
         mDataSourceClose = b;
@@ -159,6 +161,8 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     /**
      * Returns true if DataSource is closed when the repository is closed or
      * shutdown. By default, this option is false.
+     *
+     * @since 1.2
      */
     public boolean getDataSourceCloseOnShutdown() {
         return mDataSourceClose;
@@ -278,6 +282,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
      * @param enabled true to enable, false to disable
      * @param className name of Storable type to enable automatic version
      * management on; pass null to enable all
+     * @since 1.2
      */
     public void setAutoVersioningEnabled(boolean enabled, String className) {
         if (mAutoVersioningMap == null) {
@@ -296,6 +301,8 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     /**
      * Returns the native sequence select statement, which is null if the
      * default is chosen.
+     *
+     * @since 1.2
      */
     public String getSequenceSelectStatement() {
         return mSequenceSelectStatement;
@@ -304,6 +311,8 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     /**
      * Override the default native sequence select statement with a printf.
      * For example, "SELECT %s.NEXTVAL FROM DUAL".
+     *
+     * @since 1.2
      */
     public void setSequenceSelectStatement(String sequenceSelectStatement) {
         mSequenceSelectStatement = sequenceSelectStatement;
@@ -311,6 +320,8 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
 
     /**
      * Returns true if native sequences should not be used.
+     *
+     * @since 1.2
      */
     public boolean isForceStoredSequence() {
         return mForceStoredSequence;
@@ -321,6 +332,8 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
      * named "CARBONADO_SEQUENCE" or "CARBONADO_SEQUENCES" is used instead to
      * hold sequence values. When forced, the table is always used instead of
      * native sequences.
+     *
+     * @since 1.2
      */
     public void setForceStoredSequence(boolean forceStoredSequence) {
         mForceStoredSequence = forceStoredSequence;

@@ -173,6 +173,9 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         return mQueryEngine.query(filter);
     }
 
+    /**
+     * @since 1.2
+     */
     public void truncate() throws PersistException {
         if (mTriggerManager.getDeleteTrigger() != null || mRepository.mSingleFileName != null) {
             final int batchSize = 100;

@@ -74,6 +74,8 @@ public interface JDBCStorableInfo<S extends Storable> extends StorableInfo<S> {
     /**
      * Returns auto-increment properties which are primary key members. The map
      * should almost always be empty or contain one property.
+     *
+     * @since 1.2
      */
     Map<String, JDBCStorableProperty<S>> getIdentityProperties();
 

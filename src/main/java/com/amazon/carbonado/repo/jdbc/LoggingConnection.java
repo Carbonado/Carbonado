@@ -225,54 +225,93 @@ class LoggingConnection implements Connection {
         mCon.releaseSavepoint(savepoint);
     }
 
+    /**
+     * @since 1.2
+     */
     public Clob createClob() throws SQLException {
         return mCon.createClob();
     }
 
+    /**
+     * @since 1.2
+     */
     public Blob createBlob() throws SQLException {
         return mCon.createBlob();
     }
     
+    /**
+     * @since 1.2
+     */
     public NClob createNClob() throws SQLException {
         return mCon.createNClob();
     }
 
+    /**
+     * @since 1.2
+     */
     public SQLXML createSQLXML() throws SQLException {
         return mCon.createSQLXML();
     }
 
+    /**
+     * @since 1.2
+     */
     public boolean isValid(int timeout) throws SQLException {
         return mCon.isValid(timeout);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setClientInfo(String name, String value) throws SQLClientInfoException {
         mCon.setClientInfo(name, value);
     }
         
+    /**
+     * @since 1.2
+     */
     public void setClientInfo(java.util.Properties properties) throws SQLClientInfoException {
         mCon.setClientInfo(properties);
     }
 
+    /**
+     * @since 1.2
+     */
     public String getClientInfo(String name) throws SQLException {
         return mCon.getClientInfo(name);
     }
 
+    /**
+     * @since 1.2
+     */
     public java.util.Properties getClientInfo() throws SQLException {
         return mCon.getClientInfo();
     }
 
+    /**
+     * @since 1.2
+     */
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
         return mCon.createArrayOf(typeName, elements);
     }
 
+    /**
+     * @since 1.2
+     */
     public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
         return mCon.createStruct(typeName, attributes);
     }
 
+    /**
+     * @since 1.2
+     */
     public <T> T unwrap(Class<T> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * @since 1.2
+     */
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }

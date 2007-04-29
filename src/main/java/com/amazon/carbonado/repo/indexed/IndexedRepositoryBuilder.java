@@ -172,6 +172,8 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
     /**
      * Returns true if all indexes should be identified as clustered. This
      * affects how indexes are selected by the query analyzer.
+     *
+     * @since 1.2
      */
     public boolean isAllClustered() {
         return mAllClustered;
@@ -181,6 +183,8 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
      * When all indexes are identified as clustered, the query analyzer treats
      * all indexes as performing equally well. This is suitable for indexing
      * repositories that never read from a slow storage medium.
+     *
+     * @since 1.2
      */
     public void setAllClustered(boolean clustered) {
         mAllClustered = clustered;

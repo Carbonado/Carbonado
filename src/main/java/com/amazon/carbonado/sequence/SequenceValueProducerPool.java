@@ -31,6 +31,7 @@ import com.amazon.carbonado.util.AbstractPool;
  * 
  * @author bcastill
  * @author Brian S O'Neill
+ * @since 1.2
  */
 public abstract class SequenceValueProducerPool
     extends AbstractPool<String, SequenceValueProducer, RepositoryException>

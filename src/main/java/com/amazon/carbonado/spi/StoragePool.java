@@ -31,6 +31,7 @@ import com.amazon.carbonado.util.AbstractPool;
  * Storable type. Storage instances are lazily created and pooled.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 public abstract class StoragePool
     extends AbstractPool<Class, Storage, RepositoryException>

@@ -22,6 +22,7 @@ package com.amazon.carbonado.gen;
  * Master feature to enable when using {@link MasterStorableGenerator}.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 public enum MasterFeature {
     /** Insert and update operations implement record versioning, if version property exists */

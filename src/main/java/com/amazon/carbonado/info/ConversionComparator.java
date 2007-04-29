@@ -26,6 +26,7 @@ import org.cojen.classfile.TypeDesc;
  * Compares type conversions, finding the one that is nearest.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 class ConversionComparator implements Comparator<Class> {
     private final TypeDesc mFrom;

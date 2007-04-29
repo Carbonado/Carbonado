@@ -41,6 +41,9 @@ class LoggingStorage<S extends Storable> extends WrappedStorage<S> {
         mRepo = repo;
     }
 
+    /**
+     * @since 1.2
+     */
     public void truncate() throws PersistException {
         Log log = mRepo.getLog();
         if (log.isEnabled()) {

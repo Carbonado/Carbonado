@@ -128,6 +128,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         return property != null && property.isSupported();
     }
 
+    /**
+     * @since 1.2
+     */
     public void truncate() throws PersistException {
         String truncateFormat = mSupportStrategy.getTruncateTableStatement();
 

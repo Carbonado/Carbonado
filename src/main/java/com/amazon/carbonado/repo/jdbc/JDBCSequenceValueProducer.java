@@ -65,6 +65,9 @@ class JDBCSequenceValueProducer extends AbstractSequenceValueProducer {
         }
     }
 
+    /**
+     * @since 1.2
+     */
     public boolean returnReservedValues() {
         return false;
     }

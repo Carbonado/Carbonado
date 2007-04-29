@@ -205,6 +205,7 @@ public class StorableIndexSet<S extends Storable> extends TreeSet<StorableIndex<
      *
      * @param clustered true to mark clustered; false to mark non-clustered
      * @see StorableIndex#isClustered()
+     * @since 1.2
      */
     public void markClustered(boolean clustered) {
         Map<StorableIndex<S>, StorableIndex<S>> replacements = null;

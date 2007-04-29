@@ -58,6 +58,7 @@ import static com.amazon.carbonado.gen.CommonMethodNames.*;
  * transactions since this class takes care of that.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 public final class MasterStorableGenerator<S extends Storable> {
     // Note: All generated fields/methods have a "$" character in them to

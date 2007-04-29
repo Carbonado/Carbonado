@@ -48,6 +48,8 @@ public interface JDBCStorableProperty<S extends Storable> extends StorableProper
     /**
      * Returns true if property is declared as @Automatic and column is
      * designated as auto-increment.
+     *
+     * @since 1.2
      */
     boolean isAutoIncrement();
 

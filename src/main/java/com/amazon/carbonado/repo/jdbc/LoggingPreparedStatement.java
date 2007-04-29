@@ -249,58 +249,91 @@ class LoggingPreparedStatement extends LoggingStatement implements PreparedState
         return ps().getParameterMetaData();
     }
 
+    /**
+     * @since 1.2
+     */
     public void setRowId(int parameterIndex, RowId x) throws SQLException {
         ps().setRowId(parameterIndex, x);
     }
  
+    /**
+     * @since 1.2
+     */
     public void setNString(int parameterIndex, String value) throws SQLException {
         ps().setNString(parameterIndex, value);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setNCharacterStream(int parameterIndex, java.io.Reader value, long length)
         throws SQLException
     {
         ps().setNCharacterStream(parameterIndex, value, length);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setNClob(int parameterIndex, NClob value) throws SQLException {
         ps().setNClob(parameterIndex, value);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setClob(int parameterIndex, java.io.Reader reader, long length)
         throws SQLException
     {
         ps().setClob(parameterIndex, reader, length);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setBlob(int parameterIndex, java.io.InputStream inputStream, long length)
         throws SQLException
     {
         ps().setBlob(parameterIndex, inputStream, length);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setNClob(int parameterIndex, java.io.Reader reader, long length)
         throws SQLException
     {
         ps().setNClob(parameterIndex, reader, length);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {
         ps().setSQLXML(parameterIndex, xmlObject);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setAsciiStream(int parameterIndex, java.io.InputStream x, long length)
         throws SQLException
     {
         ps().setAsciiStream(parameterIndex, x, length);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setBinaryStream(int parameterIndex, java.io.InputStream x, long length)
         throws SQLException
     {
         ps().setBinaryStream(parameterIndex, x, length);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setCharacterStream(int parameterIndex,
                                    java.io.Reader reader,
                                    long length)
@@ -309,32 +342,53 @@ class LoggingPreparedStatement extends LoggingStatement implements PreparedState
         ps().setCharacterStream(parameterIndex, reader, length);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setAsciiStream(int parameterIndex, java.io.InputStream x) throws SQLException {
         ps().setAsciiStream(parameterIndex, x);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setBinaryStream(int parameterIndex, java.io.InputStream x) throws SQLException {
         ps().setBinaryStream(parameterIndex, x);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setCharacterStream(int parameterIndex, java.io.Reader reader) throws SQLException {
         ps().setCharacterStream(parameterIndex, reader);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setNCharacterStream(int parameterIndex, java.io.Reader value) throws SQLException {
         ps().setNCharacterStream(parameterIndex, value);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setClob(int parameterIndex, java.io.Reader reader) throws SQLException {
         ps().setClob(parameterIndex, reader);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setBlob(int parameterIndex, java.io.InputStream inputStream)
         throws SQLException
     {
         ps().setBlob(parameterIndex, inputStream);
     }
 
+    /**
+     * @since 1.2
+     */
     public void setNClob(int parameterIndex, java.io.Reader reader) throws SQLException {
         ps().setNClob(parameterIndex, reader);
     }

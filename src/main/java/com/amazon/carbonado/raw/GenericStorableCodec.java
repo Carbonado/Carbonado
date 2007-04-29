@@ -376,6 +376,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
      * {@link RawSupport} is supplied to the instance.
      *
      * @throws IllegalStateException if no default support exists
+     * @since 1.2
      */
     @SuppressWarnings("unchecked")
     public S instantiate() {
@@ -387,6 +388,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
      * {@link RawSupport} is supplied to the instance.
      *
      * @throws IllegalStateException if no default support exists
+     * @since 1.2
      */
     @SuppressWarnings("unchecked")
     public S instantiate(byte[] key, byte[] value) throws FetchException {
@@ -453,6 +455,9 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
         return mPrimaryKeyFactory.encodeSearchKeyPrefix();
     }
 
+    /**
+     * @since 1.2
+     */
     public RawSupport<S> getSupport() {
         return mSupport;
     }

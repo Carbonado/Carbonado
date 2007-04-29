@@ -255,6 +255,7 @@ public abstract class CustomStorableCodec<S extends Storable> implements Storabl
     /**
      * @param isMaster when true, version properties and sequences are managed
      * @throws SupportException if Storable is not supported
+     * @since 1.2
      */
     public CustomStorableCodec(Class<S> type, boolean isMaster, RawSupport<S> support)
         throws SupportException
@@ -271,11 +272,17 @@ public abstract class CustomStorableCodec<S extends Storable> implements Storabl
         return mType;
     }
 
+    /**
+     * @since 1.2
+     */
     @SuppressWarnings("unchecked")
     public S instantiate() {
         return (S) mInstanceFactory.instantiate(support(), this);
     }
 
+    /**
+     * @since 1.2
+     */
     @SuppressWarnings("unchecked")
     public S instantiate(byte[] key, byte[] value)
         throws FetchException
@@ -303,6 +310,9 @@ public abstract class CustomStorableCodec<S extends Storable> implements Storabl
         return encodePrimaryKey(values, 0, mPkPropertyCount);
     }
 
+    /**
+     * @since 1.2
+     */
     public RawSupport<S> getSupport() {
         return mSupport;
     }

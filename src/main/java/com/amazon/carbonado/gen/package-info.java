@@ -18,5 +18,7 @@
 
 /**
  * Storable code generation support intended for use by repository implementations.
+ *
+ * @since 1.2
  */
 package com.amazon.carbonado.gen;

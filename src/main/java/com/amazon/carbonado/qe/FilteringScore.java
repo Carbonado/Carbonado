@@ -550,6 +550,8 @@ public class FilteringScore<S extends Storable> {
      * Returns number of extra property filters which are supported by the
      * evaluated index. This count is no more than the remainder count. If
      * hasAnyMatches returns false, then the extra match count is zero.
+     *
+     * @since 1.2
      */
     public int getExtraMatchCount() {
         return mExtraMatchFilters.size();
@@ -558,6 +560,8 @@ public class FilteringScore<S extends Storable> {
     /**
      * Returns the extra filters which are supported by the evaluated index,
      * which is a subset of the remainder filters.
+     *
+     * @since 1.2
      */
     public List<PropertyFilter<S>> getExtraMatchFilters() {
         return mExtraMatchFilters;
@@ -566,6 +570,8 @@ public class FilteringScore<S extends Storable> {
     /**
      * Returns the composite extra match filter supported by the evaluated
      * index, or null if no extra match.
+     *
+     * @since 1.2
      */
     public Filter<S> getExtraMatchFilter() {
         if (mExtraMatchFilter == null) {
@@ -577,6 +583,8 @@ public class FilteringScore<S extends Storable> {
     /**
      * Returns the composite remainder filter without including the extra match
      * filter. Returns null if no remainder.
+     *
+     * @since 1.2
      */
     public Filter<S> getExtraMatchRemainderFilter() {
         if (mExtraMatchRemainderFilter == null) {

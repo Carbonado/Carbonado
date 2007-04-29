@@ -50,6 +50,7 @@ import com.amazon.carbonado.sequence.SequenceValueProducerPool;
  *
  * @param <Txn> Transaction type
  * @author Brian S O'Neill
+ * @since 1.2
  */
 public abstract class AbstractRepository<Txn>
     implements Repository, ShutdownCapability, SequenceCapability

@@ -94,6 +94,7 @@ public class LobEngine {
      * @param lobRepo storage for Lobs - should not be replicated
      * @param locatorRepo storage for producing unique values for Lob locators
      * - should be root repository
+     * @since 1.2
      */
     public LobEngine(Repository lobRepo, Repository locatorRepo) throws RepositoryException {
         // Cannot reliably use sequences provided by Lob repository, since
@@ -104,6 +105,7 @@ public class LobEngine {
     /**
      * @param lobRepo storage for Lobs - should not be replicated
      * @param locatorSequenceProducer source of unique values for Lob locators
+     * @since 1.2
      */
     public LobEngine(Repository lobRepo, SequenceValueProducer locatorSequenceProducer)
         throws RepositoryException

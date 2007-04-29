@@ -25,6 +25,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * instances mapped by key. Locks are created (and recreated) as needed.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 class WeakReentrantReadWriteLockPool<K>
     extends AbstractWeakPool<K, ReentrantReadWriteLock, RuntimeException>

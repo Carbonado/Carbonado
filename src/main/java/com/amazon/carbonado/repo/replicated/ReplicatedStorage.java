@@ -106,6 +106,9 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
         return mReplicaStorage.query(filter);
     }
 
+    /**
+     * @since 1.2
+     */
     public void truncate() throws PersistException {
         mMasterStorage.truncate();
         mReplicaStorage.truncate();

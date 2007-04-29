@@ -39,6 +39,7 @@ public interface StorableCodec<S extends Storable> {
      * {@link RawSupport} is supplied to the instance.
      *
      * @throws IllegalStateException if no default support exists
+     * @since 1.2
      */
     S instantiate();
 
@@ -47,6 +48,7 @@ public interface StorableCodec<S extends Storable> {
      * {@link RawSupport} is supplied to the instance.
      *
      * @throws IllegalStateException if no default support exists
+     * @since 1.2
      */
     S instantiate(byte[] key, byte[] value) throws FetchException;
 
@@ -134,6 +136,8 @@ public interface StorableCodec<S extends Storable> {
     /**
      * Returns the default {@link RawSupport} object that is supplied to
      * Storable instances produced by this codec.
+     *
+     * @since 1.2
      */
     RawSupport<S> getSupport();
 }

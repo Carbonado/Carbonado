@@ -92,6 +92,9 @@ class JDBCSupportStrategy {
         return new JDBCExceptionTransformer();
     }
     
+    /**
+     * @since 1.2
+     */
     SequenceValueProducer createSequenceValueProducer(String name) 
         throws RepositoryException
     {
@@ -239,20 +242,30 @@ class JDBCSupportStrategy {
      * Returns the optional sequence select statement format. The format is
      * printf style with 1 string parameter which can be passed through {@link
      * String#format(String, Object[])} to create a sql statement.
-     * @return
+     *
+     * @since 1.2
      */
     String getSequenceSelectStatement() {
         return mSequenceSelectStatement;
     }
 
+    /**
+     * @since 1.2
+     */
     void setSequenceSelectStatement(String sequenceSelectStatement) {
         mSequenceSelectStatement = sequenceSelectStatement;
     }
 
+    /**
+     * @since 1.2
+     */
     boolean isForceStoredSequence() {
         return mForceStoredSequence;
     }
 
+    /**
+     * @since 1.2
+     */
     void setForceStoredSequence(boolean forceStoredSequence) {
         mForceStoredSequence = forceStoredSequence;
     }
@@ -261,11 +274,16 @@ class JDBCSupportStrategy {
      * Return the optional truncate table statement format. The format is
      * printf style with 1 string parameter which can be passed through {@link
      * String#format(String, Object[])} to create a sql statement.
+     *
+     * @since 1.2
      */
     String getTruncateTableStatement() {
         return mTruncateTableStatement;
     }
 
+    /**
+     * @since 1.2
+     */
     void setTruncateTableStatement(String truncateTableStatement) {
         mTruncateTableStatement = truncateTableStatement;
     }

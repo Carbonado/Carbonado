@@ -42,6 +42,7 @@ import static com.amazon.carbonado.gen.CommonMethodNames.*;
  *
  * @author Don Schneider
  * @author Brian S O'Neill
+ * @since 1.2
  */
 public class CodeBuilderUtil {
 

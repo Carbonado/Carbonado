@@ -168,6 +168,7 @@ public class ChainedProperty<S extends Storable> implements Appender {
      * Returns true if any property in the chain can be null.
      *
      * @see com.amazon.carbonado.Nullable
+     * @since 1.2
      */
     public boolean isNullable() {
         if (mPrime.isNullable()) {

@@ -81,6 +81,9 @@ public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
         return wrap(mStorage.query(filter));
     }
 
+    /**
+     * @since 1.2
+     */
     public void truncate() throws PersistException {
         mStorage.truncate();
     }

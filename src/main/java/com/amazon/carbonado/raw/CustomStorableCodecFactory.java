@@ -65,6 +65,7 @@ public abstract class CustomStorableCodecFactory implements StorableCodecFactory
      * generation value in each storable
      * @param support binds generated storable with a storage layer
      * @throws SupportException if type is not supported
+     * @since 1.2
      */
     public <S extends Storable> CustomStorableCodec<S> createCodec(Class<S> type,
                                                                    StorableIndex pkIndex,
@@ -99,6 +100,7 @@ public abstract class CustomStorableCodecFactory implements StorableCodecFactory
      * generation value in each storable
      * @param support binds generated storable with a storage layer
      * @throws SupportException if type is not supported
+     * @since 1.2
      */
     // Note: This factory method is not abstract for backwards compatibility.
     protected <S extends Storable> CustomStorableCodec<S>

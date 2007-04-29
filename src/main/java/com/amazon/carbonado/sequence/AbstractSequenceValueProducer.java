@@ -26,6 +26,7 @@ import com.amazon.carbonado.PersistException;
  *
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
 public abstract class AbstractSequenceValueProducer implements SequenceValueProducer {
     protected AbstractSequenceValueProducer() {

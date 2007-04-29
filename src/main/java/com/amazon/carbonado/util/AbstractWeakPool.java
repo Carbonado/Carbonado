@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentMap;
  *
  * @author Brian S O'Neill
  * @see AbstractPool
+ * @since 1.2
  */
 abstract class AbstractWeakPool<K, V, E extends Exception> {
     private final ConcurrentMap<K, ValueRef<K, V>> mValues;

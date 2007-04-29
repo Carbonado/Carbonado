@@ -69,6 +69,7 @@ public class GenericStorableCodecFactory implements StorableCodecFactory {
      * 128..max is encoded in four bytes, with the most significant bit set.
      * @param support binds generated storable with a storage layer
      * @throws SupportException if type is not supported
+     * @since 1.2
      */
     @SuppressWarnings("unchecked")
     public <S extends Storable> GenericStorableCodec<S> createCodec(Class<S> type,

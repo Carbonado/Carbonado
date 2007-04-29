@@ -32,6 +32,7 @@ import com.amazon.carbonado.Transaction;
  * @author bcastill
  * @see com.amazon.carbonado.Sequence
  * @see StoredSequence
+ * @since 1.2
  */
 public class SequenceValueGenerator extends AbstractSequenceValueProducer {
     public static final int DEFAULT_RESERVE_AMOUNT = 100;
