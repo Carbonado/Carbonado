@@ -59,7 +59,7 @@ public interface IndexEntryAccessor<S extends Storable> extends IndexInfo {
     /**
      * Returns true if the properties of the given index entry match those
      * contained in the master, exluding any version property. This will always
-     * return true after a call to setAllProperties.
+     * return true after a call to copyFromMaster.
      *
      * @param indexEntry index entry whose properties will be tested
      * @param master source of property values

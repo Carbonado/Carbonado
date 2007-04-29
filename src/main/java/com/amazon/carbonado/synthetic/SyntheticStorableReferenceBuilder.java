@@ -493,23 +493,22 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
                 continue;
             }
 
-            if (prop.getReadMethod() == null) {
-                throw new SupportException
-                    ("Property does not have a public accessor method: " + prop);
-            }
-            if (prop.getWriteMethod() == null) {
-                throw new SupportException
-                    ("Property does not have a public mutator method: " + prop);
-            }
-
             TypeDesc propType = TypeDesc.forClass(prop.getType());
 
             if (toMasterPk) {
+                if (prop.getWriteMethod() == null) {
+                    throw new SupportException
+                        ("Property does not have a public mutator method: " + prop);
+                }
                 b.loadLocal(b.getParameter(0));
                 b.loadThis();
                 b.invokeVirtual(prop.getReadMethodName(), propType, null);
                 b.invoke(prop.getWriteMethod());
             } else if (methodName.equals(mCopyFromMasterMethodName)) {
+                if (prop.getReadMethod() == null) {
+                    throw new SupportException
+                        ("Property does not have a public accessor method: " + prop);
+                }
                 b.loadThis();
                 b.loadLocal(b.getParameter(0));
                 b.invoke(prop.getReadMethod());

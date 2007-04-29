@@ -193,7 +193,7 @@ public final class StorableGenerator<S extends Storable> {
      * fully thread-safe. The Storable type itself may be an interface or a
      * class. If it is a class, then it must not be final, and it must have a
      * public, no-arg constructor. The constructor signature for the returned
-     * abstract is defined as follows:
+     * abstract class is defined as follows:
      *
      * <pre>
      * /**
@@ -569,27 +569,29 @@ public final class StorableGenerator<S extends Storable> {
             for (StorableProperty<S> property : mAllProperties.values()) {
                 ordinal++;
 
-                if (property.isVersion()) {
+                if (!property.isDerived() && property.isVersion()) {
                     versionOrdinal = ordinal;
                 }
 
                 final String name = property.getName();
                 final TypeDesc type = TypeDesc.forClass(property.getType());
 
-                if (property.isJoin()) {
-                    // If generating wrapper, property access is not guarded by
-                    // synchronization. Mark as volatile instead.
-                    mClassFile.addField(Modifiers.PRIVATE.toVolatile(mGenMode == GEN_WRAPPED),
-                                        name, type);
-                    requireStateField = true;
-                } else if (mGenMode == GEN_ABSTRACT) {
-                    // Only define regular property fields if abstract
-                    // class. Wrapped class doesn't reference them. Double
-                    // words are volatile to prevent word tearing without
-                    // explicit synchronization.
-                    mClassFile.addField(Modifiers.PROTECTED.toVolatile(type.isDoubleWord()),
-                                        name, type);
-                    requireStateField = true;
+                if (!property.isDerived()) {
+                    if (property.isJoin()) {
+                        // If generating wrapper, property access is not guarded by
+                        // synchronization. Mark as volatile instead.
+                        mClassFile.addField(Modifiers.PRIVATE.toVolatile(mGenMode == GEN_WRAPPED),
+                                            name, type);
+                        requireStateField = true;
+                    } else if (mGenMode == GEN_ABSTRACT) {
+                        // Only define regular property fields if abstract
+                        // class. Wrapped class doesn't reference them. Double
+                        // words are volatile to prevent word tearing without
+                        // explicit synchronization.
+                        mClassFile.addField(Modifiers.PROTECTED.toVolatile(type.isDoubleWord()),
+                                            name, type);
+                        requireStateField = true;
+                    }
                 }
 
                 final String stateFieldName = PROPERTY_STATE_FIELD_NAME + (ordinal >> 4);
@@ -605,7 +607,7 @@ public final class StorableGenerator<S extends Storable> {
                 }
 
                 // Add read method.
-                buildReadMethod: {
+                buildReadMethod: if (!property.isDerived()) {
                     Method readMethod = property.getReadMethod();
 
                     MethodInfo mi;
@@ -849,7 +851,7 @@ public final class StorableGenerator<S extends Storable> {
                 }
 
                 // Add write method.
-                if (!property.isQuery()) {
+                buildWriteMethod: if (!property.isDerived() && !property.isQuery()) {
                     Method writeMethod = property.getWriteMethod();
 
                     MethodInfo mi;
@@ -1901,7 +1903,8 @@ public final class StorableGenerator<S extends Storable> {
                     new HashMap<String, StorableProperty<S>>();
 
                 for (StorableProperty property : mAllProperties.values()) {
-                    if (!property.isPrimaryKeyMember() &&
+                    if (!property.isDerived() &&
+                        !property.isPrimaryKeyMember() &&
                         !property.isJoin() &&
                         !property.isNullable()) {
 
@@ -2111,7 +2114,7 @@ public final class StorableGenerator<S extends Storable> {
 
         for (StorableProperty property : mAllProperties.values()) {
             // Decide if property should be part of the copy.
-            boolean shouldCopy = !property.isJoin() &&
+            boolean shouldCopy = !property.isDerived() && !property.isJoin() &&
                 (property.isPrimaryKeyMember() && pkProperties ||
                  property.isVersion() && versionProperty ||
                  !property.isPrimaryKeyMember() && dataProperties);
@@ -2309,7 +2312,7 @@ public final class StorableGenerator<S extends Storable> {
         int ordinal = 0;
         int mask = 0;
         for (StorableProperty property : mAllProperties.values()) {
-            if (property != joinProperty && !property.isJoin()) {
+            if (property != joinProperty && !property.isDerived() && !property.isJoin()) {
                 // Check to see if property is an internal member of joinProperty.
                 for (int i=joinProperty.getJoinElementCount(); --i>=0; ) {
                     if (property == joinProperty.getInternalJoinElement(i)) {
@@ -2343,19 +2346,21 @@ public final class StorableGenerator<S extends Storable> {
         for (StorableProperty property : mAllProperties.values()) {
             ordinal++;
 
-            if (property.isJoin() || mGenMode == GEN_ABSTRACT) {
-                requireStateField = true;
-            }
-
-            if (ordinal == maxOrdinal || ((ordinal & 0xf) == 0xf)) {
-                if (requireStateField) {
-                    String stateFieldName = PROPERTY_STATE_FIELD_NAME + (ordinal >> 4);
-
-                    b.loadThis();
-                    b.loadConstant(0);
-                    b.storeField(stateFieldName, TypeDesc.INT);
+            if (!property.isDerived()) {
+                if (property.isJoin() || mGenMode == GEN_ABSTRACT) {
+                    requireStateField = true;
                 }
-                requireStateField = false;
+
+                if (ordinal == maxOrdinal || ((ordinal & 0xf) == 0xf)) {
+                    if (requireStateField) {
+                        String stateFieldName = PROPERTY_STATE_FIELD_NAME + (ordinal >> 4);
+
+                        b.loadThis();
+                        b.loadConstant(0);
+                        b.storeField(stateFieldName, TypeDesc.INT);
+                    }
+                    requireStateField = false;
+                }
             }
         }
     }
@@ -2382,17 +2387,19 @@ public final class StorableGenerator<S extends Storable> {
         int orMask = 0;
 
         for (StorableProperty property : mAllProperties.values()) {
-            if (property.isQuery()) {
-                // Don't erase cached query.
-                andMask |= PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2);
-            } else if (!property.isJoin()) {
-                if (name == MARK_ALL_PROPERTIES_CLEAN) {
-                    // Force clean state (1) always.
-                    orMask |= PROPERTY_STATE_CLEAN << ((ordinal & 0xf) * 2);
-                } else if (name == MARK_PROPERTIES_CLEAN) {
-                    // Mask will convert dirty (3) to clean (1). State 2, which
-                    // is illegal, is converted to 0.
-                    andMask |= PROPERTY_STATE_CLEAN << ((ordinal & 0xf) * 2);
+            if (!property.isDerived()) {
+                if (property.isQuery()) {
+                    // Don't erase cached query.
+                    andMask |= PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2);
+                } else if (!property.isJoin()) {
+                    if (name == MARK_ALL_PROPERTIES_CLEAN) {
+                        // Force clean state (1) always.
+                        orMask |= PROPERTY_STATE_CLEAN << ((ordinal & 0xf) * 2);
+                    } else if (name == MARK_PROPERTIES_CLEAN) {
+                        // Mask will convert dirty (3) to clean (1). State 2, which
+                        // is illegal, is converted to 0.
+                        andMask |= PROPERTY_STATE_CLEAN << ((ordinal & 0xf) * 2);
+                    }
                 }
             }
 
@@ -2443,14 +2450,16 @@ public final class StorableGenerator<S extends Storable> {
         int orMask = 0;
 
         for (StorableProperty property : mAllProperties.values()) {
-            if (property.isJoin()) {
-                // Erase cached join properties, but don't erase cached query.
-                if (!property.isQuery()) {
-                    andMask |= PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2);
+            if (!property.isDerived()) {
+                if (property.isJoin()) {
+                    // Erase cached join properties, but don't erase cached query.
+                    if (!property.isQuery()) {
+                        andMask |= PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2);
+                    }
+                } else if (name == MARK_ALL_PROPERTIES_DIRTY) {
+                    // Force dirty state (3).
+                    orMask |= PROPERTY_STATE_DIRTY << ((ordinal & 0xf) * 2);
                 }
-            } else if (name == MARK_ALL_PROPERTIES_DIRTY) {
-                // Force dirty state (3).
-                orMask |= PROPERTY_STATE_DIRTY << ((ordinal & 0xf) * 2);
             }
 
             ordinal++;
@@ -2514,16 +2523,18 @@ public final class StorableGenerator<S extends Storable> {
         int andMask = 0xffffffff;
         int orMask = 0;
         for (StorableProperty property : mAllProperties.values()) {
-            if (property == ordinaryProperty) {
-                if (mGenMode == GEN_ABSTRACT) {
-                    // Only GEN_ABSTRACT mode uses these state bits.
-                    orMask |= PROPERTY_STATE_DIRTY << ((ordinal & 0xf) * 2);
-                }
-            } else if (property.isJoin()) {
-                // Check to see if ordinary is an internal member of join property.
-                for (int i=property.getJoinElementCount(); --i>=0; ) {
-                    if (ordinaryProperty == property.getInternalJoinElement(i)) {
-                        andMask &= ~(PROPERTY_STATE_DIRTY << ((ordinal & 0xf) * 2));
+            if (!property.isDerived()) {
+                if (property == ordinaryProperty) {
+                    if (mGenMode == GEN_ABSTRACT) {
+                        // Only GEN_ABSTRACT mode uses these state bits.
+                        orMask |= PROPERTY_STATE_DIRTY << ((ordinal & 0xf) * 2);
+                    }
+                } else if (property.isJoin()) {
+                    // Check to see if ordinary is an internal member of join property.
+                    for (int i=property.getJoinElementCount(); --i>=0; ) {
+                        if (ordinaryProperty == property.getInternalJoinElement(i)) {
+                            andMask &= ~(PROPERTY_STATE_DIRTY << ((ordinal & 0xf) * 2));
+                        }
                     }
                 }
             }
@@ -2556,13 +2567,15 @@ public final class StorableGenerator<S extends Storable> {
         int ordinal = 0;
         int andMask = 0;
         for (StorableProperty property : mAllProperties.values()) {
-            if (!property.isJoin() && (!property.isPrimaryKeyMember() || includePk)) {
-                // Logical 'and' will convert state 1 (clean) to state 0, so
-                // that it will be ignored. State 3 (dirty) is what we're
-                // looking for, and it turns into 2. Essentially, we leave the
-                // high order bit on, since there is no state which has the
-                // high order bit on unless the low order bit is also on.
-                andMask |= 2 << ((ordinal & 0xf) * 2);
+            if (!property.isDerived()) {
+                if (!property.isJoin() && (!property.isPrimaryKeyMember() || includePk)) {
+                    // Logical 'and' will convert state 1 (clean) to state 0, so
+                    // that it will be ignored. State 3 (dirty) is what we're
+                    // looking for, and it turns into 2. Essentially, we leave the
+                    // high order bit on, since there is no state which has the
+                    // high order bit on unless the low order bit is also on.
+                    andMask |= 2 << ((ordinal & 0xf) * 2);
+                }
             }
             ordinal++;
             if ((ordinal & 0xf) == 0 || ordinal >= count) {
@@ -2623,8 +2636,10 @@ public final class StorableGenerator<S extends Storable> {
         int ordinal = 0;
         int mask = 0;
         for (StorableProperty property : mAllProperties.values()) {
-            if (properties.containsKey(property.getName())) {
-                mask |= PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2);
+            if (!property.isDerived()) {
+                if (properties.containsKey(property.getName())) {
+                    mask |= PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2);
+                }
             }
             ordinal++;
             if (((ordinal & 0xf) == 0 || ordinal >= mAllProperties.size()) && mask != 0) {
@@ -2772,6 +2787,7 @@ public final class StorableGenerator<S extends Storable> {
         // Params to invoke String.equals.
         TypeDesc[] params = {TypeDesc.OBJECT};
 
+        Label derivedMatch = null;
         Label joinMatch = null;
 
         for (int i=0; i<caseCount; i++) {
@@ -2802,7 +2818,12 @@ public final class StorableGenerator<S extends Storable> {
                     b.ifZeroComparisonBranch(notEqual, "==");
                 }
 
-                if (prop.isJoin()) {
+                if (prop.isDerived()) {
+                    if (derivedMatch == null) {
+                        derivedMatch = b.createLabel();
+                    }
+                    b.branch(derivedMatch);
+                } else if (prop.isJoin()) {
                     if (joinMatch == null) {
                         joinMatch = b.createLabel();
                     }
@@ -2840,6 +2861,18 @@ public final class StorableGenerator<S extends Storable> {
         b.invokeVirtual(TypeDesc.STRING, "concat", TypeDesc.STRING, params);
         b.invokeConstructor(exceptionType, params);
         b.throwObject();
+
+        if (derivedMatch != null) {
+            derivedMatch.setLocation();
+
+            b.newObject(exceptionType);
+            b.dup();
+            b.loadConstant("Cannot get state for derived property: ");
+            b.loadLocal(b.getParameter(0));
+            b.invokeVirtual(TypeDesc.STRING, "concat", TypeDesc.STRING, params);
+            b.invokeConstructor(exceptionType, params);
+            b.throwObject();
+        }
 
         if (joinMatch != null) {
             joinMatch.setLocation();
@@ -2936,7 +2969,7 @@ public final class StorableGenerator<S extends Storable> {
 
         boolean mixIn = false;
         for (StorableProperty property : mAllProperties.values()) {
-            if (property.isJoin()) {
+            if (property.isDerived() || property.isJoin()) {
                 continue;
             }
             addHashCodeCall(b, property.getName(),
@@ -3105,7 +3138,7 @@ public final class StorableGenerator<S extends Storable> {
         b.storeLocal(other);
 
         for (StorableProperty property : mAllProperties.values()) {
-            if (property.isJoin()) {
+            if (property.isDerived() || property.isJoin()) {
                 continue;
             }
             // If we're only comparing keys, and this isn't a key, skip it
@@ -3211,8 +3244,10 @@ public final class StorableGenerator<S extends Storable> {
         // Second pass, print non-primary keys.
         if (!keyOnly) {
             for (StorableProperty property : mAllProperties.values()) {
-                // Don't print join properties if they may throw an exception.
-                if (!property.isPrimaryKeyMember() && (!property.isJoin())) {
+                // Don't print any derived or join properties since they may throw an exception.
+                if (!property.isPrimaryKeyMember() &&
+                    (!property.isDerived()) && (!property.isJoin()))
+                {
                     Label skipPrint = b.createLabel();
 
                     // Check if independent property is supported, and skip if not.

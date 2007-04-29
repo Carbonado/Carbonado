@@ -199,6 +199,23 @@ public abstract class WrappedQuery<S extends Storable> implements Query<S> {
         return mQuery.toString();
     }
 
+    @Override
+    public int hashCode() {
+        return mQuery.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj instanceof WrappedQuery) {
+            WrappedQuery<?> other = (WrappedQuery<?>) obj;
+            return mQuery.equals(other.mQuery);
+        }
+        return false;
+    }
+
     protected Query<S> getWrappedQuery() {
         return mQuery;
     }

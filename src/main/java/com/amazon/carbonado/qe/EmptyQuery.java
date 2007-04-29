@@ -273,6 +273,24 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
         return false;
     }
 
+    @Override
+    public int hashCode() {
+        return mFactory.hashCode() * 31 + mOrdering.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj instanceof EmptyQuery) {
+            EmptyQuery<?> other = (EmptyQuery<?>) obj;
+            return mFactory.equals(other.mFactory)
+                && mOrdering.equals(other.mOrdering);
+        }
+        return false;
+    }
+
     private IllegalStateException error() {
         return new IllegalStateException("Query doesn't have any parameters");
     }

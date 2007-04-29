@@ -86,7 +86,7 @@ class IndexedRepository implements Repository,
 
                 if (Unindexed.class.isAssignableFrom(type)) {
                     // Verify no indexes.
-                    int indexCount = IndexedStorage
+                    int indexCount = IndexAnalysis
                         .gatherDesiredIndexes(StorableIntrospector.examine(type)).size();
                     if (indexCount > 0) {
                         throw new MalformedTypeException
@@ -152,7 +152,12 @@ class IndexedRepository implements Repository,
         getIndexEntryAccessors(Class<S> storableType)
         throws RepositoryException
     {
-        return ((IndexedStorage<S>) storageFor(storableType)).getIndexEntryAccessors();
+        Storage<S> storage = storageFor(storableType);
+        if (storage instanceof IndexedStorage) {
+            return ((IndexedStorage<S>) storage).getIndexEntryAccessors();
+        } else {
+            return new IndexEntryAccessor[0];
+        }
     }
 
     public String[] getUserStorableTypeNames() throws RepositoryException {

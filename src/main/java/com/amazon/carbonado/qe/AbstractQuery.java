@@ -123,4 +123,10 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
         }
         return b.toString();
     }
+
+    @Override
+    public abstract int hashCode();
+
+    @Override
+    public abstract boolean equals(Object obj);
 }

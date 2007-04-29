@@ -223,7 +223,7 @@ class JDBCStorableGenerator<S extends Storable> {
         // UnsupportedOperationException.
         {
             for (JDBCStorableProperty<S> property : mAllProperties.values()) {
-                if (property.isJoin() || property.isSupported()) {
+                if (property.isDerived() || property.isJoin() || property.isSupported()) {
                     continue;
                 }
                 String message = "Independent property \"" + property.getName() +
@@ -444,7 +444,7 @@ class JDBCStorableGenerator<S extends Storable> {
                 sb.append(" ( ");
 
                 int ordinal = 0;
-                for (JDBCStorableProperty<?> property : mInfo.getAllProperties().values()) {
+                for (JDBCStorableProperty<?> property : mAllProperties.values()) {
                     if (!property.isSelectable()) {
                         continue;
                     }
@@ -470,10 +470,12 @@ class JDBCStorableGenerator<S extends Storable> {
             }
 
             boolean useStaticInsertStatement = true;
-            for (JDBCStorableProperty<?> property : mInfo.getAllProperties().values()) {
-                if (property.isVersion() || property.isAutomatic()) {
-                    useStaticInsertStatement = false;
-                    break;
+            for (JDBCStorableProperty<?> property : mAllProperties.values()) {
+                if (!property.isDerived()) {
+                    if (property.isVersion() || property.isAutomatic()) {
+                        useStaticInsertStatement = false;
+                        break;
+                    }
                 }
             }
 
@@ -489,7 +491,7 @@ class JDBCStorableGenerator<S extends Storable> {
 
                 insertCountVar = b.createLocalVariable(null, TypeDesc.INT);
                 int initialCount = 0;
-                for (JDBCStorableProperty<?> property : mInfo.getAllProperties().values()) {
+                for (JDBCStorableProperty<?> property : mAllProperties.values()) {
                     if (!property.isSelectable()) {
                         continue;
                     }
@@ -517,7 +519,7 @@ class JDBCStorableGenerator<S extends Storable> {
                 CodeBuilderUtil.callStringBuilderAppendString(b);
 
                 int propNumber = -1;
-                for (JDBCStorableProperty<?> property : mInfo.getAllProperties().values()) {
+                for (JDBCStorableProperty<?> property : mAllProperties.values()) {
                     propNumber++;
                     if (!property.isSelectable()) {
                         continue;

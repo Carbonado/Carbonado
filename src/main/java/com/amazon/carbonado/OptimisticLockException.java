@@ -89,6 +89,18 @@ public class OptimisticLockException extends PersistException {
     }
 
     /**
+     * Construct exception for when new version was expected to have increased.
+     *
+     * @param savedVersion actual persistent version number of storable
+     * @param s Storable which was acted upon
+     * @param newVersion new version which was provided
+     */
+    public OptimisticLockException(Object savedVersion, Storable s, Object newVersion) {
+        super(makeMessage(savedVersion, s, newVersion));
+        mStorable = s;
+    }
+
+    /**
      * Returns the Storable which was acted upon, or null if not available.
      */
     public Storable getStorable() {
@@ -102,6 +114,26 @@ public class OptimisticLockException extends PersistException {
         } else {
             message = "Update acted on version " + expectedVersion +
                 ", but canonical version is " + savedVersion;
+        }
+
+        if (s != null) {
+            if (message == null) {
+                message = s.toStringKeyOnly();
+            } else {
+                message = message + ": " + s.toStringKeyOnly();
+            }
+        }
+
+        return message;
+    }
+
+    private static String makeMessage(Object savedVersion, Storable s, Object newVersion) {
+        String message;
+        if (savedVersion == null && newVersion == null) {
+            message = "New version is not larger than existing version";
+        } else {
+            message = "New version of " + newVersion +
+                " is not larger than existing version of " + savedVersion;
         }
 
         if (s != null) {

@@ -267,7 +267,9 @@ public class CodeBuilderUtil {
 
     /**
      * Generates code to compare two values on the stack, and branch to the
-     * provided Label if they are not equal.  Both values must be of the same type.
+     * provided Label if they are not equal.  Both values must be of the same
+     * type. If they are floating point values, NaN is considered equal to NaN,
+     * which is inconsistent with the usual treatment for NaN.
      *
      * <P>The generated instruction consumes both values on the stack.
      *
@@ -286,18 +288,25 @@ public class CodeBuilderUtil {
                                           final boolean choice)
     {
         if (valueType.getTypeCode() != TypeDesc.OBJECT_CODE) {
-            b.ifComparisonBranch(label, choice ? "==" : "!=", valueType);
+            if (valueType.getTypeCode() == TypeDesc.FLOAT_CODE) {
+                // Special treatment to handle NaN.
+                b.invokeStatic(TypeDesc.FLOAT.toObjectType(), "compare", TypeDesc.INT,
+                               new TypeDesc[] {TypeDesc.FLOAT, TypeDesc.FLOAT});
+                b.ifZeroComparisonBranch(label, choice ? "==" : "!=");
+            } else if (valueType.getTypeCode() == TypeDesc.DOUBLE_CODE) {
+                // Special treatment to handle NaN.
+                b.invokeStatic(TypeDesc.DOUBLE.toObjectType(), "compare", TypeDesc.INT,
+                               new TypeDesc[] {TypeDesc.DOUBLE, TypeDesc.DOUBLE});
+                b.ifZeroComparisonBranch(label, choice ? "==" : "!=");
+            } else {
+                b.ifComparisonBranch(label, choice ? "==" : "!=", valueType);
+            }
             return;
         }
 
-        // Equals method returns zero for false, so if choice is true, branch
-        // if not zero. Note that operator selection is opposite when invoking
-        // a direct ifComparisonBranch method.
-        String equalsBranchOp = choice ? "!=" : "==";
-
         if (!testForNull) {
-            addEqualsCallTo(b, valueType);
-            b.ifZeroComparisonBranch(label, equalsBranchOp);
+            String op = addEqualsCallTo(b, valueType, choice);
+            b.ifZeroComparisonBranch(label, op);
             return;
         }
 
@@ -318,14 +327,19 @@ public class CodeBuilderUtil {
         isNotNull.setLocation();
         b.loadLocal(value);
         b.swap();
-        addEqualsCallTo(b, valueType);
-        b.ifZeroComparisonBranch(label, equalsBranchOp);
+        String op = addEqualsCallTo(b, valueType, choice);
+        b.ifZeroComparisonBranch(label, op);
 
         cont.setLocation();
     }
 
-    public static void addEqualsCallTo(CodeBuilder b, TypeDesc fieldType) {
+    /**
+     * @param fieldType must be an object type
+     * @return zero comparison branch operator
+     */
+    private static String addEqualsCallTo(CodeBuilder b, TypeDesc fieldType, boolean choice) {
         if (fieldType.isArray()) {
+            // FIXME: Array comparisons don't handle desired comparison of NaN.
             if (!fieldType.getComponentType().isPrimitive()) {
                 TypeDesc type = TypeDesc.forClass(Object[].class);
                 b.invokeStatic("java.util.Arrays", "deepEquals",
@@ -334,6 +348,17 @@ public class CodeBuilderUtil {
                 b.invokeStatic("java.util.Arrays", "equals",
                                TypeDesc.BOOLEAN, new TypeDesc[] {fieldType, fieldType});
             }
+            return choice ? "!=" : "==";
+        } else if (fieldType.toPrimitiveType() == TypeDesc.FLOAT) {
+            // Special treatment to handle NaN.
+            b.invokeVirtual(TypeDesc.FLOAT.toObjectType(), "compareTo", TypeDesc.INT,
+                            new TypeDesc[] {TypeDesc.FLOAT.toObjectType()});
+            return choice ? "==" : "!=";
+        } else if (fieldType.toPrimitiveType() == TypeDesc.DOUBLE) {
+            // Special treatment to handle NaN.
+            b.invokeVirtual(TypeDesc.DOUBLE.toObjectType(), "compareTo", TypeDesc.INT,
+                            new TypeDesc[] {TypeDesc.DOUBLE.toObjectType()});
+            return choice ? "==" : "!=";
         } else {
             TypeDesc[] params = {TypeDesc.OBJECT};
             if (fieldType.toClass() != null) {
@@ -345,6 +370,7 @@ public class CodeBuilderUtil {
             } else {
                 b.invokeVirtual(TypeDesc.OBJECT, "equals", TypeDesc.BOOLEAN, params);
             }
+            return choice ? "!=" : "==";
         }
     }
 

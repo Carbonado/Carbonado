@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.repo.indexed;
 
+import java.lang.reflect.UndeclaredThrowableException;
+
 import java.util.Comparator;
 
 import org.apache.commons.logging.Log;
@@ -451,10 +453,23 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         }
     }
 
-    private Storable makeIndexEntry(S userStorable) {
-        Storable indexEntry = mIndexEntryStorage.prepare();
-        mGenerator.copyFromMaster(indexEntry, userStorable);
-        return indexEntry;
+    private Storable makeIndexEntry(S userStorable) throws PersistException {
+        try {
+            Storable indexEntry = mIndexEntryStorage.prepare();
+            mGenerator.copyFromMaster(indexEntry, userStorable);
+            return indexEntry;
+        } catch (UndeclaredThrowableException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof PersistException) {
+                throw (PersistException) cause;
+            }
+            throw new PersistException(cause);
+        } catch (Exception e) {
+            if (e instanceof PersistException) {
+                throw (PersistException) e;
+            }
+            throw new PersistException(e);
+        }
     }
 
     /** Assumes caller is in a transaction */

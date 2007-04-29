@@ -55,6 +55,7 @@ import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 
+import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
@@ -277,7 +278,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         ArrayList<String> errorMessages = new ArrayList<String>();
 
         for (StorableProperty<S> mainProperty : mainProperties.values()) {
-            if (mainProperty.isJoin() || tableName == null) {
+            if (mainProperty.isDerived() || mainProperty.isJoin() || tableName == null) {
                 jProperties.put(mainProperty.getName(), new JProperty<S>(mainProperty));
                 continue;
             }
@@ -1271,6 +1272,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mMainProperty.isJoin();
         }
 
+        public boolean isOneToOneJoin() {
+            return mMainProperty.isOneToOneJoin();
+        }
+
         public Class<? extends Storable> getJoinedType() {
             return mMainProperty.getJoinedType();
         }
@@ -1315,6 +1320,18 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mMainProperty.isIndependent();
         }
 
+        public boolean isDerived() {
+            return mMainProperty.isDerived();
+        }
+
+        public ChainedProperty<S>[] getDerivedFromProperties() {
+            return mMainProperty.getDerivedFromProperties();
+        }
+
+        public ChainedProperty<?>[] getDerivedToProperties() {
+            return mMainProperty.getDerivedToProperties();
+        }
+
         public boolean isSupported() {
             if (isJoin()) {
                 // TODO: Check if joined type is supported
@@ -1325,7 +1342,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         }
 
         public boolean isSelectable() {
-            return mColumnName != null && !isJoin();
+            return mColumnName != null && !isJoin() && !isDerived();
         }
 
         public boolean isAutoIncrement() {

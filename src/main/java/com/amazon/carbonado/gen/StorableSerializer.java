@@ -116,11 +116,11 @@ public abstract class StorableSerializer<S extends Storable> {
 
         StorableProperty<S>[] properties;
         {
-            // Exclude joins.
+            // Exclude derived properties and joins.
             List<StorableProperty<S>> list =
                 new ArrayList<StorableProperty<S>>(propertyMap.size());
             for (StorableProperty<S> property : propertyMap.values()) {
-                if (!property.isJoin()) {
+                if (!property.isDerived() && !property.isJoin()) {
                     list.add(property);
                 }
             }

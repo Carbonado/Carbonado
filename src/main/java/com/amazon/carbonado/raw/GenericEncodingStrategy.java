@@ -19,7 +19,9 @@
 package com.amazon.carbonado.raw;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import org.cojen.classfile.CodeAssembler;
@@ -397,14 +399,15 @@ public class GenericEncodingStrategy<S extends Storable> {
         Map<String, ? extends StorableProperty<S>> map =
             StorableIntrospector.examine(mType).getDataProperties();
 
-        StorableProperty<S>[] properties = new StorableProperty[map.size()];
+        List<StorableProperty<S>> list = new ArrayList<StorableProperty<S>>(map.size());
 
-        int ordinal = 0;
         for (StorableProperty<S> property : map.values()) {
-            properties[ordinal++] = property;
+            if (!property.isDerived()) {
+                list.add(property);
+            }
         }
 
-        return properties;
+        return list.toArray(new StorableProperty[list.size()]);
     }
 
     protected StorablePropertyInfo checkSupport(StorableProperty<S> property)

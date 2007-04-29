@@ -51,6 +51,7 @@ import com.amazon.carbonado.Alias;
 import com.amazon.carbonado.AlternateKeys;
 import com.amazon.carbonado.Authoritative;
 import com.amazon.carbonado.Automatic;
+import com.amazon.carbonado.Derived;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Index;
 import com.amazon.carbonado.Indexes;
@@ -230,9 +231,54 @@ public class StorableIntrospector {
             // late, then there would be a stack overflow.
             for (StorableProperty property : properties.values()) {
                 if (property instanceof JoinProperty) {
-                    ((JoinProperty)property).resolve(errorMessages, properties);
+                    ((JoinProperty)property).resolveJoin(errorMessages, info);
                 }
             }
+
+            // Resolve derived properties after join properties, since they may
+            // depend on them.
+            boolean anyDerived = false;
+            for (StorableProperty<S> property : properties.values()) {
+                if (property instanceof SimpleProperty && property.isDerived()) {
+                    anyDerived = true;
+                    ((SimpleProperty)property).resolveDerivedFrom(errorMessages, info);
+                }
+            }
+
+            if (anyDerived && errorMessages.size() == 0) {
+                // Make sure that any indexes which refer to derived properties
+                // throwing FetchException have derived-from properties
+                // listed. Why? The exception likely indicates that a join
+                // property is being fetched.
+
+                for (StorableIndex<S> index : indexes) {
+                    for (StorableProperty<S> property : index.getProperties()) {
+                        if (property.isDerived() && property.getReadMethod() != null &&
+                            property.getDerivedFromProperties().length == 0)
+                        {
+                            Class exceptionType = FetchException.class;
+
+                            Class<?>[] exceptions = property.getReadMethod().getExceptionTypes();
+                            boolean fetches = false;
+                            for (int i=exceptions.length; --i>=0; ) {
+                                if (exceptions[i].isAssignableFrom(exceptionType)) {
+                                    fetches = true;
+                                    break;
+                                }
+                            }
+
+                            if (fetches) {
+                                errorMessages.add
+                                    ("Index refers to a derived property which declares " +
+                                     "throwing a FetchException, but property does not " +
+                                     "list any derived-from properties: \"" +
+                                     property.getName() + "'");
+                            }
+                        }
+                    }
+                }
+            }
+
             if (errorMessages.size() > 0) {
                 cCache.remove(type);
                 throw new MalformedTypeException(type, errorMessages);
@@ -482,12 +528,13 @@ public class StorableIntrospector {
             }
             // Check if abstract method is just redefining a method in
             // Storable.
-            // TODO: Check if abstract method is redefining return type, which
-            // is allowed for copy method. The return type must be within its
-            // bounds.
             try {
                 Method m2 = Storable.class.getMethod(m.getName(), (Class[]) m.getParameterTypes());
                 if (m.getReturnType() == m2.getReturnType()) {
+                    it.remove();
+                }
+                // Copy method can be redefined with specialized return type.
+                if (m.getName().equals("copy") && type.isAssignableFrom(m.getReturnType())) {
                     it.remove();
                 }
             } catch (NoSuchMethodException e) {
@@ -523,7 +570,20 @@ public class StorableIntrospector {
             Method readMethod = property.getReadMethod();
             Method writeMethod = property.getWriteMethod();
 
-            if (readMethod == null && writeMethod == null) {
+            boolean isAbstract;
+            if (readMethod == null) {
+                if (writeMethod == null) {
+                    continue;
+                } else if (!Modifier.isAbstract(writeMethod.getModifiers()) &&
+                           writeMethod.getAnnotation(Derived.class) == null)
+                {
+                    // Ignore concrete property methods unless they're derived.
+                    continue;
+                }
+            } else if (!Modifier.isAbstract(readMethod.getModifiers()) &&
+                       readMethod.getAnnotation(Derived.class) == null)
+            {
+                // Ignore concrete property methods unless they're derived.
                 continue;
             }
 
@@ -540,7 +600,7 @@ public class StorableIntrospector {
 
             if (readMethod != null) {
                 String sig = createSig(readMethod);
-                if (methods.containsKey(sig)) {
+                if (storableProp.isDerived() || methods.containsKey(sig)) {
                     methods.remove(sig);
                     properties.put(property.getName(), storableProp);
                 } else {
@@ -550,7 +610,7 @@ public class StorableIntrospector {
 
             if (writeMethod != null) {
                 String sig = createSig(writeMethod);
-                if (methods.containsKey(sig)) {
+                if (storableProp.isDerived() || methods.containsKey(sig)) {
                     methods.remove(sig);
                     properties.put(property.getName(), storableProp);
                 } else {
@@ -698,6 +758,7 @@ public class StorableIntrospector {
         Automatic automatic = null;
         Independent independent = null;
         Join join = null;
+        Derived derived = null;
 
         Method readMethod = property.getReadMethod();
         Method writeMethod = property.getWriteMethod();
@@ -717,14 +778,16 @@ public class StorableIntrospector {
             automatic = readMethod.getAnnotation(Automatic.class);
             independent = readMethod.getAnnotation(Independent.class);
             join = readMethod.getAnnotation(Join.class);
+            derived = readMethod.getAnnotation(Derived.class);
         }
 
         if (writeMethod == null) {
             if (readMethod == null || Modifier.isAbstract(readMethod.getModifiers())) {
                 // Set method is always required for non-join properties. More
                 // work is done later on join properties, and sometimes the
-                // write method is required.
-                if (join == null) {
+                // write method is required. Derived properties don't need a
+                // set method.
+                if (join == null && derived == null) {
                     errorMessages.add("Must define proper 'set' method for property: " +
                                       property.getName());
                 }
@@ -757,6 +820,35 @@ public class StorableIntrospector {
             if (writeMethod.getAnnotation(Join.class) != null) {
                 errorMessages.add
                     ("Join annotation not allowed on mutator: " + writeMethod);
+            }
+            if (writeMethod.getAnnotation(Derived.class) != null) {
+                errorMessages.add
+                    ("Derived annotation not allowed on mutator: " + writeMethod);
+            }
+        }
+
+        if (derived != null) {
+            if (readMethod != null && Modifier.isAbstract(readMethod.getModifiers()) ||
+                writeMethod != null && Modifier.isAbstract(writeMethod.getModifiers()))
+            {
+                errorMessages.add("Derived properties cannot be abstract: " +
+                                  property.getName());
+            }
+            if (pk) {
+                errorMessages.add("Derived properties cannot be a member of primary key: " +
+                                  property.getName());
+            }
+            if (sequence != null) {
+                errorMessages.add("Derived properties cannot have a Sequence annotation: " +
+                                  property.getName());
+            }
+            if (automatic != null) {
+                errorMessages.add("Derived properties cannot have an Automatic annotation: " +
+                                  property.getName());
+            }
+            if (join != null) {
+                errorMessages.add("Derived properties cannot have a Join annotation: " +
+                                  property.getName());
             }
         }
 
@@ -813,6 +905,48 @@ public class StorableIntrospector {
             gatherAdapters(property, writeMethod, false, errorMessages);
         }
 
+        // Check that declared checked exceptions are allowed.
+        if (readMethod != null) {
+            for (Class<?> ex : readMethod.getExceptionTypes()) {
+                if (RuntimeException.class.isAssignableFrom(ex)
+                    || Error.class.isAssignableFrom(ex))
+                {
+                    continue;
+                }
+                if (join != null || derived != null) {
+                    if (FetchException.class.isAssignableFrom(ex)) {
+                        continue;
+                    }
+                    errorMessages.add
+                        ("Checked exceptions thrown by join or derived property accessors " +
+                         "must be of type FetchException: \"" + readMethod.getName() +
+                         "\" declares throwing \"" + ex.getName() + '"');
+                    break;
+                } else {
+                    errorMessages.add
+                        ("Only join and derived property accessors can throw checked " +
+                         "exceptions: \"" + readMethod.getName() + "\" declares throwing \"" +
+                         ex.getName() + '"');
+                    break;
+                }
+            }
+        }
+
+        // Check that declared checked exceptions are allowed.
+        if (writeMethod != null) {
+            for (Class<?> ex : writeMethod.getExceptionTypes()) {
+                if (RuntimeException.class.isAssignableFrom(ex)
+                    || Error.class.isAssignableFrom(ex))
+                {
+                    continue;
+                }
+                errorMessages.add
+                    ("Mutators cannot throw checked exceptions: \"" + writeMethod.getName() +
+                     "\" declares throwing \"" + ex.getName() + '"');
+                break;
+            }
+        }
+
         String sequenceName = null;
         if (sequence != null) {
             sequenceName = sequence.value();
@@ -825,7 +959,8 @@ public class StorableIntrospector {
             return new SimpleProperty<S>
                 (property, enclosing, nullable != null, pk, altKey,
                  aliases, constraints, adapters == null ? null : adapters[0],
-                 version != null, sequenceName, independent != null, automatic != null);
+                 version != null, sequenceName,
+                 independent != null, automatic != null, derived);
         }
 
         // Do additional work for join properties.
@@ -933,7 +1068,7 @@ public class StorableIntrospector {
         return new JoinProperty<S>
             (property, enclosing, nullable != null, aliases,
              constraints, adapters == null ? null : adapters[0],
-             sequenceName, independent != null, automatic != null,
+             sequenceName, independent != null, automatic != null, derived,
              joinedType, internal, external);
     }
 
@@ -1412,6 +1547,8 @@ public class StorableIntrospector {
     }
 
     private static class SimpleProperty<S extends Storable> implements StorableProperty<S> {
+        private static final ChainedProperty[] EMPTY_CHAIN_ARRAY = new ChainedProperty[0];
+
         private final BeanProperty mBeanProperty;
         private final Class<S> mEnclosingType;
         private final boolean mNullable;
@@ -1424,13 +1561,24 @@ public class StorableIntrospector {
         private final String mSequence;
         private final boolean mIndependent;
         private final boolean mAutomatic;
+        private final boolean mIsDerived;
+
+        // Temporary reference until derived from is resolved.
+        private Derived mDerived;
+
+        // Resolved derived from properties.
+        private ChainedProperty<S>[] mDerivedFrom;
+
+        // Resolved derived to properties.
+        private ChainedProperty<S>[] mDerivedTo;
 
         SimpleProperty(BeanProperty property, Class<S> enclosing,
                        boolean nullable, boolean primaryKey, boolean alternateKey,
                        String[] aliases, StorablePropertyConstraint[] constraints,
                        StorablePropertyAdapter adapter,
                        boolean isVersion, String sequence,
-                       boolean independent, boolean automatic)
+                       boolean independent, boolean automatic,
+                       Derived derived)
         {
             mBeanProperty = property;
             mEnclosingType = enclosing;
@@ -1444,6 +1592,8 @@ public class StorableIntrospector {
             mSequence = sequence;
             mIndependent = independent;
             mAutomatic = automatic;
+            mIsDerived = derived != null;
+            mDerived = derived;
         }
 
         public final String getName() {
@@ -1536,7 +1686,42 @@ public class StorableIntrospector {
             return mIsVersion;
         }
 
+        public final boolean isDerived() {
+            return mIsDerived;
+        }
+
+        public final ChainedProperty<S>[] getDerivedFromProperties() {
+            return (!mIsDerived || mDerivedFrom == null) ?
+                EMPTY_CHAIN_ARRAY : mDerivedFrom.clone();
+        }
+
+        public final ChainedProperty<?>[] getDerivedToProperties() {
+            if (mDerivedTo == null) {
+                // Derived-to properties must be determined on demand because
+                // introspection might have been initiated by a dependency. If
+                // that dependency is asked for derived properties, it will not
+                // yet have resolved derived-from properties.
+
+                Set<ChainedProperty<?>> derivedToSet = new LinkedHashSet<ChainedProperty<?>>();
+                Set<Class<?>> examinedSet = new HashSet<Class<?>>();
+
+                addToDerivedToSet(derivedToSet, examinedSet, examine(getEnclosingType()));
+
+                if (derivedToSet.size() > 0) {
+                    mDerivedTo = derivedToSet.toArray(new ChainedProperty[derivedToSet.size()]);
+                } else {
+                    mDerivedTo = EMPTY_CHAIN_ARRAY;
+                }
+            }
+
+            return mDerivedTo.clone();
+        }
+
         public boolean isJoin() {
+            return false;
+        }
+
+        public boolean isOneToOneJoin() {
             return false;
         }
 
@@ -1635,6 +1820,216 @@ public class StorableIntrospector {
             app.append(getEnclosingType().getName());
             app.append('}');
         }
+
+        void resolveDerivedFrom(List<String> errorMessages, StorableInfo<S> info) {
+            Derived derived = mDerived;
+            // Don't need this anymore.
+            mDerived = null;
+
+            if (!mIsDerived || derived == null) {
+                return;
+            }
+            String[] fromNames = derived.from();
+            if (fromNames == null || fromNames.length == 0) {
+                return;
+            }
+
+            Set<ChainedProperty<S>> derivedFromSet = new LinkedHashSet<ChainedProperty<S>>();
+
+            for (String fromName : fromNames) {
+                ChainedProperty<S> from;
+                try {
+                    from = ChainedProperty.parse(info, fromName);
+                } catch (IllegalArgumentException e) {
+                    errorMessages.add
+                        ("Cannot find derived-from property: \"" +
+                         getName() + "\" reports being derived from \"" +
+                         fromName + '"');
+                    continue;
+                }
+                addToDerivedFromSet(errorMessages, derivedFromSet, from);
+            }
+
+            if (derivedFromSet.size() > 0) {
+                if (derivedFromSet.contains(ChainedProperty.get(this))) {
+                    errorMessages.add
+                        ("Derived-from dependency cycle detected: \"" + getName() + '"');
+                }
+
+                mDerivedFrom = derivedFromSet
+                    .toArray(new ChainedProperty[derivedFromSet.size()]);
+            } else {
+                mDerivedFrom = null;
+            }
+        }
+
+        private boolean addToDerivedFromSet(List<String> errorMessages,
+                                            Set<ChainedProperty<S>> derivedFromSet,
+                                            ChainedProperty<S> from)
+        {
+            if (derivedFromSet.contains(from)) {
+                return false;
+            }
+
+            derivedFromSet.add(from);
+
+            ChainedProperty<S> trimmed = from.getChainCount() == 0 ? null : from.trim();
+
+            if (trimmed != null) {
+                // Include all join properties as dependencies.
+                addToDerivedFromSet(errorMessages, derivedFromSet, trimmed);
+            }
+
+            StorableProperty<?> lastInChain = from.getLastProperty();
+
+            if (lastInChain.isDerived()) {
+                // Expand derived dependencies.
+                ((SimpleProperty) lastInChain)
+                    .resolveDerivedFrom(errorMessages, examine(lastInChain.getEnclosingType()));
+                for (ChainedProperty<?> lastFrom : lastInChain.getDerivedFromProperties()) {
+                    ChainedProperty<S> dep;
+                    if (trimmed == null) {
+                        dep = (ChainedProperty<S>) lastFrom;
+                    } else {
+                        dep = trimmed.append(lastFrom);
+                    }
+                    addToDerivedFromSet(errorMessages, derivedFromSet, dep);
+                }
+            }
+
+            if (lastInChain.isJoin() && errorMessages.size() == 0) {
+                // Make sure that join is doubly specified. Why? Consider the
+                // case where the derived property is a member of an index or
+                // key. If the joined Storable class gets loaded first, it will
+                // not know that an index exists that it should keep
+                // up-to-date. With the double join, it can check to see if
+                // there are any foreign indexes. This check could probably be
+                // skipped if the derived property doesn't belong to an index
+                // or key, but consistent error checking behavior is desirable.
+
+                Class<? extends Storable> joined = lastInChain.getJoinedType();
+
+                doubly: {
+                    for (StorableProperty<?> prop : examine(joined).getAllProperties().values()) {
+                        if (prop.isJoin() &&
+                            prop.getJoinedType() == lastInChain.getEnclosingType())
+                        {
+                            break doubly;
+                        }
+                    }
+
+                    StringBuilder suggest = new StringBuilder();
+
+                    suggest.append("@Join");
+
+                    int count = lastInChain.getJoinElementCount();
+                    boolean naturalJoin = true;
+                    for (int i=0; i<count; i++) {
+                        if (!lastInChain.getInternalJoinElement(i).getName().equals
+                            (lastInChain.getExternalJoinElement(i).getName()))
+                        {
+                            naturalJoin = false;
+                            break;
+                        }
+                    }
+
+                    if (!naturalJoin) {
+                        suggest.append("(internal=");
+                        if (count > 1) {
+                            suggest.append('{');
+                        }
+                        for (int i=0; i<count; i++) {
+                            if (i > 0) {
+                                suggest.append(", ");
+                            }
+                            suggest.append('"');
+                            // This property's external is other's internal.
+                            suggest.append(lastInChain.getExternalJoinElement(i).getName());
+                            suggest.append('"');
+                        }
+                        if (count > 1) {
+                            suggest.append('}');
+                        }
+
+                        suggest.append(", external=");
+                        if (count > 1) {
+                            suggest.append('{');
+                        }
+                        for (int i=0; i<count; i++) {
+                            if (i > 0) {
+                                suggest.append(", ");
+                            }
+                            suggest.append('"');
+                            // This property's internal is other's external.
+                            suggest.append(lastInChain.getInternalJoinElement(i).getName());
+                            suggest.append('"');
+                        }
+                        if (count > 1) {
+                            suggest.append('}');
+                        }
+
+                        suggest.append(")");
+                    }
+
+                    suggest.append(' ');
+
+                    if (!joined.isInterface()) {
+                        suggest.append("public abstract ");
+                    }
+
+                    if (lastInChain.isOneToOneJoin() || lastInChain.isQuery()) {
+                        suggest.append(lastInChain.getEnclosingType().getName());
+                    } else {
+                        suggest.append("Query<");
+                        suggest.append(lastInChain.getEnclosingType().getName());
+                        suggest.append('>');
+                    }
+
+                    suggest.append(" getXxx() throws FetchException");
+
+                    errorMessages.add
+                        ("Derived-from property is a join, but it is not doubly joined: \"" +
+                         getName() + "\" is derived from \"" + from +
+                         "\". Consider defining a join property in " + joined + " as: " + suggest);
+                }
+            }
+
+            return true;
+        }
+
+        private boolean addToDerivedToSet(Set<ChainedProperty<?>> derivedToSet,
+                                          Set<Class<?>> examinedSet,
+                                          StorableInfo<?> info)
+        {
+            if (examinedSet.contains(info.getStorableType())) {
+                return false;
+            }
+
+            // Prevent infinite loop while following join paths.
+            examinedSet.add(info.getStorableType());
+
+            final int originalSize = derivedToSet.size();
+
+            for (StorableProperty<?> property : info.getAllProperties().values()) {
+                if (property.isDerived()) {
+                    for (ChainedProperty<?> from : property.getDerivedFromProperties()) {
+                        if (from.getLastProperty().equals(this)) {
+                            ChainedProperty<?> path = ChainedProperty.get(property);
+                            if (from.getChainCount() > 0) {
+                                path = path.append(from.trim());
+                            }
+                            derivedToSet.add(path);
+                        }
+                    }
+                }
+                if (property.isJoin()) {
+                    addToDerivedToSet(derivedToSet, examinedSet,
+                                      examine(property.getJoinedType()));
+                }
+            }
+
+            return derivedToSet.size() > originalSize;
+        }
     }
 
     private static final class JoinProperty<S extends Storable> extends SimpleProperty<S> {
@@ -1649,16 +2044,19 @@ public class StorableIntrospector {
         private StorableProperty<S>[] mInternal;
         private StorableProperty<?>[] mExternal;
 
+        private boolean mOneToOne;
+
         JoinProperty(BeanProperty property, Class<S> enclosing,
                      boolean nullable,
                      String[] aliases, StorablePropertyConstraint[] constraints,
                      StorablePropertyAdapter adapter,
                      String sequence, boolean independent, boolean automatic,
+                     Derived derived,
                      Class<? extends Storable> joinedType,
                      String[] internal, String[] external)
         {
             super(property, enclosing, nullable, false, false,
-                  aliases, constraints, adapter, false, sequence, independent, automatic);
+                  aliases, constraints, adapter, false, sequence, independent, automatic, derived);
             mJoinedType = joinedType;
 
             int length = internal.length;
@@ -1672,6 +2070,10 @@ public class StorableIntrospector {
 
         public boolean isJoin() {
             return true;
+        }
+
+        public boolean isOneToOneJoin() {
+            return mOneToOne;
         }
 
         public Class<? extends Storable> getJoinedType() {
@@ -1706,32 +2108,39 @@ public class StorableIntrospector {
          * Finishes the definition of this join property. Can only be called once.
          */
         @SuppressWarnings("unchecked")
-        void resolve(List<String> errorMessages, Map<String, StorableProperty<S>> properties) {
-            StorableInfo<?> joinedInfo = examine(getJoinedType());
+        void resolveJoin(List<String> errorMessages, StorableInfo<S> info) {
+            StorableInfo<?> joinedInfo;
+            try {
+                joinedInfo = examine(getJoinedType());
 
-            if (mInternalNames.length == 0) {
-                // Since no join elements specified, perform a natural join.
-                // If the joined type is a list, then the join elements are
-                // defined by this enclosing type's primary keys. Otherwise,
-                // they are defined by the joined type's primary keys.
+                if (mInternalNames.length == 0) {
+                    // Since no join elements specified, perform a natural join.
+                    // If the joined type is a list, then the join elements are
+                    // defined by this enclosing type's primary keys. Otherwise,
+                    // they are defined by the joined type's primary keys.
 
-                Map<String, ? extends StorableProperty<?>> primaryKeys;
+                    Map<String, ? extends StorableProperty<?>> primaryKeys;
 
-                if (isQuery()) {
-                    primaryKeys = examine(getEnclosingType()).getPrimaryKeyProperties();
-                } else {
-                    primaryKeys = joinedInfo.getPrimaryKeyProperties();
+                    if (isQuery()) {
+                        primaryKeys = examine(getEnclosingType()).getPrimaryKeyProperties();
+                    } else {
+                        primaryKeys = joinedInfo.getPrimaryKeyProperties();
+                    }
+
+                    mInternalNames = new String[primaryKeys.size()];
+                    mExternalNames = new String[primaryKeys.size()];
+
+                    int i = 0;
+                    for (String name : primaryKeys.keySet()) {
+                        mInternalNames[i] = name;
+                        mExternalNames[i] = name;
+                        i++;
+                    }
                 }
-
-                mInternalNames = new String[primaryKeys.size()];
-                mExternalNames = new String[primaryKeys.size()];
-
-                int i = 0;
-                for (String name : primaryKeys.keySet()) {
-                    mInternalNames[i] = name;
-                    mExternalNames[i] = name;
-                    i++;
-                }
+            } catch (MalformedTypeException e) {
+                mInternal = new StorableProperty[0];
+                mExternal = new StorableProperty[0];
+                throw e;
             }
 
             mInternal = new StorableProperty[mInternalNames.length];
@@ -1740,7 +2149,7 @@ public class StorableIntrospector {
             // Verify that internal properties exist and are not themselves joins.
             for (int i=0; i<mInternalNames.length; i++) {
                 String internalName = mInternalNames[i];
-                StorableProperty property = properties.get(internalName);
+                StorableProperty property = info.getAllProperties().get(internalName);
                 if (property == null) {
                     errorMessages.add
                         ("Cannot find internal join element: \"" +
@@ -1958,12 +2367,12 @@ public class StorableIntrospector {
             // Test which keys of joined object are specified.
 
             // Create a copy of all the primary keys of joined object.
-            Set<StorableProperty> primaryKeys =
+            Set<StorableProperty> primaryKey =
                 new HashSet<StorableProperty>(joinedInfo.getPrimaryKeyProperties().values());
 
             // Remove external properties from the primary key set.
             for (int i=0; i<mInternal.length; i++) {
-                primaryKeys.remove(getExternalJoinElement(i));
+                primaryKey.remove(getExternalJoinElement(i));
             }
 
             // Do similar test for alternate keys.
@@ -1996,7 +2405,7 @@ public class StorableIntrospector {
             if (isQuery()) {
                 // Key of joined object must not be completely specified.
 
-                if (primaryKeys.size() <= 0) {
+                if (primaryKey.size() <= 0) {
                     errorMessages.add
                         ("Join property \"" + getName() +
                          "\" completely specifies primary key of joined object; " +
@@ -2019,7 +2428,7 @@ public class StorableIntrospector {
 
                 fullKeyCheck:
                 {
-                    if (primaryKeys.size() <= 0) {
+                    if (primaryKey.size() <= 0) {
                         break fullKeyCheck;
                     }
 
@@ -2035,6 +2444,48 @@ public class StorableIntrospector {
                          "declaring the property type as Query<" +
                          getJoinedType().getName() + '>');
                 }
+
+                // Determine if one-to-one join. If internal properties
+                // completely specify any key, then it is one-to-one.
+
+                boolean oneToOne = false;
+
+                oneToOneCheck: {
+                    Set<StorableProperty> internalPrimaryKey =
+                        new HashSet<StorableProperty>(info.getPrimaryKeyProperties().values());
+                
+                    for (int i=0; i<mInternal.length; i++) {
+                        internalPrimaryKey.remove(getInternalJoinElement(i));
+                        if (internalPrimaryKey.size() == 0) {
+                            oneToOne = true;
+                            break oneToOneCheck;
+                        }
+                    }
+
+                    altKeyScan:
+                    for (int i=0; i<info.getAlternateKeyCount(); i++) {
+                        Set<StorableProperty> altKey = new HashSet<StorableProperty>();
+
+                        for (OrderedProperty op : info.getAlternateKey(i).getProperties()) {
+                            ChainedProperty chained = op.getChainedProperty();
+                            if (chained.getChainCount() > 0) {
+                                // Funny alt key. Pretend it does not exist.
+                                continue altKeyScan;
+                            }
+                            altKey.add(chained.getPrimeProperty());
+                        }
+
+                        for (int j=0; j<mInternal.length; j++) {
+                            altKey.remove(getInternalJoinElement(j));
+                            if (altKey.size() == 0) {
+                                oneToOne = true;
+                                break oneToOneCheck;
+                            }
+                        }
+                    }
+                }
+
+                mOneToOne = oneToOne;
             }
 
             if (mutatorAllowed && getWriteMethod() == null) {

@@ -797,7 +797,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             StorableIntrospector.examine(altStorable).getAllProperties();
 
         for (StorableProperty prop : currentProps.values()) {
-            if (prop.isJoin()) {
+            if (prop.isDerived() || prop.isJoin()) {
                 continue;
             }
 

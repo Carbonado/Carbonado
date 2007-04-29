@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -32,9 +33,11 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
+import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
+import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.capability.IndexInfo;
@@ -45,6 +48,7 @@ import com.amazon.carbonado.cursor.MergeSortBuffer;
 
 import com.amazon.carbonado.filter.Filter;
 
+import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
@@ -53,6 +57,7 @@ import com.amazon.carbonado.info.StorableIndex;
 import com.amazon.carbonado.cursor.SortBuffer;
 
 import com.amazon.carbonado.qe.BoundaryType;
+import com.amazon.carbonado.qe.FilteringScore;
 import com.amazon.carbonado.qe.QueryEngine;
 import com.amazon.carbonado.qe.QueryExecutorFactory;
 import com.amazon.carbonado.qe.StorageAccess;
@@ -69,13 +74,6 @@ import static com.amazon.carbonado.repo.indexed.ManagedIndex.*;
  * @author Brian S O'Neill
  */
 class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S> {
-    static <S extends Storable> StorableIndexSet<S> gatherDesiredIndexes(StorableInfo<S> info) {
-        StorableIndexSet<S> indexSet = new StorableIndexSet<S>();
-        indexSet.addIndexes(info);
-        indexSet.addAlternateKeys(info);
-        return indexSet;
-    }
-
     final IndexedRepository mRepository;
     final Storage<S> mMasterStorage;
 
@@ -102,7 +100,7 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         // The set of indexes that the Storable defines, reduced.
         final StorableIndexSet<S> desiredIndexSet;
         {
-            desiredIndexSet = gatherDesiredIndexes(info);
+            desiredIndexSet = IndexAnalysis.gatherDesiredIndexes(info);
             desiredIndexSet.reduce(Direction.ASCENDING);
         }
 
@@ -299,6 +297,17 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
 
         mQueryableIndexSet = queryableIndexSet;
         mQueryEngine = new QueryEngine<S>(masterStorage.getStorableType(), repository);
+
+        // Install triggers to manage derived properties in external Storables.
+
+        Set<ChainedProperty<?>> derivedToDependencies =
+            IndexAnalysis.gatherDerivedToDependencies(info);
+
+        if (derivedToDependencies != null) {
+            for (ChainedProperty<?> derivedTo : derivedToDependencies) {
+                addTrigger(new DerivedIndexesTrigger(repository, getStorableType(), derivedTo));
+            }
+        }
     }
 
     public Class<S> getStorableType() {

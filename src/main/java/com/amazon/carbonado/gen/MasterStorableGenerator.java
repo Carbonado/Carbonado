@@ -126,7 +126,7 @@ public final class MasterStorableGenerator<S extends Storable> {
         anySequences:
         if (features.contains(MasterFeature.INSERT_SEQUENCES)) {
             for (StorableProperty<S> property : info.getAllProperties().values()) {
-                if (property.getSequenceName() != null) {
+                if (!property.isDerived() && property.getSequenceName() != null) {
                     break anySequences;
                 }
             }
@@ -266,7 +266,7 @@ public final class MasterStorableGenerator<S extends Storable> {
 
                 int ordinal = 0;
                 for (StorableProperty<S> property : mAllProperties.values()) {
-                    if (property.getSequenceName() != null) {
+                    if (!property.isDerived() && property.getSequenceName() != null) {
                         // Check the state of this property, to see if it is
                         // uninitialized. Uninitialized state has value zero.
 
@@ -362,14 +362,16 @@ public final class MasterStorableGenerator<S extends Storable> {
             Label tryStart = addEnterTransaction(b, INSERT_OP, txnVar);
 
             if (mFeatures.contains(MasterFeature.VERSIONING)) {
-                // Only set if uninitialized.
-                b.loadThis();
-                b.invokeVirtual(StorableGenerator.IS_VERSION_INITIALIZED_METHOD_NAME,
-                                TypeDesc.BOOLEAN, null);
-                Label isInitialized = b.createLabel();
-                b.ifZeroComparisonBranch(isInitialized, "!=");
-                addAdjustVersionProperty(b, null, 1);
-                isInitialized.setLocation();
+                if (!mInfo.getVersionProperty().isDerived()) {
+                    // Only set if uninitialized.
+                    b.loadThis();
+                    b.invokeVirtual(StorableGenerator.IS_VERSION_INITIALIZED_METHOD_NAME,
+                                    TypeDesc.BOOLEAN, null);
+                    Label isInitialized = b.createLabel();
+                    b.ifZeroComparisonBranch(isInitialized, "!=");
+                    addAdjustVersionProperty(b, null, 1);
+                    isInitialized.setLocation();
+                }
             }
 
             if (mFeatures.contains(MasterFeature.INSERT_CHECK_REQUIRED)) {
@@ -410,7 +412,8 @@ public final class MasterStorableGenerator<S extends Storable> {
                 for (StorableProperty<S> property : mAllProperties.values()) {
                     ordinal++;
 
-                    if (property.isJoin() || property.isPrimaryKeyMember()
+                    if (property.isDerived()
+                        || property.isJoin() || property.isPrimaryKeyMember()
                         || property.isNullable()
                         || property.isAutomatic() || property.isVersion())
                     {
@@ -548,33 +551,109 @@ public final class MasterStorableGenerator<S extends Storable> {
                 b.ifZeroComparisonBranch(failed, "==");
 
                 // if (version support enabled) {
-                //     if (this.getVersionNumber() != saved.getVersionNumber()) {
-                //         throw new OptimisticLockException
-                //             (this.getVersionNumber(), saved.getVersionNumber(), this);
+                //     if (!derived version) {
+                //         if (this.getVersionNumber() != saved.getVersionNumber()) {
+                //             throw new OptimisticLockException
+                //                 (this.getVersionNumber(), saved.getVersionNumber(), this);
+                //         }
+                //     } else {
+                //         if (this.getVersionNumber() <= saved.getVersionNumber()) {
+                //             throw new OptimisticLockException
+                //                 (saved.getVersionNumber(), this, this.getVersionNumber());
+                //         }
                 //     }
                 // }
                 if (mFeatures.contains(MasterFeature.VERSIONING)) {
-                    TypeDesc versionType = TypeDesc.forClass(mInfo.getVersionProperty().getType());
-                    b.loadThis();
-                    b.invoke(mInfo.getVersionProperty().getReadMethod());
-                    b.loadLocal(savedVar);
-                    b.invoke(mInfo.getVersionProperty().getReadMethod());
-                    Label sameVersion = b.createLabel();
-                    CodeBuilderUtil.addValuesEqualCall(b, versionType, true, sameVersion, true);
-                    b.newObject(optimisticLockType);
-                    b.dup();
-                    b.loadThis();
-                    b.invoke(mInfo.getVersionProperty().getReadMethod());
-                    b.convert(versionType, TypeDesc.OBJECT);
-                    b.loadLocal(savedVar);
-                    b.invoke(mInfo.getVersionProperty().getReadMethod());
-                    b.convert(versionType, TypeDesc.OBJECT);
-                    b.loadThis();
-                    b.invokeConstructor
-                        (optimisticLockType,
-                         new TypeDesc[] {TypeDesc.OBJECT, TypeDesc.OBJECT, storableType});
-                    b.throwObject();
-                    sameVersion.setLocation();
+                    StorableProperty<S> versionProperty = mInfo.getVersionProperty();
+                    TypeDesc versionType = TypeDesc.forClass(versionProperty.getType());
+
+                    Label allowedVersion = b.createLabel();
+
+                    if (!versionProperty.isDerived()) {
+                        b.loadThis();
+                        b.invoke(versionProperty.getReadMethod());
+                        b.loadLocal(savedVar);
+                        b.invoke(versionProperty.getReadMethod());
+                        CodeBuilderUtil.addValuesEqualCall
+                            (b, versionType, true, allowedVersion, true);
+
+                        b.newObject(optimisticLockType);
+                        b.dup();
+                        b.loadThis();
+                        b.invoke(versionProperty.getReadMethod());
+                        b.convert(versionType, TypeDesc.OBJECT);
+                        b.loadLocal(savedVar);
+                        b.invoke(versionProperty.getReadMethod());
+                        b.convert(versionType, TypeDesc.OBJECT);
+                        b.loadThis();
+                        b.invokeConstructor
+                            (optimisticLockType,
+                             new TypeDesc[] {TypeDesc.OBJECT, TypeDesc.OBJECT, storableType});
+                        b.throwObject();
+                    } else {
+                        b.loadThis();
+                        b.invoke(versionProperty.getReadMethod());
+                        LocalVariable newVersion = b.createLocalVariable(null, versionType);
+                        b.storeLocal(newVersion);
+
+                        b.loadLocal(savedVar);
+                        b.invoke(versionProperty.getReadMethod());
+                        LocalVariable savedVersion = b.createLocalVariable(null, versionType);
+                        b.storeLocal(savedVersion);
+
+                        // Skip check if new or saved version is null.
+                        branchIfNull(b, newVersion, allowedVersion);
+                        branchIfNull(b, savedVersion, allowedVersion);
+
+                        TypeDesc primVersionType = versionType.toPrimitiveType();
+                        if (primVersionType != null) {
+                            if (versionType != primVersionType) {
+                                b.loadLocal(newVersion);
+                                b.convert(versionType, primVersionType);
+                                newVersion = b.createLocalVariable(null, primVersionType);
+                                b.storeLocal(newVersion);
+
+                                b.loadLocal(savedVersion);
+                                b.convert(versionType, primVersionType);
+                                savedVersion = b.createLocalVariable(null, primVersionType);
+                                b.storeLocal(savedVersion);
+                            }
+
+                            // Skip check if new or saved version is NaN.
+                            branchIfNaN(b, newVersion, allowedVersion);
+                            branchIfNaN(b, savedVersion, allowedVersion);
+
+                            b.loadLocal(newVersion);
+                            b.loadLocal(savedVersion);
+                            b.ifComparisonBranch(allowedVersion, ">", primVersionType);
+                        } else if (Comparable.class.isAssignableFrom(versionProperty.getType())) {
+                            b.loadLocal(newVersion);
+                            b.loadLocal(savedVersion);
+                            b.invokeInterface(TypeDesc.forClass(Comparable.class), "compareTo",
+                                              TypeDesc.INT, new TypeDesc[] {TypeDesc.OBJECT});
+                            b.ifZeroComparisonBranch(allowedVersion, ">");
+                        } else {
+                            throw new SupportException
+                                ("Derived version property must be Comparable: " +
+                                 versionProperty);
+                        }
+
+                        b.newObject(optimisticLockType);
+                        b.dup();
+                        b.loadLocal(savedVar);
+                        b.invoke(versionProperty.getReadMethod());
+                        b.convert(versionType, TypeDesc.OBJECT);
+                        b.loadThis();
+                        b.loadThis();
+                        b.invoke(versionProperty.getReadMethod());
+                        b.convert(versionType, TypeDesc.OBJECT);
+                        b.invokeConstructor
+                            (optimisticLockType,
+                             new TypeDesc[] {TypeDesc.OBJECT, storableType, TypeDesc.OBJECT});
+                        b.throwObject();
+                    }
+
+                    allowedVersion.setLocation();
                 }
 
                 // this.copyDirtyProperties(saved);
@@ -585,7 +664,9 @@ public final class MasterStorableGenerator<S extends Storable> {
                 b.loadLocal(savedVar);
                 b.invokeVirtual(COPY_DIRTY_PROPERTIES, null, new TypeDesc[] {storableType});
                 if (mFeatures.contains(MasterFeature.VERSIONING)) {
-                    addAdjustVersionProperty(b, savedVar, -1);
+                    if (!mInfo.getVersionProperty().isDerived()) {
+                        addAdjustVersionProperty(b, savedVar, -1);
+                    }
                 }
 
                 // if (!saved.doTryUpdateMaster()) {
@@ -657,6 +738,31 @@ public final class MasterStorableGenerator<S extends Storable> {
                 b.returnValue(TypeDesc.BOOLEAN);
 
                 addExitTransaction(b, DELETE_OP, txnVar, tryStart);
+            }
+        }
+    }
+
+    private void branchIfNull(CodeBuilder b, LocalVariable value, Label isNull) {
+        if (!value.getType().isPrimitive()) {
+            b.loadLocal(value);
+            b.ifNullBranch(isNull, true);
+        }
+    }
+
+    private void branchIfNaN(CodeBuilder b, LocalVariable value, Label isNaN) {
+        TypeDesc type = value.getType();
+        if (type == TypeDesc.FLOAT || type == TypeDesc.DOUBLE) {
+            b.loadLocal(value);
+            if (type == TypeDesc.FLOAT) {
+                b.invokeStatic(TypeDesc.FLOAT.toObjectType(),
+                               "isNaN", TypeDesc.BOOLEAN, 
+                               new TypeDesc[] {TypeDesc.FLOAT});
+                b.ifZeroComparisonBranch(isNaN, "!=");
+            } else {
+                b.invokeStatic(TypeDesc.DOUBLE.toObjectType(),
+                               "isNaN", TypeDesc.BOOLEAN,
+                               new TypeDesc[] {TypeDesc.DOUBLE});
+                b.ifZeroComparisonBranch(isNaN, "!=");
             }
         }
     }

@@ -172,7 +172,7 @@ public class Layout {
         List<LayoutProperty> list = new ArrayList<LayoutProperty>(properties.size());
         int ordinal = 0;
         for (StorableProperty<?> property : properties) {
-            if (property.isJoin()) {
+            if (property.isDerived() || property.isJoin()) {
                 continue;
             }
             StoredLayoutProperty storedLayoutProperty = mLayoutFactory.mPropertyStorage.prepare();

@@ -115,11 +115,18 @@ public interface StorableProperty<S extends Storable> extends Appender {
     String[] getAliases();
 
     /**
-     * Returns true if this property is joined to another Storable.
+     * Returns true if this property is joined in any way to another Storable.
      *
      * @see com.amazon.carbonado.Join
      */
     boolean isJoin();
+
+    /**
+     * Returns true if this property is one-to-one joined to another Storable.
+     *
+     * @see com.amazon.carbonado.Join
+     */
+    boolean isOneToOneJoin();
 
     /**
      * Returns the type of property this is joined to, or null if not joined.
@@ -210,6 +217,33 @@ public interface StorableProperty<S extends Storable> extends Appender {
      * @see com.amazon.carbonado.Independent
      */
     boolean isIndependent();
+
+    /**
+     * Returns true if this property is derived.
+     *
+     * @see com.amazon.carbonado.Derived
+     */
+    boolean isDerived();
+
+    /**
+     * Returns a new array with all the derived-from properties, which is empty
+     * if this is not a derived property. Otherwise, the set is the transitive
+     * closure of all dependent properties. This set may include joins and
+     * other derived properties.
+     */
+    ChainedProperty<S>[] getDerivedFromProperties();
+
+    /**
+     * Returns a new array with all the properties which are derived from this
+     * one. The set is the transitive closure of all derived properties which
+     * depend on this one.
+     *
+     * <p>Each property in the set is represented as a chain, where the prime
+     * property is the actual dependent property, and the tail is the path to
+     * reach this property's enclosing type. If a derived property resides in
+     * the same enclosing type as this one, the chain count is zero.
+     */
+    ChainedProperty<?>[] getDerivedToProperties();
 
     String toString();
 }
