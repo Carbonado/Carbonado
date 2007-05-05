@@ -580,8 +580,12 @@ public final class StorableGenerator<S extends Storable> {
                 if (!property.isDerived()) {
                     if (property.isJoin()) {
                         // If generating wrapper, property access is not guarded by
-                        // synchronization. Mark as volatile instead.
-                        mClassFile.addField(Modifiers.PRIVATE.toVolatile(mGenMode == GEN_WRAPPED),
+                        // synchronization. Mark as volatile instead. Also mark as
+                        // transient since join properties can be reconstructed from
+                        // the other fields.
+                        mClassFile.addField(Modifiers.PRIVATE
+                                            .toVolatile(mGenMode == GEN_WRAPPED)
+                                            .toTransient(true),
                                             name, type);
                         requireStateField = true;
                     } else if (mGenMode == GEN_ABSTRACT) {
