@@ -295,17 +295,16 @@ public class LobEngine {
                 data.close();
             }
 
+            // Close but don't commit the transaction. This close is explicitly
+            // not put into a finally block in order for an exception to cause
+            // the transaction to rollback.
+            out.close(false);
+
             if (total < lob.getLength()) {
+                // Adjust length after closing stream to avoid OptimisticLockException.
                 new BlobImpl(lob).setLength(total);
             }
 
-            // Note: Closing Output commits the transaction. No other resources
-            // are freed. This close is explicitly not put into a finally block
-            // in order for an exception to cause the transaction to rollback.
-            out.close();
-
-            // This isn't really needed due to closing Output, but it is good
-            // practice to include it anyhow.
             txn.commit();
         } catch (IOException e) {
             if (e.getCause() instanceof RepositoryException) {
@@ -1012,7 +1011,11 @@ public class LobEngine {
         }
 
         @Override
-        public synchronized void close() throws IOException {
+        public void close() throws IOException {
+            close(true);
+        }
+
+        synchronized void close(boolean commit) throws IOException {
             if (mTxn != null) {
                 try {
                     updateBlock();
@@ -1020,14 +1023,18 @@ public class LobEngine {
                         mStoredLob.setLength(mPos);
                         mStoredLob.update();
                     }
-                    mTxn.commit();
+                    if (commit) {
+                        mTxn.commit();
+                    }
                 } catch (PersistException e) {
                     throw toIOException(e);
                 } finally {
-                    try {
-                        mTxn.exit();
-                    } catch (PersistException e) {
-                        throw toIOException(e);
+                    if (commit) {
+                        try {
+                            mTxn.exit();
+                        } catch (PersistException e) {
+                            throw toIOException(e);
+                        }
                     }
                 }
                 mTxn = null;
