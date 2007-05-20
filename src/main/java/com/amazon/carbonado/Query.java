@@ -24,15 +24,16 @@ import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 
 /**
- * Supports complex retrieval and deletion of {@link Storable} objects. A Query
- * is defined by {@link Storage#query}, and it merely represents an action. It
- * does not contain any data, and it is immutable. Query objects are usually
- * compiled and cached, and the same instance can be re-used for future
- * queries.
+ * Supports complex retrieval and deletion of {@link Storable} objects.
+ * Queries are immutable representations of an action \u2013 they do not
+ * contain any Storable instances. The apparent mutators (with, et al) do not
+ * actually modify the Query. Instead, they return another Query instance which
+ * has the requested modification. To obtain an initial Query instance, call
+ * one of the {@link Storage} query methods.
  *
- * <p>Query instances are thread-safe and immutable. All of the apparent
- * mutators (with, et al) do not modify the Query, but instead return a new
- * Query with the requested modification.
+ * <p>Query objects are usually compiled and cached, and the same instance can
+ * be re-used for future queries. This is possible because queries are
+ * immutable and naturally thread-safe.
  *
  * @author Brian S O'Neill
  */

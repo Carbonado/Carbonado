@@ -395,6 +395,7 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
          * never called by IndexedQueryExecutor.
          *
          * @return index entry query or null if not supported
+         * @since 1.2
          */
         Query<?> indexEntryQuery(StorableIndex<S> index) throws FetchException;
 
@@ -405,6 +406,7 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
          * @param index index to open
          * @param indexEntryQuery query with no blank parameters, derived from
          * the query returned by indexEntryQuery
+         * @since 1.2
          */
         Cursor<S> fetchFromIndexEntryQuery(StorableIndex<S> index, Query<?> indexEntryQuery)
             throws FetchException;
