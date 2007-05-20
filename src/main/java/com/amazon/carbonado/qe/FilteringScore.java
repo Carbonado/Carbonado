@@ -27,9 +27,12 @@ import java.util.List;
 
 import com.amazon.carbonado.Storable;
 
+import com.amazon.carbonado.filter.AndFilter;
 import com.amazon.carbonado.filter.Filter;
+import com.amazon.carbonado.filter.OrFilter;
 import com.amazon.carbonado.filter.PropertyFilter;
 import com.amazon.carbonado.filter.RelOp;
+import com.amazon.carbonado.filter.Visitor;
 
 import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.Direction;
@@ -206,38 +209,15 @@ public class FilteringScore<S extends Storable> {
                 indexProperties[indexPropPos].getDirection() == Direction.DESCENDING;
         }
 
-        List<PropertyFilter<S>> extraMatchFilters = null;
-
-        boolean checkForExtraMatches = !filterList.isEmpty()
-            && (identityFilters.size() > 0
-                || rangeStartFilters.size() > 0 
-                || rangeEndFilters.size() > 0);
-
-        if (checkForExtraMatches) {
-            // Any remainder property which is provided by the index is an extra match.
-            for (PropertyFilter<S> subFilter : filterList) {
-                ChainedProperty<S> filterProp = subFilter.getChainedProperty();
-                for (OrderedProperty<S> indexProp : indexProperties) {
-                    if (indexProp.getChainedProperty().equals(filterProp)) {
-                        if (extraMatchFilters == null) {
-                            extraMatchFilters = new ArrayList<PropertyFilter<S>>();
-                        }
-                        extraMatchFilters.add(subFilter);
-                    }
-                }
-            }
-        }
-
-        return new FilteringScore<S>(clustered,
+        return new FilteringScore<S>(indexProperties,
+                                     clustered,
                                      unique,
-                                     indexProperties.length,
                                      identityFilters,
                                      rangeStartFilters,
                                      rangeEndFilters,
                                      arrangementScore,
                                      preferenceScore,
                                      filterList,
-                                     extraMatchFilters,
                                      shouldReverseRange);
     }
 
@@ -285,9 +265,37 @@ public class FilteringScore<S extends Storable> {
         return 0;
     }
 
+    /**
+     * Splits the filter from its conjunctive normal form. And'ng the filters
+     * together produces the original filter.
+     */
+    static <S extends Storable> List<Filter<S>> split(Filter<S> filter) {
+        if (filter == null) {
+            return null;
+        }
+
+        filter = filter.conjunctiveNormalForm();
+
+        final List<Filter<S>> list = new ArrayList<Filter<S>>();
+
+        filter.accept(new Visitor<S, Object, Object>() {
+            public Object visit(OrFilter<S> filter, Object param) {
+                list.add(filter);
+                return null;
+            }
+
+            public Object visit(PropertyFilter<S> filter, Object param) {
+                list.add(filter);
+                return null;
+            }
+        }, null);
+
+        return list;
+    }
+
+    private final OrderedProperty<S>[] mIndexProperties;
     private final boolean mIndexClustered;
     private final boolean mIndexUnique;
-    private final int mIndexPropertyCount;
 
     private final List<PropertyFilter<S>> mIdentityFilters;
 
@@ -297,39 +305,57 @@ public class FilteringScore<S extends Storable> {
     private final int mArrangementScore;
     private final BigInteger mPreferenceScore;
 
-    private final List<PropertyFilter<S>> mRemainderFilters;
-    private final List<PropertyFilter<S>> mExtraMatchFilters;
+    private final List<? extends Filter<S>> mRemainderFilters;
+    private final List<? extends Filter<S>> mCoveringFilters;
 
     private final boolean mShouldReverseRange;
 
     private transient Filter<S> mIdentityFilter;
     private transient Filter<S> mRemainderFilter;
-    private transient Filter<S> mExtraMatchFilter;
-    private transient Filter<S> mExtraMatchRemainderFilter;
+    private transient Filter<S> mCoveringFilter;
+    private transient Filter<S> mCoveringRemainderFilter;
 
-    private FilteringScore(boolean indexClustered,
+    private FilteringScore(OrderedProperty<S>[] indexProperties,
+                           boolean indexClustered,
                            boolean indexUnique,
-                           int indexPropertyCount,
                            List<PropertyFilter<S>> identityFilters,
                            List<PropertyFilter<S>> rangeStartFilters,
                            List<PropertyFilter<S>> rangeEndFilters,
                            int arrangementScore,
                            BigInteger preferenceScore,
-                           List<PropertyFilter<S>> remainderFilters,
-                           List<PropertyFilter<S>> extraMatchFilters,
+                           List<? extends PropertyFilter<S>> remainderFilters,
                            boolean shouldReverseRange)
     {
+        mIndexProperties = indexProperties;
         mIndexClustered = indexClustered;
         mIndexUnique = indexUnique;
-        mIndexPropertyCount = indexPropertyCount;
         mIdentityFilters = prepareList(identityFilters);
         mRangeStartFilters = prepareList(rangeStartFilters);
         mRangeEndFilters = prepareList(rangeEndFilters);
         mArrangementScore = arrangementScore;
         mPreferenceScore = preferenceScore;
         mRemainderFilters = prepareList(remainderFilters);
-        mExtraMatchFilters = prepareList(extraMatchFilters);
         mShouldReverseRange = shouldReverseRange;
+
+        mCoveringFilters = findCoveringMatches();
+    }
+
+    private FilteringScore(FilteringScore<S> score, Filter<S> remainderFilter) {
+        mIndexProperties = score.mIndexProperties;
+        mIndexClustered = score.mIndexClustered;
+        mIndexUnique = score.mIndexUnique;
+        mIdentityFilters = score.mIdentityFilters;
+        mRangeStartFilters = score.mRangeStartFilters;
+        mRangeEndFilters = score.mRangeEndFilters;
+        mArrangementScore = score.mArrangementScore;
+        mPreferenceScore = score.mPreferenceScore;
+        mRemainderFilters = prepareList(split(remainderFilter));
+        mShouldReverseRange = score.mShouldReverseRange;
+
+        mCoveringFilters = findCoveringMatches();
+
+        mIdentityFilter = score.mIdentityFilter;
+        mRemainderFilter = remainderFilter;
     }
 
     /**
@@ -351,7 +377,7 @@ public class FilteringScore<S extends Storable> {
      * Returns the amount of properties in the evaluated index.
      */
     public int getIndexPropertyCount() {
-        return mIndexPropertyCount;
+        return mIndexProperties.length;
     }
 
     /**
@@ -531,7 +557,7 @@ public class FilteringScore<S extends Storable> {
     /**
      * Returns the filters not supported by the evaluated index.
      */
-    public List<PropertyFilter<S>> getRemainderFilters() {
+    public List<? extends Filter<S>> getRemainderFilters() {
         return mRemainderFilters;
     }
 
@@ -547,54 +573,54 @@ public class FilteringScore<S extends Storable> {
     }
 
     /**
-     * Returns number of extra property filters which are supported by the
+     * Returns number of covering property filters which are supported by the
      * evaluated index. This count is no more than the remainder count. If
-     * hasAnyMatches returns false, then the extra match count is zero.
+     * hasAnyMatches returns false, then the covering count is zero.
      *
      * @since 1.2
      */
-    public int getExtraMatchCount() {
-        return mExtraMatchFilters.size();
+    public int getCoveringCount() {
+        return mCoveringFilters.size();
     }
 
     /**
-     * Returns the extra filters which are supported by the evaluated index,
+     * Returns the covering filters which are supported by the evaluated index,
      * which is a subset of the remainder filters.
      *
      * @since 1.2
      */
-    public List<PropertyFilter<S>> getExtraMatchFilters() {
-        return mExtraMatchFilters;
+    public List<? extends Filter<S>> getCoveringFilters() {
+        return mCoveringFilters;
     }
 
     /**
-     * Returns the composite extra match filter supported by the evaluated
-     * index, or null if no extra match.
+     * Returns the composite covering filter supported by the evaluated index,
+     * or null if the covering count is zero.
      *
      * @since 1.2
      */
-    public Filter<S> getExtraMatchFilter() {
-        if (mExtraMatchFilter == null) {
-            mExtraMatchFilter = buildCompositeFilter(getExtraMatchFilters());
+    public Filter<S> getCoveringFilter() {
+        if (mCoveringFilter == null) {
+            mCoveringFilter = buildCompositeFilter(getCoveringFilters());
         }
-        return mExtraMatchFilter;
+        return mCoveringFilter;
     }
 
     /**
-     * Returns the composite remainder filter without including the extra match
+     * Returns the composite remainder filter without including the covering
      * filter. Returns null if no remainder.
      *
      * @since 1.2
      */
-    public Filter<S> getExtraMatchRemainderFilter() {
-        if (mExtraMatchRemainderFilter == null) {
-            List<PropertyFilter<S>> remainderFilters = mRemainderFilters;
-            List<PropertyFilter<S>> extraMatchFilters = mExtraMatchFilters;
-            if (extraMatchFilters.size() < remainderFilters.size()) {
+    public Filter<S> getCoveringRemainderFilter() {
+        if (mCoveringRemainderFilter == null) {
+            List<? extends Filter<S>> remainderFilters = mRemainderFilters;
+            List<? extends Filter<S>> coveringFilters = mCoveringFilters;
+            if (coveringFilters.size() < remainderFilters.size()) {
                 Filter<S> composite = null;
                 for (int i=0; i<remainderFilters.size(); i++) {
                     Filter<S> subFilter = remainderFilters.get(i);
-                    if (!extraMatchFilters.contains(subFilter)) {
+                    if (!coveringFilters.contains(subFilter)) {
                         if (composite == null) {
                             composite = subFilter;
                         } else {
@@ -602,10 +628,10 @@ public class FilteringScore<S extends Storable> {
                         }
                     }
                 }
-                mExtraMatchRemainderFilter = composite;
+                mCoveringRemainderFilter = composite;
             }
         }
-        return mExtraMatchRemainderFilter;
+        return mCoveringRemainderFilter;
     }
 
     /**
@@ -674,12 +700,22 @@ public class FilteringScore<S extends Storable> {
         }
     }
 
+    /**
+     * Returns a new FilteringScore with the remainder replaced and covering
+     * matches recalculated. Other matches are not recalculated.
+     *
+     * @since 1.2
+     */
+    public FilteringScore<S> withRemainderFilter(Filter<S> filter) {
+        return new FilteringScore<S>(this, filter);
+    }
+
     public String toString() {
         return "FilteringScore {identityCount=" + getIdentityCount() +
             ", hasRangeStart=" + hasRangeStart() +
             ", hasRangeEnd=" + hasRangeEnd() +
             ", remainderCount=" + getRemainderCount() +
-            ", extraMatchCount=" + getExtraMatchCount() +
+            ", coveringCount=" + getCoveringCount() +
             '}';
     }
 
@@ -703,7 +739,7 @@ public class FilteringScore<S extends Storable> {
         return reduced == null ? filters : reduced;
     }
 
-    private Filter<S> buildCompositeFilter(List<PropertyFilter<S>> filterList) {
+    private Filter<S> buildCompositeFilter(List<? extends Filter<S>> filterList) {
         if (filterList.size() == 0) {
             return null;
         }
@@ -712,6 +748,56 @@ public class FilteringScore<S extends Storable> {
             composite = composite.and(filterList.get(i));
         }
         return composite;
+    }
+
+    /**
+     * Finds covering matches from the remainder.
+     */
+    private List<Filter<S>> findCoveringMatches() {
+        List<Filter<S>> coveringFilters = null;
+
+        boolean check = !mRemainderFilters.isEmpty()
+            && (mIdentityFilters.size() > 0
+                || mRangeStartFilters.size() > 0 
+                || mRangeEndFilters.size() > 0);
+
+        if (check) {
+            // Any remainder property which is provided by the index is a covering match.
+            for (Filter<S> subFilter : mRemainderFilters) {
+                if (isProvidedByIndex(subFilter)) {
+                    if (coveringFilters == null) {
+                        coveringFilters = new ArrayList<Filter<S>>();
+                    }
+                    coveringFilters.add(subFilter);
+                }
+            }
+        }
+
+        return prepareList(coveringFilters);
+    }
+
+    private boolean isProvidedByIndex(Filter<S> filter) {
+        return filter.accept(new Visitor<S, Boolean, Object>() {
+            public Boolean visit(OrFilter<S> filter, Object param) {
+                return filter.getLeftFilter().accept(this, param)
+                    && filter.getRightFilter().accept(this, param);
+            }
+
+            public Boolean visit(AndFilter<S> filter, Object param) {
+                return filter.getLeftFilter().accept(this, param)
+                    && filter.getRightFilter().accept(this, param);
+            }
+
+            public Boolean visit(PropertyFilter<S> filter, Object param) {
+                ChainedProperty<S> filterProp = filter.getChainedProperty();
+                for (OrderedProperty<S> indexProp : mIndexProperties) {
+                    if (indexProp.getChainedProperty().equals(filterProp)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }, null);
     }
 
     private static class Range implements Comparator<FilteringScore<?>> {
@@ -811,11 +897,11 @@ public class FilteringScore<S extends Storable> {
                 return 1;
             }
 
-            // Favor index which contains more extra matches.
-            if (first.getExtraMatchCount() > second.getExtraMatchCount()) {
+            // Favor index which contains more covering matches.
+            if (first.getCoveringCount() > second.getCoveringCount()) {
                 return -1;
             }
-            if (first.getExtraMatchCount() < second.getExtraMatchCount()) {
+            if (first.getCoveringCount() < second.getCoveringCount()) {
                 return 1;
             }
 

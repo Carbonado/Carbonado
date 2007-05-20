@@ -283,35 +283,17 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         private final StorableIndex<?> mForeignIndex;
         private final ChainedProperty<S> mForeignProperty;
 
-        private final Filter<S> mRemainderFilter;
-        private final OrderingList<S> mRemainderOrdering;
-
         Result(Filter<S> filter,
                CompositeScore<S> score,
                StorableIndex<S> localIndex,
                StorableIndex<?> foreignIndex,
                ChainedProperty<S> foreignProperty)
         {
-            this(filter, score, localIndex, foreignIndex, foreignProperty,
-                 score.getFilteringScore().getRemainderFilter(),
-                 score.getOrderingScore().getRemainderOrdering());
-        }
-
-        private Result(Filter<S> filter,
-                       CompositeScore<S> score,
-                       StorableIndex<S> localIndex,
-                       StorableIndex<?> foreignIndex,
-                       ChainedProperty<S> foreignProperty,
-                       Filter<S> remainderFilter,
-                       OrderingList<S> remainderOrdering)
-        {
             mFilter = filter;
             mScore = score;
             mLocalIndex = localIndex;
             mForeignIndex = foreignIndex;
             mForeignProperty = foreignProperty;
-            mRemainderFilter = remainderFilter;
-            mRemainderOrdering = remainderOrdering;
         }
 
         /**
@@ -340,9 +322,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
 
         /**
          * Returns the score on how well the selected index performs the
-         * desired filtering and ordering. When building a query executor, do
-         * not use the remainder filter and orderings available in the
-         * composite score. Instead, get them directly from this result object.
+         * desired filtering and ordering.
          */
         public CompositeScore<S> getCompositeScore() {
             return mScore;
@@ -352,14 +332,14 @@ public class IndexedQueryAnalyzer<S extends Storable> {
          * Remainder filter which overrides that in composite score.
          */
         public Filter<S> getRemainderFilter() {
-            return mRemainderFilter;
+            return mScore.getFilteringScore().getRemainderFilter();
         }
 
         /**
          * Remainder orderings which override that in composite score.
          */
         public OrderingList<S> getRemainderOrdering() {
-            return mRemainderOrdering;
+            return mScore.getOrderingScore().getRemainderOrdering();
         }
 
         /**
@@ -442,9 +422,11 @@ public class IndexedQueryAnalyzer<S extends Storable> {
 
             Filter<S> filter = andFilters(handledFilter, remainderFilter);
 
-            return new Result
-                (filter, mScore, mLocalIndex, mForeignIndex, mForeignProperty,
-                 remainderFilter, remainderOrdering);
+            CompositeScore<S> score = mScore
+                .withRemainderFilter(remainderFilter)
+                .withRemainderOrdering(remainderOrdering);
+
+            return new Result(filter, score, mLocalIndex, mForeignIndex, mForeignProperty);
         }
 
         /**
@@ -453,7 +435,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
          * doesn't usually make sense to call this method.
          */
         public Result mergeRemainderFilter(Filter<S> filter) {
-            return setRemainderFilter(orFilters(getRemainderFilter(), filter));
+            return withRemainderFilter(orFilters(getRemainderFilter(), filter));
         }
 
         private Filter<S> andFilters(Filter<S> a, Filter<S> b) {
@@ -479,19 +461,17 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         /**
          * Returns a new result with the remainder filter replaced.
          */
-        public Result setRemainderFilter(Filter<S> remainderFilter) {
-            return new Result
-                (mFilter, mScore, mLocalIndex, mForeignIndex, mForeignProperty,
-                 remainderFilter, mRemainderOrdering);
+        public Result withRemainderFilter(Filter<S> remainderFilter) {
+            CompositeScore<S> score = mScore.withRemainderFilter(remainderFilter);
+            return new Result(mFilter, score, mLocalIndex, mForeignIndex, mForeignProperty);
         }
 
         /**
          * Returns a new result with the remainder ordering replaced.
          */
-        public Result setRemainderOrdering(OrderingList<S> remainderOrdering) {
-            return new Result
-                (mFilter, mScore, mLocalIndex, mForeignIndex, mForeignProperty,
-                 mRemainderFilter, remainderOrdering);
+        public Result withRemainderOrdering(OrderingList<S> remainderOrdering) {
+            CompositeScore<S> score = mScore.withRemainderOrdering(remainderOrdering);
+            return new Result(mFilter, score, mLocalIndex, mForeignIndex, mForeignProperty);
         }
 
         /**
@@ -510,14 +490,30 @@ public class IndexedQueryAnalyzer<S extends Storable> {
                 }
             }
 
-            QueryExecutor<S> executor = baseLocalExecutor(localAccess);
+            Filter<S> remainderFilter = getRemainderFilter();
 
-            if (executor == null) {
+            QueryExecutor<S> executor;
+            if (!handlesAnything()) {
+                executor = new FullScanQueryExecutor<S>(localAccess);
+            } else if (localIndex == null) {
+                // Use foreign executor.
                 return JoinedQueryExecutor.build
                     (mRepoAccess, getForeignProperty(), getFilter(), getOrdering());
+            } else {
+                CompositeScore<S> score = getCompositeScore();
+                FilteringScore<S> fScore = score.getFilteringScore();
+                if (fScore.isKeyMatch()) {
+                    executor = new KeyQueryExecutor<S>(localAccess, localIndex, fScore);
+                } else {
+                    IndexedQueryExecutor ixExecutor =
+                        new IndexedQueryExecutor<S>(localAccess, localIndex, score);
+                    executor = ixExecutor;
+                    if (ixExecutor.getCoveringFilter() != null) {
+                        remainderFilter = fScore.getCoveringRemainderFilter();
+                    }
+                }
             }
 
-            Filter<S> remainderFilter = getRemainderFilter();
             if (remainderFilter != null) {
                 executor = new FilteredQueryExecutor<S>(executor, remainderFilter);
             }
@@ -532,28 +528,6 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             }
 
             return executor;
-        }
-
-        /**
-         * Returns local executor or null if foreign executor should be used.
-         */
-        private QueryExecutor<S> baseLocalExecutor(StorageAccess<S> localAccess) {
-            if (!handlesAnything()) {
-                return new FullScanQueryExecutor<S>(localAccess);
-            }
-
-            StorableIndex<S> localIndex = getLocalIndex();
-
-            if (localIndex != null) {
-                CompositeScore<S> score = getCompositeScore();
-                FilteringScore<S> fScore = score.getFilteringScore();
-                if (fScore.isKeyMatch()) {
-                    return new KeyQueryExecutor<S>(localAccess, localIndex, fScore);
-                }
-                return new IndexedQueryExecutor<S>(localAccess, localIndex, score);
-            }
-
-            return null;
         }
 
         public String toString() {

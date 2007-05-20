@@ -38,6 +38,9 @@ import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.UniqueConstraintException;
 
+import com.amazon.carbonado.filter.Filter;
+import com.amazon.carbonado.filter.RelOp;
+
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.StorableIndex;
 
@@ -65,7 +68,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
     private final IndexEntryGenerator<S> mGenerator;
     private final Storage<?> mIndexEntryStorage;
 
-    private final Query<?>[] mQueryCache;
+    private Query<?> mSingleMatchQuery;
 
     ManagedIndex(StorableIndex<S> index,
                  IndexEntryGenerator<S> generator,
@@ -75,23 +78,6 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         mIndex = index;
         mGenerator = generator;
         mIndexEntryStorage = indexEntryStorage;
-
-        // Cache keys are encoded as follows:
-        // bits 1..0: range end boundary
-        //            0=open boundary, 1=inclusive boundary, 2=exlusive boundary, 3=not used
-        // bits 3..2: range start boundary
-        //            0=open boundary, 1=inclusive boundary, 2=exlusive boundary, 3=not used
-        // bit     4: 0=forward order, 1=reverse
-        // bits n..5: exact property match count
-
-        // The size of the cache is dependent on the number of possible
-        // exactly matching properties, which is the property count of the
-        // index. If the index contained a huge number of properties, say
-        // 31, the cache size would be 1024.
-
-        int cacheSize = Integer.highestOneBit(index.getPropertyCount()) << (1 + 5);
-
-        mQueryCache = new Query[cacheSize];
     }
 
     public String getName() {
@@ -153,106 +139,27 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         return mGenerator.getComparator();
     }
 
-    public IndexEntryGenerator<S> getIndexEntryClassBuilder() {
-        return mGenerator;
-    }
-
-    public Query<?> getIndexEntryQueryFor(int exactMatchCount,
-                                          BoundaryType rangeStartBoundary,
-                                          BoundaryType rangeEndBoundary,
-                                          boolean reverse)
+    Cursor<S> fetchOne(IndexedStorage storage, Object[] identityValues)
         throws FetchException
     {
-        int key = exactMatchCount << 5;
-        if (rangeEndBoundary != BoundaryType.OPEN) {
-            if (rangeEndBoundary == BoundaryType.INCLUSIVE) {
-                key |= 0x01;
-            } else {
-                key |= 0x02;
-            }
-        }
-        if (rangeStartBoundary != BoundaryType.OPEN) {
-            if (rangeStartBoundary == BoundaryType.INCLUSIVE) {
-                key |= 0x04;
-            } else {
-                key |= 0x08;
-            }
-        }
+        Query<?> query = mSingleMatchQuery;
 
-        if (reverse) {
-            key |= 0x10;
-        }
-
-        Query<?> query = mQueryCache[key];
         if (query == null) {
             StorableIndex index = mIndex;
-
-            StringBuilder filter = new StringBuilder();
-
-            int i;
-            for (i=0; i<exactMatchCount; i++) {
-                if (i > 0) {
-                    filter.append(" & ");
-                }
-                filter.append(index.getProperty(i).getName());
-                filter.append(" = ?");
+            Filter filter = Filter.getOpenFilter(mIndexEntryStorage.getStorableType());
+            for (int i=0; i<index.getPropertyCount(); i++) {
+                filter = filter.and(index.getProperty(i).getName(), RelOp.EQ);
             }
-
-            boolean addOrderBy = false;
-
-            if (rangeStartBoundary != BoundaryType.OPEN) {
-                addOrderBy = true;
-                if (filter.length() > 0) {
-                    filter.append(" & ");
-                }
-                filter.append(index.getProperty(i).getName());
-                if (rangeStartBoundary == BoundaryType.INCLUSIVE) {
-                    filter.append(" >= ?");
-                } else {
-                    filter.append(" > ?");
-                }
-            }
-
-            if (rangeEndBoundary != BoundaryType.OPEN) {
-                addOrderBy = true;
-                if (filter.length() > 0) {
-                    filter.append(" & ");
-                }
-                filter.append(index.getProperty(i).getName());
-                if (rangeEndBoundary == BoundaryType.INCLUSIVE) {
-                    filter.append(" <= ?");
-                } else {
-                    filter.append(" < ?");
-                }
-            }
-
-            if (filter.length() == 0) {
-                query = mIndexEntryStorage.query();
-            } else {
-                query = mIndexEntryStorage.query(filter.toString());
-            }
-
-            if (addOrderBy || reverse) {
-                // Enforce ordering of properties for range searches and
-                // reverse ordering to work properly. Underlying repository
-                // should have ordered index properly, so this shouldn't
-                // cause a sort.
-                // TODO: should somehow warn if a sort is triggered
-                String[] orderProperties = new String[exactMatchCount + 1];
-                for (i=0; i<orderProperties.length; i++) {
-                    Direction dir = index.getPropertyDirection(i);
-                    if (reverse) {
-                        dir = dir.reverse();
-                    }
-                    orderProperties[i] = dir.toCharacter() + index.getProperty(i).getName();
-                }
-                query = query.orderBy(orderProperties);
-            }
-
-            mQueryCache[key] = query;
+            mSingleMatchQuery = query = mIndexEntryStorage.query(filter);
         }
 
-        return query;
+        return fetchFromIndexEntryQuery(storage, query.withValues(identityValues));
+    }
+
+    Cursor<S> fetchFromIndexEntryQuery(IndexedStorage storage, Query<?> indexEntryQuery)
+        throws FetchException
+    {
+        return new IndexedCursor<S>(indexEntryQuery.fetch(), storage, mGenerator);
     }
 
     public String toString() {

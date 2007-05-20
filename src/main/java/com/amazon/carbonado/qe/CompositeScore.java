@@ -162,6 +162,28 @@ public class CompositeScore<S extends Storable> {
         return getOrderingScore().mergeRemainderOrdering(other.getOrderingScore());
     }
 
+    /**
+     * Returns a new CompositeScore with the filtering remainder replaced and
+     * covering matches recalculated. Other matches are not recalculated.
+     *
+     * @since 1.2
+     */
+    public CompositeScore<S> withRemainderFilter(Filter<S> filter) {
+        return new CompositeScore<S>(mFilteringScore.withRemainderFilter(filter),
+                                     mOrderingScore);
+    }
+
+    /**
+     * Returns a new CompositeScore with the ordering remainder
+     * replaced. Handled count is not recalculated.
+     *
+     * @since 1.2
+     */
+    public CompositeScore<S> withRemainderOrdering(OrderingList<S> ordering) {
+        return new CompositeScore<S>(mFilteringScore,
+                                     mOrderingScore.withRemainderOrdering(ordering));
+    }
+
     public String toString() {
         return "CompositeScore {" + getFilteringScore() + ", " + getOrderingScore() + '}';
     }

@@ -24,12 +24,15 @@ import java.util.List;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 import com.amazon.carbonado.filter.PropertyFilter;
+import com.amazon.carbonado.filter.RelOp;
 
+import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.StorableIndex;
 
 /**
@@ -59,6 +62,11 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
     private final boolean mReverseOrder;
     private final boolean mReverseRange;
 
+    private final Filter<S> mCoveringFilter;
+
+    // Total of nine start and end boundary type permutations.
+    private final Query<?>[] mIndexEntryQueryCache;
+
     /**
      * @param index index to use, which may be a primary key index
      * @param score score determines how best to utilize the index
@@ -67,6 +75,7 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
     public IndexedQueryExecutor(Support<S> support,
                                 StorableIndex<S> index,
                                 CompositeScore<S> score)
+        throws FetchException
     {
         if (support == null && this instanceof Support) {
             support = (Support<S>) this;
@@ -92,6 +101,15 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
 
         mReverseOrder = oScore.shouldReverseOrder();
         mReverseRange = fScore.shouldReverseRange();
+
+        Query<?> indexEntryQuery = support.indexEntryQuery(index);
+        if (indexEntryQuery == null) {
+            mCoveringFilter = null;
+            mIndexEntryQueryCache = null;
+        } else {
+            mCoveringFilter = fScore.getCoveringFilter();
+            mIndexEntryQueryCache = new Query[9]; // Nine start and end boundary permutations
+        }
     }
 
     @Override
@@ -158,11 +176,33 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
             }
         }
 
-        return mSupport.fetchSubset(mIndex, identityValues,
-                                    rangeStartBoundary, rangeStartValue,
-                                    rangeEndBoundary, rangeEndValue,
-                                    mReverseRange,
-                                    mReverseOrder);
+        Query<?> indexEntryQuery = getIndexEntryQuery(rangeStartBoundary, rangeEndBoundary);
+        if (indexEntryQuery == null) {
+            return mSupport.fetchSubset(mIndex, identityValues,
+                                        rangeStartBoundary, rangeStartValue,
+                                        rangeEndBoundary, rangeEndValue,
+                                        mReverseRange,
+                                        mReverseOrder);
+        } else {
+            indexEntryQuery = indexEntryQuery.withValues(identityValues);
+            if (rangeStartBoundary != BoundaryType.OPEN) {
+                indexEntryQuery = indexEntryQuery.with(rangeStartValue);
+            }
+            if (rangeEndBoundary != BoundaryType.OPEN) {
+                indexEntryQuery = indexEntryQuery.with(rangeEndValue);
+            }
+            if (mCoveringFilter != null && values != null) {
+                indexEntryQuery = indexEntryQuery.withValues(values.getValuesFor(mCoveringFilter));
+            }
+            return mSupport.fetchFromIndexEntryQuery(mIndex, indexEntryQuery);
+        }
+    }
+
+    /**
+     * @return null if executor doesn't support or use a covering index
+     */
+    public Filter<S> getCoveringFilter() {
+        return mCoveringFilter;
     }
 
     public Filter<S> getFilter() {
@@ -179,6 +219,10 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
         }
         for (PropertyFilter<S> p : mInclusiveRangeEndFilters) {
             filter = filter == null ? p : filter.and(p);
+        }
+
+        if (mCoveringFilter != null) {
+            filter = filter == null ? mCoveringFilter : filter.and(mCoveringFilter);
         }
 
         if (filter == null) {
@@ -262,7 +306,79 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
             }
             newline(app);
         }
+        if (mCoveringFilter != null) {
+            indent(app, indentLevel);
+            app.append("...covering filter: ");
+            mCoveringFilter.appendTo(app, values);
+            
+        }
         return true;
+    }
+
+    /**
+     * @return null if query not supported
+     */
+    private Query<?> getIndexEntryQuery(BoundaryType rangeStartBoundary,
+                                        BoundaryType rangeEndBoundary)
+        throws FetchException
+    {
+        Query<?>[] indexEntryQueryCache = mIndexEntryQueryCache;
+        if (indexEntryQueryCache == null) {
+            return null;
+        }
+
+        int key = 0;
+        if (rangeEndBoundary != BoundaryType.OPEN) {
+            key += (rangeEndBoundary == BoundaryType.INCLUSIVE) ? 1 : 2;
+        }
+        if (rangeStartBoundary != BoundaryType.OPEN) {
+            key += (rangeStartBoundary == BoundaryType.INCLUSIVE) ? (1 * 3) : (2 * 3);
+        }
+
+        Query<?> indexEntryQuery = indexEntryQueryCache[key];
+
+        if (indexEntryQuery == null) {
+            indexEntryQuery = mSupport.indexEntryQuery(mIndex);
+            Filter filter = indexEntryQuery.getFilter();
+
+            int i;
+            for (i=0; i<mIdentityCount; i++) {
+                filter = filter.and(mIndex.getProperty(i).getName(), RelOp.EQ);
+            }
+
+            if (rangeStartBoundary != BoundaryType.OPEN) {
+                RelOp op = (rangeStartBoundary == BoundaryType.INCLUSIVE) ? RelOp.GE : RelOp.GT;
+                filter = filter.and(mIndex.getProperty(i).getName(), op);
+            }
+
+            if (rangeEndBoundary != BoundaryType.OPEN) {
+                RelOp op = (rangeEndBoundary == BoundaryType.INCLUSIVE) ? RelOp.LE : RelOp.LT;
+                filter = filter.and(mIndex.getProperty(i).getName(), op);
+            }
+
+            if (mCoveringFilter != null) {
+                filter = filter.and(mCoveringFilter.unbind().toString());
+            }
+
+            indexEntryQuery = indexEntryQuery.and(filter);
+
+            // Enforce index ordering where applicable.
+            if (mIdentityCount < mIndex.getPropertyCount()) {
+                String[] orderProperties = new String[mIdentityCount + 1];
+                for (i=0; i<orderProperties.length; i++) {
+                    Direction dir = mIndex.getPropertyDirection(i);
+                    if (mReverseOrder) {
+                        dir = dir.reverse();
+                    }
+                    orderProperties[i] = dir.toCharacter() + mIndex.getProperty(i).getName();
+                }
+                indexEntryQuery = indexEntryQuery.orderBy(orderProperties);
+            }
+
+            mIndexEntryQueryCache[key] = indexEntryQuery;
+        }
+
+        return indexEntryQuery;
     }
 
     /**
@@ -270,11 +386,37 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
      */
     public static interface Support<S extends Storable> {
         /**
+         * Returns an open query if the given index supports query access. If
+         * not supported, return null. An index entry query might be used to
+         * perform filtering and sorting of index entries prior to being
+         * resolved into referenced Storables.
+         *
+         * <p>If an index entry query is returned, the fetchSubset method is
+         * never called by IndexedQueryExecutor.
+         *
+         * @return index entry query or null if not supported
+         */
+        Query<?> indexEntryQuery(StorableIndex<S> index) throws FetchException;
+
+        /**
+         * Fetch Storables referenced by the given index entry query. This
+         * method is only called if index supports query access.
+         *
+         * @param index index to open
+         * @param indexEntryQuery query with no blank parameters, derived from
+         * the query returned by indexEntryQuery
+         */
+        Cursor<S> fetchFromIndexEntryQuery(StorableIndex<S> index, Query<?> indexEntryQuery)
+            throws FetchException;
+
+        /**
          * Perform an index scan of a subset of Storables referenced by an
          * index. The identity values are aligned with the index properties at
          * property 0. An optional range start or range end aligns with the index
          * property following the last of the identity values.
          *
+         * <p>This method is only called if no index entry query was provided
+         * for the given index.
          *
          * @param index index to open, which may be a primary key index
          * @param identityValues optional list of exactly matching values to apply to index

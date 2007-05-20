@@ -431,10 +431,22 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
                               Object[] identityValues)
         throws FetchException
     {
-        return fetchSubset(index, identityValues,
-                           BoundaryType.OPEN, null,
-                           BoundaryType.OPEN, null,
-                           false, false);
+        ManagedIndex<S> indexInfo = (ManagedIndex<S>) mAllIndexInfoMap.get(index);
+        return indexInfo.fetchOne(this, identityValues);
+    }
+
+    public Query<?> indexEntryQuery(StorableIndex<S> index)
+        throws FetchException
+    {
+        ManagedIndex<S> indexInfo = (ManagedIndex<S>) mAllIndexInfoMap.get(index);
+        return indexInfo.getIndexEntryStorage().query();
+    }
+
+    public Cursor<S> fetchFromIndexEntryQuery(StorableIndex<S> index, Query<?> indexEntryQuery)
+        throws FetchException
+    {
+        ManagedIndex<S> indexInfo = (ManagedIndex<S>) mAllIndexInfoMap.get(index);
+        return indexInfo.fetchFromIndexEntryQuery(this, indexEntryQuery);
     }
 
     public Cursor<S> fetchSubset(StorableIndex<S> index,
@@ -447,31 +459,8 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
                                  boolean reverseOrder)
         throws FetchException
     {
-        // Note: this code ignores the reverseRange parameter to avoid double
-        // reversal. Only the lowest storage layer should examine this
-        // parameter.
-
-        ManagedIndex<S> indexInfo = (ManagedIndex<S>) mAllIndexInfoMap.get(index);
-
-        Query<?> query = indexInfo.getIndexEntryQueryFor
-            (identityValues == null ? 0 : identityValues.length,
-             rangeStartBoundary, rangeEndBoundary, reverseOrder);
-
-        if (identityValues != null) {
-            query = query.withValues(identityValues);
-        }
-
-        if (rangeStartBoundary != BoundaryType.OPEN) {
-            query = query.with(rangeStartValue);
-        }
-        if (rangeEndBoundary != BoundaryType.OPEN) {
-            query = query.with(rangeEndValue);
-        }
-
-        Cursor<? extends Storable> indexEntryCursor = query.fetch();
-
-        return new IndexedCursor<S>
-            (indexEntryCursor, IndexedStorage.this, indexInfo.getIndexEntryClassBuilder());
+        // This method should never be called since a query was returned by indexEntryQuery.
+        throw new UnsupportedOperationException();
     }
 
     private void registerIndex(ManagedIndex<S> managedIndex)

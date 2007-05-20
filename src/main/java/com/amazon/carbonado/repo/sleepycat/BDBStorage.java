@@ -298,6 +298,15 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         return new SingletonCursor<S>(instantiate(key, value));
     }
 
+    public Query<?> indexEntryQuery(StorableIndex<S> index) {
+        return null;
+    }
+
+    public Cursor<S> fetchFromIndexEntryQuery(StorableIndex<S> index, Query<?> indexEntryQuery) {
+        // This method should never be called since null was returned by indexEntryQuery.
+        throw new UnsupportedOperationException();
+    }
+
     public Cursor<S> fetchSubset(StorableIndex<S> index,
                                  Object[] identityValues,
                                  BoundaryType rangeStartBoundary,

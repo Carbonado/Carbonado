@@ -151,8 +151,8 @@ public class OrderingScore<S extends Storable> {
                 }
             }
 
-            return new OrderingScore<S>(clustered,
-                                        indexProperties.length,
+            return new OrderingScore<S>(indexProperties,
+                                        clustered,
                                         handledOrdering,   // no handled properties
                                         remainderOrdering, // no remainder properties
                                         false,             // no need to reverse order
@@ -266,8 +266,8 @@ public class OrderingScore<S extends Storable> {
             shouldReverseOrder = false;
         }
 
-        return new OrderingScore<S>(clustered,
-                                    indexProperties.length,
+        return new OrderingScore<S>(indexProperties,
+                                    clustered,
                                     handledOrdering,
                                     remainderOrdering,
                                     shouldReverseOrder,
@@ -285,8 +285,8 @@ public class OrderingScore<S extends Storable> {
         return Full.INSTANCE;
     }
 
+    private final OrderedProperty<S>[] mIndexProperties;
     private final boolean mIndexClustered;
-    private final int mIndexPropertyCount;
 
     private final OrderingList<S> mHandledOrdering;
     private final OrderingList<S> mRemainderOrdering;
@@ -300,21 +300,31 @@ public class OrderingScore<S extends Storable> {
     private final OrderingList<S> mFreeOrdering;
     private final OrderingList<S> mUnusedOrdering;
 
-    private OrderingScore(boolean indexClustered,
-                          int indexPropertyCount,
+    private OrderingScore(OrderedProperty<S>[] indexProperties,
+                          boolean indexClustered,
                           OrderingList<S> handledOrdering,
                           OrderingList<S> remainderOrdering,
                           boolean shouldReverseOrder,
                           OrderingList<S> freeOrdering,
                           OrderingList<S> unusedOrdering)
     {
+        mIndexProperties = indexProperties;
         mIndexClustered = indexClustered;
-        mIndexPropertyCount = indexPropertyCount;
         mHandledOrdering = handledOrdering;
         mRemainderOrdering = remainderOrdering;
         mShouldReverseOrder = shouldReverseOrder;
         mFreeOrdering = freeOrdering;
         mUnusedOrdering = unusedOrdering;
+    }
+
+    private OrderingScore(OrderingScore<S> score, OrderingList<S> remainderOrdering) {
+        mIndexProperties = score.mIndexProperties;
+        mIndexClustered = score.mIndexClustered;
+        mHandledOrdering = score.mHandledOrdering;
+        mRemainderOrdering = remainderOrdering;
+        mShouldReverseOrder = score.mShouldReverseOrder;
+        mFreeOrdering = score.mFreeOrdering;
+        mUnusedOrdering = score.mUnusedOrdering;
     }
 
     /**
@@ -329,7 +339,7 @@ public class OrderingScore<S extends Storable> {
      * Returns the amount of properties in the evaluated index.
      */
     public int getIndexPropertyCount() {
-        return mIndexPropertyCount;
+        return mIndexProperties.length;
     }
 
     /**
@@ -461,6 +471,16 @@ public class OrderingScore<S extends Storable> {
                 return otherRemainderOrdering;
             }
         }
+    }
+
+    /**
+     * Returns a new OrderingScore with the remainder replaced. Handled count
+     * is not recalculated.
+     *
+     * @since 1.2
+     */
+    public OrderingScore<S> withRemainderOrdering(OrderingList<S> ordering) {
+        return new OrderingScore<S>(this, ordering);
     }
 
     public String toString() {

@@ -73,6 +73,14 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
         this(factory, OrderingList.get(factory.getStorableType(), orderings));
     }
 
+    /**
+     * Used only by test suite. Query throws NullPointerException when invoked.
+     */
+    EmptyQuery() {
+        mFactory = null;
+        mOrdering = OrderingList.emptyList();
+    }
+
     public Class<S> getStorableType() {
         return mFactory.getStorableType();
     }

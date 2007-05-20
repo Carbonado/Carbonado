@@ -22,6 +22,7 @@ Carbonado change history
 - FilteredCursor ensures that filter being used is bound.
 - BDBRepository detects if changes are made to primary key and throws exception.
 - Added support for derived properies.
+- Enhanced query engine to optimize for covering indexes.
 
 1.1-BETA11 to 1.1 (release)
 -------------------------------
