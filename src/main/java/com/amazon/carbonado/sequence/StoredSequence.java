@@ -33,7 +33,8 @@ import com.amazon.carbonado.Version;
  * CREATE TABLE CARBONADO_SEQUENCE (
  *     NAME           VARCHAR(100) PRIMARY KEY,
  *     INITIAL_VALUE  BIGINT       NOT NULL,
- *     NEXT_VALUE     BIGINT       NOT NULL
+ *     NEXT_VALUE     BIGINT       NOT NULL,
+ *     VERSION        INT          NOT NULL
  * )
  * </pre>
  *
