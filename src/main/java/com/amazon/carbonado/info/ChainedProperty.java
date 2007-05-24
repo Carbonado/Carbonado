@@ -20,7 +20,6 @@ package com.amazon.carbonado.info;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -300,16 +299,40 @@ public class ChainedProperty<S extends Storable> implements Appender {
         }
         if (obj instanceof ChainedProperty) {
             ChainedProperty<?> other = (ChainedProperty<?>) obj;
-            if (getType() == other.getType() && mPrime.equals(other.mPrime)) {
-                if (mChain == null) {
-                    return other.mChain == null;
-                }
-                if (other.mChain != null) {
-                    return Arrays.equals(mChain, other.mChain);
-                }
-            }
+            // Note: Since StorableProperty instances are not canonicalized,
+            // they must be compared with the '==' operator instead of the
+            // equals method. Otherwise, canonical ChainedProperty instances
+            // may refer to StorableProperty instances which are no longer
+            // available through the Introspector.
+            return getType() == other.getType() && mPrime == other.mPrime
+                && identityEquals(mChain, other.mChain);
         }
         return false;
+    }
+
+    /**
+     * Compares objects for equality using '==' operator instead of equals method.
+     */
+    private static boolean identityEquals(Object[] a, Object[] a2) {
+        if (a == a2) {
+            return true;
+        }
+        if (a == null || a2 == null) {
+            return false;
+        }
+
+        int length = a.length;
+        if (a2.length != length) {
+            return false;
+        }
+
+        for (int i=0; i<length; i++) {
+            if (a[i] != a2[i]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

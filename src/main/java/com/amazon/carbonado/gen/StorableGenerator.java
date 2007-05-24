@@ -1885,7 +1885,7 @@ public final class StorableGenerator<S extends Storable> {
             addAltKeyMethods:
             for (int i=0; i<mInfo.getAlternateKeyCount(); i++) {
                 Map<String, StorableProperty<S>> altProps =
-                    new HashMap<String, StorableProperty<S>>();
+                    new LinkedHashMap<String, StorableProperty<S>>();
 
                 StorableKey<S> altKey = mInfo.getAlternateKey(i);
 
@@ -1905,7 +1905,7 @@ public final class StorableGenerator<S extends Storable> {
             // Define protected isRequiredDataInitialized method.
             defineIsRequiredDataInitialized: {
                 Map<String, StorableProperty<S>> requiredProperties =
-                    new HashMap<String, StorableProperty<S>>();
+                    new LinkedHashMap<String, StorableProperty<S>>();
 
                 for (StorableProperty property : mAllProperties.values()) {
                     if (!property.isDerived() &&
@@ -2686,7 +2686,7 @@ public final class StorableGenerator<S extends Storable> {
         b.returnValue(TypeDesc.BOOLEAN);
     }
 
-    private int findPropertyOrdinal(StorableProperty property) {
+    private int findPropertyOrdinal(StorableProperty<S> property) {
         int ordinal = 0;
         for (StorableProperty<S> p : mAllProperties.values()) {
             if (p == property) {
@@ -2694,7 +2694,8 @@ public final class StorableGenerator<S extends Storable> {
             }
             ordinal++;
         }
-        throw new IllegalArgumentException();
+        throw new IllegalArgumentException
+            ("Unable to find property " + property + " in " + mAllProperties);
     }
 
     /**
