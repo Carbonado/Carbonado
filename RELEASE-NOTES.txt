@@ -24,6 +24,10 @@ Carbonado change history
 - Added support for derived properies.
 - Enhanced query engine to optimize for covering indexes.
 
+1.1 to 1.1.1
+-------------------------------
+- Fixed spurious IllegalArgumentException from StorableGenerator.
+
 1.1-BETA11 to 1.1 (release)
 -------------------------------
 - Only minor comment changes.
