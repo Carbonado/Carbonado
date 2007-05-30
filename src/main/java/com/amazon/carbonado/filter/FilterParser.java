@@ -220,7 +220,7 @@ class FilterParser<S extends Storable> {
         }
 
         List<StorableProperty<?>> chain = new ArrayList<StorableProperty<?>>(4);
-        Class<?> type = prime.isJoin() ? prime.getJoinedType() : prime.getType();
+        Class<?> type = prime.getType();
 
         while (true) {
             ident = parseIdentifier();
@@ -238,7 +238,7 @@ class FilterParser<S extends Storable> {
                 type = prop.isJoin() ? prop.getJoinedType() : prop.getType();
             } else {
                 throw error("Property \"" + ident + "\" not found for type \"" +
-                            type.getName() + "\" because type has no properties");
+                            type.getName() + "\" because it has no properties");
             }
             if (nextCharIgnoreWhitespace() != '.') {
                 mPos--;

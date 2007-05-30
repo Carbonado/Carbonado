@@ -101,7 +101,7 @@ public class ChainedProperty<S extends Storable> implements Appender {
         }
 
         List<StorableProperty<?>> chain = new ArrayList<StorableProperty<?>>(4);
-        Class<?> type = prime.isJoin() ? prime.getJoinedType() : prime.getType();
+        Class<?> type = prime.getType();
 
         while (pos > 0) {
             dot = str.indexOf('.', pos);
@@ -127,7 +127,7 @@ public class ChainedProperty<S extends Storable> implements Appender {
             } else {
                 throw new IllegalArgumentException
                     ("Property \"" + name + "\" not found for type \"" +
-                     type.getName() + "\" because type has no properties");
+                     type.getName() + "\" because it has no properties");
             }
         }
 
