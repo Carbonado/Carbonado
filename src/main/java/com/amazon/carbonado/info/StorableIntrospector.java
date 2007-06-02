@@ -1171,7 +1171,8 @@ public class StorableIntrospector {
 
             if (bestConstrainMethod == null) {
                 errorMessages.add("Constraint does not support property type: " +
-                                  property.getType().getName() + "; constraint type: " +
+                                  TypeDesc.forClass(property.getType()).getFullName() +
+                                  "; constraint type: " +
                                   annotation.annotationType().getName());
             } else {
                 StorablePropertyAnnotation spa =
@@ -1245,7 +1246,8 @@ public class StorableIntrospector {
 
             if (adaptMethods.length == 0) {
                 errorMessages.add("Adapter does not support property type: " +
-                                  property.getType().getName() + "; adapter type: " +
+                                  TypeDesc.forClass(property.getType()).getFullName() +
+                                  "; adapter type: " +
                                   annotation.annotationType().getName());
             } else {
                 StorablePropertyAnnotation spa =

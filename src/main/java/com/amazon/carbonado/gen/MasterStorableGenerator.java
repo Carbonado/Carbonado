@@ -314,8 +314,8 @@ public final class MasterStorableGenerator<S extends Storable> {
                             } else {
                                 throw new SupportException
                                     ("Unable to support sequence of type \"" +
-                                     property.getType().getName() + "\" for property: " +
-                                     property.getName());
+                                     TypeDesc.forClass(property.getType()).getFullName() +
+                                     "\" for property: " + property.getName());
                             }
                         } catch (NoSuchMethodException e) {
                             Error err = new NoSuchMethodError();

@@ -457,7 +457,8 @@ public class GenericEncodingStrategy<S extends Storable> {
     }
 
     private SupportException notSupported(StorableProperty<S> property) {
-        return notSupported(property.getName(), property.getType().getName());
+        return notSupported(property.getName(),
+                            TypeDesc.forClass(property.getType()).getFullName());
     }
 
     private SupportException notSupported(String propertyName, String typeName) {
