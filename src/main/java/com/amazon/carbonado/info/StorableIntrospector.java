@@ -223,7 +223,16 @@ public class StorableIntrospector {
                                primaryKey, alternateKeys,
                                type.getAnnotation(Independent.class) != null,
                                type.getAnnotation(Authoritative.class) != null);
+
             cCache.put(type, new SoftReference<StorableInfo<?>>(info));
+
+            // Now that the StorableInfo object has been constructed, assign it
+            // to all properties to prevent it from being prematurely uncached.
+            for (StorableProperty property : properties.values()) {
+                if (property instanceof SimpleProperty) {
+                    ((SimpleProperty)property).setEnclosingInfo(info);
+                }
+            }
 
             // Finish resolving join properties, after properties have been
             // added to cache. This makes it possible for joins to (directly or
@@ -231,7 +240,7 @@ public class StorableIntrospector {
             // late, then there would be a stack overflow.
             for (StorableProperty property : properties.values()) {
                 if (property instanceof JoinProperty) {
-                    ((JoinProperty)property).resolveJoin(errorMessages, info);
+                    ((JoinProperty)property).resolveJoin(errorMessages);
                 }
             }
 
@@ -241,7 +250,7 @@ public class StorableIntrospector {
             for (StorableProperty<S> property : properties.values()) {
                 if (property instanceof SimpleProperty && property.isDerived()) {
                     anyDerived = true;
-                    ((SimpleProperty)property).resolveDerivedFrom(errorMessages, info);
+                    ((SimpleProperty)property).resolveDerivedFrom(errorMessages);
                 }
             }
 
@@ -1573,6 +1582,11 @@ public class StorableIntrospector {
         // Resolved derived to properties.
         private ChainedProperty<S>[] mDerivedTo;
 
+        // Reference to enclosing StorableInfo. This reference exists to
+        // prevent the StorableInfo from being uncached so as long as a
+        // reference from a property exists.
+        protected StorableInfo<S> mEnclosingInfo;
+
         SimpleProperty(BeanProperty property, Class<S> enclosing,
                        boolean nullable, boolean primaryKey, boolean alternateKey,
                        String[] aliases, StorablePropertyConstraint[] constraints,
@@ -1822,7 +1836,11 @@ public class StorableIntrospector {
             app.append('}');
         }
 
-        void resolveDerivedFrom(List<String> errorMessages, StorableInfo<S> info) {
+        void setEnclosingInfo(StorableInfo<S> info) {
+            mEnclosingInfo = info;
+        }
+
+        void resolveDerivedFrom(List<String> errorMessages) {
             Derived derived = mDerived;
             // Don't need this anymore.
             mDerived = null;
@@ -1840,7 +1858,7 @@ public class StorableIntrospector {
             for (String fromName : fromNames) {
                 ChainedProperty<S> from;
                 try {
-                    from = ChainedProperty.parse(info, fromName);
+                    from = ChainedProperty.parse(mEnclosingInfo, fromName);
                 } catch (IllegalArgumentException e) {
                     errorMessages.add
                         ("Cannot find derived-from property: \"" +
@@ -1885,8 +1903,7 @@ public class StorableIntrospector {
 
             if (lastInChain.isDerived()) {
                 // Expand derived dependencies.
-                ((SimpleProperty) lastInChain)
-                    .resolveDerivedFrom(errorMessages, examine(lastInChain.getEnclosingType()));
+                ((SimpleProperty) lastInChain).resolveDerivedFrom(errorMessages);
                 for (ChainedProperty<?> lastFrom : lastInChain.getDerivedFromProperties()) {
                     ChainedProperty<S> dep;
                     if (trimmed == null) {
@@ -2109,7 +2126,7 @@ public class StorableIntrospector {
          * Finishes the definition of this join property. Can only be called once.
          */
         @SuppressWarnings("unchecked")
-        void resolveJoin(List<String> errorMessages, StorableInfo<S> info) {
+        void resolveJoin(List<String> errorMessages) {
             StorableInfo<?> joinedInfo;
             try {
                 joinedInfo = examine(getJoinedType());
@@ -2150,7 +2167,7 @@ public class StorableIntrospector {
             // Verify that internal properties exist and are not themselves joins.
             for (int i=0; i<mInternalNames.length; i++) {
                 String internalName = mInternalNames[i];
-                StorableProperty property = info.getAllProperties().get(internalName);
+                StorableProperty property = mEnclosingInfo.getAllProperties().get(internalName);
                 if (property == null) {
                     errorMessages.add
                         ("Cannot find internal join element: \"" +
@@ -2452,8 +2469,8 @@ public class StorableIntrospector {
                 boolean oneToOne = false;
 
                 oneToOneCheck: {
-                    Set<StorableProperty> internalPrimaryKey =
-                        new HashSet<StorableProperty>(info.getPrimaryKeyProperties().values());
+                    Set<StorableProperty> internalPrimaryKey = new HashSet<StorableProperty>
+                        (mEnclosingInfo.getPrimaryKeyProperties().values());
                 
                     for (int i=0; i<mInternal.length; i++) {
                         internalPrimaryKey.remove(getInternalJoinElement(i));
@@ -2464,10 +2481,12 @@ public class StorableIntrospector {
                     }
 
                     altKeyScan:
-                    for (int i=0; i<info.getAlternateKeyCount(); i++) {
+                    for (int i=0; i<mEnclosingInfo.getAlternateKeyCount(); i++) {
                         Set<StorableProperty> altKey = new HashSet<StorableProperty>();
 
-                        for (OrderedProperty op : info.getAlternateKey(i).getProperties()) {
+                        for (OrderedProperty op :
+                                 mEnclosingInfo.getAlternateKey(i).getProperties())
+                        {
                             ChainedProperty chained = op.getChainedProperty();
                             if (chained.getChainCount() > 0) {
                                 // Funny alt key. Pretend it does not exist.
