@@ -659,8 +659,54 @@ public class GenericEncodingStrategy<S extends Storable> {
         // variable length. Load each property and perform the necessary
         // tests to determine the exact encoding length.
 
+        // Stash of properties which are loaded and locally stored before
+        // entering the first loop. This avoids having to load them twice.
+        LocalVariable[] stashedProperties = null;
+        Boolean[] stashedFromInstances = null;
+
         boolean hasStackVar = false;
         if (hasVariableLength) {
+            // Figure out which properties should be locally stashed.
+            stashedProperties = new LocalVariable[properties.length];
+            stashedFromInstances = new Boolean[properties.length];
+
+            for (int i=0; i<properties.length; i++) {
+                StorableProperty<S> property = properties[i];
+                StorablePropertyInfo info = infos[i];
+
+                if (info.getPropertyType() == info.getStorageType()) {
+                    // Property won't be adapted, so loading it twice is no big deal.
+                    continue;
+                }
+
+                LocalVariable propVar = a.createLocalVariable(null, info.getStorageType());
+                stashedProperties[i] = propVar;
+
+                if (doPartial) {
+                    // Initialize the stashed propery to null or zero to make
+                    // the verifier happy.
+                    switch (propVar.getType().getTypeCode()) {
+                    case TypeDesc.OBJECT_CODE:
+                        a.loadNull();
+                        break;
+                    case TypeDesc.LONG_CODE:
+                        a.loadConstant(0L);
+                        break;
+                    case TypeDesc.FLOAT_CODE:
+                        a.loadConstant(0.0f);
+                        break;
+                    case TypeDesc.DOUBLE_CODE:
+                        a.loadConstant(0.0d);
+                        break;
+                    case TypeDesc.INT_CODE: default:
+                        a.loadConstant(0);
+                        break;
+                    }
+
+                    a.storeLocal(propVar);
+                }
+            }
+
             Label[] entryPoints = null;
 
             if (partialStartVar != null) {
@@ -752,7 +798,8 @@ public class GenericEncodingStrategy<S extends Storable> {
                         hasStackVar = true;
                     } else {
                         // Load property to test for null.
-                        loadPropertyValue(a, info, i, useReadMethods,
+                        loadPropertyValue(stashedProperties, stashedFromInstances,
+                                          a, info, i, useReadMethods,
                                           instanceVar, adapterInstanceClass, partialStartVar);
 
                         Label isNull = a.createLabel();
@@ -779,8 +826,8 @@ public class GenericEncodingStrategy<S extends Storable> {
                         }
                     }
                 } else if (propType == TypeDesc.STRING) {
-                    // Load property to test for null.
-                    loadPropertyValue(a, info, i, useReadMethods,
+                    loadPropertyValue(stashedProperties, stashedFromInstances,
+                                      a, info, i, useReadMethods,
                                       instanceVar, adapterInstanceClass, partialStartVar);
 
                     String className =
@@ -793,8 +840,8 @@ public class GenericEncodingStrategy<S extends Storable> {
                         hasStackVar = true;
                     }
                 } else if (propType.toClass() == byte[].class) {
-                    // Load property to test for null.
-                    loadPropertyValue(a, info, i, useReadMethods,
+                    loadPropertyValue(stashedProperties, stashedFromInstances,
+                                      a, info, i, useReadMethods,
                                       instanceVar, adapterInstanceClass, partialStartVar);
 
                     String className =
@@ -925,7 +972,9 @@ public class GenericEncodingStrategy<S extends Storable> {
             }
 
             boolean fromInstance = loadPropertyValue
-                (a, info, i, useReadMethods, instanceVar, adapterInstanceClass, partialStartVar);
+                (stashedProperties, stashedFromInstances,
+                 a, info, i, useReadMethods,
+                 instanceVar, adapterInstanceClass, partialStartVar);
 
             TypeDesc propType = info.getStorageType();
             if (!property.isNullable() && propType.toPrimitiveType() != null) {
@@ -1037,6 +1086,57 @@ public class GenericEncodingStrategy<S extends Storable> {
      * @return true if property was loaded from instance, false if loaded from
      * value array
      */
+    protected boolean loadPropertyValue(LocalVariable[] stashedProperties,
+                                        Boolean[] stashedFromInstances,
+                                        CodeAssembler a,
+                                        StorablePropertyInfo info, int ordinal,
+                                        boolean useReadMethod,
+                                        LocalVariable instanceVar,
+                                        Class<?> adapterInstanceClass,
+                                        LocalVariable partialStartVar)
+    {
+        if (stashedFromInstances != null && stashedFromInstances[ordinal] != null) {
+            a.loadLocal(stashedProperties[ordinal]);
+            return stashedFromInstances[ordinal];
+        }
+
+        boolean fromInstance = loadPropertyValue
+            (a, info, ordinal, useReadMethod, instanceVar, adapterInstanceClass, partialStartVar);
+
+        if (stashedProperties != null) {
+            LocalVariable propVar = stashedProperties[ordinal];
+            // Stash it for the next time.
+            if (propVar != null) {
+                a.storeLocal(propVar);
+                a.loadLocal(propVar);
+                stashedFromInstances[ordinal] = fromInstance;
+            }
+        }
+
+        return fromInstance;
+    }
+
+    /**
+     * Generates code to load a property value onto the operand stack.
+     *
+     * @param info info for property to load
+     * @param ordinal zero-based property ordinal, used only if instanceVar
+     * refers to an object array.
+     * @param useReadMethod when true, access property by public read method
+     * instead of protected field
+     * @param instanceVar local variable referencing Storable instance,
+     * defaults to "this" if null. If variable type is an Object array, then
+     * property values are read from the runtime value of this array instead
+     * of a Storable instance.
+     * @param adapterInstanceClass class containing static references to
+     * adapter instances - defaults to instanceVar
+     * @param partialStartVar optional variable for supporting partial key
+     * generation. It must be an int, whose runtime value must be less than the
+     * properties array length. It marks the range start of the partial
+     * property range.
+     * @return true if property was loaded from instance, false if loaded from
+     * value array
+     */
     protected boolean loadPropertyValue(CodeAssembler a,
                                         StorablePropertyInfo info, int ordinal,
                                         boolean useReadMethod,
@@ -1044,13 +1144,13 @@ public class GenericEncodingStrategy<S extends Storable> {
                                         Class<?> adapterInstanceClass,
                                         LocalVariable partialStartVar)
     {
-        TypeDesc type = info.getPropertyType();
-        TypeDesc storageType = info.getStorageType();
+        final TypeDesc type = info.getPropertyType();
+        final TypeDesc storageType = info.getStorageType();
 
-        boolean isObjectArrayInstanceVar = instanceVar != null
+        final boolean isObjectArrayInstanceVar = instanceVar != null
             && instanceVar.getType() == TypeDesc.forClass(Object[].class);
 
-        boolean useAdapterInstance = adapterInstanceClass != null
+        final boolean useAdapterInstance = adapterInstanceClass != null
             && info.getToStorageAdapter() != null
             && (useReadMethod || isObjectArrayInstanceVar);
 
