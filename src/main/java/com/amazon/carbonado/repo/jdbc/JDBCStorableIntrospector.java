@@ -383,7 +383,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         }
 
         if (errorMessages.size() > 0) {
-            throw new MismatchException(errorMessages);
+            throw new MismatchException(mainInfo.getStorableType(), errorMessages);
         }
 
         // Gather index info...
@@ -570,7 +570,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         }
 
         if (errorMessages.size() > 0) {
-            throw new MismatchException(errorMessages);
+            throw new MismatchException(mainInfo.getStorableType(), errorMessages);
         }
 
         return new JInfo<S>

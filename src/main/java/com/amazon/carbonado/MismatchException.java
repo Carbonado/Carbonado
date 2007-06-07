@@ -32,6 +32,7 @@ public class MismatchException extends SupportException {
 
     private static final long serialVersionUID = 5840495857407789424L;
 
+    private Class<?> mType;
     private List<String> mMessages;
 
     public MismatchException() {
@@ -49,11 +50,42 @@ public class MismatchException extends SupportException {
         mMessages = Collections.unmodifiableList(messages);
     }
 
+    /**
+     * @since 1.2
+     */
+    public MismatchException(Class<?> malformedType) {
+        this();
+        mType = malformedType;
+    }
+
+    /**
+     * @since 1.2
+     */
+    public MismatchException(Class<?> malformedType, String message) {
+        this(message);
+        mType = malformedType;
+    }
+
+    /**
+     * @since 1.2
+     */
+    public MismatchException(Class<?> malformedType, List<String> messages) {
+        this(messages);
+        mType = malformedType;
+    }
+
+    @Override
     public String getMessage() {
+        String message;
         if (mMessages == null || mMessages.size() == 0) {
-            return super.getMessage();
+            message = super.getMessage();
+        } else {
+            message = mMessages.get(0);
         }
-        return mMessages.get(0);
+        if (mType != null) {
+            message = mType.getName() + ": " + message;
+        }
+        return message;
     }
 
     /**
