@@ -20,8 +20,6 @@ package com.amazon.carbonado.spi;
 
 import java.util.List;
 
-import org.cojen.util.BeanPropertyAccessor;
-
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Storable;
@@ -38,14 +36,12 @@ import com.amazon.carbonado.lob.Lob;
 class LobEngineTrigger<S extends Storable> extends Trigger<S> {
     final LobEngine mEngine;
     private final int mBlockSize;
-    private final BeanPropertyAccessor mAccessor;
     private final LobProperty<Lob>[] mLobProperties;
 
     LobEngineTrigger(LobEngine engine, Class<S> type, int blockSize,
                      List<LobProperty<?>> lobProperties)
     {
         mEngine = engine;
-        mAccessor = BeanPropertyAccessor.forClass(type);
         mBlockSize = blockSize;
 
         mLobProperties = new LobProperty[lobProperties.size()];
@@ -59,11 +55,11 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
         Object[] userLobs = new Object[length];
         for (int i=0; i<length; i++) {
             LobProperty<Lob> prop = mLobProperties[i];
-            Object userLob = mAccessor.getPropertyValue(storable, prop.mName);
+            Object userLob = storable.getPropertyValue(prop.mName);
             userLobs[i] = userLob;
             if (userLob != null) {
                 Object lob = prop.createNewLob(mBlockSize);
-                mAccessor.setPropertyValue(storable, prop.mName, lob);
+                storable.setPropertyValue(prop.mName, lob);
             }
         }
         return userLobs;
@@ -79,7 +75,7 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
             Object userLob = userLobs[i];
             if (userLob != null) {
                 LobProperty<Lob> prop = mLobProperties[i];
-                Lob lob = (Lob) mAccessor.getPropertyValue(storable, prop.mName);
+                Lob lob = (Lob) storable.getPropertyValue(prop.mName);
                 prop.setLobValue(mEngine.getLocator(lob), (Lob) userLob);
             }
         }
@@ -112,9 +108,9 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
                 throw e.toPersistException();
             }
 
-            Object userLob = mAccessor.getPropertyValue(storable, prop.mName);
+            Object userLob = storable.getPropertyValue(prop.mName);
             userLobs[i] = userLob;
-            Lob existingLob = (Lob) mAccessor.getPropertyValue(existing, prop.mName);
+            Lob existingLob = (Lob) existing.getPropertyValue(prop.mName);
             if (userLob == null) {
                 if (existingLob != null) {
                     // User is setting existing lob to null, so delete it.
@@ -126,7 +122,7 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
                     existingLob = prop.createNewLob(mBlockSize);
                 }
                 prop.setLobValue(mEngine.getLocator(existingLob), (Lob) userLob);
-                mAccessor.setPropertyValue(storable, prop.mName, existingLob);
+                storable.setPropertyValue(prop.mName, existingLob);
             }
         }
 
@@ -154,7 +150,7 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
         if (existing != null) {
             // After successful delete of master storable, delete all the lobs.
             for (LobProperty<Lob> prop : mLobProperties) {
-                Lob lob = (Lob) mAccessor.getPropertyValue(existing, prop.mName);
+                Lob lob = (Lob) ((S) existing).getPropertyValue(prop.mName);
                 mEngine.deleteLob(lob);
             }
         }
@@ -175,7 +171,7 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
             for (int i=0; i<length; i++) {
                 Object userLob = userLobs[i];
                 if (userLob != null) {
-                    mAccessor.setPropertyValue(storable, mLobProperties[i].mName, userLob);
+                    storable.setPropertyValue(mLobProperties[i].mName, userLob);
                 }
             }
         }

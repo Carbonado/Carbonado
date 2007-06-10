@@ -22,8 +22,6 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.cojen.util.BeanPropertyAccessor;
-
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Query;
@@ -49,7 +47,6 @@ class DependentStorableFetcher<S extends Storable, D extends Storable> {
     private final IndexEntryAccessor<D>[] mIndexEntryAccessors;
     private final Query<D> mQuery;
     private final String[] mJoinProperties;
-    private final BeanPropertyAccessor mPropertyAccessor;
 
     /**
      * @param derivedTo special chained property from StorableProperty.getDerivedToProperties
@@ -116,7 +113,6 @@ class DependentStorableFetcher<S extends Storable, D extends Storable> {
         mIndexEntryAccessors = accessorList.toArray(new IndexEntryAccessor[accessorList.size()]);
         mQuery = repository.storageFor(dType).query(dFilter);
         mJoinProperties = joinProperties;
-        mPropertyAccessor = BeanPropertyAccessor.forClass(sType);
     }
 
     public Transaction enterTransaction() {
@@ -126,7 +122,7 @@ class DependentStorableFetcher<S extends Storable, D extends Storable> {
     public Cursor<D> fetchDependenentStorables(S storable) throws FetchException {
         Query<D> query = mQuery;
         for (String property : mJoinProperties) {
-            query = query.with(mPropertyAccessor.getPropertyValue(storable, property));
+            query = query.with(storable.getPropertyValue(property));
         }
         return query.fetch();
     }

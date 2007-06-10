@@ -351,7 +351,7 @@ public interface Storable<S extends Storable<S>> {
      * loaded or set.
      *
      * @param propertyName name of property to interrogate
-     * @throws IllegalArgumentException if property is unknown or is a join
+     * @throws IllegalArgumentException if property is unknown, is a join or is derived
      */
     boolean isPropertyUninitialized(String propertyName);
 
@@ -360,7 +360,7 @@ public interface Storable<S extends Storable<S>> {
      * load or store operation has been performed yet.
      *
      * @param propertyName name of property to interrogate
-     * @throws IllegalArgumentException if property is unknown or is a join
+     * @throws IllegalArgumentException if property is unknown, is a join or is derived
      */
     boolean isPropertyDirty(String propertyName);
 
@@ -369,7 +369,7 @@ public interface Storable<S extends Storable<S>> {
      * properties are clean after a successful load or store operation.
      *
      * @param propertyName name of property to interrogate
-     * @throws IllegalArgumentException if property is unknown or is a join
+     * @throws IllegalArgumentException if property is unknown, is a join or is derived
      */
     boolean isPropertyClean(String propertyName);
 
@@ -381,6 +381,34 @@ public interface Storable<S extends Storable<S>> {
      * @param propertyName name of property to check
      */
     boolean isPropertySupported(String propertyName);
+
+    /**
+     * Returns a Storable property value by name.
+     *
+     * @param propertyName name of property to get value of
+     * @return property value, which is boxed if property type is primitive
+     * @throws IllegalArgumentException if property is unknown
+     * @throws UnsupportedOperationException if property is independent but unsupported
+     * @throws NullPointerException if property name is null
+     * @since 1.2
+     */
+    Object getPropertyValue(String propertyName);
+
+    /**
+     * Sets a Storable property value by name. Call insert or update to persist
+     * the change.
+     *
+     * @param propertyName name of property to set value to
+     * @param value new value for property
+     * @throws IllegalArgumentException if property is unknown or if value is
+     * unsupported due to a constraint
+     * @throws UnsupportedOperationException if property is independent but unsupported
+     * @throws ClassCastException if value is of wrong type
+     * @throws NullPointerException if property name is null or if primitive
+     * value is required but value is null
+     * @since 1.2
+     */
+    void setPropertyValue(String propertyName, Object value);
 
     /**
      * Returns an exact shallow copy of this object, including the state.

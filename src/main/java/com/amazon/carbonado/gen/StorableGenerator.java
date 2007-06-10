@@ -189,6 +189,9 @@ public final class StorableGenerator<S extends Storable> {
     private static final String UPDATE_OP = "Update";
     private static final String DELETE_OP = "Delete";
 
+    // Different uses for generated property switch statements.
+    private static final int SWITCH_FOR_STATE = 1, SWITCH_FOR_GET = 2, SWITCH_FOR_SET = 3;
+
     /**
      * Returns an abstract implementation of the given Storable type, which is
      * fully thread-safe. The Storable type itself may be an interface or a
@@ -1863,6 +1866,10 @@ public final class StorableGenerator<S extends Storable> {
             b.returnValue(TypeDesc.BOOLEAN);
         }
 
+        // Define reflection-like method for manipulating property by name.
+        addGetPropertyValueMethod();
+        addSetPropertyValueMethod();
+
         // Define standard object methods.
         addHashCodeMethod();
         addEqualsMethod(EQUAL_FULL);
@@ -2733,8 +2740,11 @@ public final class StorableGenerator<S extends Storable> {
 
         MethodInfo mi = mClassFile.addMethod(Modifiers.PRIVATE, PROPERTY_STATE_EXTRACT_METHOD_NAME,
                                              TypeDesc.INT, new TypeDesc[] {TypeDesc.STRING});
-        CodeBuilder b = new CodeBuilder(mi);
+        
+        addPropertySwitch(new CodeBuilder(mi), SWITCH_FOR_STATE);
+    }
 
+    private void addPropertySwitch(CodeBuilder b, int switchFor) {
         // Generate big switch statement that operates on Strings. See also
         // org.cojen.util.BeanPropertyAccessor, which also generates this kind of
         // switch.
@@ -2795,6 +2805,8 @@ public final class StorableGenerator<S extends Storable> {
 
         Label derivedMatch = null;
         Label joinMatch = null;
+        Label unreadable = null;
+        Label unwritable = null;
 
         for (int i=0; i<caseCount; i++) {
             List<StorableProperty<?>> matches = caseMatches[i];
@@ -2824,29 +2836,59 @@ public final class StorableGenerator<S extends Storable> {
                     b.ifZeroComparisonBranch(notEqual, "==");
                 }
 
-                if (prop.isDerived()) {
-                    if (derivedMatch == null) {
-                        derivedMatch = b.createLabel();
-                    }
-                    b.branch(derivedMatch);
-                } else if (prop.isJoin()) {
-                    if (joinMatch == null) {
-                        joinMatch = b.createLabel();
-                    }
-                    b.branch(joinMatch);
-                } else {
-                    int ordinal = ordinalMap.get(prop);
+                if (switchFor == SWITCH_FOR_STATE) {
+                    if (prop.isDerived()) {
+                        if (derivedMatch == null) {
+                            derivedMatch = b.createLabel();
+                        }
+                        b.branch(derivedMatch);
+                    } else if (prop.isJoin()) {
+                        if (joinMatch == null) {
+                            joinMatch = b.createLabel();
+                        }
+                        b.branch(joinMatch);
+                    } else {
+                        int ordinal = ordinalMap.get(prop);
 
-                    b.loadThis();
-                    b.loadField(PROPERTY_STATE_FIELD_NAME + (ordinal >> 4), TypeDesc.INT);
-                    int shift = (ordinal & 0xf) * 2;
-                    if (shift != 0) {
-                        b.loadConstant(shift);
-                        b.math(Opcode.ISHR);
+                        b.loadThis();
+                        b.loadField(PROPERTY_STATE_FIELD_NAME + (ordinal >> 4), TypeDesc.INT);
+                        int shift = (ordinal & 0xf) * 2;
+                        if (shift != 0) {
+                            b.loadConstant(shift);
+                            b.math(Opcode.ISHR);
+                        }
+                        b.loadConstant(PROPERTY_STATE_MASK);
+                        b.math(Opcode.IAND);
+                        b.returnValue(TypeDesc.INT);
                     }
-                    b.loadConstant(PROPERTY_STATE_MASK);
-                    b.math(Opcode.IAND);
-                    b.returnValue(TypeDesc.INT);
+                } else if (switchFor == SWITCH_FOR_GET) {
+                    if (prop.getReadMethod() == null) {
+                        if (unreadable == null) {
+                            unreadable = b.createLabel();
+                        }
+                        b.branch(unreadable);
+                    } else {
+                        b.loadThis();
+                        b.invoke(prop.getReadMethod());
+                        TypeDesc type = TypeDesc.forClass(prop.getType());
+                        b.convert(type, type.toObjectType());
+                        b.returnValue(TypeDesc.OBJECT);
+                    }
+                } else if (switchFor == SWITCH_FOR_SET) {
+                    if (prop.getWriteMethod() == null) {
+                        if (unwritable == null) {
+                            unwritable = b.createLabel();
+                        }
+                        b.branch(unwritable);
+                    } else {
+                        b.loadThis();
+                        b.loadLocal(b.getParameter(1));
+                        TypeDesc type = TypeDesc.forClass(prop.getType());
+                        b.checkCast(type.toObjectType());
+                        b.convert(type.toObjectType(), type);
+                        b.invoke(prop.getWriteMethod());
+                        b.returnVoid();
+                    }
                 }
 
                 if (notEqual != null) {
@@ -2855,42 +2897,44 @@ public final class StorableGenerator<S extends Storable> {
             }
         }
 
-        TypeDesc exceptionType = TypeDesc.forClass(IllegalArgumentException.class);
-        params = new TypeDesc[] {TypeDesc.STRING};
-
         noMatch.setLocation();
-
-        b.newObject(exceptionType);
-        b.dup();
-        b.loadConstant("Unknown property: ");
-        b.loadLocal(b.getParameter(0));
-        b.invokeVirtual(TypeDesc.STRING, "concat", TypeDesc.STRING, params);
-        b.invokeConstructor(exceptionType, params);
-        b.throwObject();
+        throwIllegalArgException(b, "Unknown property: ", b.getParameter(0));
 
         if (derivedMatch != null) {
             derivedMatch.setLocation();
-
-            b.newObject(exceptionType);
-            b.dup();
-            b.loadConstant("Cannot get state for derived property: ");
-            b.loadLocal(b.getParameter(0));
-            b.invokeVirtual(TypeDesc.STRING, "concat", TypeDesc.STRING, params);
-            b.invokeConstructor(exceptionType, params);
-            b.throwObject();
+            throwIllegalArgException
+                (b, "Cannot get state for derived property: ", b.getParameter(0));
         }
 
         if (joinMatch != null) {
             joinMatch.setLocation();
-
-            b.newObject(exceptionType);
-            b.dup();
-            b.loadConstant("Cannot get state for join property: ");
-            b.loadLocal(b.getParameter(0));
-            b.invokeVirtual(TypeDesc.STRING, "concat", TypeDesc.STRING, params);
-            b.invokeConstructor(exceptionType, params);
-            b.throwObject();
+            throwIllegalArgException(b, "Cannot get state for join property: ", b.getParameter(0));
         }
+
+        if (unreadable != null) {
+            unreadable.setLocation();
+            throwIllegalArgException(b, "Property cannot be read: ", b.getParameter(0));
+        }
+
+        if (unwritable != null) {
+            unwritable.setLocation();
+            throwIllegalArgException(b, "Property cannot be written: ", b.getParameter(0));
+        }
+    }
+
+    private static void throwIllegalArgException(CodeBuilder b, String message,
+                                                 LocalVariable concatStr)
+    {
+        TypeDesc exceptionType = TypeDesc.forClass(IllegalArgumentException.class);
+        TypeDesc[] params = {TypeDesc.STRING};
+
+        b.newObject(exceptionType);
+        b.dup();
+        b.loadConstant(message);
+        b.loadLocal(concatStr);
+        b.invokeVirtual(TypeDesc.STRING, "concat", TypeDesc.STRING, params);
+        b.invokeConstructor(exceptionType, params);
+        b.throwObject();
     }
 
     /**
@@ -2953,6 +2997,42 @@ public final class StorableGenerator<S extends Storable> {
         isFalse.setLocation();
         b.loadConstant(false);
         b.returnValue(TypeDesc.BOOLEAN);
+    }
+
+    private void addGetPropertyValueMethod() {
+        MethodInfo mi = addMethodIfNotFinal(Modifiers.PUBLIC, GET_PROPERTY_VALUE,
+                                            TypeDesc.OBJECT, new TypeDesc[] {TypeDesc.STRING});
+
+        if (mi == null) {
+            return;
+        }
+
+        CodeBuilder b = new CodeBuilder(mi);
+
+        if (mGenMode == GEN_WRAPPED) {
+            callWrappedStorable(mi, b);
+            return;
+        }
+
+        addPropertySwitch(b, SWITCH_FOR_GET);
+    }
+
+    private void addSetPropertyValueMethod() {
+        MethodInfo mi = addMethodIfNotFinal(Modifiers.PUBLIC, SET_PROPERTY_VALUE, null,
+                                            new TypeDesc[] {TypeDesc.STRING, TypeDesc.OBJECT});
+
+        if (mi == null) {
+            return;
+        }
+
+        CodeBuilder b = new CodeBuilder(mi);
+
+        if (mGenMode == GEN_WRAPPED) {
+            callWrappedStorable(mi, b);
+            return;
+        }
+
+        addPropertySwitch(b, SWITCH_FOR_SET);
     }
 
     /**

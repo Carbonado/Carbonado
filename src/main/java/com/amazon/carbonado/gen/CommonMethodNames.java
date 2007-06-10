@@ -52,6 +52,8 @@ public class CommonMethodNames {
         IS_PROPERTY_DIRTY              = "isPropertyDirty",
         IS_PROPERTY_CLEAN              = "isPropertyClean",
         IS_PROPERTY_SUPPORTED          = "isPropertySupported",
+        GET_PROPERTY_VALUE             = "getPropertyValue",
+        SET_PROPERTY_VALUE             = "setPropertyValue",
         TO_STRING_KEY_ONLY_METHOD_NAME = "toStringKeyOnly",
         TO_STRING_METHOD_NAME          = "toString",
         HASHCODE_METHOD_NAME           = "hashCode",

@@ -29,7 +29,6 @@ import org.cojen.classfile.Modifiers;
 import org.cojen.classfile.TypeDesc;
 import org.cojen.classfile.attribute.Annotation;
 import org.cojen.util.ClassInjector;
-import org.cojen.util.BeanPropertyAccessor;
 
 import com.amazon.carbonado.Index;
 import com.amazon.carbonado.Indexes;
@@ -310,14 +309,6 @@ public class SyntheticStorableBuilder
      */
     public void setEvolvable(boolean evolvable) {
         mEvolvable = evolvable;
-    }
-
-    /**
-     * Utility accessor to ease getting access to the properties of the
-     * generated class
-     */
-    public BeanPropertyAccessor getAccessor() throws SupportException {
-        return BeanPropertyAccessor.forClass(getStorableClass());
     }
 
     /**

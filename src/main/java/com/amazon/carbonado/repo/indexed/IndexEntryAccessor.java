@@ -33,8 +33,7 @@ import com.amazon.carbonado.capability.IndexInfo;
  */
 public interface IndexEntryAccessor<S extends Storable> extends IndexInfo {
     /**
-     * Returns the index entry storage. Index entry properties can only be
-     * accessed via reflection.
+     * Returns the index entry storage.
      */
     Storage<?> getIndexEntryStorage();
 

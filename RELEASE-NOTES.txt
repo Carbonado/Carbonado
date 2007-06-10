@@ -23,6 +23,7 @@ Carbonado change history
 - BDBRepository detects if changes are made to primary key and throws exception.
 - Added support for derived properies.
 - Enhanced query engine to optimize for covering indexes.
+- Added methods to access Storable properties by name.
 
 1.1 to 1.1.1
 -------------------------------
