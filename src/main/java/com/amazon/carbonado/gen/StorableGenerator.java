@@ -942,17 +942,31 @@ public final class StorableGenerator<S extends Storable> {
                     Label setValue = b.createLabel();
 
                     if (!property.isJoin() || Lob.class.isAssignableFrom(property.getType())) {
+                        Label markDirty = b.createLabel();
+
                         if (mGenMode == GEN_ABSTRACT) {
                             if (Lob.class.isAssignableFrom(property.getType())) {
                                 // Contrary to how standard properties are managed,
-                                // only mark dirty if value changed.
+                                // only mark dirty if value changed. Exception is made
+                                // for null -- always mark dirty. This allows LOB property
+                                // to be updated to null without having to load it.
+                                b.loadLocal(b.getParameter(0));
+                                b.ifNullBranch(markDirty, true);
+
                                 b.loadThis();
                                 b.loadField(property.getName(), type);
+                                LocalVariable tempProp = b.createLocalVariable(null, type);
+                                b.storeLocal(tempProp);
+                                b.loadLocal(tempProp);
+                                b.ifNullBranch(markDirty, true);
+
+                                b.loadLocal(tempProp);
                                 b.loadLocal(b.getParameter(0));
-                                CodeBuilderUtil.addValuesEqualCall(b, type, true, setValue, true);
+                                CodeBuilderUtil.addValuesEqualCall(b, type, false, setValue, true);
                             }
                         }
 
+                        markDirty.setLocation();
                         markOrdinaryPropertyDirty(b, property);
                     } else {
                         b.loadLocal(b.getParameter(0));
