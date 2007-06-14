@@ -28,6 +28,7 @@ Carbonado change history
 1.1 to 1.1.1
 -------------------------------
 - Fixed spurious IllegalArgumentException from StorableGenerator.
+- Fixed bug which prevented updating Oracle BLOB of length 2000 to 4000.
 
 1.1-BETA11 to 1.1 (release)
 -------------------------------

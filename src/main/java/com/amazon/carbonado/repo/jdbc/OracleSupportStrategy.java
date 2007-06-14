@@ -40,7 +40,7 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
 
     private static final String TRUNCATE_STATEMENT = "TRUNCATE TABLE %s";
     
-    private static final int LOB_CHUNK_LIMIT = 4000;
+    private static final int LOB_CHUNK_LIMIT = 2000;
 
     private static final String PLAN_TABLE_NAME = "TEMP_CARBONADO_PLAN_TABLE";
 
