@@ -1462,8 +1462,8 @@ public class GenericEncodingStrategy<S extends Storable> {
 
     /**
      * Generates code to get a Lob from a locator from RawSupport. RawSupport
-     * instance and long locator must be on the stack. Result is a Lob on the
-     * stack, which may be null.
+     * instance, Storable instance, property name and long locator must be on
+     * the stack. Result is a Lob on the stack, which may be null.
      */
     private void getLobFromLocator(CodeAssembler a, StorablePropertyInfo info) {
         if (!info.isLob()) {
@@ -1481,7 +1481,8 @@ public class GenericEncodingStrategy<S extends Storable> {
         }
 
         a.invokeInterface(TypeDesc.forClass(RawSupport.class), name,
-                          type, new TypeDesc[] {TypeDesc.LONG});
+                          type, new TypeDesc[] {TypeDesc.forClass(Storable.class),
+                                                TypeDesc.STRING, TypeDesc.LONG});
     }
 
     /////////////////////////////////////////////////////////////////////////////////
@@ -1601,6 +1602,11 @@ public class GenericEncodingStrategy<S extends Storable> {
             if (info.isLob()) {
                 // Need RawSupport instance for getting Lob from locator.
                 pushRawSupport(a, instanceVar);
+
+                // Also need to pass this stuff along when getting Lob.
+                a.loadThis();
+                a.loadConstant(info.getPropertyName());
+
                 // Locator is encoded as a long.
                 storageType = TypeDesc.LONG;
             }

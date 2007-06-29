@@ -684,9 +684,14 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         return database;
     }
 
-    Blob getBlob(long locator) throws FetchException {
+    Blob getBlob(S storable, String name, long locator) throws FetchException {
         try {
-            return mRepository.getLobEngine().getBlobValue(locator);
+            Blob blob = mRepository.getLobEngine().getBlobValue(locator);
+            Trigger<? super S> trigger = mTriggerManager.getAdaptLobTrigger();
+            if (trigger != null) {
+                blob = trigger.adaptBlob(storable, name, blob);
+            }
+            return blob;
         } catch (RepositoryException e) {
             throw e.toFetchException();
         }
@@ -702,9 +707,14 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
     }
 
-    Clob getClob(long locator) throws FetchException {
+    Clob getClob(S storable, String name, long locator) throws FetchException {
         try {
-            return mRepository.getLobEngine().getClobValue(locator);
+            Clob clob = mRepository.getLobEngine().getClobValue(locator);
+            Trigger<? super S> trigger = mTriggerManager.getAdaptLobTrigger();
+            if (trigger != null) {
+                clob = trigger.adaptClob(storable, name, clob);
+            }
+            return clob;
         } catch (RepositoryException e) {
             throw e.toFetchException();
         }
@@ -1075,16 +1085,16 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             }
         }
 
-        public Blob getBlob(long locator) throws FetchException {
-            return mStorage.getBlob(locator);
+        public Blob getBlob(S storable, String name, long locator) throws FetchException {
+            return mStorage.getBlob(storable, name, locator);
         }
 
         public long getLocator(Blob blob) throws PersistException {
             return mStorage.getLocator(blob);
         }
 
-        public Clob getClob(long locator) throws FetchException {
-            return mStorage.getClob(locator);
+        public Clob getClob(S storable, String name, long locator) throws FetchException {
+            return mStorage.getClob(storable, name, locator);
         }
 
         public long getLocator(Clob clob) throws PersistException {

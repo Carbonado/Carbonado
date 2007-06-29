@@ -270,27 +270,7 @@ public class FilteringScore<S extends Storable> {
      * together produces the original filter.
      */
     static <S extends Storable> List<Filter<S>> split(Filter<S> filter) {
-        if (filter == null) {
-            return null;
-        }
-
-        filter = filter.conjunctiveNormalForm();
-
-        final List<Filter<S>> list = new ArrayList<Filter<S>>();
-
-        filter.accept(new Visitor<S, Object, Object>() {
-            public Object visit(OrFilter<S> filter, Object param) {
-                list.add(filter);
-                return null;
-            }
-
-            public Object visit(PropertyFilter<S> filter, Object param) {
-                list.add(filter);
-                return null;
-            }
-        }, null);
-
-        return list;
+        return filter == null ? null : filter.conjunctiveNormalFormSplit();
     }
 
     private final OrderedProperty<S>[] mIndexProperties;

@@ -73,8 +73,12 @@ public interface RawSupport<S extends Storable> extends MasterSupport<S> {
 
     /**
      * Returns the Blob for the given locator, returning null if not found.
+     *
+     * @param storable storable that contains Blob
+     * @param name name of Blob property
+     * @param locator Blob locator
      */
-    Blob getBlob(long locator) throws FetchException;
+    Blob getBlob(S storable, String name, long locator) throws FetchException;
 
     /**
      * Returns the locator for the given Blob, returning zero if null.
@@ -85,8 +89,12 @@ public interface RawSupport<S extends Storable> extends MasterSupport<S> {
 
     /**
      * Returns the Clob for the given locator, returning null if not found.
+     *
+     * @param storable storable that contains Blob
+     * @param name name of Clob property
+     * @param locator Clob locator
      */
-    Clob getClob(long locator) throws FetchException;
+    Clob getClob(S storable, String name, long locator) throws FetchException;
 
     /**
      * Returns the locator for the given Clob, returning zero if null.

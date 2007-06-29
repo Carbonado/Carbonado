@@ -29,6 +29,8 @@ Carbonado change history
 -------------------------------
 - Fixed spurious IllegalArgumentException from StorableGenerator.
 - Fixed bug which prevented updating Oracle BLOB of length 2000 to 4000.
+- Fixed IllegalArgumentException with optimized join queries of the form
+  "a.b = ? & (a.c = ? | a.d = ?)".
 
 1.1-BETA11 to 1.1 (release)
 -------------------------------

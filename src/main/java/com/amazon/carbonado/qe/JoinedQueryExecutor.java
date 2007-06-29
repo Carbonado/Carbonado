@@ -21,6 +21,7 @@ package com.amazon.carbonado.qe;
 import java.io.IOException;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 
 import org.cojen.classfile.ClassFile;
@@ -394,13 +395,17 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
     private static <T extends Storable> OrderingList<T>
         expectedOrdering(StorageAccess<T> access, Filter<T> filter, OrderingList<T> ordering)
     {
+        List<Filter<T>> split = filter.disjunctiveNormalFormSplit();
+
         Comparator comparator = CompositeScore.fullComparator();
 
         CompositeScore bestScore = null;
         for (StorableIndex<T> index : access.getAllIndexes()) {
-            CompositeScore candidateScore = CompositeScore.evaluate(index, filter, ordering);
-            if (bestScore == null || comparator.compare(candidateScore, bestScore) < 0) {
-                bestScore = candidateScore;
+            for (Filter<T> sub : split) {
+                CompositeScore candidateScore = CompositeScore.evaluate(index, sub, ordering);
+                if (bestScore == null || comparator.compare(candidateScore, bestScore) < 0) {
+                    bestScore = candidateScore;
+                }
             }
         }
 

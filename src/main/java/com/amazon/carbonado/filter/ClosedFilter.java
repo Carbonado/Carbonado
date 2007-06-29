@@ -19,6 +19,8 @@
 package com.amazon.carbonado.filter;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 import com.amazon.carbonado.Storable;
 
@@ -44,6 +46,24 @@ public class ClosedFilter<S extends Storable> extends Filter<S> {
 
     public OpenFilter<S> not() {
         return getOpenFilter(getStorableType());
+    }
+
+    /**
+     * @since 1.1.1
+     */
+    @Override
+    public List<Filter<S>> disjunctiveNormalFormSplit() {
+        // Yes, the Java compiler really wants me to do a useless cast.
+        return Collections.singletonList((Filter<S>) this);
+    }
+
+    /**
+     * @since 1.1.1
+     */
+    @Override
+    public List<Filter<S>> conjunctiveNormalFormSplit() {
+        // Yes, the Java compiler really wants me to do a useless cast.
+        return Collections.singletonList((Filter<S>) this);
     }
 
     @Override

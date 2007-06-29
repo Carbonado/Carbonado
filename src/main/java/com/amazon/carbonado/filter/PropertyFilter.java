@@ -19,6 +19,8 @@
 package com.amazon.carbonado.filter;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 import org.cojen.classfile.TypeDesc;
 
@@ -111,6 +113,24 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         } else {
             return getCanonical(mProperty, mOp.reverse(), mBindID);
         }
+    }
+
+    /**
+     * @since 1.1.1
+     */
+    @Override
+    public List<Filter<S>> disjunctiveNormalFormSplit() {
+        // Yes, the Java compiler really wants me to do a useless cast.
+        return Collections.singletonList((Filter<S>) this);
+    }
+
+    /**
+     * @since 1.1.1
+     */
+    @Override
+    public List<Filter<S>> conjunctiveNormalFormSplit() {
+        // Yes, the Java compiler really wants me to do a useless cast.
+        return Collections.singletonList((Filter<S>) this);
     }
 
     public <R, P> R accept(Visitor<S, R, P> visitor, P param) {

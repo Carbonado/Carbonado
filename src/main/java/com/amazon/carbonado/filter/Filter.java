@@ -19,7 +19,11 @@
 package com.amazon.carbonado.filter;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+
 import org.cojen.util.SoftValuedHashMap;
 import org.cojen.util.WeakCanonicalSet;
 import org.cojen.util.WeakIdentityMap;
@@ -360,6 +364,32 @@ public abstract class Filter<S extends Storable> implements Appender {
         return bind().dnf();
     }
 
+    /**
+     * Splits the filter from its disjunctive normal form. Or'ng the filters
+     * together produces the full disjunctive normal form.
+     *
+     * @return unmodifiable list of sub filters which don't perform any 'or'
+     * operations
+     * @since 1.1.1
+     */
+    public List<Filter<S>> disjunctiveNormalFormSplit() {
+        final List<Filter<S>> list = new ArrayList<Filter<S>>();
+
+        disjunctiveNormalForm().accept(new Visitor<S, Object, Object>() {
+            public Object visit(AndFilter<S> filter, Object param) {
+                list.add(filter);
+                return null;
+            }
+
+            public Object visit(PropertyFilter<S> filter, Object param) {
+                list.add(filter);
+                return null;
+            }
+        }, null);
+
+        return Collections.unmodifiableList(list);
+    }
+
     final Filter<S> dnf() {
         Filter<S> filter = this;
         if (!filter.isDisjunctiveNormalForm()) {
@@ -388,6 +418,32 @@ public abstract class Filter<S extends Storable> implements Appender {
      */
     public final Filter<S> conjunctiveNormalForm() {
         return bind().cnf();
+    }
+
+    /**
+     * Splits the filter from its conjunctive normal form. And'ng the filters
+     * together produces the full conjunctive normal form.
+     *
+     * @return unmodifiable list of sub filters which don't perform any 'and'
+     * operations
+     * @since 1.1.1
+     */
+    public List<Filter<S>> conjunctiveNormalFormSplit() {
+        final List<Filter<S>> list = new ArrayList<Filter<S>>();
+
+        conjunctiveNormalForm().accept(new Visitor<S, Object, Object>() {
+            public Object visit(OrFilter<S> filter, Object param) {
+                list.add(filter);
+                return null;
+            }
+
+            public Object visit(PropertyFilter<S> filter, Object param) {
+                list.add(filter);
+                return null;
+            }
+        }, null);
+
+        return Collections.unmodifiableList(list);
     }
 
     final Filter<S> cnf() {
