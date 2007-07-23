@@ -21,7 +21,9 @@ package com.amazon.carbonado.gen;
 import java.lang.annotation.Annotation;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -449,8 +451,8 @@ public final class StorableGenerator<S extends Storable> {
             final int supportParam = 0;
             MethodInfo mi = mClassFile.addConstructor(Modifiers.PROTECTED, params);
             CodeBuilder b = new CodeBuilder(mi);
-            b.loadThis();
-            b.invokeSuperConstructor(null);
+
+            addInvokeSuperConstructor(b, supportParam);
 
             //// this.support = support
             b.loadThis();
@@ -466,8 +468,8 @@ public final class StorableGenerator<S extends Storable> {
             final int wrappedStorableParam = 1;
             MethodInfo mi = mClassFile.addConstructor(Modifiers.PUBLIC, params);
             CodeBuilder b = new CodeBuilder(mi);
-            b.loadThis();
-            b.invokeSuperConstructor(null);
+
+            addInvokeSuperConstructor(b, wrappedSupportParam);
 
             //// this.wrappedSupport = wrappedSupport
             b.loadThis();
@@ -1956,6 +1958,42 @@ public final class StorableGenerator<S extends Storable> {
                 // zero == false, not zero == true
                 b.returnValue(TypeDesc.BOOLEAN);
             }
+        }
+    }
+
+    /**
+     * Generates code to invoke super class constructor with no arguments or a
+     * Repository.
+     */
+    private void addInvokeSuperConstructor(CodeBuilder b, final int supportParam) {
+        // Look for constructor that accepts a Repository.
+
+        boolean passRepo = false;
+        {
+            for (Constructor c : mStorableType.getDeclaredConstructors()) {
+                int modifiers = c.getModifiers();
+                if (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers)) {
+                    continue;
+                }
+                if (c.getParameterTypes().length == 1) {
+                    if (c.getParameterTypes()[0] == Repository.class) {
+                        passRepo = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        b.loadThis();
+
+        if (passRepo) {
+            b.loadLocal(b.getParameter(supportParam));
+            b.invokeInterface(StorableSupport.class.getName(), "getRootRepository",
+                              TypeDesc.forClass(Repository.class), null);
+            b.invokeSuperConstructor(new TypeDesc[] {TypeDesc.forClass(Repository.class)});
+        } else {
+            // Assume no-arg constructor.
+            b.invokeSuperConstructor(null);
         }
     }
 

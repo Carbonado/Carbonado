@@ -62,6 +62,7 @@ import com.amazon.carbonado.Nullable;
 import com.amazon.carbonado.Independent;
 import com.amazon.carbonado.PrimaryKey;
 import com.amazon.carbonado.Query;
+import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.Sequence;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Version;
@@ -490,27 +491,35 @@ public class StorableIntrospector {
 
         checkTypeParameter(errorMessages, type);
 
-        // If type is a class, it must have a public or protected no-arg
-        // constructor.
+        // If type is a class, it must have a public/protected constructor that
+        // takes no arguments or a Repository. If overloaded, the constructor
+        // with the Repository parameter is preferred by the code generator.
 
         if (!type.isInterface()) {
             Constructor[] ctors = type.getDeclaredConstructors();
             findCtor: {
                 for (Constructor c : ctors) {
+                    modifiers = c.getModifiers();
+                    if (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers)) {
+                        continue;
+                    }
                     if (c.getParameterTypes().length == 0) {
-                        modifiers = c.getModifiers();
-                        if (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers)) {
-                            errorMessages.add("Cannot call constructor: " + c);
-                        }
                         break findCtor;
+                    }
+                    if (c.getParameterTypes().length == 1) {
+                        if (c.getParameterTypes()[0] == Repository.class) {
+                            break findCtor;
+                        }
                     }
                 }
                 if (type.getEnclosingClass() == null) {
                     errorMessages.add
-                        ("Class must have an accesible no-arg constructor");
+                        ("Class must have a public or protected constructor " +
+                         "that takes no arguments or a Repository");
                 } else {
                     errorMessages.add
-                        ("Inner class must be static and have an accesible no-arg constructor");
+                        ("Inner class must have a public or protected constructor " +
+                         "that takes no arguments or a Repository");
                 }
             }
         }

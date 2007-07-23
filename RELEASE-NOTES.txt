@@ -24,6 +24,7 @@ Carbonado change history
 - Added support for derived properies.
 - Enhanced query engine to optimize for covering indexes.
 - Added methods to access Storable properties by name.
+- Allow Storable definition to accept Repository in constructor.
 
 1.1 to 1.1.1
 -------------------------------
