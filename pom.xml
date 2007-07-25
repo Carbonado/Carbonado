@@ -25,9 +25,9 @@
   </licenses>
 
   <scm>
-    <connection>scm:svn:https://svn.sourceforge.net/svnroot/carbonado/trunk/Carbonado</connection>
-    <developerConnection>scm:svn:https://svn.sourceforge.net/svnroot/carbonado/trunk/Carbonado</developerConnection>
-    <url>http://svn.sourceforge.net/viewvc/carbonado/trunk/Carbonado/</url>
+    <connection>scm:svn:https://carbonado.svn.sourceforge.net/svnroot/carbonado/trunk/Carbonado</connection>
+    <developerConnection>scm:svn:https://carbonado.svn.sourceforge.net/svnroot/carbonado/trunk/Carbonado</developerConnection>
+    <url>http://carbonado.svn.sourceforge.net/viewvc/carbonado/trunk/Carbonado/</url>
   </scm>
 
   <issueManagement>
