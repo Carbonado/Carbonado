@@ -502,8 +502,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
                     if (!mainProperty.isPrimaryKeyMember()) {
                         errorMessages.add
-                            ("Property \"" + propertyName +
-                             "\" must have a PrimaryKey annotation");
+                            ("Property \"" + propertyName + "\" must be a primary key member");
                     }
                 } while (rs.next());
             } finally {
@@ -516,7 +515,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
                 if (mainProperty.isPrimaryKeyMember()) {
                     errorMessages.add
-                        ("Property \"" + propertyName + "\" cannot have a PrimaryKey annotation");
+                        ("Property \"" + propertyName + "\" cannot be a primary key member");
                 }
             }
         }
@@ -621,7 +620,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
     /**
      * Figures out how to best access the given property, or returns null if
-     * not supported. An adapter is not be applied.
+     * not supported. An adapter is not applied.
      *
      * @return null if not supported
      */
@@ -649,6 +648,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == boolean.class) {
                 actualClass = boolean.class;
                 suffix = "Boolean";
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }
@@ -658,6 +660,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == byte.class) {
                 actualClass = byte.class;
                 suffix = "Byte";
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }
@@ -667,6 +672,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == short.class) {
                 actualClass = short.class;
                 suffix = "Short";
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }
@@ -676,6 +684,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == int.class) {
                 actualClass = int.class;
                 suffix = "Int";
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }
@@ -685,6 +696,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == long.class) {
                 actualClass = long.class;
                 suffix = "Long";
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }
@@ -694,6 +708,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == float.class) {
                 actualClass = float.class;
                 suffix = "Float";
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }
@@ -704,6 +721,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == double.class) {
                 actualClass = double.class;
                 suffix = "Double";
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }
@@ -745,6 +765,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 } else {
                     return null;
                 }
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }
@@ -754,6 +777,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         case VARCHAR:
         case LONGVARCHAR:
             if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
+            } else if (desiredClass == char.class && columnSize == 1) {
                 actualClass = String.class;
                 suffix = "String";
             } else {
@@ -768,6 +794,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == Date.class || desiredClass == java.sql.Date.class) {
                 actualClass = java.sql.Timestamp.class;
                 suffix = "Timestamp";
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }
@@ -777,6 +806,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == Date.class || desiredClass == java.sql.Time.class) {
                 actualClass = java.sql.Time.class;
                 suffix = "Time";
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }
@@ -786,6 +818,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == Date.class || desiredClass == java.sql.Timestamp.class) {
                 actualClass = java.sql.Timestamp.class;
                 suffix = "Timestamp";
+            } else if (desiredClass == String.class) {
+                actualClass = String.class;
+                suffix = "String";
             } else {
                 return null;
             }

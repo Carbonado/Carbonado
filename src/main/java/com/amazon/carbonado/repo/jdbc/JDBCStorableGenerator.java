@@ -1520,7 +1520,14 @@ class JDBCStorableGenerator<S extends Storable> {
                 b.storeToArray(TypeDesc.OBJECT);
             }
         } else {
-            b.convert(fromType, psType);
+            if (psType == TypeDesc.STRING && fromType.toPrimitiveType() == TypeDesc.CHAR) {
+                // Special case for converting character to String.
+                b.convert(fromType, fromType.toPrimitiveType());
+                b.invokeStatic(String.class.getName(), "valueOf",
+                               TypeDesc.STRING, new TypeDesc[] {TypeDesc.CHAR});
+            } else {
+                b.convert(fromType, psType);
+            }
             b.invoke(property.getPreparedStatementSetMethod());
         }
 
@@ -1863,7 +1870,19 @@ class JDBCStorableGenerator<S extends Storable> {
             StorablePropertyAdapter adapter = property.getAppliedAdapter();
             if (adapter == null) {
                 TypeDesc propertyType = TypeDesc.forClass(property.getType());
-                b.convert(resultSetType, propertyType);
+
+                if (resultSetType == TypeDesc.STRING &&
+                    propertyType.toPrimitiveType() == TypeDesc.CHAR)
+                {
+                    // Special case for converting String to character.
+                    b.loadConstant(0);
+                    b.invokeVirtual(String.class.getName(), "charAt",
+                                    TypeDesc.CHAR, new TypeDesc[] {TypeDesc.INT});
+                    b.convert(TypeDesc.CHAR, propertyType);
+                } else {
+                    b.convert(resultSetType, propertyType);
+                }
+
                 wasNull.setLocation();
                 // Set protected field directly, since no adapter.
                 b.storeField(superType, property.getName(), propertyType);
