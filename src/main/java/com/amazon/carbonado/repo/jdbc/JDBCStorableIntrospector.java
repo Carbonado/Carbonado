@@ -259,6 +259,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         if (resolvedTableName != null) {
             ResultSet rs = meta.getColumns(catalog, schema, resolvedTableName, null);
+            rs.setFetchSize(1000);
             try {
                 while (rs.next()) {
                     ColumnInfo info = new ColumnInfo(rs);
