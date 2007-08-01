@@ -645,14 +645,14 @@ class JDBCStorableGenerator<S extends Storable> {
                     branchIfDirty(b, propNumber, setNormally, true);
                     setPreparedStatementValue
                         (b, property, INITIAL_VERSION,
-                         repoVar, null, lobArrayVar, lobIndexMap.get(property));
+                         null, lobArrayVar, lobIndexMap.get(property));
                     b.branch(nextProperty);
                 }
 
                 setNormally.setLocation();
 
                 setPreparedStatementValue
-                    (b, property, NORMAL, repoVar, null, lobArrayVar, lobIndexMap.get(property));
+                    (b, property, NORMAL, null, lobArrayVar, lobIndexMap.get(property));
 
                 nextProperty.setLocation();
             }
@@ -830,21 +830,38 @@ class JDBCStorableGenerator<S extends Storable> {
             b.loadConstant(" WHERE ");
             CodeBuilderUtil.callStringBuilderAppendString(b);
 
+            // FIXME: Code duplication. "appendDynamicWhereClauseProperties"
             int ordinal = 0;
             for (JDBCStorableProperty<S> property : whereProperties) {
                 if (ordinal > 0) {
                     b.loadConstant(" AND ");
                     CodeBuilderUtil.callStringBuilderAppendString(b);
                 }
+
                 b.loadConstant(property.getColumnName());
                 CodeBuilderUtil.callStringBuilderAppendString(b);
-                if (false && property.isNullable()) {
-                    // FIXME: Support null primary key or version property.
-                    throw new UnsupportedOperationException(property.toString());
-                } else {
-                    b.loadConstant("=?");
+
+                Label next = b.createLabel();
+
+                if (property.isNullable()) {
+                    // Determine if property value is null.
+                    b.loadThis();
+                    // FIXME: Does not consider property adapter
+                    b.loadField(property.getName(), TypeDesc.forClass(property.getType()));
+
+                    Label notNull = b.createLabel();
+                    b.ifNullBranch(notNull, false);
+                    b.loadConstant(" IS NULL");
                     CodeBuilderUtil.callStringBuilderAppendString(b);
+                    b.branch(next);
+
+                    notNull.setLocation();
                 }
+
+                b.loadConstant("=?");
+                CodeBuilderUtil.callStringBuilderAppendString(b);
+
+                next.setLocation();
                 ordinal++;
             }
 
@@ -889,7 +906,7 @@ class JDBCStorableGenerator<S extends Storable> {
                 b.loadLocal(psVar);
                 b.loadLocal(indexVar);
                 setPreparedStatementValue
-                    (b, property, NORMAL, repoVar, null, lobArrayVar, lobIndexMap.get(property));
+                    (b, property, NORMAL, null, lobArrayVar, lobIndexMap.get(property));
 
                 b.integerIncrement(indexVar, 1);
 
@@ -918,7 +935,7 @@ class JDBCStorableGenerator<S extends Storable> {
                     b.loadLocal(indexVar);
                     setPreparedStatementValue
                         (b, property, property.isVersion() ? INCREMENT_VERSION : NORMAL,
-                         repoVar, null, lobArrayVar, lobIndexMap.get(property));
+                         null, lobArrayVar, lobIndexMap.get(property));
 
                     b.integerIncrement(indexVar, 1);
 
@@ -932,16 +949,23 @@ class JDBCStorableGenerator<S extends Storable> {
             // statement.
 
             for (JDBCStorableProperty<S> property : whereProperties) {
-                if (false && property.isNullable()) {
-                    // FIXME: Support null primary key or version property.
-                    throw new UnsupportedOperationException(property.toString());
-                } else {
-                    b.loadLocal(psVar);
-                    b.loadLocal(indexVar);
-                    setPreparedStatementValue(b, property, NORMAL, repoVar, null, null, null);
+                Label nextProperty = b.createLabel();
+
+                if (property.isNullable()) {
+                    // If runtime value of property is null, then where clause
+                    // was built with "IS NULL".
+                    b.loadThis();
+                    // FIXME: Does not consider property adapter
+                    b.loadField(property.getName(), TypeDesc.forClass(property.getType()));
+                    b.ifNullBranch(nextProperty, true);
                 }
 
+                b.loadLocal(psVar);
+                b.loadLocal(indexVar);
+                setPreparedStatementValue(b, property, NOT_NULL, null, null, null);
                 b.integerIncrement(indexVar, 1);
+
+                nextProperty.setLocation();
             }
 
             // Execute the update statement.
@@ -1291,6 +1315,7 @@ class JDBCStorableGenerator<S extends Storable> {
             // Method leaves StringBuilder on stack.
             CodeBuilderUtil.callStringBuilderAppendString(b);
 
+            // FIXME: Code duplication. "appendDynamicWhereClauseProperties"
             ordinal = 0;
             for (JDBCStorableProperty property : nullableProperties) {
                 if (ordinal > 0) {
@@ -1304,11 +1329,12 @@ class JDBCStorableGenerator<S extends Storable> {
                 b.loadThis();
 
                 final TypeDesc propertyType = TypeDesc.forClass(property.getType());
+                // FIXME: Does not consider property adapter
                 b.loadField(superType, property.getName(), propertyType);
 
                 Label notNull = b.createLabel();
                 b.ifNullBranch(notNull, false);
-                b.loadConstant("IS NULL");
+                b.loadConstant(" IS NULL");
                 CodeBuilderUtil.callStringBuilderAppendString(b);
                 Label next = b.createLabel();
                 b.branch(next);
@@ -1351,17 +1377,17 @@ class JDBCStorableGenerator<S extends Storable> {
 
         // Now set where clause parameters.
         Label nextProperty = null;
-        LocalVariable paramIndexVar = null;
+        LocalVariable indexVar = null;
         ordinal = 0;
         for (JDBCStorableProperty property : properties) {
             if (!property.isSelectable()) {
                 continue;
             }
 
-            if (paramIndexVar == null) {
+            if (indexVar == null) {
                 ordinal++;
             } else {
-                b.integerIncrement(paramIndexVar, 1);
+                b.integerIncrement(indexVar, 1);
             }
 
             if (nextProperty != null) {
@@ -1380,25 +1406,26 @@ class JDBCStorableGenerator<S extends Storable> {
                 // was appended earlier with "IS NULL".
 
                 // Cannot use constant parameter index anymore.
-                if (paramIndexVar == null) {
-                    paramIndexVar = b.createLocalVariable(null, TypeDesc.INT);
+                if (indexVar == null) {
+                    indexVar = b.createLocalVariable(null, TypeDesc.INT);
                     b.loadConstant(ordinal);
-                    b.storeLocal(paramIndexVar);
+                    b.storeLocal(indexVar);
                 }
 
                 b.loadThis();
+                // FIXME: Does not consider property adapter
                 b.loadField(superType, property.getName(), propertyType);
                 b.ifNullBranch(nextProperty, true);
             }
 
             b.loadLocal(psVar);
-            if (paramIndexVar == null) {
+            if (indexVar == null) {
                 b.loadConstant(ordinal);
             } else {
-                b.loadLocal(paramIndexVar);
+                b.loadLocal(indexVar);
             }
 
-            setPreparedStatementValue(b, property, NOT_NULL, null, instanceVar, null, null);
+            setPreparedStatementValue(b, property, NOT_NULL, instanceVar, null, null);
         }
 
         if (nextProperty != null) {
@@ -1432,7 +1459,6 @@ class JDBCStorableGenerator<S extends Storable> {
         (CodeBuilder b,
          JDBCStorableProperty<?> property,
          int mode,
-         LocalVariable repoVar,
          LocalVariable instanceVar,
          LocalVariable lobArrayVar,
          Integer lobIndex)
