@@ -325,7 +325,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                                  "\" must have a Nullable annotation");
                         }
                     } else {
-                        if (mainProperty.isNullable()) {
+                        if (mainProperty.isNullable() && !mainProperty.isIndependent()) {
                             errorMessages.add
                                 ("Property \"" + mainProperty.getName() +
                                  "\" must not have a Nullable annotation");
@@ -498,11 +498,18 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 do {
                     String columnName = rs.getString("COLUMN_NAME");
                     String propertyName = columnToProperty.remove(columnName);
+
+                    if (propertyName == null) {
+                        errorMessages.add
+                            ("Column \"" + columnName + "\" must be part of primary key");
+                        continue;
+                    }
+
                     StorableProperty mainProperty = mainProperties.get(propertyName);
 
                     if (!mainProperty.isPrimaryKeyMember()) {
                         errorMessages.add
-                            ("Property \"" + propertyName + "\" must be a primary key member");
+                            ("Property \"" + propertyName + "\" must be part of primary key");
                     }
                 } while (rs.next());
             } finally {
@@ -515,7 +522,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
                 if (mainProperty.isPrimaryKeyMember()) {
                     errorMessages.add
-                        ("Property \"" + propertyName + "\" cannot be a primary key member");
+                        ("Property \"" + propertyName + "\" cannot be part of primary key");
                 }
             }
         }

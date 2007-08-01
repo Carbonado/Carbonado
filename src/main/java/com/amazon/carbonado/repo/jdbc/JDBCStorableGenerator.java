@@ -79,8 +79,9 @@ class JDBCStorableGenerator<S extends Storable> {
 
     // Modes for automatic versioning when setting PreparedStatement values.
     private static final int NORMAL = 0;
-    private static final int INITIAL_VERSION = 1;
-    private static final int INCREMENT_VERSION = 2;
+    private static final int NOT_NULL = 1;
+    private static final int INITIAL_VERSION = 2;
+    private static final int INCREMENT_VERSION = 3;
 
     private static final Map<Object, Class<? extends Storable>> cCache;
 
@@ -837,9 +838,9 @@ class JDBCStorableGenerator<S extends Storable> {
                 }
                 b.loadConstant(property.getColumnName());
                 CodeBuilderUtil.callStringBuilderAppendString(b);
-                if (property.isNullable()) {
-                    // TODO: Support null primary key or version property. Is this possible?
-                    throw new UnsupportedOperationException();
+                if (false && property.isNullable()) {
+                    // FIXME: Support null primary key or version property.
+                    throw new UnsupportedOperationException(property.toString());
                 } else {
                     b.loadConstant("=?");
                     CodeBuilderUtil.callStringBuilderAppendString(b);
@@ -931,9 +932,9 @@ class JDBCStorableGenerator<S extends Storable> {
             // statement.
 
             for (JDBCStorableProperty<S> property : whereProperties) {
-                if (property.isNullable()) {
-                    // TODO: Support null primary key or version property. Is this possible?
-                    throw new UnsupportedOperationException();
+                if (false && property.isNullable()) {
+                    // FIXME: Support null primary key or version property.
+                    throw new UnsupportedOperationException(property.toString());
                 } else {
                     b.loadLocal(psVar);
                     b.loadLocal(indexVar);
@@ -1349,32 +1350,60 @@ class JDBCStorableGenerator<S extends Storable> {
         Label tryAfterPs = b.createLabel().setLocation();
 
         // Now set where clause parameters.
+        Label nextProperty = null;
+        LocalVariable paramIndexVar = null;
         ordinal = 0;
         for (JDBCStorableProperty property : properties) {
             if (!property.isSelectable()) {
                 continue;
             }
 
-            Label nextProperty = b.createLabel();
+            if (paramIndexVar == null) {
+                ordinal++;
+            } else {
+                b.integerIncrement(paramIndexVar, 1);
+            }
+
+            if (nextProperty != null) {
+                nextProperty.setLocation();
+                nextProperty = null;
+            }
+
+            nextProperty = b.createLabel();
 
             final TypeDesc propertyType = TypeDesc.forClass(property.getType());
 
-            if (!property.isNullable()) {
-                b.loadLocal(psVar);
-                b.loadConstant(++ordinal);
-            } else {
+            if (property.isNullable()) {
                 // Nullable properties are dynamically added to where clause,
                 // and are at the end of the prepared statement. If value is
                 // null, then skip to the next property, since the statement
                 // was appended earlier with "IS NULL".
+
+                // Cannot use constant parameter index anymore.
+                if (paramIndexVar == null) {
+                    paramIndexVar = b.createLocalVariable(null, TypeDesc.INT);
+                    b.loadConstant(ordinal);
+                    b.storeLocal(paramIndexVar);
+                }
+
                 b.loadThis();
                 b.loadField(superType, property.getName(), propertyType);
                 b.ifNullBranch(nextProperty, true);
             }
 
-            setPreparedStatementValue(b, property, NORMAL, null, instanceVar, null, null);
+            b.loadLocal(psVar);
+            if (paramIndexVar == null) {
+                b.loadConstant(ordinal);
+            } else {
+                b.loadLocal(paramIndexVar);
+            }
 
+            setPreparedStatementValue(b, property, NOT_NULL, null, instanceVar, null, null);
+        }
+
+        if (nextProperty != null) {
             nextProperty.setLocation();
+            nextProperty = null;
         }
 
         return tryAfterPs;
@@ -1392,7 +1421,7 @@ class JDBCStorableGenerator<S extends Storable> {
      * the original lob. An update statement needs to be issued after the load
      * to insert/update the large value.
      *
-     * @param mode one of NORMAL, INITIAL_VERSION or INCREMENT_VERSION
+     * @param mode one of NORMAL, NOT_NULL, INITIAL_VERSION or INCREMENT_VERSION
      * @param instanceVar when null, assume properties are contained in
      * "this". Otherwise, invoke property access methods on storable referenced
      * in var.
@@ -1464,7 +1493,7 @@ class JDBCStorableGenerator<S extends Storable> {
             CodeBuilderUtil.initialVersion(b, fromType, 1);
         } else if (mode == INCREMENT_VERSION) {
             CodeBuilderUtil.incrementVersion(b, fromType);
-        } else if (!fromType.isPrimitive()) {
+        } else if (!fromType.isPrimitive() && mode != NOT_NULL) {
             // Handle case where property value is null.
             b.dup();
             Label notNull = b.createLabel();
