@@ -280,9 +280,7 @@ public class CompositeScore<S extends Storable> {
                 }
             }
 
-            if (mFull) {
-                result = FilteringScore.fullComparator().compare(firstScore, secondScore);
-            } else {
+            if (!mFull) {
                 // Favor index that has any matches.
                 if (firstScore.hasAnyMatches()) {
                     if (!secondScore.hasAnyMatches()) {
@@ -291,7 +289,12 @@ public class CompositeScore<S extends Storable> {
                 } else if (secondScore.hasAnyMatches()) {
                     return 1;
                 }
+                return 0;
             }
+
+            // Additional tests for full comparator.
+
+            result = FilteringScore.fullComparator().compare(firstScore, secondScore);
 
             if (result != 0) {
                 return result;
