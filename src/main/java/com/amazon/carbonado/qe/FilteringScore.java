@@ -234,11 +234,11 @@ public class FilteringScore<S extends Storable> {
 
     /**
      * Returns a comparator which determines which FilteringScores are
-     * better. It compares identity matches, range matches, open range matches,
-     * property arrangement and index cost estimate. It does not matter if the
-     * scores were evaluated for different indexes or storable types. The
-     * comparator returns {@code <0} if first score is better, {@code 0} if
-     * equal, or {@code >0} if second is better.
+     * better. It compares identity matches, range matches, open range matches
+     * and property arrangement. It does not matter if the scores were
+     * evaluated for different indexes or storable types. The comparator
+     * returns {@code <0} if first score is better, {@code 0} if equal, or
+     * {@code >0} if second is better.
      */
     public static Comparator<FilteringScore<?>> fullComparator() {
         return Full.INSTANCE;
@@ -882,14 +882,6 @@ public class FilteringScore<S extends Storable> {
                 return -1;
             }
             if (first.getCoveringCount() < second.getCoveringCount()) {
-                return 1;
-            }
-
-            // Favor index with fewer properties, under the assumption that fewer
-            // properties means smaller sized records that need to be read in.
-            if (first.getIndexPropertyCount() < second.getIndexPropertyCount()) {
-                return -1;
-            } else if (first.getIndexPropertyCount() > second.getIndexPropertyCount()) {
                 return 1;
             }
 

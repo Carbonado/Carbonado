@@ -264,6 +264,7 @@ public class CompositeScore<S extends Storable> {
             // If this point is reached, the filtering score has not been
             // terribly helpful in deciding an index. Check the ordering score.
 
+            boolean comparedOrdering = false;
             if (considerOrdering(firstScore) && considerOrdering(secondScore)) {
                 // Only consider ordering if index is fast (clustered) or if
                 // index is used for any significant filtering. A full scan of
@@ -272,6 +273,7 @@ public class CompositeScore<S extends Storable> {
 
                 result = OrderingScore.fullComparator()
                     .compare(first.getOrderingScore(), second.getOrderingScore());
+                comparedOrdering = true;
 
                 if (result != 0) {
                     return result;
@@ -289,6 +291,32 @@ public class CompositeScore<S extends Storable> {
                 } else if (secondScore.hasAnyMatches()) {
                     return 1;
                 }
+            }
+
+            if (result != 0) {
+                return result;
+            }
+
+            // Still no idea which is best. Compare ordering if not already
+            // done so.
+
+            if (!comparedOrdering) {
+                result = OrderingScore.fullComparator()
+                    .compare(first.getOrderingScore(), second.getOrderingScore());
+                comparedOrdering = true;
+
+                if (result != 0) {
+                    return result;
+                }
+            }
+
+            // Finally, just favor index with fewer properties, under the
+            // assumption that fewer properties means smaller sized records
+            // that need to be read in.
+            if (firstScore.getIndexPropertyCount() < secondScore.getIndexPropertyCount()) {
+                return -1;
+            } else if (firstScore.getIndexPropertyCount() > secondScore.getIndexPropertyCount()) {
+                return 1;
             }
 
             return result;
