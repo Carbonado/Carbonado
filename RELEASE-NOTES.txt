@@ -30,6 +30,10 @@ Carbonado change history
 - JDBCRepository allows non-null column to be @Nullable if also @Independent.
 - Fixed bug in generating SQL with nullable primary key properties.
 
+1.1 to 1.1.2
+-------------------------------
+- Fixed query engine rule which sometimes favored index with incorrect ordering.
+
 1.1 to 1.1.1
 -------------------------------
 - Fixed spurious IllegalArgumentException from StorableGenerator.
