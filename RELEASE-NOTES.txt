@@ -30,6 +30,7 @@ Carbonado change history
 - JDBCRepository allows non-null column to be @Nullable if also @Independent.
 - Fixed bug in generating SQL with nullable primary key properties.
 - Added convenience method, Query.exists().
+- Support query filters against one-to-many join properties.
 
 1.1 to 1.1.2
 -------------------------------

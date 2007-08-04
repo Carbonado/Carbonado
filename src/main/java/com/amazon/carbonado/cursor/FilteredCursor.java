@@ -104,7 +104,7 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
     /**
      * @return false if object should not be in results
      */
-    protected abstract boolean isAllowed(S storable);
+    protected abstract boolean isAllowed(S storable) throws FetchException;
 
     public void close() throws FetchException {
         mCursor.close();

@@ -38,6 +38,7 @@ import org.cojen.util.ClassInjector;
 import org.cojen.util.WeakIdentityMap;
 
 import com.amazon.carbonado.Cursor;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.AndFilter;
@@ -154,7 +155,11 @@ class FilteredCursorGenerator {
             isAllowedBuilder.storeLocal(storableVar);
         }
 
-        filter.accept(new CodeGen<S>(cf, ctorBuilder, isAllowedBuilder, storableVar), null);
+        CodeGen<S> cg = new CodeGen<S>(cf, ctorBuilder, isAllowedBuilder, storableVar);
+        filter.accept(cg, null);
+
+        // Finish static initializer. (if any)
+        cg.finish();
 
         // Finish constructor.
         ctorBuilder.returnVoid();
@@ -223,6 +228,7 @@ class FilteredCursorGenerator {
 
     private static class CodeGen<S extends Storable> extends Visitor<S, Object, Object> {
         private static String FIELD_PREFIX = "value$";
+        private static String FILTER_FIELD_PREFIX = "filter$";
 
         private final ClassFile mClassFile;
         private final CodeBuilder mCtorBuilder;
@@ -233,6 +239,8 @@ class FilteredCursorGenerator {
 
         private int mPropertyOrdinal;
 
+        private CodeBuilder mInitBuilder;
+
         CodeGen(ClassFile cf,
                 CodeBuilder ctorBuilder,
                 CodeBuilder isAllowedBuilder, LocalVariable storableVar) {
@@ -242,6 +250,12 @@ class FilteredCursorGenerator {
             mStorableVar = storableVar;
             mScopeStack = new Stack<Scope>();
             mScopeStack.push(new Scope(null, null));
+        }
+
+        public void finish() {
+            if (mInitBuilder != null) {
+                mInitBuilder.returnVoid();
+            }
         }
 
         public Object visit(OrFilter<S> filter, Object param) {
@@ -289,23 +303,70 @@ class FilteredCursorGenerator {
             b = mIsAllowedBuilder;
             b.loadLocal(mStorableVar);
             loadProperty(b, chained.getPrimeProperty());
-            for (int i=0; i<chained.getChainCount(); i++) {
-                // Check if last loaded property was null, and fail if so.
-                b.dup();
-                Label notNull = b.createLabel();
-                b.ifNullBranch(notNull, false);
-                b.pop();
-                getScope().fail(b);
-                notNull.setLocation();
 
-                // Now load next property in chain.
-                loadProperty(b, chained.getChainedProperty(i));
+            if (chained.getPrimeProperty().isQuery()) {
+                Filter tail = Filter.getOpenFilter(chained.getPrimeProperty().getJoinedType())
+                    .and(chained.tail().toString(), filter.getOperator());
+
+                String filterFieldName = addStaticFilterField(tail);
+
+                TypeDesc filterType = TypeDesc.forClass(Filter.class);
+                TypeDesc queryType = TypeDesc.forClass(Query.class);
+
+                b.loadStaticField(filterFieldName, filterType);
+                b.invokeInterface(queryType, "and", queryType, new TypeDesc[] {filterType});
+                b.loadThis();
+                b.loadField(fieldName, fieldType);
+                TypeDesc withType = fieldType;
+                if (!withType.isPrimitive()) {
+                    withType = TypeDesc.OBJECT;
+                }
+                b.invokeInterface(queryType, "with", queryType, new TypeDesc[] {withType});
+                b.invokeInterface(queryType, "exists", TypeDesc.BOOLEAN, null);
+
+                // Success if boolean value is true (non-zero).
+                getScope().successIfZeroComparisonElseFail(b, RelOp.NE);
+            } else {
+                for (int i=0; i<chained.getChainCount(); i++) {
+                    // Check if last loaded property was null, and fail if so.
+                    b.dup();
+                    Label notNull = b.createLabel();
+                    b.ifNullBranch(notNull, false);
+                    b.pop();
+                    getScope().fail(b);
+                    notNull.setLocation();
+
+                    // Now load next property in chain.
+                    loadProperty(b, chained.getChainedProperty(i));
+                }
+
+                addPropertyFilter(b, type, filter.getOperator());
             }
-
-            addPropertyFilter(b, type, filter.getOperator());
 
             mPropertyOrdinal++;
             return null;
+        }
+
+        private String addStaticFilterField(Filter filter) {
+            String fieldName = FILTER_FIELD_PREFIX + mPropertyOrdinal;
+
+            TypeDesc filterType = TypeDesc.forClass(Filter.class);
+            TypeDesc classType = TypeDesc.forClass(Class.class);
+
+            mClassFile.addField(Modifiers.PRIVATE.toStatic(true).toFinal(true),
+                                fieldName, filterType);
+
+            if (mInitBuilder == null) {
+                mInitBuilder = new CodeBuilder(mClassFile.addInitializer());
+            }
+
+            mInitBuilder.loadConstant(TypeDesc.forClass(filter.getStorableType()));
+            mInitBuilder.loadConstant(filter.toString());
+            mInitBuilder.invokeStatic(Filter.class.getName(), "filterFor", filterType,
+                                      new TypeDesc[] {classType, TypeDesc.STRING});
+            mInitBuilder.storeStaticField(fieldName, filterType);
+
+            return fieldName;
         }
 
         private Scope getScope() {
