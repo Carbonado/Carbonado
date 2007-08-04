@@ -352,6 +352,16 @@ public interface Query<S extends Storable> {
     long count() throws FetchException;
 
     /**
+     * Returns true if any results are matched by this query.
+     *
+     * @return true if any matches
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws FetchException if storage layer throws an exception
+     * @since 1.2
+     */
+    boolean exists() throws FetchException;
+
+    /**
      * Print the native query to standard out, which is useful for performance
      * analysis. Not all repositories have a native query format. An example
      * native format is SQL.

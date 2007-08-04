@@ -167,6 +167,10 @@ public abstract class WrappedQuery<S extends Storable> implements Query<S> {
         return mQuery.count();
     }
 
+    public boolean exists() throws FetchException {
+        return mQuery.exists();
+    }
+
     public boolean printNative() {
         return mQuery.printNative();
     }

@@ -294,6 +294,15 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
+    public boolean exists() throws FetchException {
+        Cursor<S> cursor = fetch();
+        try {
+            return cursor.skipNext(1) > 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
     public boolean printNative(Appendable app, int indentLevel) throws IOException {
         try {
             return executor().printNative(app, indentLevel, mValues);

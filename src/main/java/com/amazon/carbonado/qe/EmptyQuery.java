@@ -107,6 +107,13 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     }
 
     /**
+     * Always returns false.
+     */
+    public boolean exists() {
+        return false;
+    }
+
+    /**
      * Always throws an IllegalStateException.
      */
     public Query<S> with(int value) {

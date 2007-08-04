@@ -29,6 +29,7 @@ Carbonado change history
 - JDBCRepository supports char and Character property if column is char type of length 1.
 - JDBCRepository allows non-null column to be @Nullable if also @Independent.
 - Fixed bug in generating SQL with nullable primary key properties.
+- Added convenience method, Query.exists().
 
 1.1 to 1.1.2
 -------------------------------
