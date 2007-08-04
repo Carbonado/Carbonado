@@ -73,6 +73,11 @@ class FilteredCursorGenerator {
      */
     @SuppressWarnings("unchecked")
     static <S extends Storable> Factory<S> getFactory(Filter<S> filter) {
+        return getFactory(filter, true);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <S extends Storable> Factory<S> getFactory(Filter<S> filter, boolean optimize) {
         if (filter == null) {
             throw new IllegalArgumentException();
         }
@@ -81,8 +86,16 @@ class FilteredCursorGenerator {
             if (factory != null) {
                 return factory;
             }
-            Class<Cursor<S>> clazz = generateClass(filter);
-            factory = QuickConstructorGenerator.getInstance(clazz, Factory.class);
+
+            Filter<S> optimized;
+            if (optimize && (optimized = ShortCircuitOptimizer.optimize(filter)) != filter) {
+                // Use factory for filter optimized for short-circuit logic.
+                factory = getFactory(optimized, false);
+            } else {
+                Class<Cursor<S>> clazz = generateClass(filter);
+                factory = QuickConstructorGenerator.getInstance(clazz, Factory.class);
+            }
+
             cCache.put(filter, factory);
             return factory;
         }
