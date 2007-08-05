@@ -76,7 +76,6 @@ import com.amazon.carbonado.util.QuickConstructorGenerator;
 class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     implements Storage<S>, JDBCSupport<S>
 {
-    private static final String TABLE_ALIAS_PREFIX = "T";
     private static final int FIRST_RESULT_INDEX = 1;
 
     final JDBCRepository mRepository;
@@ -298,9 +297,11 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
             throws RepositoryException
         {
+            TableAliasGenerator aliasGenerator = new TableAliasGenerator();
+
             JoinNode jn;
             try {
-                JoinNodeBuilder jnb = new JoinNodeBuilder();
+                JoinNodeBuilder jnb = new JoinNodeBuilder(aliasGenerator);
                 if (filter == null) {
                     jn = new JoinNode(getStorableInfo(), null);
                 } else {
@@ -834,21 +835,20 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             }
         }
 
-        /**
-         * @return new value for aliasCounter
-         */
-        public int addJoin(ChainedProperty<?> chained, int aliasCounter)
+        public void addJoin(ChainedProperty<?> chained, TableAliasGenerator aliasGenerator)
             throws RepositoryException
         {
-            return addJoin(chained, aliasCounter, 0);
+            addJoin(chained, aliasGenerator, 0);
         }
 
-        private int addJoin(ChainedProperty<?> chained, int aliasCounter, int offset)
+        private void addJoin(ChainedProperty<?> chained,
+                             TableAliasGenerator aliasGenerator,
+                             int offset)
             throws RepositoryException
         {
             if ((chained.getChainCount() - offset) <= 0) {
                 // At this point in the chain, there are no more joins.
-                return aliasCounter;
+                return;
             }
             StorableProperty<?> property;
             if (offset == 0) {
@@ -861,10 +861,10 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             if (subNode == null) {
                 JDBCStorableInfo<?> info = mRepository.examineStorable(property.getJoinedType());
                 JDBCStorableProperty<?> jProperty = mRepository.getJDBCStorableProperty(property);
-                subNode = new JoinNode(jProperty, info, TABLE_ALIAS_PREFIX + (++aliasCounter));
+                subNode = new JoinNode(jProperty, info, aliasGenerator.nextAlias());
                 mSubNodes.put(name, subNode);
             }
-            return subNode.addJoin(chained, aliasCounter, offset + 1);
+            subNode.addJoin(chained, aliasGenerator, offset + 1);
         }
 
         public String toString() {
@@ -886,12 +886,12 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
      * Filter visitor that constructs a JoinNode tree.
      */
     private class JoinNodeBuilder extends Visitor<S, Object, Object> {
-        private JoinNode mRootJoinNode;
-        private int mAliasCounter;
+        private final TableAliasGenerator mAliasGenerator;
+        private final JoinNode mRootJoinNode;
 
-        JoinNodeBuilder() {
-            mAliasCounter = 1;
-            mRootJoinNode = new JoinNode(getStorableInfo(), TABLE_ALIAS_PREFIX + mAliasCounter);
+        JoinNodeBuilder(TableAliasGenerator aliasGenerator) {
+            mAliasGenerator = aliasGenerator;
+            mRootJoinNode = new JoinNode(getStorableInfo(), aliasGenerator.nextAlias());
         }
 
         public JoinNode getRootJoinNode() {
@@ -909,7 +909,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 if (ordering != null) {
                     for (OrderedProperty<?> orderedProperty : ordering) {
                         ChainedProperty<?> chained = orderedProperty.getChainedProperty();
-                        mAliasCounter = mRootJoinNode.addJoin(chained, mAliasCounter);
+                        mRootJoinNode.addJoin(chained, mAliasGenerator);
                     }
                 }
             } catch (RepositoryException e) {
@@ -932,7 +932,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         private void visit(PropertyFilter<S> filter) throws RepositoryException {
             ChainedProperty<S> chained = filter.getChainedProperty();
-            mAliasCounter = mRootJoinNode.addJoin(chained, mAliasCounter);
+            mRootJoinNode.addJoin(chained, mAliasGenerator);
         }
     }
 
