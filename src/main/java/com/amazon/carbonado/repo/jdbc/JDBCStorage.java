@@ -407,9 +407,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         private final Filter<S> mFilter;
         private final OrderingList<S> mOrdering;
 
-        private final Statement<S> mSelectStatement;
+        private final SQLStatement<S> mSelectStatement;
         private final int mMaxSelectStatementLength;
-        private final Statement<S> mFromWhereStatement;
+        private final SQLStatement<S> mFromWhereStatement;
         private final int mMaxFromWhereStatementLength;
 
         // The following arrays all have the same length, or they may all be null.
@@ -427,8 +427,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         Executor(Filter<S> filter,
                  OrderingList<S> ordering,
-                 Statement<S> selectStatement,
-                 Statement<S> fromWhereStatement,
+                 SQLStatement<S> selectStatement,
+                 SQLStatement<S> fromWhereStatement,
                  PropertyFilter<S>[] propertyFilters,
                  boolean[] propertyFilterNullable)
             throws RepositoryException
@@ -936,130 +936,16 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         }
     }
 
-    /**
-     * Simple DOM representing a SQL statement.
-     */
-    private static abstract class Statement<S extends Storable> {
-        public abstract int maxLength();
-
-        /**
-         * Builds a statement string from the given values.
-         *
-         * @param initialCapacity expected size of finished string
-         * length. Should be value returned from maxLength.
-         * @param filterValues values may be needed to build complete statement
-         */
-        public String buildStatement(int initialCapacity, FilterValues<S> filterValues) {
-            StringBuilder b = new StringBuilder(initialCapacity);
-            this.appendTo(b, filterValues);
-            return b.toString();
-        }
-
-        public abstract void appendTo(StringBuilder b, FilterValues<S> filterValues);
-
-        /**
-         * Just used for debugging.
-         */
-        public String toString() {
-            StringBuilder b = new StringBuilder();
-            appendTo(b, null);
-            return b.toString();
-        }
-    }
-
-    private static class LiteralStatement<S extends Storable> extends Statement<S> {
-        private final String mStr;
-
-        LiteralStatement(String str) {
-            mStr = str;
-        }
-
-        public int maxLength() {
-            return mStr.length();
-        }
-
-        public String buildStatement(int initialCapacity, FilterValues<S> filterValues) {
-            return mStr;
-        }
-
-        public void appendTo(StringBuilder b, FilterValues<S> filterValues) {
-            b.append(mStr);
-        }
-
-        /**
-         * Returns the literal value.
-         */
-        public String toString() {
-            return mStr;
-        }
-    }
-
-    private static class NullablePropertyStatement<S extends Storable> extends Statement<S> {
-        private final PropertyFilter<S> mFilter;
-        private final boolean mIsNullOp;
-
-        NullablePropertyStatement(PropertyFilter<S> filter, boolean isNullOp) {
-            mFilter = filter;
-            mIsNullOp = isNullOp;
-        }
-
-        public int maxLength() {
-            return mIsNullOp ? 8 : 12; // for " IS NULL" or " IS NOT NULL"
-        }
-
-        public void appendTo(StringBuilder b, FilterValues<S> filterValues) {
-            if (filterValues != null
-                && filterValues.getValue(mFilter) == null
-                && filterValues.isAssigned(mFilter))
-            {
-                if (mIsNullOp) {
-                    b.append(" IS NULL");
-                } else {
-                    b.append(" IS NOT NULL");
-                }
-            } else {
-                if (mIsNullOp) {
-                    b.append("=?");
-                } else {
-                    b.append("<>?");
-                }
-            }
-        }
-    }
-
-    private static class CompositeStatement<S extends Storable> extends Statement<S> {
-        private final Statement<S>[] mStatements;
-
-        @SuppressWarnings("unchecked")
-        CompositeStatement(List<Statement<S>> statements) {
-            mStatements = statements.toArray(new Statement[statements.size()]);
-        }
-
-        public int maxLength() {
-            int max = 0;
-            for (Statement<S> statement : mStatements) {
-                max += statement.maxLength();
-            }
-            return max;
-        }
-
-        public void appendTo(StringBuilder b, FilterValues<S> filterValues) {
-            for (Statement<S> statement : mStatements) {
-                statement.appendTo(b, filterValues);
-            }
-        }
-    }
-
     private class StatementBuilder {
-        private List<Statement<S>> mStatements;
+        private List<SQLStatement<S>> mStatements;
         private StringBuilder mLiteralBuilder;
 
         StatementBuilder() {
-            mStatements = new ArrayList<Statement<S>>();
+            mStatements = new ArrayList<SQLStatement<S>>();
             mLiteralBuilder = new StringBuilder();
         }
 
-        public Statement<S> build() {
+        public SQLStatement<S> build() {
             if (mStatements.size() == 0 || mLiteralBuilder.length() > 0) {
                 mStatements.add(new LiteralStatement<S>(mLiteralBuilder.toString()));
                 mLiteralBuilder.setLength(0);
@@ -1083,7 +969,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             append(statement.toString());
         }
 
-        public void append(Statement<S> statement) {
+        public void append(SQLStatement<S> statement) {
             if (statement instanceof LiteralStatement) {
                 append((LiteralStatement<S>) statement);
             } else {
