@@ -189,7 +189,12 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
     }
 
     public <T extends Storable> PropertyFilter<T> asJoinedFrom(ChainedProperty<T> joinProperty) {
-        if (joinProperty.getType() != getStorableType()) {
+        Class<?> type = joinProperty.getLastProperty().getJoinedType();
+        if (type == null) {
+            type = joinProperty.getType();
+        }
+
+        if (type != getStorableType()) {
             throw new IllegalArgumentException
                 ("Property is not of type \"" + getStorableType().getName() + "\": " +
                  joinProperty);
@@ -205,9 +210,7 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
     }
 
     @Override
-    NotJoined notJoinedFrom(ChainedProperty<S> joinProperty,
-                            Class<? extends Storable> joinPropertyType)
-    {
+    NotJoined notJoinedFromCNF(ChainedProperty<S> joinProperty) {
         ChainedProperty<?> notJoinedProp = getChainedProperty();
         ChainedProperty<?> jp = joinProperty;
 
@@ -221,7 +224,7 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         }
 
         if (jp != null || notJoinedProp.equals(getChainedProperty())) {
-            return super.notJoinedFrom(joinProperty, joinPropertyType);
+            return super.notJoinedFromCNF(joinProperty);
         }
 
         PropertyFilter<?> notJoinedFilter;

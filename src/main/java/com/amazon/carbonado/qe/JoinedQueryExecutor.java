@@ -395,7 +395,12 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
     private static <T extends Storable> OrderingList<T>
         expectedOrdering(StorageAccess<T> access, Filter<T> filter, OrderingList<T> ordering)
     {
-        List<Filter<T>> split = filter.disjunctiveNormalFormSplit();
+        List<Filter<T>> split;
+        if (filter == null) {
+            split = Filter.getOpenFilter(access.getStorableType()).disjunctiveNormalFormSplit();
+        } else {
+            split = filter.disjunctiveNormalFormSplit();
+        }
 
         Comparator comparator = CompositeScore.fullComparator();
 

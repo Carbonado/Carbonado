@@ -67,11 +67,9 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
     }
 
     @Override
-    NotJoined notJoinedFrom(ChainedProperty<S> joinProperty,
-                            Class<? extends Storable> joinPropertyType)
-    {
-        NotJoined left = mLeft.notJoinedFrom(joinProperty, joinPropertyType);
-        NotJoined right = mRight.notJoinedFrom(joinProperty, joinPropertyType);
+    NotJoined notJoinedFromCNF(ChainedProperty<S> joinProperty) {
+        NotJoined left = mLeft.notJoinedFromCNF(joinProperty);
+        NotJoined right = mRight.notJoinedFromCNF(joinProperty);
 
         // Assert that our child nodes are only OrFilter or PropertyFilter.
         if (!isConjunctiveNormalForm()) {
@@ -88,14 +86,23 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
         if (!(left.getRemainderFilter() instanceof OpenFilter) ||
             !(right.getRemainderFilter() instanceof OpenFilter))
         {
-            return super.notJoinedFrom(joinProperty, joinPropertyType);
+            return super.notJoinedFromCNF(joinProperty);
         }
 
         // Remove wildcards to shut the compiler up.
         Filter leftNotJoined = left.getNotJoinedFilter();
         Filter rightNotJoined = right.getNotJoinedFilter();
 
-        return new NotJoined(leftNotJoined.or(rightNotJoined), getOpenFilter(getStorableType()));
+        Filter notJoined;
+        if (leftNotJoined == null) {
+            notJoined = rightNotJoined;
+        } else if (rightNotJoined == null) {
+            notJoined = leftNotJoined;
+        } else {
+            notJoined = leftNotJoined.or(rightNotJoined);
+        }
+
+        return new NotJoined(notJoined, getOpenFilter(getStorableType()));
     }
 
     Filter<S> buildDisjunctiveNormalForm() {
