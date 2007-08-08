@@ -30,8 +30,10 @@ import org.cojen.classfile.TypeDesc;
 import org.cojen.classfile.attribute.Annotation;
 import org.cojen.util.ClassInjector;
 
+import com.amazon.carbonado.AlternateKeys;
 import com.amazon.carbonado.Index;
 import com.amazon.carbonado.Indexes;
+import com.amazon.carbonado.Key;
 import com.amazon.carbonado.Nullable;
 import com.amazon.carbonado.PrimaryKey;
 import com.amazon.carbonado.Storable;
@@ -52,6 +54,7 @@ import com.amazon.carbonado.util.AnnotationDescParser;
  *
  * @author Don Schneider
  * @author Brian S O'Neill
+ * @author David Rosenstrauch
  */
 public class SyntheticStorableBuilder
         implements SyntheticBuilder {
@@ -118,7 +121,12 @@ public class SyntheticStorableBuilder
     private SyntheticKey mPrimaryKey;
 
     /**
-     * List of indexes (in addition to the primary key) for this storable
+     * List of alternate keys for this storable
+     */
+    private List<SyntheticKey> mAlternateKeys;
+
+    /**
+     * List of indexes (in addition to the primary and alternate keys) for this storable
      */
     private List<SyntheticIndex> mExtraIndexes;
 
@@ -158,6 +166,7 @@ public class SyntheticStorableBuilder
         mName = name;
         mLoader = loader;
         mPropertyList = new ArrayList<SyntheticProperty>();
+        mAlternateKeys = new ArrayList<SyntheticKey>();
         mExtraIndexes = new ArrayList<SyntheticIndex>();
         mClassNameProvider = new DefaultProvider();
     }
@@ -187,6 +196,7 @@ public class SyntheticStorableBuilder
         }
 
         definePrimaryKey(cf);
+        defineAlternateKeys(cf);
         defineIndexes(cf);
 
         return mClassFileGenerator;
@@ -255,6 +265,17 @@ public class SyntheticStorableBuilder
             mPrimaryKey = new SyntheticKey();
         }
         return mPrimaryKey;
+    }
+
+    /*
+     * (non-Javadoc)
+     *
+     * @see com.amazon.carbonado.synthetic.SyntheticBuilder#addAlternateKey()
+     */
+    public SyntheticKey addAlternateKey() {
+        SyntheticKey alternateKey = new SyntheticKey();
+        mAlternateKeys.add(alternateKey);
+        return alternateKey;
     }
 
     /*
@@ -340,31 +361,51 @@ public class SyntheticStorableBuilder
     }
 
     /**
+     * Decorate a classfile with the @AlternateKeys for this synthetic storable.
+     *
+     * @param cf ClassFile to decorate
+     */
+    private void defineAlternateKeys(ClassFile cf) {
+        // Add alternate keys annotation
+        //
+        // @AlternateKeys(value={
+        //     @Key(value={"+/-propName", "+/-propName", ...})
+        // })
+        defineIndexes(cf, mAlternateKeys, AlternateKeys.class, Key.class);
+    }
+
+    /**
      * Decorate a classfile with the @Indexes for this synthetic storable.
      *
      * @param cf ClassFile to decorate
      */
     private void defineIndexes(ClassFile cf) {
-        if (mExtraIndexes.size() == 0) {
-            return;
-        }
-
         // Add indexes annotation
         //
         // @Indexes(value={
         //     @Index(value={"+/-propName", "+/-propName", ...})
         // })
+        defineIndexes(cf, mExtraIndexes, Indexes.class, Index.class);
+    }
 
-        Annotation indexSet = cf.addRuntimeVisibleAnnotation(TypeDesc.forClass(Indexes.class));
+    private void defineIndexes(ClassFile cf,
+                               List<? extends SyntheticPropertyList> definedIndexes,
+                               Class annotationGroupClass,
+                               Class annotationClass) {
+        if (definedIndexes.size() == 0) {
+            return;
+        }
 
-        Annotation.MemberValue[] indexes = new Annotation.MemberValue[mExtraIndexes.size()];
+        Annotation indexSet = cf.addRuntimeVisibleAnnotation(TypeDesc.forClass(annotationGroupClass));
+
+        Annotation.MemberValue[] indexes = new Annotation.MemberValue[definedIndexes.size()];
 
         // indexSet.value -> indexes
         indexSet.putMemberValue("value", indexes);
 
         int position = 0;
-        for (SyntheticIndex extraIndex : mExtraIndexes) {
-            Annotation index = addIndex(indexSet, indexes, position++);
+        for (SyntheticPropertyList extraIndex : definedIndexes) {
+            Annotation index = addIndex(indexSet, indexes, position++, annotationClass);
 
             Annotation.MemberValue[] indexProps =
                 new Annotation.MemberValue[extraIndex.getPropertyCount()];
@@ -384,16 +425,18 @@ public class SyntheticStorableBuilder
      *            source of annotation (eg, makeAnnotation and makeMemberValue)
      * @param indexes
      * @param position
+     * @param annotationClass TODO
      * @return
      */
     private Annotation addIndex(Annotation annotator,
                                 Annotation.MemberValue[] indexes,
-                                int position)
+                                int position,
+                                Class annotationClass)
     {
         assert (indexes.length > position);
 
         Annotation index = annotator.makeAnnotation();
-        index.setType(TypeDesc.forClass(Index.class));
+        index.setType(TypeDesc.forClass(annotationClass));
         indexes[position] = annotator.makeMemberValue(index);
         return index;
     }

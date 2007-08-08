@@ -30,6 +30,7 @@ import com.amazon.carbonado.SupportException;
  * returned by {@link #prepare}.
  *
  * @author Don Schneider
+ * @author David Rosenstrauch
  */
 public interface SyntheticBuilder {
 
@@ -85,8 +86,15 @@ public interface SyntheticBuilder {
     public SyntheticKey addPrimaryKey();
 
     /**
+     * Add an alternate key to be built.
+     * @return key to be decorated with property values defining the alternate key
+     * @since 1.2
+     */
+    public SyntheticKey addAlternateKey();
+
+    /**
      * Add an index to the set managed by this builder.  All indexes added this
-     * way will be in addition to the primary key index.
+     * way will be in addition to the primary and alternate key indexes.
      * @return index to be decorated with property values defining the index
      */
     public SyntheticIndex addIndex();

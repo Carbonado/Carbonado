@@ -31,6 +31,7 @@ Carbonado change history
 - Fixed bug in generating SQL with nullable primary key properties.
 - Added convenience method, Query.exists().
 - Support query filters against one-to-many join properties.
+- Added support for defining alternate keys in synthetic Storables.
 
 1.1 to 1.1.2
 -------------------------------

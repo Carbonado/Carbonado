@@ -65,6 +65,7 @@ import org.cojen.util.BeanComparator;
  *
  * @author Brian S O'Neill
  * @author Don Schneider
+ * @author David Rosenstrauch
  */
 public class SyntheticStorableReferenceBuilder<S extends Storable>
         implements SyntheticBuilder {
@@ -301,6 +302,17 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
 
     public SyntheticKey addPrimaryKey() {
         return mBuilder.addPrimaryKey();
+    }
+
+    /*
+     * (non-Javadoc)
+     *
+     * @see com.amazon.carbonado.synthetic.SyntheticBuilder#addAlternateKey() Note that
+     *      using this method for a SyntheticReference being used as an alternate key is
+     *      not well defined.
+     */
+    public SyntheticKey addAlternateKey() {
+        return mBuilder.addAlternateKey();
     }
 
     /*
