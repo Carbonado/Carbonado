@@ -1930,10 +1930,31 @@ class JDBCStorableGenerator<S extends Storable> {
                     propertyType.toPrimitiveType() == TypeDesc.CHAR)
                 {
                     // Special case for converting String to character.
+
+                    Label charWasNull = null;
+                    if (property.isNullable()) {
+                        charWasNull = b.createLabel();
+                        LocalVariable temp = b.createLocalVariable(null, resultSetType);
+                        b.storeLocal(temp);
+                        b.loadLocal(temp);
+                        b.ifNullBranch(charWasNull, true);
+                        b.loadLocal(temp);
+                    }
+
                     b.loadConstant(0);
                     b.invokeVirtual(String.class.getName(), "charAt",
                                     TypeDesc.CHAR, new TypeDesc[] {TypeDesc.INT});
                     b.convert(TypeDesc.CHAR, propertyType);
+
+                    if (charWasNull != null) {
+                        Label skipNull = b.createLabel();
+                        b.branch(skipNull);
+
+                        charWasNull.setLocation();
+                        b.loadNull();
+
+                        skipNull.setLocation();
+                    }
                 } else {
                     b.convert(resultSetType, propertyType);
                 }
