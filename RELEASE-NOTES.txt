@@ -16,7 +16,6 @@ Carbonado change history
 - Builds using JDK1.6, but targets JDK1.5.
 - Added support for sequences for SQL databases that don't natively support sequences.
 - Added @Automatic annotation, which also supports auto-increment columns.
-- JDBC cursor skipping uses relative movement, if supported.
 - JDBC repository supports optional automatic version management, eliminating
   the requirement that triggers be installed on the database.
 - FilteredCursor ensures that filter being used is bound.
