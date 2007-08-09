@@ -37,27 +37,22 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
     private final JDBCStorage<S> mStorage;
     private final Connection mConnection;
     private final PreparedStatement mStatement;
-    private final boolean mScrollInsensitiveReadOnly;
 
     private ResultSet mResultSet;
     private boolean mHasNext;
 
     /**
-     * @param scrollInsensitiveReadOnly when true, statement is
-     * TYPE_SCROLL_INSENSITIVE and CONCUR_READ_ONLY.
      * @throws SQLException from executeQuery on statement. Caller must clean
      * up when this happens by closing statement and connection.
      */
     JDBCCursor(JDBCStorage<S> storage,
                Connection con,
-               PreparedStatement statement,
-               boolean scrollInsensitiveReadOnly)
+               PreparedStatement statement)
         throws SQLException
     {
         mStorage = storage;
         mConnection = con;
         mStatement = statement;
-        mScrollInsensitiveReadOnly = scrollInsensitiveReadOnly;
         mResultSet = statement.executeQuery();
     }
 
@@ -127,48 +122,11 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
 
         int actual = 0;
 
-        if (amount > 1 && mScrollInsensitiveReadOnly) {
-            // Skip a relative amount, which is preferred.
+        while (amount > 0) {
             if (hasNext()) {
-                ResultSet rs = mResultSet;
-                try {
-                    int rowStart = rs.getRow();
-                    mHasNext = rs.relative(amount);
-                    int rowEnd = rs.getRow();
-                    if (rowEnd == 0) {
-                        // Skipped past the end. Move back to find the last row number.
-                        if (rs.previous() && (rowEnd = rs.getRow()) != 0) {
-                            rowEnd++;
-                        } else if (rs.last() && (rowEnd = rs.getRow()) != 0) {
-                            rowEnd++;
-                        } else {
-                            // No clue how many were skipped. It's at least one.
-                            rowEnd = rowStart + 1;
-                        }
-                        // Make sure ResultSet is closed below.
-                        mHasNext = false;
-                    }
-                    actual += rowEnd - rowStart;
-                } catch (SQLException e) {
-                    try {
-                        close();
-                    } catch (FetchException e2) {
-                        // Don't care.
-                    }
-                    throw mStorage.getJDBCRepository().toFetchException(e);
-                }
-                if (!mHasNext) {
-                    close();
-                }
-            }
-        } else {
-            // Call next a bunch, which is likely slower than relative skipping.
-            while (amount > 0) {
-                if (hasNext()) {
-                    actual++;
-                    amount--;
-                    mHasNext = false;
-                }
+                actual++;
+                amount--;
+                mHasNext = false;
             }
         }
 

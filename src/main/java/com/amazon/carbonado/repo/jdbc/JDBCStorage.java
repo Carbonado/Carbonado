@@ -488,24 +488,11 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             boolean forUpdate = mRepository.localTxnManager().isForUpdate();
             Connection con = mRepository.getConnection();
             try {
-                boolean scrollInsensitiveReadOnly =
-                    mRepository.supportsScrollInsensitiveReadOnly();
-
-                PreparedStatement ps;
-
-                if (scrollInsensitiveReadOnly) {
-                    // Can support fast skipping.
-                    ps = con.prepareStatement
-                        (prepareSelect(values, forUpdate),
-                         ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                } else {
-                    // Can't support fast skipping.
-                    ps = con.prepareStatement(prepareSelect(values, forUpdate));
-                }
+                PreparedStatement ps = con.prepareStatement(prepareSelect(values, forUpdate));
 
                 try {
                     setParameters(ps, values);
-                    return new JDBCCursor<S>(JDBCStorage.this, con, ps, scrollInsensitiveReadOnly);
+                    return new JDBCCursor<S>(JDBCStorage.this, con, ps);
                 } catch (Exception e) {
                     // in case of exception, close statement
                     try {
