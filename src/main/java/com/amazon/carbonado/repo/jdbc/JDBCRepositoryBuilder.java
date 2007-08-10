@@ -70,6 +70,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     private String mURL;
     private String mUsername;
     private String mPassword;
+    private Integer mFetchSize;
     private Map<String, Boolean> mAutoVersioningMap;
     private String mSequenceSelectStatement;
     private boolean mForceStoredSequence;
@@ -83,6 +84,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
             (rootRef, getName(), isMaster(), getTriggerFactories(),
              getDataSource(), getDataSourceCloseOnShutdown(),
              mCatalog, mSchema,
+             mFetchSize,
              getAutoVersioningMap(),
              mSequenceSelectStatement, mForceStoredSequence);
         rootRef.set(repo);
@@ -270,6 +272,26 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public String getPassword() {
         return mPassword;
+    }
+
+    /**
+     * Set the default fetch size when running queries. Pass null to let driver
+     * use its own default.
+     *
+     * @since 1.2
+     */
+    public void setDefaultFetchSize(Integer size) {
+        mFetchSize = size;
+    }
+
+    /**
+     * Returns the default fetch size when running queries, or null if driver
+     * default is used instead.
+     *
+     * @since 1.2
+     */
+    public Integer getDefaultFetchSize() {
+        return mFetchSize;
     }
 
     /**

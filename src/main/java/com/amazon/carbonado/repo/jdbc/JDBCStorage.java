@@ -489,6 +489,10 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             Connection con = mRepository.getConnection();
             try {
                 PreparedStatement ps = con.prepareStatement(prepareSelect(values, forUpdate));
+                Integer fetchSize = mRepository.getFetchSize();
+                if (fetchSize != null) {
+                    ps.setFetchSize(fetchSize);
+                }
 
                 try {
                     setParameters(ps, values);

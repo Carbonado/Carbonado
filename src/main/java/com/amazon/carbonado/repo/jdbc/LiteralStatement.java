@@ -38,6 +38,7 @@ class LiteralStatement<S extends Storable> extends SQLStatement<S> {
         return mStr.length();
     }
 
+    @Override
     public String buildStatement(int initialCapacity, FilterValues<S> filterValues) {
         return mStr;
     }
@@ -49,6 +50,7 @@ class LiteralStatement<S extends Storable> extends SQLStatement<S> {
     /**
      * Returns the literal value.
      */
+    @Override
     public String toString() {
         return mStr;
     }

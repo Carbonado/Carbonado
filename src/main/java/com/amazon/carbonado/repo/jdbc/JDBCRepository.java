@@ -171,6 +171,7 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
     private final boolean mDataSourceClose;
     private final String mCatalog;
     private final String mSchema;
+    private final Integer mFetchSize;
 
     // Maps Storable types which should have automatic version management.
     private Map<String, Boolean> mAutoVersioningMap;
@@ -214,6 +215,7 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
                    Iterable<TriggerFactory> triggerFactories,
                    DataSource dataSource, boolean dataSourceClose,
                    String catalog, String schema,
+                   Integer fetchSize,
                    Map<String, Boolean> autoVersioningMap,
                    String sequenceSelectStatement, boolean forceStoredSequence)
         throws RepositoryException
@@ -229,6 +231,7 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
         mDataSourceClose = dataSourceClose;
         mCatalog = catalog;
         mSchema = schema;
+        mFetchSize = fetchSize;
 
         mAutoVersioningMap = autoVersioningMap;
 
@@ -580,6 +583,10 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
 
     Repository getRootRepository() {
         return mRootRef.get();
+    }
+
+    Integer getFetchSize() {
+        return mFetchSize;
     }
 
     /**
