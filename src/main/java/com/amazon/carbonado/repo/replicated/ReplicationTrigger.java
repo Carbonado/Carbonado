@@ -303,7 +303,9 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
     private void repair(S replica) throws PersistException {
         replica = (S) replica.copy();
         S master = mMasterStorage.prepare();
-        replica.copyPrimaryKeyProperties(master);
+        // Must copy more than just primary key properties to master since
+        // replica object might only have alternate keys.
+        replica.copyAllProperties(master);
 
         try {
             if (replica.tryLoad()) {

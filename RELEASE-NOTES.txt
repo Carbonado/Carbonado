@@ -35,6 +35,8 @@ Carbonado change history
 1.1 to 1.1.2
 -------------------------------
 - Fixed query engine rule which sometimes favored index with incorrect ordering.
+- Fixed replication repair bug which threw an IllegalStateException for insert
+  repair if only alternate keys were specified.
 
 1.1 to 1.1.1
 -------------------------------
