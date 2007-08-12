@@ -2859,6 +2859,8 @@ public final class StorableGenerator<S extends Storable> {
         Label joinMatch = null;
         Label unreadable = null;
         Label unwritable = null;
+        Label readException = null;
+        Label writeException = null;
 
         for (int i=0; i<caseCount; i++) {
             List<StorableProperty<?>> matches = caseMatches[i];
@@ -2919,6 +2921,11 @@ public final class StorableGenerator<S extends Storable> {
                             unreadable = b.createLabel();
                         }
                         b.branch(unreadable);
+                    } else if (throwsCheckedException(prop.getReadMethod())) {
+                        if (readException == null) {
+                            readException = b.createLabel();
+                        }
+                        b.branch(readException);
                     } else {
                         b.loadThis();
                         b.invoke(prop.getReadMethod());
@@ -2932,6 +2939,11 @@ public final class StorableGenerator<S extends Storable> {
                             unwritable = b.createLabel();
                         }
                         b.branch(unwritable);
+                    } else if (throwsCheckedException(prop.getWriteMethod())) {
+                        if (writeException == null) {
+                            writeException = b.createLabel();
+                        }
+                        b.branch(writeException);
                     } else {
                         b.loadThis();
                         b.loadLocal(b.getParameter(1));
@@ -2965,13 +2977,44 @@ public final class StorableGenerator<S extends Storable> {
 
         if (unreadable != null) {
             unreadable.setLocation();
-            throwIllegalArgException(b, "Property cannot be read: ", b.getParameter(0));
+            throwIllegalArgException(b, "No accessor method for property: ", b.getParameter(0));
         }
 
         if (unwritable != null) {
             unwritable.setLocation();
-            throwIllegalArgException(b, "Property cannot be written: ", b.getParameter(0));
+            throwIllegalArgException(b, "No mutator method for property: ", b.getParameter(0));
         }
+
+        if (readException != null) {
+            readException.setLocation();
+            throwIllegalArgException(b, "Accessor method declares throwing a checked exception: ",
+                                     b.getParameter(0));
+        }
+
+        if (writeException != null) {
+            writeException.setLocation();
+            throwIllegalArgException(b, "Mutator method declares throwing a checked exception: ",
+                                     b.getParameter(0));
+        }
+    }
+
+    private static boolean throwsCheckedException(Method method) {
+        Class<?>[] exceptionTypes = method.getExceptionTypes();
+        if (exceptionTypes == null) {
+            return false;
+        }
+
+        for (Class<?> exceptionType : exceptionTypes) {
+            if (RuntimeException.class.isAssignableFrom(exceptionType)) {
+                continue;
+            }
+            if (Error.class.isAssignableFrom(exceptionType)) {
+                continue;
+            }
+            return true;
+        }
+
+        return false;
     }
 
     private static void throwIllegalArgException(CodeBuilder b, String message,

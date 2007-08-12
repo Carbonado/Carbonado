@@ -387,7 +387,8 @@ public interface Storable<S extends Storable<S>> {
      *
      * @param propertyName name of property to get value of
      * @return property value, which is boxed if property type is primitive
-     * @throws IllegalArgumentException if property is unknown
+     * @throws IllegalArgumentException if property is unknown or if accessor
+     * method declares throwing any checked exceptions
      * @throws UnsupportedOperationException if property is independent but unsupported
      * @throws NullPointerException if property name is null
      * @since 1.2
@@ -400,8 +401,9 @@ public interface Storable<S extends Storable<S>> {
      *
      * @param propertyName name of property to set value to
      * @param value new value for property
-     * @throws IllegalArgumentException if property is unknown or if value is
-     * unsupported due to a constraint
+     * @throws IllegalArgumentException if property is unknown, or if value is
+     * unsupported due to a constraint, or if mutator method declares throwing
+     * any checked exceptions
      * @throws UnsupportedOperationException if property is independent but unsupported
      * @throws ClassCastException if value is of wrong type
      * @throws NullPointerException if property name is null or if primitive
