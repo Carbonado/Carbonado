@@ -22,10 +22,12 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -387,94 +389,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             throw new MismatchException(mainInfo.getStorableType(), errorMessages);
         }
 
-        // Gather index info...
-        IndexInfo[] indexInfo = new IndexInfo[0];
-        boolean hasIndexInfo = false;
-
-        /* Oracle driver has a bug that always causes an analyze to run when
-           requesting index info. Checking indexes is not that important so
-           don't bother checking. Revisit if Oracle bug ever gets fixed.
-        gatherIndexInfo: {
-            if (resolvedTableName == null) {
-                indexInfo = new IndexInfo[0];
-                break gatherIndexInfo;
-            }
-
-            ResultSet rs;
-            try {
-                rs = meta.getIndexInfo(catalog, schema, resolvedTableName, false, true);
-            } catch (SQLException e) {
-                getLog().info
-                    ("Unable to get index info for table \"" + resolvedTableName +
-                     "\" with catalog " + catalog + " and schema " + schema + ": " + e);
-                indexInfo = new IndexInfo[0];
-                break gatherIndexInfo;
-            }
-
-            List<IndexInfo> infoList = new ArrayList<IndexInfo>();
-
-            try {
-                String indexName = null;
-                boolean unique = false;
-                boolean clustered = false;
-                List<String> indexProperties = new ArrayList<String>();
-                List<Direction> directions = new ArrayList<Direction>();
-
-                while (rs.next()) {
-                    if (rs.getInt("TYPE") == DatabaseMetaData.tableIndexStatistic) {
-                        // Ignore this type.
-                        continue;
-                    }
-
-                    String propertyName = columnToProperty.get(rs.getString("COLUMN_NAME"));
-                    if (propertyName == null) {
-                        // Ignore indexes on unknown columns.
-                        continue;
-                    }
-
-                    String nextName = rs.getString("INDEX_NAME");
-
-                    if (indexName != null && !indexName.equals(nextName)) {
-                        infoList.add(new IndexInfoImpl(indexName, unique, clustered,
-                                                       indexProperties.toArray(new String[0]),
-                                                       directions.toArray(new Direction[0])));
-                        indexProperties.clear();
-                        directions.clear();
-                    }
-
-                    indexName = nextName;
-                    unique = !rs.getBoolean("NON_UNIQUE");
-                    clustered = rs.getInt("TYPE") == DatabaseMetaData.tableIndexClustered;
-
-                    String ascOrDesc = rs.getString("ASC_OR_DESC");
-                    Direction direction = Direction.UNSPECIFIED;
-                    if ("A".equals(ascOrDesc)) {
-                        direction = Direction.ASCENDING;
-                    } else if ("D".equals(ascOrDesc)) {
-                        direction = Direction.DESCENDING;
-                    }
-
-                    indexProperties.add(propertyName);
-                    directions.add(direction);
-                }
-
-                if (indexProperties.size() > 0) {
-                    infoList.add(new IndexInfoImpl(indexName, unique, clustered,
-                                                   indexProperties.toArray(new String[0]),
-                                                   directions.toArray(new Direction[0])));
-                }
-            } finally {
-                rs.close();
-            }
-
-            indexInfo = infoList.toArray(new IndexInfo[0]);
-            hasIndexInfo = true;
-        }
-        */
-
-        // Now verify that primary keys match.
-
-        // As primary keys are found, remove from columnToProperty map.
+        // Now verify that primary or alternate keys match.
 
         if (resolvedTableName != null) checkPrimaryKey: {
             ResultSet rs;
@@ -487,92 +402,71 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 break checkPrimaryKey;
             }
 
+            List<String> pkProps = new ArrayList<String>();
+
             try {
-                if (!rs.next()) {
-                    // If no primary keys are reported, don't even bother checking.
-                    // There's no consistent way to get primary keys, and entities
-                    // like views and synonyms don't usually report primary keys.
-                    // A primary key might even be logically defined as a unique
-                    // constraint.
-                    break checkPrimaryKey;
-                }
-                do {
+                while (rs.next()) {
                     String columnName = rs.getString("COLUMN_NAME");
-                    String propertyName = columnToProperty.remove(columnName);
+                    String propertyName = columnToProperty.get(columnName);
 
                     if (propertyName == null) {
                         errorMessages.add
-                            ("Column \"" + columnName + "\" must be part of primary key");
+                            ("Column \"" + columnName +
+                             "\" must be part of primary or alternate key");
                         continue;
                     }
 
-                    StorableProperty mainProperty = mainProperties.get(propertyName);
-
-                    if (!mainProperty.isPrimaryKeyMember()) {
-                        errorMessages.add
-                            ("Property \"" + propertyName + "\" must be part of primary key");
-                    }
-                } while (rs.next());
+                    pkProps.add(propertyName);
+                }
             } finally {
                 rs.close();
             }
 
-            // All remaining properties must not have a primary key annotation.
-            for (String propertyName : columnToProperty.values()) {
-                StorableProperty mainProperty = mainProperties.get(propertyName);
-
-                if (mainProperty.isPrimaryKeyMember()) {
-                    errorMessages.add
-                        ("Property \"" + propertyName + "\" cannot be part of primary key");
-                }
+            if (errorMessages.size() > 0) {
+                // Skip any extra checks.
+                break checkPrimaryKey;
             }
-        }
 
-        // Verify AlternateKey annotations are backed by unique indexes. Unlike
-        // for primary keys, there is no requirement that unique indexes must
-        // have an AlternateKey annotation.
-        if (hasIndexInfo) {
-            // Note the deep nesting of loops. I hope the index sets are small.
+            if (pkProps.size() == 0) {
+                // If no primary keys are reported, don't even bother checking.
+                // There's no consistent way to get primary keys, and entities
+                // like views and synonyms don't usually report primary keys.
+                // A primary key might even be logically defined as a unique
+                // constraint.
+                break checkPrimaryKey;
+            }
 
-            int altKeyCount = mainInfo.getAlternateKeyCount();
-            altKeyScan:
-            for (int i=altKeyCount; --i>=0; ) {
-                StorableKey<S> altKey = mainInfo.getAlternateKey(i);
-                Set<? extends OrderedProperty<S>> altKeyProps = altKey.getProperties();
-                indexMatch:
-                for (int j=indexInfo.length; --j>=0; ) {
-                    IndexInfo ii = indexInfo[j];
-                    if (ii.isUnique()) {
-                        String[] indexPropNames = ii.getPropertyNames();
-                        if (indexPropNames.length == altKeyProps.size()) {
-                            propertyMatch:
-                            for (OrderedProperty<S> orderedProp : altKeyProps) {
-                                StorableProperty<S> altKeyProp =
-                                    orderedProp.getChainedProperty().getPrimeProperty();
-                                String keyPropName = altKeyProp.getName();
-                                for (int k=indexPropNames.length; --k>=0; ) {
-                                    if (indexPropNames[k].equals(keyPropName)) {
-                                        // This property matched...
-                                        continue propertyMatch;
-                                    }
-                                }
-                                // Didn't match a property, so move on to next index.
-                                continue indexMatch;
-                            }
-                            // Fully matched an index, move on to next alt key.
-                            continue altKeyScan;
-                        }
+            if (matchesKey(pkProps, mainInfo.getPrimaryKey())) {
+                // Good. Primary key in database is same as in Storable.
+                break checkPrimaryKey;
+            }
+
+            // Check if Storable has an alternate key which matches the
+            // database's primary key.
+            boolean foundAnyAltKey = false;
+            for (StorableKey<S> altKey : mainInfo.getAlternateKeys()) {
+                if (matchesKey(pkProps, altKey)) {
+                    // Okay. Primary key in database matches a Storable
+                    // alternate key. 
+                    foundAnyAltKey = true;
+
+                    // Also check that declared primary key is a strict subset
+                    // of the alternate key. If not, keep checking alt keys.
+
+                    if (matchesSubKey(pkProps, mainInfo.getPrimaryKey())) {
+                        break checkPrimaryKey;
                     }
                 }
-                // No indexes match, so error.
-                StringBuilder buf = new StringBuilder();
-                buf.append("No matching unique index for alternate key: ");
-                try {
-                    altKey.appendTo(buf);
-                } catch (IOException e) {
-                    // Not gonna happen.
-                }
-                errorMessages.add(buf.toString());
+            }
+
+            if (foundAnyAltKey) {
+                errorMessages.add("Actual primary key matches a declared alternate key, " +
+                                  "but declared primary key must be a strict subset. " + 
+                                  mainInfo.getPrimaryKey().getProperties() +
+                                  " is not a subset of " + pkProps);
+            } else {
+                errorMessages.add("Actual primary key does not match any " +
+                                  "declared primary or alternate key: " + pkProps);
             }
         }
 
@@ -580,8 +474,34 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             throw new MismatchException(mainInfo.getStorableType(), errorMessages);
         }
 
+        // IndexInfo is empty, as querying for it tends to cause a table analyze to run.
+        IndexInfo[] indexInfo = new IndexInfo[0];
+
         return new JInfo<S>
             (mainInfo, catalog, schema, tableName, qualifiedTableName, indexInfo, jProperties);
+    }
+
+    private static boolean matchesKey(Collection<String> keyProps, StorableKey<?> declaredKey) {
+        if (keyProps.size() != declaredKey.getProperties().size()) {
+            return false;
+        }
+        return matchesSubKey(keyProps, declaredKey);
+    }
+
+    /**
+     * @return true if declared key properties are all found in the given keyProps set
+     */
+    private static boolean matchesSubKey(Collection<String> keyProps, StorableKey<?> declaredKey) {
+        for (OrderedProperty<?> declaredKeyProp : declaredKey.getProperties()) {
+            ChainedProperty<?> chained = declaredKeyProp.getChainedProperty();
+            if (chained.getChainCount() > 0) {
+                return false;
+            }
+            if (!keyProps.contains(chained.getLastProperty().getName())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static Log getLog() {
