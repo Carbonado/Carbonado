@@ -367,6 +367,9 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
                 String[] orderProperties = new String[mIdentityCount + 1];
                 for (i=0; i<orderProperties.length; i++) {
                     Direction dir = mIndex.getPropertyDirection(i);
+                    if (dir == Direction.UNSPECIFIED) {
+                        dir = Direction.ASCENDING;
+                    }
                     if (mReverseOrder) {
                         dir = dir.reverse();
                     }

@@ -36,6 +36,7 @@ Carbonado change history
 - Fixed query engine rule which sometimes favored index with incorrect ordering.
 - Fixed replication repair bug which threw an IllegalStateException for insert
   repair if only alternate keys were specified.
+- Fixed query descending sort order bug which produced ascending results.
 
 1.1 to 1.1.1
 -------------------------------
