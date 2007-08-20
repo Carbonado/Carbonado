@@ -37,6 +37,7 @@ Carbonado change history
 - Fixed replication repair bug which threw an IllegalStateException for insert
   repair if only alternate keys were specified.
 - Fixed query descending sort order bug which produced ascending results.
+- Fixed bug in GroupedCursor which discarded last group if it had one element.
 
 1.1 to 1.1.1
 -------------------------------

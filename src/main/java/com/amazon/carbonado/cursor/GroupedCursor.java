@@ -137,9 +137,7 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
                         addToGroup(groupMember);
                     } else {
                         G aggregate = finishGroup();
-
                         beginGroup(mGroupLeader = groupMember);
-
                         if (aggregate != null) {
                             mNextAggregate = aggregate;
                             return true;
@@ -150,7 +148,7 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
                 }
 
                 G aggregate = finishGroup();
-
+                mGroupLeader = null;
                 if (aggregate != null) {
                     mNextAggregate = aggregate;
                     return true;
@@ -164,6 +162,15 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
                 // Don't care.
             }
             throw e;
+        }
+
+        if (mGroupLeader != null) {
+            G aggregate = finishGroup();
+            mGroupLeader = null;
+            if (aggregate != null) {
+                mNextAggregate = aggregate;
+                return true;
+            }
         }
 
         return false;
