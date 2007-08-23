@@ -34,6 +34,11 @@ import org.joda.time.LocalDate;
 import org.joda.time.LocalDateTime;
 import org.joda.time.ReadableInstant;
 
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
+import org.joda.time.format.DateTimeParser;
+import org.joda.time.format.ISODateTimeFormat;
+
 import com.amazon.carbonado.adapter.AdapterDefinition;
 
 /**
@@ -77,6 +82,49 @@ public @interface DateTimeAdapter {
      * Adapter implementation for {@link DateTimeAdapter}.
      */
     public static class Adapter {
+        private static final DateTimeFormatter cDateTimeParser;
+
+        static {
+            // Joda-time's date-time parser requires a 'T' separator, so need
+            // to create a custom parser.
+
+            DateTimeParser offset = new DateTimeFormatterBuilder()
+                .appendTimeZoneOffset("Z", true, 2, 4)
+                .toParser();
+
+            DateTimeParser ttime = new DateTimeFormatterBuilder()
+                .appendLiteral('T')
+                .append(ISODateTimeFormat.timeElementParser().getParser())
+                .appendOptional(offset)
+                .toParser();
+            
+            DateTimeParser separator = new DateTimeFormatterBuilder()
+                .append(null, new DateTimeParser[] {
+                    new DateTimeFormatterBuilder()
+                    .appendLiteral(' ')
+                    .toParser(),
+                    new DateTimeFormatterBuilder()
+                    .appendLiteral('T')
+                    .toParser()
+                })
+                .toParser();
+
+            DateTimeParser separatedTimeOrOffset = new DateTimeFormatterBuilder()
+                .append(separator)
+                .appendOptional(ISODateTimeFormat.timeElementParser().getParser())
+                .appendOptional(offset)
+                .toParser();
+            
+            DateTimeParser dateOptionalTime = new DateTimeFormatterBuilder()
+                .append(ISODateTimeFormat.dateElementParser().getParser())
+                .appendOptional(separatedTimeOrOffset)
+                .toParser();
+
+            cDateTimeParser = new DateTimeFormatterBuilder()
+                .append(null, new DateTimeParser[] {ttime, dateOptionalTime})
+                .toFormatter();
+        }
+
         private static DateTimeZone toDateTimeZone(DateTimeAdapter ann) {
             String id;
             if (ann == null || (id = ann.timeZone()) == null || id.length() == 0) {
@@ -87,6 +135,7 @@ public @interface DateTimeAdapter {
 
         private final String mPropertyName;
         private final DateTimeZone mZone;
+        private final DateTimeFormatter mDateTimeParser;
 
         /**
          * @param type type of object that contains the adapted property
@@ -105,6 +154,7 @@ public @interface DateTimeAdapter {
         public Adapter(Class<?> type, String propertyName, DateTimeZone zone) {
             mPropertyName = propertyName;
             mZone = zone;
+            mDateTimeParser = cDateTimeParser.withZone(zone);
         }
 
         // Adapt to DateTime...
@@ -118,7 +168,7 @@ public @interface DateTimeAdapter {
         }
 
         public DateTime adaptToDateTime(String isoDateString) {
-            return isoDateString == null ? null : new DateTime(isoDateString, mZone);
+            return isoDateString == null ? null : mDateTimeParser.parseDateTime(isoDateString);
         }
 
         public DateTime adaptToDateTime(Date date) {
@@ -292,7 +342,8 @@ public @interface DateTimeAdapter {
         }
 
         public Date adaptToDate(String isoDateString) {
-            return isoDateString == null ? null : new DateTime(isoDateString, mZone).toDate();
+            return isoDateString == null ? null
+                : mDateTimeParser.parseDateTime(isoDateString).toDate();
         }
 
         // Adapt from Date...
