@@ -287,6 +287,16 @@ public abstract class Trigger<S> {
     }
 
     /**
+     * Called right after a storable has been successfully loaded or
+     * fetched. The default implementation does nothing.
+     *
+     * @param storable storable after being loaded or fetched
+     * @since 1.2
+     */
+    public void afterLoad(S storable) throws FetchException {
+    }
+
+    /**
      * Called after a Blob is loaded. Override to return an adapted Blob which
      * can listen for changes. By default, the original Blob is returned
      * unmodified.
@@ -296,6 +306,7 @@ public abstract class Trigger<S> {
      * @param blob non-null Blob property instance
      * @return adapted Blob
      * @since 1.2
+     * @deprecated use afterLoad instead to adapt Blobs
      */
     public Blob adaptBlob(S storable, String name, Blob blob) {
         return blob;
@@ -311,6 +322,7 @@ public abstract class Trigger<S> {
      * @param clob non-null Clob property instance
      * @return adapted Clob
      * @since 1.2
+     * @deprecated use afterLoad instead to adapt Clobs
      */
     public Clob adaptClob(S storable, String name, Clob clob) {
         return clob;

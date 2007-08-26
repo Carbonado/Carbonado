@@ -189,6 +189,18 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         return mTriggerManager.getDeleteTrigger();
     }
 
+    public Trigger<? super S> getLoadTrigger() {
+        return mTriggerManager.getLoadTrigger();
+    }
+
+    public void locallyDisableLoadTrigger() {
+        mTriggerManager.locallyDisableLoad();
+    }
+
+    public void locallyEnableLoadTrigger() {
+        mTriggerManager.locallyEnableLoad();
+    }
+
     /**
      * @param loader used to reload Blob outside original transaction
      */

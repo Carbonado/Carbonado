@@ -131,6 +131,14 @@ public final class StorableGenerator<S extends Storable> {
     public static final String IS_VERSION_INITIALIZED_METHOD_NAME = "isVersionInitialized$";
 
     /**
+     * Name of protected method which must be called after load to identify all
+     * properties as valid and to fire any load triggers.
+     *
+     * @since 1.2
+     */
+    public static final String LOAD_COMPLETED_METHOD_NAME = "loadCompleted$";
+
+    /**
      * Prefix of protected field in generated storable that holds property
      * states. Each property consumes two bits to hold its state, and so each
      * 32-bit field holds states for up to 16 properties.
@@ -255,8 +263,8 @@ public final class StorableGenerator<S extends Storable> {
      *
      * <p>As a convenience, protected methods are provided to test and alter
      * the property state bits. Subclass constructors that fill all properties
-     * with loaded values must call markAllPropertiesClean to ensure all
-     * properties are identified as being valid.
+     * with loaded values must call loadCompleted to ensure all properties are
+     * identified as being valid and to fire any load triggers.
      *
      * <pre>
      * // Returns true if all primary key properties have been set.
@@ -269,6 +277,11 @@ public final class StorableGenerator<S extends Storable> {
      * // Returns true if a version property has been set.
      * // Note: This method is not generated if there is no version property.
      * protected boolean isVersionInitialized();
+     *
+     * // Must be called after load to identify all properties as valid
+     * // and to fire any load triggers.
+     * // Actual method name defined by LOAD_COMPLETED_METHOD_NAME.
+     * protected void loadCompleted() throws FetchException;
      * </pre>
      *
      * Property state field names are defined by the concatenation of
@@ -357,6 +370,7 @@ public final class StorableGenerator<S extends Storable> {
      *
      * @throws com.amazon.carbonado.MalformedTypeException if Storable type is not well-formed
      * @throws IllegalArgumentException if type is null
+     * @deprecated no replacement
      */
     @SuppressWarnings("unchecked")
     public static <S extends Storable> Class<? extends S> getWrappedClass(Class<S> type)
@@ -479,6 +493,8 @@ public final class StorableGenerator<S extends Storable> {
             b.loadLocal(b.getParameter(wrappedStorableParam));
             b.checkCast(TypeDesc.forClass(mStorableType));
             b.storeField(WRAPPED_STORABLE_FIELD_NAME, TypeDesc.forClass(mStorableType));
+
+            // FIXME: call loadCompleted
 
             b.returnVoid();
         }
@@ -1237,10 +1253,27 @@ public final class StorableGenerator<S extends Storable> {
                 // Run query sitting on the stack.
                 runQuery.setLocation();
 
+                // Locally disable load triggers, to hide the fact that we're
+                // using a query to load by alternate key.
+
+                b.loadThis();
+                b.loadField(SUPPORT_FIELD_NAME, mSupportType);
+                b.invoke(lookupMethod(mSupportType.toClass(), "locallyDisableLoadTrigger"));
+
+                // try-finally start label
+                Label disableTriggerStart = b.createLabel().setLocation();
+
                 b.invokeInterface(queryType, TRY_LOAD_ONE_METHOD_NAME,
                                   TypeDesc.forClass(Storable.class), null);
                 LocalVariable fetchedVar = b.createLocalVariable(null, TypeDesc.OBJECT);
                 b.storeLocal(fetchedVar);
+
+                // try-finally end label
+                Label disableTriggerEnd = b.createLabel().setLocation();
+
+                b.loadThis();
+                b.loadField(SUPPORT_FIELD_NAME, mSupportType);
+                b.invoke(lookupMethod(mSupportType.toClass(), "locallyEnableLoadTrigger"));
 
                 // If query fetch is null, then object not found. Return false.
                 b.loadLocal(fetchedVar);
@@ -1260,6 +1293,16 @@ public final class StorableGenerator<S extends Storable> {
                                   new TypeDesc[] {TypeDesc.forClass(Storable.class)});
 
                 b.branch(loaded);
+
+                // Handler for exception when load trigger is disabled.
+                b.exceptionHandler(disableTriggerStart, disableTriggerEnd, null);
+                LocalVariable exceptionVar = b.createLocalVariable(null, TypeDesc.OBJECT);
+                b.storeLocal(exceptionVar);
+                b.loadThis();
+                b.loadField(SUPPORT_FIELD_NAME, mSupportType);
+                b.invoke(lookupMethod(mSupportType.toClass(), "locallyEnableLoadTrigger"));
+                b.loadLocal(exceptionVar);
+                b.throwObject();
             }
 
             pkInitialized.setLocation();
@@ -1271,9 +1314,9 @@ public final class StorableGenerator<S extends Storable> {
             b.ifZeroComparisonBranch(notLoaded, "==");
 
             loaded.setLocation();
-            // Only mark properties clean if doTryLoad returned true.
+            // Only indicate load completed if doTryLoad returned true.
             b.loadThis();
-            b.invokeVirtual(MARK_ALL_PROPERTIES_CLEAN, null, null);
+            b.invokeVirtual(LOAD_COMPLETED_METHOD_NAME, null, null);
             b.loadConstant(true);
             b.returnValue(TypeDesc.BOOLEAN);
 
@@ -1788,7 +1831,7 @@ public final class StorableGenerator<S extends Storable> {
                 b.loadLocal(copiedVar); // storeField later
                 b.loadThis();
                 b.loadField(WRAPPED_STORABLE_FIELD_NAME, TypeDesc.forClass(mStorableType));
-                b.invoke(lookupMethod(mStorableType, COPY_METHOD_NAME, null));
+                b.invoke(lookupMethod(mStorableType, COPY_METHOD_NAME));
                 b.checkCast(TypeDesc.forClass(mStorableType));
                 b.storeField(WRAPPED_STORABLE_FIELD_NAME, TypeDesc.forClass(mStorableType));
 
@@ -1897,6 +1940,41 @@ public final class StorableGenerator<S extends Storable> {
         addMarkDirtyMethod(MARK_PROPERTIES_DIRTY);
         addMarkDirtyMethod(MARK_ALL_PROPERTIES_DIRTY);
 
+        // Define loadCompleted method.
+        {
+            MethodInfo mi = mClassFile.addMethod
+                (Modifiers.PROTECTED, LOAD_COMPLETED_METHOD_NAME, null, null);
+            mi.addException(TypeDesc.forClass(FetchException.class));
+
+            CodeBuilder b = new CodeBuilder(mi);
+
+            if (mGenMode == GEN_ABSTRACT) {
+                b.loadThis();
+                b.invokeVirtual(MARK_ALL_PROPERTIES_CLEAN, null, null);
+            }
+
+            // Now invoke trigger.
+            b.loadThis();
+            b.loadField(SUPPORT_FIELD_NAME, mSupportType);
+            b.invoke(lookupMethod(mSupportType.toClass(), "getLoadTrigger"));
+            LocalVariable triggerVar =
+                b.createLocalVariable(null, TypeDesc.forClass(Trigger.class));
+            b.storeLocal(triggerVar);
+            b.loadLocal(triggerVar);
+            Label noTrigger = b.createLabel();
+            b.ifNullBranch(noTrigger, true);
+            b.loadLocal(triggerVar);
+            b.loadThis();
+            b.invoke(lookupMethod(triggerVar.getType().toClass(), "afterLoad", Object.class));
+
+            // In case trigger modified the properties, make sure they're still clean.
+            b.loadThis();
+            b.invokeVirtual(MARK_ALL_PROPERTIES_CLEAN, null, null);
+
+            noTrigger.setLocation();
+            b.returnVoid();
+        }
+
         if (mGenMode == GEN_ABSTRACT) {
             // Define protected isPkInitialized method.
             addIsInitializedMethod
@@ -1964,11 +2042,13 @@ public final class StorableGenerator<S extends Storable> {
      * WrappedSupport. Also clears join property state if called method
      * returns normally.
      *
-     * @param opType optional, is one of INSERT_OP, UPDATE_OP, or DELETE_OP, for trigger support
+     * @param opType optional, is one of INSERT_OP, UPDATE_OP, or DELETE_OP for trigger support
      * @param forTry used for INSERT_OP, UPDATE_OP, or DELETE_OP
      * @param exceptionType optional - if called method throws this exception,
      * join property state is still cleared.
      */
+    // FIXME: support LOAD_OP? Just chuck all support for wrapped storables. It
+    // is no longer needed.
     private void callWrappedSupport(MethodInfo mi,
                                     String opType,
                                     boolean forTry,
@@ -2083,7 +2163,7 @@ public final class StorableGenerator<S extends Storable> {
         return lookupMethod(type, mi.getName(), args);
     }
 
-    private static Method lookupMethod(Class type, String name, Class[] args) {
+    private static Method lookupMethod(Class type, String name, Class... args) {
         try {
             return type.getMethod(name, args);
         } catch (NoSuchMethodException e) {
@@ -2393,7 +2473,7 @@ public final class StorableGenerator<S extends Storable> {
 
     private void addMarkCleanMethod(String name) {
         MethodInfo mi =
-            addMethodIfNotFinal (Modifiers.PUBLIC.toSynchronized(true), name, null, null);
+            addMethodIfNotFinal(Modifiers.PUBLIC.toSynchronized(true), name, null, null);
 
         if (mi == null) {
             return;
@@ -3512,7 +3592,7 @@ public final class StorableGenerator<S extends Storable> {
         // trigger = support$.getXxxTrigger();
         b.loadThis();
         b.loadField(SUPPORT_FIELD_NAME, mSupportType);
-        Method m = lookupMethod(mSupportType.toClass(), "get" + opType + "Trigger", null);
+        Method m = lookupMethod(mSupportType.toClass(), "get" + opType + "Trigger");
         b.invoke(m);
         b.storeLocal(triggerVar);
         // state = null;

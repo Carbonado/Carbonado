@@ -85,6 +85,9 @@ public class CommonMethodNames {
         COMMIT_METHOD_NAME = "commit",
         EXIT_METHOD_NAME   = "exit";
 
-    /** WrappedStorage.Support API method name */
+    /**
+     * WrappedStorage.Support API method name
+     * @deprecated
+     */
     public static final String CREATE_WRAPPED_SUPPORT_METHOD_NAME = "createSupport";
 }

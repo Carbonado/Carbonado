@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
+import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
@@ -47,7 +48,8 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     private static final int FOR_INSERT = 1;
     private static final int FOR_UPDATE = 2;
     private static final int FOR_DELETE = 4;
-    private static final int FOR_ADAPT_LOB = 8;
+    private static final int FOR_LOAD = 8;
+    private static final int FOR_ADAPT_LOB = 16;
 
     private static final Method
         BEFORE_INSERT_METHOD,
@@ -67,6 +69,8 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         AFTER_DELETE_METHOD,
         AFTER_TRY_DELETE_METHOD,
         FAILED_DELETE_METHOD,
+
+        AFTER_LOAD_METHOD,
 
         ADAPT_BLOB_METHOD,
         ADAPT_CLOB_METHOD;
@@ -95,6 +99,8 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
             AFTER_TRY_DELETE_METHOD  = triggerClass.getMethod("afterTryDelete", TWO_PARAMS);
             FAILED_DELETE_METHOD     = triggerClass.getMethod("failedDelete", TWO_PARAMS);
 
+            AFTER_LOAD_METHOD        = triggerClass.getMethod("afterLoad", ONE_PARAM);
+
             ADAPT_BLOB_METHOD = triggerClass
                 .getMethod("adaptBlob", Object.class, String.class, Blob.class);
             ADAPT_CLOB_METHOD = triggerClass
@@ -109,6 +115,7 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     private final ForInsert<S> mForInsert = new ForInsert<S>();
     private final ForUpdate<S> mForUpdate = new ForUpdate<S>();
     private final ForDelete<S> mForDelete = new ForDelete<S>();
+    private final ForLoad<S> mForLoad = new ForLoad<S>();
     private final ForAdaptLob<S> mForAdaptLob = new ForAdaptLob<S>();
 
     public TriggerManager() {
@@ -157,6 +164,18 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     }
 
     /**
+     * Returns a consolidated trigger to call for load operations, or null if
+     * none. If not null, the consolidated trigger is not a snapshot -- it will
+     * change as the set of triggers in this manager changes.
+     *
+     * @since 1.2
+     */
+    public Trigger<? super S> getLoadTrigger() {
+        ForLoad<S> forLoad = mForLoad;
+        return forLoad.isEmpty() ? null : forLoad;
+    }
+
+    /**
      * Returns a consolidated trigger to call for adapt LOB operations, or null
      * if none. If not null, the consolidated trigger is not a snapshot -- it
      * will change as the set of triggers in this manager changes.
@@ -186,6 +205,9 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         if ((types & FOR_DELETE) != 0) {
             retValue |= mForDelete.add(trigger);
         }
+        if ((types & FOR_LOAD) != 0) {
+            retValue |= mForLoad.add(trigger);
+        }
         if ((types & FOR_ADAPT_LOB) != 0) {
             retValue |= mForAdaptLob.add(trigger);
         }
@@ -211,6 +233,9 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         if ((types & FOR_DELETE) != 0) {
             retValue |= mForDelete.remove(trigger);
         }
+        if ((types & FOR_LOAD) != 0) {
+            retValue |= mForLoad.remove(trigger);
+        }
         if ((types & FOR_ADAPT_LOB) != 0) {
             retValue |= mForAdaptLob.remove(trigger);
         }
@@ -230,26 +255,91 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     }
 
     /**
-     * Disables execution of all managed triggers for the current thread. Call
-     * localEnable to enable again. This call can be made multiple times, but
-     * be sure to call localEnable the same number of times to fully enable.
+     * Disables execution of all managed insert triggers for the current
+     * thread. Call locallyEnableInsert to enable again. This call can be made
+     * multiple times, but be sure to call locallyEnableInsert the same number of
+     * times to fully enable.
+     *
+     * @since 1.2
      */
-    public void localDisable() {
-        mForInsert.localDisable();
-        mForUpdate.localDisable();
-        mForDelete.localDisable();
-        mForAdaptLob.localDisable();
+    public void locallyDisableInsert() {
+        mForInsert.locallyDisable();
     }
 
     /**
-     * Enables execution of all managed triggers for the current thread, if
-     * they had been disabled before.
+     * Enables execution of all managed insert triggers for the current thread,
+     * if they had been disabled before.
+     *
+     * @since 1.2
      */
-    public void localEnable() {
-        mForInsert.localEnable();
-        mForUpdate.localEnable();
-        mForDelete.localEnable();
-        mForAdaptLob.localEnable();
+    public void locallyEnableInsert() {
+        mForInsert.locallyEnable();
+    }
+
+    /**
+     * Disables execution of all managed update triggers for the current
+     * thread. Call locallyEnableUpdate to enable again. This call can be made
+     * multiple times, but be sure to call locallyEnableUpdate the same number of
+     * times to fully enable.
+     *
+     * @since 1.2
+     */
+    public void locallyDisableUpdate() {
+        mForUpdate.locallyDisable();
+    }
+
+    /**
+     * Enables execution of all managed update triggers for the current thread,
+     * if they had been disabled before.
+     *
+     * @since 1.2
+     */
+    public void locallyEnableUpdate() {
+        mForUpdate.locallyEnable();
+    }
+
+    /**
+     * Disables execution of all managed delete triggers for the current
+     * thread. Call locallyEnableDelete to enable again. This call can be made
+     * multiple times, but be sure to call locallyEnableDelete the same number of
+     * times to fully enable.
+     *
+     * @since 1.2
+     */
+    public void locallyDisableDelete() {
+        mForDelete.locallyDisable();
+    }
+
+    /**
+     * Enables execution of all managed delete triggers for the current thread,
+     * if they had been disabled before.
+     *
+     * @since 1.2
+     */
+    public void locallyEnableDelete() {
+        mForDelete.locallyEnable();
+    }
+
+    /**
+     * Disables execution of all managed load triggers for the current
+     * thread. Call locallyEnableLoad to enable again. This call can be made
+     * multiple times, but be sure to call locallyEnableLoad the same number of
+     * times to fully enable.
+     *
+     * @since 1.2
+     */
+    public void locallyDisableLoad() {
+        mForLoad.locallyDisable();
+    }
+
+    /**
+     * Enables execution of all managed load triggers for the current thread,
+     * if they had been disabled before.
+     *
+     * @since 1.2
+     */
+    public void locallyEnableLoad() {
+        mForLoad.locallyEnable();
     }
 
     @Override
@@ -328,6 +418,11 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     }
 
     @Override
+    public void afterLoad(S storable) throws FetchException {
+        mForLoad.afterLoad(storable);
+    }
+
+    @Override
     public Blob adaptBlob(S storable, String name, Blob blob) {
         return mForAdaptLob.adaptBlob(storable, name, blob);
     }
@@ -372,6 +467,10 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
             types |= FOR_DELETE;
         }
 
+        if (overridesMethod(triggerClass, AFTER_LOAD_METHOD)) {
+            types |= FOR_LOAD;
+        }
+
         if (overridesMethod(triggerClass, ADAPT_BLOB_METHOD) ||
             overridesMethod(triggerClass, ADAPT_CLOB_METHOD))
         {
@@ -400,10 +499,10 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         }
     }
 
-    private static abstract class ForSomething<S> extends Trigger<S> {
-        private static final AtomicReferenceFieldUpdater<ForSomething, ThreadLocal>
+    private static abstract class ManagedTrigger<S> extends Trigger<S> {
+        private static final AtomicReferenceFieldUpdater<ManagedTrigger, ThreadLocal>
             cDisabledFlagRef = AtomicReferenceFieldUpdater
-             .newUpdater(ForSomething.class, ThreadLocal.class, "mDisabledFlag");
+             .newUpdater(ManagedTrigger.class, ThreadLocal.class, "mDisabledFlag");
 
         private static Trigger[] NO_TRIGGERS = new Trigger[0];
 
@@ -411,7 +510,7 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
 
         private volatile ThreadLocal<AtomicInteger> mDisabledFlag;
 
-        ForSomething() {
+        ManagedTrigger() {
             mTriggers = NO_TRIGGERS;
         }
 
@@ -450,7 +549,7 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
             return i != null && i.get() > 0;
         }
 
-        void localDisable() {
+        void locallyDisable() {
             // Using a count allows this method call to be nested.
             ThreadLocal<AtomicInteger> disabledFlag = disabledFlag();
             AtomicInteger i = disabledFlag.get();
@@ -461,7 +560,7 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
             }
         }
 
-        void localEnable() {
+        void locallyEnable() {
             // Using a count allows this method call to be nested.
             AtomicInteger i = disabledFlag().get();
             if (i != null) {
@@ -482,7 +581,7 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         }
     }
 
-    private static class ForInsert<S> extends ForSomething<S> {
+    private static class ForInsert<S> extends ManagedTrigger<S> {
         @Override
         public Object beforeInsert(S storable) throws PersistException {
             if (isLocallyDisabled()) {
@@ -637,7 +736,7 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         }
     }
 
-    private static class ForUpdate<S> extends ForSomething<S> {
+    private static class ForUpdate<S> extends ManagedTrigger<S> {
         @Override
         public Object beforeUpdate(S storable) throws PersistException {
             if (isLocallyDisabled()) {
@@ -792,7 +891,7 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         }
     }
 
-    private static class ForDelete<S> extends ForSomething<S> {
+    private static class ForDelete<S> extends ManagedTrigger<S> {
         @Override
         public Object beforeDelete(S storable) throws PersistException {
             if (isLocallyDisabled()) {
@@ -947,7 +1046,19 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         }
     }
 
-    private static class ForAdaptLob<S> extends ForSomething<S> {
+    private static class ForLoad<S> extends ManagedTrigger<S> {
+        @Override
+        public void afterLoad(S storable) throws FetchException {
+            if (!isLocallyDisabled()) {
+                Trigger<? super S>[] triggers = mTriggers;
+                for (int i=triggers.length; --i>=0; ) {
+                    triggers[i].afterLoad(storable);
+                }
+            }
+        }
+    }
+
+    private static class ForAdaptLob<S> extends ManagedTrigger<S> {
         @Override
         public Blob adaptBlob(S storable, String name, Blob blob) {
             if (isLocallyDisabled()) {

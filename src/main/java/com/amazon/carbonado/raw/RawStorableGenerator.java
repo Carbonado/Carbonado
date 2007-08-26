@@ -240,9 +240,10 @@ public class RawStorableGenerator {
                     b.loadLocal(b.getParameter(2));
                     b.invokeVirtual(DECODE_DATA_METHOD_NAME, null, params);
 
-                    // Indicate that object is clean by calling markAllPropertiesClean.
+                    // Indicate load completed in order to mark properties as valid and
+                    // invoke load triggers.
                     b.loadThis();
-                    b.invokeVirtual(MARK_ALL_PROPERTIES_CLEAN, null, null);
+                    b.invokeVirtual(StorableGenerator.LOAD_COMPLETED_METHOD_NAME, null, null);
                 } else {
                     // Only the primary key is clean. Calling
                     // markPropertiesClean might have no effect since subclass

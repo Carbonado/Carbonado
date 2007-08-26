@@ -230,7 +230,7 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
 
         Log log = LogFactory.getLog(ReplicatedRepository.class);
 
-        setReplicationDisabled(true);
+        setReplicationDisabled();
         try {
             Transaction txn = mRepository.enterTransaction();
             try {
@@ -279,7 +279,7 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                 txn.exit();
             }
         } finally {
-            setReplicationDisabled(false);
+            setReplicationEnabled();
         }
     }
 
@@ -379,13 +379,13 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
      * Deletes the replica entry with replication disabled.
      */
     boolean tryDeleteReplica(Storable replica) throws PersistException {
-        // Disable replication to prevent trigger from being invoked by
-        // deleting replica.
-        setReplicationDisabled(true);
+        // Prevent trigger from being invoked by deleting replica.
+        TriggerManager tm = mTriggerManager;
+        tm.locallyDisableDelete();
         try {
             return replica.tryDelete();
         } finally {
-            setReplicationDisabled(false);
+            tm.locallyEnableDelete();
         }
     }
 
@@ -393,23 +393,29 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
      * Deletes the replica entry with replication disabled.
      */
     void deleteReplica(Storable replica) throws PersistException {
-        // Disable replication to prevent trigger from being invoked by
-        // deleting replica.
-        setReplicationDisabled(true);
+        // Prevent trigger from being invoked by deleting replica.
+        TriggerManager tm = mTriggerManager;
+        tm.locallyDisableDelete();
         try {
             replica.delete();
         } finally {
-            setReplicationDisabled(false);
+            tm.locallyEnableDelete();
         }
     }
 
-    void setReplicationDisabled(boolean disabled) {
+    void setReplicationDisabled() {
         // This method disables not only this trigger, but all triggers added
         // to manager.
-        if (disabled) {
-            mTriggerManager.localDisable();
-        } else {
-            mTriggerManager.localEnable();
-        }
+        TriggerManager tm = mTriggerManager;
+        tm.locallyDisableInsert();
+        tm.locallyDisableUpdate();
+        tm.locallyDisableDelete();
+    }
+
+    void setReplicationEnabled() {
+        TriggerManager tm = mTriggerManager;
+        tm.locallyEnableInsert();
+        tm.locallyEnableUpdate();
+        tm.locallyEnableDelete();
     }
 }

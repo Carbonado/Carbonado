@@ -208,9 +208,10 @@ class JDBCStorableGenerator<S extends Storable> {
             b.invokePrivate(EXTRACT_ALL_METHOD_NAME, null,
                             new TypeDesc[] {resultSetType, TypeDesc.INT});
 
-            // Indicate that object is clean by calling markAllPropertiesClean.
+            // Indicate load completed in order to mark properties as valid and
+            // invoke load triggers.
             b.loadThis();
-            b.invokeVirtual(MARK_ALL_PROPERTIES_CLEAN, null, null);
+            b.invokeVirtual(StorableGenerator.LOAD_COMPLETED_METHOD_NAME, null, null);
 
             b.returnVoid();
         }

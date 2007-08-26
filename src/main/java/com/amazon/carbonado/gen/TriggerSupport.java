@@ -48,4 +48,30 @@ public interface TriggerSupport<S extends Storable> extends StorableSupport<S> {
      * @return null if no trigger
      */
     Trigger<? super S> getDeleteTrigger();
+
+    /**
+     * Returns a trigger which must be run for all load and fetch operations.
+     *
+     * @return null if no trigger
+     * @since 1.2
+     */
+    Trigger<? super S> getLoadTrigger();
+
+    /**
+     * Disables execution of load trigger for the current thread. Call
+     * localEnableLoadTrigger to enable again. This call can be made multiple
+     * times, but be sure to call localEnableLoadTrigger the same number of
+     * times to fully enable.
+     *
+     * @since 1.2
+     */
+    void locallyDisableLoadTrigger();
+
+    /**
+     * Enables execution of load trigger for the current thread, if they it
+     * been disabled before.
+     *
+     * @since 1.2
+     */
+    void locallyEnableLoadTrigger();
 }

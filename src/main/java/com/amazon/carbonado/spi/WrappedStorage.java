@@ -102,6 +102,7 @@ public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
      *
      * @param storable storable being wrapped
      * @see #createSupport
+     * @deprecated
      */
     protected S wrap(S storable) {
         if (storable == null) {
@@ -125,6 +126,7 @@ public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
      * Create a handler used by wrapped storables.
      *
      * @param storable storable being wrapped
+     * @deprecated
      */
     protected abstract Support createSupport(S storable);
 
@@ -149,6 +151,18 @@ public abstract class WrappedStorage<S extends Storable> implements Storage<S> {
 
         public Trigger<? super S> getDeleteTrigger() {
             return mTriggerManager.getDeleteTrigger();
+        }
+
+        public Trigger<? super S> getLoadTrigger() {
+            return mTriggerManager.getLoadTrigger();
+        }
+
+        public void locallyDisableLoadTrigger() {
+            mTriggerManager.locallyDisableLoad();
+        }
+
+        public void locallyEnableLoadTrigger() {
+            mTriggerManager.locallyEnableLoad();
         }
     }
 

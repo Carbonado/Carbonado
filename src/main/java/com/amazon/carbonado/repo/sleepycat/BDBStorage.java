@@ -1122,5 +1122,17 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         public Trigger<? super S> getDeleteTrigger() {
             return mStorage.mTriggerManager.getDeleteTrigger();
         }
+
+        public Trigger<? super S> getLoadTrigger() {
+            return mStorage.mTriggerManager.getLoadTrigger();
+        }
+
+        public void locallyDisableLoadTrigger() {
+            mStorage.mTriggerManager.locallyDisableLoad();
+        }
+
+        public void locallyEnableLoadTrigger() {
+            mStorage.mTriggerManager.locallyEnableLoad();
+        }
     }
 }
