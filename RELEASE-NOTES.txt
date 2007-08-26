@@ -28,7 +28,6 @@ Carbonado change history
 - JDBCRepository allows non-null column to be @Nullable if also @Independent.
 - Fixed bug in generating SQL with nullable primary key properties.
 - Added convenience method, Query.exists().
-- Support query filters against one-to-many join properties.
 - Added support for defining alternate keys in synthetic Storables.
 - Added trigger support for after loads and queries.
 - Removed vestigial support for wrapping Storables.
