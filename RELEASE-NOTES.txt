@@ -31,6 +31,7 @@ Carbonado change history
 - Support query filters against one-to-many join properties.
 - Added support for defining alternate keys in synthetic Storables.
 - Added trigger support for after loads and queries.
+- Removed vestigial support for wrapping Storables.
 
 1.1 to 1.1.2
 -------------------------------

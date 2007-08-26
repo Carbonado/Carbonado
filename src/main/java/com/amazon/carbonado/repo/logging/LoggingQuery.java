@@ -18,79 +18,239 @@
 
 package com.amazon.carbonado.repo.logging;
 
+import java.io.IOException;
+
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.spi.WrappedQuery;
+
+import com.amazon.carbonado.filter.Filter;
+import com.amazon.carbonado.filter.FilterValues;
 
 /**
  *
  *
  * @author Brian S O'Neill
  */
-class LoggingQuery<S extends Storable> extends WrappedQuery<S> {
+class LoggingQuery<S extends Storable> implements Query<S> {
     private final LoggingStorage<S> mStorage;
+    private final Query<S> mQuery;
 
     LoggingQuery(LoggingStorage<S> storage, Query<S> query) {
-        super(query);
         mStorage = storage;
+        mQuery = query;
+    }
+
+    public Class<S> getStorableType() {
+        return mQuery.getStorableType();
+    }
+
+    public Filter<S> getFilter() {
+        return mQuery.getFilter();
+    }
+
+    public FilterValues<S> getFilterValues() {
+        return mQuery.getFilterValues();
+    }
+
+    public int getBlankParameterCount() {
+        return mQuery.getBlankParameterCount();
+    }
+
+    public Query<S> with(int value) {
+        return newInstance(mQuery.with(value));
+    }
+
+    public Query<S> with(long value) {
+        return newInstance(mQuery.with(value));
+    }
+
+    public Query<S> with(float value) {
+        return newInstance(mQuery.with(value));
+    }
+
+    public Query<S> with(double value) {
+        return newInstance(mQuery.with(value));
+    }
+
+    public Query<S> with(boolean value) {
+        return newInstance(mQuery.with(value));
+    }
+
+    public Query<S> with(char value) {
+        return newInstance(mQuery.with(value));
+    }
+
+    public Query<S> with(byte value) {
+        return newInstance(mQuery.with(value));
+    }
+
+    public Query<S> with(short value) {
+        return newInstance(mQuery.with(value));
+    }
+
+    public Query<S> with(Object value) {
+        return newInstance(mQuery.with(value));
+    }
+
+    public Query<S> withValues(Object... objects) {
+        return newInstance(mQuery.withValues(objects));
+    }
+
+    public Query<S> and(String filter) throws FetchException {
+        return newInstance(mQuery.and(filter));
+    }
+
+    public Query<S> and(Filter<S> filter) throws FetchException {
+        return newInstance(mQuery.and(filter));
+    }
+
+    public Query<S> or(String filter) throws FetchException {
+        return newInstance(mQuery.or(filter));
+    }
+
+    public Query<S> or(Filter<S> filter) throws FetchException {
+        return newInstance(mQuery.or(filter));
+    }
+
+    public Query<S> not() throws FetchException {
+        return newInstance(mQuery.not());
+    }
+
+    public Query<S> orderBy(String property) throws FetchException, UnsupportedOperationException {
+        return newInstance(mQuery.orderBy(property));
+    }
+
+    public Query<S> orderBy(String... strings)
+        throws FetchException, UnsupportedOperationException
+    {
+        return newInstance(mQuery.orderBy(strings));
     }
 
     public Cursor<S> fetch() throws FetchException {
-        Log log = mStorage.mRepo.getLog();
+        Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.fetch() on " + this);
         }
-        return super.fetch();
+        return mQuery.fetch();
+    }
+
+    public Cursor<S> fetchAfter(S start) throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.fetchAfter(start) on " + this + ", start: " + start);
+        }
+        return mQuery.fetchAfter(start);
     }
 
     public S loadOne() throws FetchException {
-        Log log = mStorage.mRepo.getLog();
+        Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.loadOne() on " + this);
         }
-        return super.loadOne();
+        return mQuery.loadOne();
     }
 
     public S tryLoadOne() throws FetchException {
-        Log log = mStorage.mRepo.getLog();
+        Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.tryLoadOne() on " + this);
         }
-        return super.tryLoadOne();
+        return mQuery.tryLoadOne();
     }
 
     public void deleteOne() throws PersistException {
-        Log log = mStorage.mRepo.getLog();
+        Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.deleteOne() on " + this);
         }
-        super.deleteOne();
+        mQuery.deleteOne();
     }
 
     public boolean tryDeleteOne() throws PersistException {
-        Log log = mStorage.mRepo.getLog();
+        Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.tryDeleteOne() on " + this);
         }
-        return super.tryDeleteOne();
+        return mQuery.tryDeleteOne();
     }
 
     public void deleteAll() throws PersistException {
-        Log log = mStorage.mRepo.getLog();
+        Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.deleteAll() on " + this);
         }
-        super.deleteAll();
+        mQuery.deleteAll();
     }
 
-    protected S wrap(S storable) {
-        return mStorage.wrap(storable);
+    public long count() throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.count() on " + this);
+        }
+        return mQuery.count();
     }
 
-    protected WrappedQuery<S> newInstance(Query<S> query) {
+    public boolean exists() throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.exists() on " + this);
+        }
+        return mQuery.exists();
+    }
+
+    public boolean printNative() {
+        return mQuery.printNative();
+    }
+
+    public boolean printNative(Appendable app) throws IOException {
+        return mQuery.printNative(app);
+    }
+
+    public boolean printNative(Appendable app, int indentLevel) throws IOException {
+        return mQuery.printNative(app, indentLevel);
+    }
+
+    public boolean printPlan() {
+        return mQuery.printPlan();
+    }
+
+    public boolean printPlan(Appendable app) throws IOException {
+        return mQuery.printPlan(app);
+    }
+
+    public boolean printPlan(Appendable app, int indentLevel) throws IOException {
+        return mQuery.printPlan(app, indentLevel);
+    }
+
+    public void appendTo(Appendable appendable) throws IOException {
+        appendable.append(mQuery.toString());
+    }
+
+    public String toString() {
+        return mQuery.toString();
+    }
+
+    @Override
+    public int hashCode() {
+        return mQuery.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj instanceof LoggingQuery) {
+            LoggingQuery<?> other = (LoggingQuery<?>) obj;
+            return mQuery.equals(other.mQuery);
+        }
+        return false;
+    }
+
+    private LoggingQuery<S> newInstance(Query<S> query) {
         return new LoggingQuery<S>(mStorage, query);
     }
 }

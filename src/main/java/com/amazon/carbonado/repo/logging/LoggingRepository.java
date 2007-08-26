@@ -40,18 +40,15 @@ import com.amazon.carbonado.spi.StoragePool;
  */
 class LoggingRepository implements Repository, LogAccessCapability {
     private final AtomicReference<Repository> mRootRef;
-    final Iterable<TriggerFactory> mTriggerFactories;
     private final Repository mRepo;
     private final Log mLog;
 
     private final StoragePool mStoragePool;
 
     LoggingRepository(AtomicReference<Repository> rootRef,
-                      Iterable<TriggerFactory> triggerFactories,
                       Repository actual, Log log)
     {
         mRootRef = rootRef;
-        mTriggerFactories = triggerFactories;
         mRepo = actual;
         mLog = log;
 

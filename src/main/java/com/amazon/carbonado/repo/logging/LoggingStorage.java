@@ -21,130 +21,129 @@ package com.amazon.carbonado.repo.logging;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
-import com.amazon.carbonado.Repository;
-import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
+import com.amazon.carbonado.Trigger;
 
-import com.amazon.carbonado.spi.WrappedStorage;
+import com.amazon.carbonado.filter.Filter;
 
 /**
  *
  *
  * @author Brian S O'Neill
  */
-class LoggingStorage<S extends Storable> extends WrappedStorage<S> {
-    final LoggingRepository mRepo;
+class LoggingStorage<S extends Storable> implements Storage<S> {
+    private final Storage<S> mStorage;
+    final Log mLog;
 
-    LoggingStorage(LoggingRepository repo, Storage<S> storage) throws RepositoryException {
-        super(storage, repo.mTriggerFactories);
-        mRepo = repo;
+    LoggingStorage(LoggingRepository repo, Storage<S> storage) {
+        mStorage = storage;
+        mLog = repo.getLog();
+        storage.addTrigger(new LoggingTrigger<S>(mLog));
+    }
+
+    public Class<S> getStorableType() {
+        return mStorage.getStorableType();
+    }
+
+    public S prepare() {
+        return mStorage.prepare();
+    }
+
+    public Query<S> query() throws FetchException {
+        return new LoggingQuery<S>(this, mStorage.query());
+    }
+
+    public Query<S> query(String filter) throws FetchException {
+        return new LoggingQuery<S>(this, mStorage.query(filter));
+    }
+
+    public Query<S> query(Filter<S> filter) throws FetchException {
+        return new LoggingQuery<S>(this, mStorage.query(filter));
     }
 
     /**
      * @since 1.2
      */
     public void truncate() throws PersistException {
-        Log log = mRepo.getLog();
-        if (log.isEnabled()) {
-            log.write("Storage.truncate() on " + getStorableType().getClass());
+        if (mLog.isEnabled()) {
+            mLog.write("Storage.truncate() on " + getStorableType().getClass());
         }
-        super.truncate();
+        mStorage.truncate();
     }
 
-    protected S wrap(S storable) {
-        return super.wrap(storable);
+    public boolean addTrigger(Trigger<? super S> trigger) {
+        return mStorage.addTrigger(trigger);
+    }
+
+    public boolean removeTrigger(Trigger<? super S> trigger) {
+        return mStorage.removeTrigger(trigger);
     }
 
     protected Query<S> wrap(Query<S> query) {
         return new LoggingQuery<S>(this, query);
     }
 
-    protected Support createSupport(S storable) {
-        return new Handler(storable);
-    }
+    private static class LoggingTrigger<S extends Storable> extends Trigger<S> {
+        private final Log mLog;
 
-    private class Handler extends Support {
-        private final S mStorable;
-
-        Handler(S storable) {
-            mStorable = storable;
+        LoggingTrigger(Log log) {
+            mLog = log;
         }
 
-        public Repository getRootRepository() {
-            return mRepo.getRootRepository();
-        }
-
-        public boolean isPropertySupported(String propertyName) {
-            return mStorable.isPropertySupported(propertyName);
-        }
-
-        public void load() throws FetchException {
-            Log log = mRepo.getLog();
-            if (log.isEnabled()) {
-                log.write("Storable.load() on " + mStorable.toStringKeyOnly());
+        @Override
+        public Object beforeInsert(S storable) {
+            if (mLog.isEnabled()) {
+                mLog.write("Storable.insert() on " + storable.toString());
             }
-            mStorable.load();
+            return null;
         }
 
-        public boolean tryLoad() throws FetchException {
-            Log log = mRepo.getLog();
-            if (log.isEnabled()) {
-                log.write("Storable.tryLoad() on " + mStorable.toStringKeyOnly());
+        @Override
+        public Object beforeTryInsert(S storable) {
+            if (mLog.isEnabled()) {
+                mLog.write("Storable.tryInsert() on " + storable.toString());
             }
-            return mStorable.tryLoad();
+            return null;
         }
 
-        public void insert() throws PersistException {
-            Log log = mRepo.getLog();
-            if (log.isEnabled()) {
-                log.write("Storable.insert() on " + mStorable.toString());
+        @Override
+        public Object beforeUpdate(S storable) {
+            if (mLog.isEnabled()) {
+                mLog.write("Storable.update() on " + storable.toString());
             }
-            mStorable.insert();
+            return null;
         }
 
-        public boolean tryInsert() throws PersistException {
-            Log log = mRepo.getLog();
-            if (log.isEnabled()) {
-                log.write("Storable.tryInsert() on " + mStorable.toString());
+        @Override
+        public Object beforeTryUpdate(S storable) {
+            if (mLog.isEnabled()) {
+                mLog.write("Storable.tryUpdate() on " + storable.toString());
             }
-            return mStorable.tryInsert();
+            return null;
         }
 
-        public void update() throws PersistException {
-            Log log = mRepo.getLog();
-            if (log.isEnabled()) {
-                log.write("Storable.update() on " + mStorable.toString());
+        @Override
+        public Object beforeDelete(S storable) {
+            if (mLog.isEnabled()) {
+                mLog.write("Storable.delete() on " + storable.toString());
             }
-            mStorable.update();
+            return null;
         }
 
-        public boolean tryUpdate() throws PersistException {
-            Log log = mRepo.getLog();
-            if (log.isEnabled()) {
-                log.write("Storable.tryUpdate() on " + mStorable.toString());
+        @Override
+        public Object beforeTryDelete(S storable) {
+            if (mLog.isEnabled()) {
+                mLog.write("Storable.tryDelete() on " + storable.toString());
             }
-            return mStorable.tryUpdate();
+            return null;
         }
 
-        public void delete() throws PersistException {
-            Log log = mRepo.getLog();
-            if (log.isEnabled()) {
-                log.write("Storable.delete() on " + mStorable.toStringKeyOnly());
+        @Override
+        public void afterLoad(S storable) {
+            if (mLog.isEnabled()) {
+                mLog.write("Loaded " + storable.toString());
             }
-            mStorable.delete();
-        }
-
-        public boolean tryDelete() throws PersistException {
-            Log log = mRepo.getLog();
-            if (log.isEnabled()) {
-                log.write("Storable.tryDelete() on " + mStorable.toStringKeyOnly());
-            }
-            return mStorable.tryDelete();
-        }
-
-        public Support createSupport(S storable) {
-            return new Handler(storable);
         }
     }
 }

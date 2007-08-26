@@ -97,8 +97,7 @@ public class LoggingRepositoryBuilder extends AbstractRepositoryBuilder {
             return actual;
         }
 
-        Repository repo = new LoggingRepository
-            (rootRef, mRepoBuilder.getTriggerFactories(), actual, mLog);
+        Repository repo = new LoggingRepository(rootRef, actual, mLog);
         rootRef.set(repo);
         return repo;
     }
