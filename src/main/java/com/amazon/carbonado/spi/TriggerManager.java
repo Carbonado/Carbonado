@@ -33,9 +33,6 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.TriggerFactory;
 
-import com.amazon.carbonado.lob.Blob;
-import com.amazon.carbonado.lob.Clob;
-
 /**
  * Used by Storage implementations to manage triggers and consolidate them into
  * single logical triggers. This class is thread-safe and ensures that changes
@@ -49,7 +46,6 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     private static final int FOR_UPDATE = 2;
     private static final int FOR_DELETE = 4;
     private static final int FOR_LOAD = 8;
-    private static final int FOR_ADAPT_LOB = 16;
 
     private static final Method
         BEFORE_INSERT_METHOD,
@@ -70,10 +66,7 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         AFTER_TRY_DELETE_METHOD,
         FAILED_DELETE_METHOD,
 
-        AFTER_LOAD_METHOD,
-
-        ADAPT_BLOB_METHOD,
-        ADAPT_CLOB_METHOD;
+        AFTER_LOAD_METHOD;
 
     static {
         Class<?> triggerClass = Trigger.class;
@@ -100,11 +93,6 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
             FAILED_DELETE_METHOD     = triggerClass.getMethod("failedDelete", TWO_PARAMS);
 
             AFTER_LOAD_METHOD        = triggerClass.getMethod("afterLoad", ONE_PARAM);
-
-            ADAPT_BLOB_METHOD = triggerClass
-                .getMethod("adaptBlob", Object.class, String.class, Blob.class);
-            ADAPT_CLOB_METHOD = triggerClass
-                .getMethod("adaptClob", Object.class, String.class, Clob.class);
         } catch (NoSuchMethodException e) {
             Error error = new NoSuchMethodError();
             error.initCause(e);
@@ -116,7 +104,6 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     private final ForUpdate<S> mForUpdate = new ForUpdate<S>();
     private final ForDelete<S> mForDelete = new ForDelete<S>();
     private final ForLoad<S> mForLoad = new ForLoad<S>();
-    private final ForAdaptLob<S> mForAdaptLob = new ForAdaptLob<S>();
 
     public TriggerManager() {
     }
@@ -175,18 +162,6 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         return forLoad.isEmpty() ? null : forLoad;
     }
 
-    /**
-     * Returns a consolidated trigger to call for adapt LOB operations, or null
-     * if none. If not null, the consolidated trigger is not a snapshot -- it
-     * will change as the set of triggers in this manager changes.
-     *
-     * @since 1.2
-     */
-    public Trigger<? super S> getAdaptLobTrigger() {
-        ForAdaptLob<S> forAdaptLob = mForAdaptLob;
-        return forAdaptLob.isEmpty() ? null : forAdaptLob;
-    }
-
     public boolean addTrigger(Trigger<? super S> trigger) {
         if (trigger == null) {
             throw new IllegalArgumentException();
@@ -207,9 +182,6 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         }
         if ((types & FOR_LOAD) != 0) {
             retValue |= mForLoad.add(trigger);
-        }
-        if ((types & FOR_ADAPT_LOB) != 0) {
-            retValue |= mForAdaptLob.add(trigger);
         }
 
         return retValue;
@@ -235,9 +207,6 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         }
         if ((types & FOR_LOAD) != 0) {
             retValue |= mForLoad.remove(trigger);
-        }
-        if ((types & FOR_ADAPT_LOB) != 0) {
-            retValue |= mForAdaptLob.remove(trigger);
         }
 
         return retValue;
@@ -422,16 +391,6 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         mForLoad.afterLoad(storable);
     }
 
-    @Override
-    public Blob adaptBlob(S storable, String name, Blob blob) {
-        return mForAdaptLob.adaptBlob(storable, name, blob);
-    }
-
-    @Override
-    public Clob adaptClob(S storable, String name, Clob clob) {
-        return mForAdaptLob.adaptClob(storable, name, clob);
-    }
-
     /**
      * Determines which operations the given trigger overrides.
      */
@@ -469,12 +428,6 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
 
         if (overridesMethod(triggerClass, AFTER_LOAD_METHOD)) {
             types |= FOR_LOAD;
-        }
-
-        if (overridesMethod(triggerClass, ADAPT_BLOB_METHOD) ||
-            overridesMethod(triggerClass, ADAPT_CLOB_METHOD))
-        {
-            types |= FOR_ADAPT_LOB;
         }
 
         return types;
@@ -1055,42 +1008,6 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
                     triggers[i].afterLoad(storable);
                 }
             }
-        }
-    }
-
-    private static class ForAdaptLob<S> extends ManagedTrigger<S> {
-        @Override
-        public Blob adaptBlob(S storable, String name, Blob blob) {
-            if (isLocallyDisabled()) {
-                return blob;
-            }
-
-            Trigger<? super S>[] triggers = mTriggers;
-
-            int length = triggers.length;
-
-            for (int i=0; i<length; i++) {
-                blob = triggers[i].adaptBlob(storable, name, blob);
-            }
-
-            return blob;
-        }
-
-        @Override
-        public Clob adaptClob(S storable, String name, Clob clob) {
-            if (isLocallyDisabled()) {
-                return clob;
-            }
-
-            Trigger<? super S>[] triggers = mTriggers;
-
-            int length = triggers.length;
-
-            for (int i=0; i<length; i++) {
-                clob = triggers[i].adaptClob(storable, name, clob);
-            }
-
-            return clob;
         }
     }
 }

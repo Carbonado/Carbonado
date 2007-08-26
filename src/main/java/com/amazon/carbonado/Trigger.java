@@ -18,9 +18,6 @@
 
 package com.amazon.carbonado;
 
-import com.amazon.carbonado.lob.Blob;
-import com.amazon.carbonado.lob.Clob;
-
 /**
  * Callback mechanism to allow custom code to run when a storable is
  * persisted. By default, the methods defined in this class do
@@ -294,38 +291,6 @@ public abstract class Trigger<S> {
      * @since 1.2
      */
     public void afterLoad(S storable) throws FetchException {
-    }
-
-    /**
-     * Called after a Blob is loaded. Override to return an adapted Blob which
-     * can listen for changes. By default, the original Blob is returned
-     * unmodified.
-     *
-     * @param storable storable which contains Blob property
-     * @param name property name of Blob
-     * @param blob non-null Blob property instance
-     * @return adapted Blob
-     * @since 1.2
-     * @deprecated use afterLoad instead to adapt Blobs
-     */
-    public Blob adaptBlob(S storable, String name, Blob blob) {
-        return blob;
-    }
-
-    /**
-     * Called after a Clob is loaded. Override to return an adapted Clob which
-     * can listen for changes. By default, the original Clob is returned
-     * unmodified.
-     *
-     * @param storable storable which contains Clob property
-     * @param name property name of Clob
-     * @param clob non-null Clob property instance
-     * @return adapted Clob
-     * @since 1.2
-     * @deprecated use afterLoad instead to adapt Clobs
-     */
-    public Clob adaptClob(S storable, String name, Clob clob) {
-        return clob;
     }
 
     /**

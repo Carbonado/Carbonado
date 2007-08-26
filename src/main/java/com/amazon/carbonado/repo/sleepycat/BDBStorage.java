@@ -686,12 +686,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
     Blob getBlob(S storable, String name, long locator) throws FetchException {
         try {
-            Blob blob = mRepository.getLobEngine().getBlobValue(locator);
-            Trigger<? super S> trigger = mTriggerManager.getAdaptLobTrigger();
-            if (trigger != null) {
-                blob = trigger.adaptBlob(storable, name, blob);
-            }
-            return blob;
+            return mRepository.getLobEngine().getBlobValue(locator);
         } catch (RepositoryException e) {
             throw e.toFetchException();
         }
@@ -709,12 +704,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
     Clob getClob(S storable, String name, long locator) throws FetchException {
         try {
-            Clob clob = mRepository.getLobEngine().getClobValue(locator);
-            Trigger<? super S> trigger = mTriggerManager.getAdaptLobTrigger();
-            if (trigger != null) {
-                clob = trigger.adaptClob(storable, name, clob);
-            }
-            return clob;
+            return mRepository.getLobEngine().getClobValue(locator);
         } catch (RepositoryException e) {
             throw e.toFetchException();
         }
