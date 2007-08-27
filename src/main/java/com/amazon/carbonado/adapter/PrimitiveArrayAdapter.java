@@ -52,176 +52,176 @@ public @interface PrimitiveArrayAdapter {
         public Adapter() {
         }
 
-	public byte[] adaptToByteArray(short[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    byte[] dst = new byte[src.length << 1];
-	    ByteBuffer.wrap(dst).asShortBuffer().put(src);
-	    return dst;
-	}
+        public byte[] adaptToByteArray(short[] src) {
+            if (src == null) {
+                return null;
+            }
+            byte[] dst = new byte[src.length << 1];
+            ByteBuffer.wrap(dst).asShortBuffer().put(src);
+            return dst;
+        }
 
-	public byte[] adaptToByteArray(char[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    byte[] dst = new byte[src.length << 1];
-	    ByteBuffer.wrap(dst).asCharBuffer().put(src);
-	    return dst;
-	}
+        public byte[] adaptToByteArray(char[] src) {
+            if (src == null) {
+                return null;
+            }
+            byte[] dst = new byte[src.length << 1];
+            ByteBuffer.wrap(dst).asCharBuffer().put(src);
+            return dst;
+        }
 
-	public byte[] adaptToByteArray(int[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    byte[] dst = new byte[src.length << 2];
-	    ByteBuffer.wrap(dst).asIntBuffer().put(src);
-	    return dst;
-	}
+        public byte[] adaptToByteArray(int[] src) {
+            if (src == null) {
+                return null;
+            }
+            byte[] dst = new byte[src.length << 2];
+            ByteBuffer.wrap(dst).asIntBuffer().put(src);
+            return dst;
+        }
 
-	public byte[] adaptToByteArray(long[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    byte[] dst = new byte[src.length << 3];
-	    ByteBuffer.wrap(dst).asLongBuffer().put(src);
-	    return dst;
-	}
+        public byte[] adaptToByteArray(long[] src) {
+            if (src == null) {
+                return null;
+            }
+            byte[] dst = new byte[src.length << 3];
+            ByteBuffer.wrap(dst).asLongBuffer().put(src);
+            return dst;
+        }
 
-	public byte[] adaptToByteArray(float[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    byte[] dst = new byte[src.length << 2];
-	    ByteBuffer.wrap(dst).asFloatBuffer().put(src);
-	    return dst;
-	}
+        public byte[] adaptToByteArray(float[] src) {
+            if (src == null) {
+                return null;
+            }
+            byte[] dst = new byte[src.length << 2];
+            ByteBuffer.wrap(dst).asFloatBuffer().put(src);
+            return dst;
+        }
 
-	public byte[] adaptToByteArray(double[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    byte[] dst = new byte[src.length << 3];
-	    ByteBuffer.wrap(dst).asDoubleBuffer().put(src);
-	    return dst;
-	}
+        public byte[] adaptToByteArray(double[] src) {
+            if (src == null) {
+                return null;
+            }
+            byte[] dst = new byte[src.length << 3];
+            ByteBuffer.wrap(dst).asDoubleBuffer().put(src);
+            return dst;
+        }
 
-	/**
-	 * Packs the given boolean array into a byte array, big-endian fashion.
-	 */
-	public byte[] adaptToByteArray(boolean[] src) {
-	    if (src == null) {
-		return null;
-	    }
+        /**
+         * Packs the given boolean array into a byte array, big-endian fashion.
+         */
+        public byte[] adaptToByteArray(boolean[] src) {
+            if (src == null) {
+                return null;
+            }
 
-	    int srcLength = src.length;
-	    byte[] dst = new byte[(srcLength + 7) >> 3];
-	    int dstOffset = 0;
+            int srcLength = src.length;
+            byte[] dst = new byte[(srcLength + 7) >> 3];
+            int dstOffset = 0;
 
-	    int i = 0;
-	    while (i + 8 <= srcLength) {
-		dst[dstOffset++] = (byte)
-		    ((src[i++] ? 0x80 : 0) |
-		     (src[i++] ? 0x40 : 0) |
-		     (src[i++] ? 0x20 : 0) |
-		     (src[i++] ? 0x10 : 0) |
-		     (src[i++] ? 0x08 : 0) |
-		     (src[i++] ? 0x04 : 0) |
-		     (src[i++] ? 0x02 : 0) |
-		     (src[i++] ? 0x01 : 0));
-	    }
+            int i = 0;
+            while (i + 8 <= srcLength) {
+                dst[dstOffset++] = (byte)
+                    ((src[i++] ? 0x80 : 0) |
+                     (src[i++] ? 0x40 : 0) |
+                     (src[i++] ? 0x20 : 0) |
+                     (src[i++] ? 0x10 : 0) |
+                     (src[i++] ? 0x08 : 0) |
+                     (src[i++] ? 0x04 : 0) |
+                     (src[i++] ? 0x02 : 0) |
+                     (src[i++] ? 0x01 : 0));
+            }
 
-	    if (i < srcLength) {
-		int accum = 0;
-		while (i < srcLength) {
-		    accum = (accum << 1) | (src[i++] ? 1 : 0);
-		}
-		accum <<= 8 - (srcLength & 7);
-		dst[dstOffset] = (byte) accum;
-	    }
+            if (i < srcLength) {
+                int accum = 0;
+                while (i < srcLength) {
+                    accum = (accum << 1) | (src[i++] ? 1 : 0);
+                }
+                accum <<= 8 - (srcLength & 7);
+                dst[dstOffset] = (byte) accum;
+            }
 
-	    return dst;
-	}
+            return dst;
+        }
 
         public short[] adaptToShortArray(byte[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    short[] dst = new short[(src.length + 1) >> 1];
-	    ByteBuffer.wrap(src).asShortBuffer().get(dst);
-	    return dst;
+            if (src == null) {
+                return null;
+            }
+            short[] dst = new short[(src.length + 1) >> 1];
+            ByteBuffer.wrap(src).asShortBuffer().get(dst);
+            return dst;
         }
 
         public char[] adaptToCharArray(byte[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    char[] dst = new char[(src.length + 1) >> 1];
-	    ByteBuffer.wrap(src).asCharBuffer().get(dst);
-	    return dst;
+            if (src == null) {
+                return null;
+            }
+            char[] dst = new char[(src.length + 1) >> 1];
+            ByteBuffer.wrap(src).asCharBuffer().get(dst);
+            return dst;
         }
 
         public int[] adaptToIntArray(byte[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    int[] dst = new int[(src.length + 3) >> 2];
-	    ByteBuffer.wrap(src).asIntBuffer().get(dst);
-	    return dst;
+            if (src == null) {
+                return null;
+            }
+            int[] dst = new int[(src.length + 3) >> 2];
+            ByteBuffer.wrap(src).asIntBuffer().get(dst);
+            return dst;
         }
 
         public long[] adaptToLongArray(byte[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    long[] dst = new long[(src.length + 7) >> 3];
-	    ByteBuffer.wrap(src).asLongBuffer().get(dst);
-	    return dst;
+            if (src == null) {
+                return null;
+            }
+            long[] dst = new long[(src.length + 7) >> 3];
+            ByteBuffer.wrap(src).asLongBuffer().get(dst);
+            return dst;
         }
 
         public float[] adaptToFloatArray(byte[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    float[] dst = new float[(src.length + 3) >> 2];
-	    ByteBuffer.wrap(src).asFloatBuffer().get(dst);
-	    return dst;
+            if (src == null) {
+                return null;
+            }
+            float[] dst = new float[(src.length + 3) >> 2];
+            ByteBuffer.wrap(src).asFloatBuffer().get(dst);
+            return dst;
         }
 
         public double[] adaptToDoubleArray(byte[] src) {
-	    if (src == null) {
-		return null;
-	    }
-	    double[] dst = new double[(src.length + 7) >> 3];
-	    ByteBuffer.wrap(src).asDoubleBuffer().get(dst);
-	    return dst;
+            if (src == null) {
+                return null;
+            }
+            double[] dst = new double[(src.length + 7) >> 3];
+            ByteBuffer.wrap(src).asDoubleBuffer().get(dst);
+            return dst;
         }
 
-	/**
-	 * Unpacks a boolean array from a byte array, big-endian fashion.
-	 */
-	public boolean[] adaptToBooleanArray(byte[] src) {
-	    if (src == null) {
-		return null;
-	    }
+        /**
+         * Unpacks a boolean array from a byte array, big-endian fashion.
+         */
+        public boolean[] adaptToBooleanArray(byte[] src) {
+            if (src == null) {
+                return null;
+            }
 
-	    int srcLength = src.length;
-	    boolean[] dst = new boolean[srcLength << 3];
-	    int dstOffset = 0;
+            int srcLength = src.length;
+            boolean[] dst = new boolean[srcLength << 3];
+            int dstOffset = 0;
 
-	    for (int i=0; i<srcLength; i++) {
-		byte b = src[i];
-		dst[dstOffset++] = (b & 0x80) != 0;
-		dst[dstOffset++] = (b & 0x40) != 0;
-		dst[dstOffset++] = (b & 0x20) != 0;
-		dst[dstOffset++] = (b & 0x10) != 0;
-		dst[dstOffset++] = (b & 0x08) != 0;
-		dst[dstOffset++] = (b & 0x04) != 0;
-		dst[dstOffset++] = (b & 0x02) != 0;
-		dst[dstOffset++] = (b & 0x01) != 0;
-	    }
+            for (int i=0; i<srcLength; i++) {
+                byte b = src[i];
+                dst[dstOffset++] = (b & 0x80) != 0;
+                dst[dstOffset++] = (b & 0x40) != 0;
+                dst[dstOffset++] = (b & 0x20) != 0;
+                dst[dstOffset++] = (b & 0x10) != 0;
+                dst[dstOffset++] = (b & 0x08) != 0;
+                dst[dstOffset++] = (b & 0x04) != 0;
+                dst[dstOffset++] = (b & 0x02) != 0;
+                dst[dstOffset++] = (b & 0x01) != 0;
+            }
 
-	    return dst;
-	}
+            return dst;
+        }
     }
 }
