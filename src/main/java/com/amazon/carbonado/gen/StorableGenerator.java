@@ -24,6 +24,7 @@ import java.lang.ref.SoftReference;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -2054,6 +2055,7 @@ public final class StorableGenerator<S extends Storable> {
     /**
      * Generates code to set all state properties to zero.
      */
+    /*
     private void clearState(CodeBuilder b) {
         int ordinal = -1;
         int maxOrdinal = mAllProperties.size() - 1;
@@ -2078,6 +2080,7 @@ public final class StorableGenerator<S extends Storable> {
             }
         }
     }
+    */
 
     private void addMarkCleanMethod(String name) {
         MethodInfo mi =
@@ -2966,8 +2969,6 @@ public final class StorableGenerator<S extends Storable> {
      */
     private void addToStringMethod(boolean keyOnly) {
         TypeDesc stringBuilder = TypeDesc.forClass(StringBuilder.class);
-        TypeDesc[] stringParam = {TypeDesc.STRING};
-        TypeDesc[] charParam = {TypeDesc.CHAR};
 
         Modifiers modifiers = Modifiers.PUBLIC.toSynchronized(true);
         MethodInfo mi = addMethodIfNotFinal(modifiers,
@@ -2985,7 +2986,7 @@ public final class StorableGenerator<S extends Storable> {
         b.dup();
         b.invokeConstructor(stringBuilder, null);
         b.loadConstant(mStorableType.getName());
-        invokeAppend(b, stringParam);
+        invokeAppend(b, TypeDesc.STRING);
 
         String detail;
         if (keyOnly) {
@@ -2995,87 +2996,62 @@ public final class StorableGenerator<S extends Storable> {
         }
 
         b.loadConstant(detail);
-        invokeAppend(b, stringParam);
+        invokeAppend(b, TypeDesc.STRING);
 
-        // First pass, just print primary keys.
+        // First pass, just print primary keys. Also gather ordinals.
+        
+        Map<Object, Integer> ordinals = new IdentityHashMap<Object, Integer>();
         int ordinal = 0;
+
+        LocalVariable commaCountVar = b.createLocalVariable(null, TypeDesc.INT);
+        b.loadConstant(-1);
+        b.storeLocal(commaCountVar);
+
         for (StorableProperty property : mAllProperties.values()) {
+            ordinals.put(property, ordinal);
             if (property.isPrimaryKeyMember()) {
-                Label skipPrint = b.createLabel();
-
-                // Check if independent property is supported, and skip if not.
-                if (property.isIndependent()) {
-                    addSkipIndependent(b, null, property, skipPrint);
-                }
-
-                if (ordinal++ > 0) {
-                    b.loadConstant(", ");
-                    invokeAppend(b, stringParam);
-                }
-                addPropertyAppendCall(b, property, stringParam, charParam);
-
-                skipPrint.setLocation();
+                addPropertyAppendCall(b, property, commaCountVar, ordinal);
             }
+            ordinal++;
         }
 
         // Second pass, print non-primary keys.
+
         if (!keyOnly) {
             for (StorableProperty property : mAllProperties.values()) {
                 // Don't print any derived or join properties since they may throw an exception.
                 if (!property.isPrimaryKeyMember() &&
                     (!property.isDerived()) && (!property.isJoin()))
                 {
-                    Label skipPrint = b.createLabel();
-
-                    // Check if independent property is supported, and skip if not.
-                    if (property.isIndependent()) {
-                        addSkipIndependent(b, null, property, skipPrint);
-                    }
-
-                    b.loadConstant(", ");
-                    invokeAppend(b, stringParam);
-                    addPropertyAppendCall(b, property, stringParam, charParam);
-
-                    skipPrint.setLocation();
+                    addPropertyAppendCall(b, property, commaCountVar, ordinals.get(property));
                 }
             }
         }
 
         b.loadConstant('}');
-        invokeAppend(b, charParam);
+        invokeAppend(b, TypeDesc.CHAR);
 
         // For key string, also show all the alternate keys. This makes the
         // FetchNoneException message more helpful.
         if (keyOnly) {
             int altKeyCount = mInfo.getAlternateKeyCount();
             for (int i=0; i<altKeyCount; i++) {
+                b.loadConstant(-1);
+                b.storeLocal(commaCountVar);
+
                 b.loadConstant(", {");
-                invokeAppend(b, stringParam);
+                invokeAppend(b, TypeDesc.STRING);
 
                 StorableKey<S> key = mInfo.getAlternateKey(i);
 
                 ordinal = 0;
                 for (OrderedProperty<S> op : key.getProperties()) {
                     StorableProperty<S> property = op.getChainedProperty().getPrimeProperty();
-
-                    Label skipPrint = b.createLabel();
-
-                    // Check if independent property is supported, and skip if not.
-                    if (property.isIndependent()) {
-                        addSkipIndependent(b, null, property, skipPrint);
-                    }
-
-                    if (ordinal++ > 0) {
-                        b.loadConstant(", ");
-                        invokeAppend(b, stringParam);
-                    }
-                    addPropertyAppendCall(b, property, stringParam, charParam);
-
-                    skipPrint.setLocation();
+                    addPropertyAppendCall(b, property, commaCountVar, ordinals.get(property));
                 }
 
                 b.loadConstant('}');
-                invokeAppend(b, charParam);
+                invokeAppend(b, TypeDesc.CHAR);
             }
         }
 
@@ -3083,20 +3059,48 @@ public final class StorableGenerator<S extends Storable> {
         b.returnValue(TypeDesc.STRING);
     }
 
-    private void invokeAppend(CodeBuilder b, TypeDesc[] paramType) {
+    private void invokeAppend(CodeBuilder b, TypeDesc type) {
         TypeDesc stringBuilder = TypeDesc.forClass(StringBuilder.class);
-        b.invokeVirtual(stringBuilder, "append", stringBuilder, paramType);
+        b.invokeVirtual(stringBuilder, "append", stringBuilder, new TypeDesc[] {type});
     }
 
     private void addPropertyAppendCall(CodeBuilder b,
                                        StorableProperty property,
-                                       TypeDesc[] stringParam,
-                                       TypeDesc[] charParam)
+                                       LocalVariable commaCountVar,
+                                       int ordinal)
     {
+        Label skipPrint = b.createLabel();
+
+        // Check if independent property is supported, and skip if not.
+        if (property.isIndependent()) {
+            addSkipIndependent(b, null, property, skipPrint);
+        }
+
+        // Check if property is initialized, and skip if not.
+        b.loadThis();
+        b.loadField(PROPERTY_STATE_FIELD_NAME + (ordinal >> 4), TypeDesc.INT);
+        b.loadConstant(PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2));
+        b.math(Opcode.IAND);
+        b.ifZeroComparisonBranch(skipPrint, "==");
+
+        b.integerIncrement(commaCountVar, 1);
+        b.loadLocal(commaCountVar);
+        Label noComma = b.createLabel();
+        b.ifZeroComparisonBranch(noComma, "==");
+        b.loadConstant(", ");
+        invokeAppend(b, TypeDesc.STRING);
+        noComma.setLocation();
+
+        addPropertyAppendCall(b, property);
+
+        skipPrint.setLocation();
+    }
+
+    private void addPropertyAppendCall(CodeBuilder b, StorableProperty property) {
         b.loadConstant(property.getName());
-        invokeAppend(b, stringParam);
+        invokeAppend(b, TypeDesc.STRING);
         b.loadConstant('=');
-        invokeAppend(b, charParam);
+        invokeAppend(b, TypeDesc.CHAR);
         b.loadThis();
         TypeDesc type = TypeDesc.forClass(property.getType());
         b.loadField(property.getName(), type);
@@ -3119,7 +3123,7 @@ public final class StorableGenerator<S extends Storable> {
                 type = TypeDesc.OBJECT;
             }
         }
-        invokeAppend(b, new TypeDesc[]{type});
+        invokeAppend(b, type);
     }
 
     /**

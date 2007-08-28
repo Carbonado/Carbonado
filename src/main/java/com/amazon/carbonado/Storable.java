@@ -448,14 +448,14 @@ public interface Storable<S extends Storable<S>> {
 
     /**
      * Returns a string for debugging purposes that contains all supported
-     * property names and values for this object. Unsupported {@link
-     * Independent independent} properties are not included.
+     * property names and values for this object. Uninitialized and unsupported
+     * {@link Independent independent} properties are not included.
      */
     String toString();
 
     /**
-     * Returns a string for debugging purposes that contains supported
-     * key property names and values for this object. Unsupported
+     * Returns a string for debugging purposes that contains supported key
+     * property names and values for this object. Uninitialized and unsupported
      * {@link Independent independent} properties are not included.
      */
     String toStringKeyOnly();
