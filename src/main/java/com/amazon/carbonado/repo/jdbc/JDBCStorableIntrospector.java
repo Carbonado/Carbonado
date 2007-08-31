@@ -719,7 +719,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             // Treat Date as a Timestamp since some databases make no
             // distinction.  The DateTimeAdapter can be used to provide
             // more control over the desired precision.
-            if (desiredClass == Date.class || desiredClass == java.sql.Date.class) {
+            if (desiredClass == java.sql.Date.class) {
                 actualClass = java.sql.Timestamp.class;
                 suffix = "Timestamp";
             } else if (desiredClass == String.class) {
@@ -731,7 +731,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             break;
 
         case TIME:
-            if (desiredClass == Date.class || desiredClass == java.sql.Time.class) {
+            if (desiredClass == java.sql.Time.class) {
                 actualClass = java.sql.Time.class;
                 suffix = "Time";
             } else if (desiredClass == String.class) {
@@ -743,7 +743,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             break;
 
         case TIMESTAMP:
-            if (desiredClass == Date.class || desiredClass == java.sql.Timestamp.class) {
+            if (desiredClass == java.sql.Timestamp.class) {
                 actualClass = java.sql.Timestamp.class;
                 suffix = "Timestamp";
             } else if (desiredClass == String.class) {
