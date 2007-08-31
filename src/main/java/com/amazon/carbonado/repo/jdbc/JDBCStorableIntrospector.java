@@ -722,9 +722,6 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == java.sql.Date.class) {
                 actualClass = java.sql.Timestamp.class;
                 suffix = "Timestamp";
-            } else if (desiredClass == String.class) {
-                actualClass = String.class;
-                suffix = "String";
             } else {
                 return null;
             }
@@ -734,9 +731,6 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == java.sql.Time.class) {
                 actualClass = java.sql.Time.class;
                 suffix = "Time";
-            } else if (desiredClass == String.class) {
-                actualClass = String.class;
-                suffix = "String";
             } else {
                 return null;
             }
@@ -746,9 +740,6 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == java.sql.Timestamp.class) {
                 actualClass = java.sql.Timestamp.class;
                 suffix = "Timestamp";
-            } else if (desiredClass == String.class) {
-                actualClass = String.class;
-                suffix = "String";
             } else {
                 return null;
             }

@@ -345,6 +345,18 @@ public @interface DateTimeAdapter {
                 : mDateTimeParser.parseDateTime(isoDateString).toDate();
         }
 
+        public Date adaptToDate(java.sql.Date date) {
+            return date == null ? null : new Date(date.getTime());
+        }
+
+        public Date adaptToDate(Time time) {
+            return time == null ? null : new Date(time.getTime());
+        }
+
+        public Date adaptToDate(Timestamp timestamp) {
+            return timestamp == null ? null : new Date(timestamp.getTime());
+        }
+
         // Adapt from Date...
 
         public long adaptToLong(Date date) {
