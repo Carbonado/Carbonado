@@ -44,10 +44,9 @@ import com.amazon.carbonado.adapter.AdapterDefinition;
 /**
  * Converts Joda-Time datetime objects to and from other forms. This adapter is
  * applied automatically for all storable properties of type {@link DateTime},
- * {@link DateMidnight}, {@link LocalDateTime} and {@link LocalDate}. Explicit
- * use allows a different time zone to be used. DateTimeAdapter can also be
- * used to support {@link Date} properties, but it must be explicitly
- * specified.
+ * {@link DateMidnight}, {@link LocalDateTime}, {@link LocalDate} and also
+ * {@link java.util.Date}. Explicit use allows a different time zone to be
+ * used, but this only works for Joda-Time objects.
  *
  * <p>Example:<pre>
  * public interface UserInfo extends Storable {

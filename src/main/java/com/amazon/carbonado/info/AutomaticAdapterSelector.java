@@ -55,7 +55,8 @@ class AutomaticAdapterSelector {
         if (DateTime.class.isAssignableFrom(propertyType) ||
             DateMidnight.class.isAssignableFrom(propertyType) ||
             LocalDate.class.isAssignableFrom(propertyType) ||
-            LocalDateTime.class.isAssignableFrom(propertyType))
+            LocalDateTime.class.isAssignableFrom(propertyType) ||
+            java.util.Date.class.isAssignableFrom(propertyType))
         {
             return selectAdapter(property, DateTimeAdapter.class, readMethod);
         } else if (String.class.isAssignableFrom(propertyType)) {
