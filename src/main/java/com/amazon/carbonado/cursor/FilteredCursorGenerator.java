@@ -72,7 +72,7 @@ class FilteredCursorGenerator {
      */
     @SuppressWarnings("unchecked")
     static <S extends Storable> Factory<S> getFactory(Filter<S> filter) {
-        return getFactory(filter, true);
+        return getFactory(filter, false);
     }
 
     @SuppressWarnings("unchecked")
