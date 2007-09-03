@@ -31,24 +31,25 @@ import com.amazon.carbonado.Transaction;
  * @author Brian S O'Neill
  */
 class LoggingTransaction implements Transaction {
-    private static final ThreadLocal<LoggingTransaction> mActiveTxn =
-        new ThreadLocal<LoggingTransaction>();
-
     private static final AtomicLong mNextID = new AtomicLong();
 
+    private final ThreadLocal<LoggingTransaction> mActiveTxn;
     private final LoggingTransaction mParent;
     private final Log mLog;
     private final Transaction mTxn;
     private final long mID;
     private final boolean mTop;
 
-    LoggingTransaction(Log log, Transaction txn, boolean top) {
-        mParent = mActiveTxn.get();
+    LoggingTransaction(ThreadLocal<LoggingTransaction> activeTxn,
+                       Log log, Transaction txn, boolean top)
+    {
+        mActiveTxn = activeTxn;
+        mParent = activeTxn.get();
         mLog = log;
         mTxn = txn;
         mID = mNextID.addAndGet(1);
         mTop = top;
-        mActiveTxn.set(this);
+        activeTxn.set(this);
         mLog.write("Entered transaction: " + idChain());
     }
 
