@@ -40,6 +40,8 @@ Carbonado change history
   repair if only alternate keys were specified.
 - Fixed query descending sort order bug which produced ascending results.
 - Fixed bug in GroupedCursor which discarded last group if it had one element.
+- Fixed transaction leak caused when calling update, if an update trigger
+  exists, and no properties were dirty.
 
 1.1 to 1.1.1
 -------------------------------

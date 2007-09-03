@@ -1320,6 +1320,16 @@ public final class StorableGenerator<S extends Storable> {
 
             // Even though there was no update, still need tryLoad side-effect.
             {
+                // if (txn != null) {
+                //     txn.exit();
+                // }
+                b.loadLocal(txnVar);
+                Label noTxn = b.createLabel();
+                b.ifNullBranch(noTxn, true);
+                b.loadLocal(txnVar);
+                b.invokeInterface(transactionType, EXIT_METHOD_NAME, null, null);
+                noTxn.setLocation();
+
                 Label tryStart2 = b.createLabel().setLocation();
                 b.loadThis();
                 b.invokeVirtual(DO_TRY_LOAD_METHOD_NAME, TypeDesc.BOOLEAN, null);
