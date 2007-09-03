@@ -1314,52 +1314,6 @@ public final class StorableGenerator<S extends Storable> {
             Label tryStart = addGetTriggerAndEnterTxn
                 (b, UPDATE_OP, forTryVar, false, triggerVar, txnVar, stateVar);
 
-            // If no properties are dirty, then don't update.
-            Label doUpdate = b.createLabel();
-            branchIfDirty(b, true, doUpdate);
-
-            // Even though there was no update, still need tryLoad side-effect.
-            {
-                // if (txn != null) {
-                //     txn.exit();
-                // }
-                b.loadLocal(txnVar);
-                Label noTxn = b.createLabel();
-                b.ifNullBranch(noTxn, true);
-                b.loadLocal(txnVar);
-                b.invokeInterface(transactionType, EXIT_METHOD_NAME, null, null);
-                noTxn.setLocation();
-
-                Label tryStart2 = b.createLabel().setLocation();
-                b.loadThis();
-                b.invokeVirtual(DO_TRY_LOAD_METHOD_NAME, TypeDesc.BOOLEAN, null);
-
-                Label notUpdated = b.createLabel();
-                b.ifZeroComparisonBranch(notUpdated, "==");
-
-                // Only mark properties clean if doTryLoad returned true.
-                b.loadThis();
-                b.invokeVirtual(MARK_ALL_PROPERTIES_CLEAN, null, null);
-                b.loadConstant(true);
-                b.returnValue(TypeDesc.BOOLEAN);
-
-                notUpdated.setLocation();
-
-                // Mark properties dirty, to be consistent with a delete side-effect.
-                b.loadThis();
-                b.invokeVirtual(MARK_PROPERTIES_DIRTY, null, null);
-                b.loadConstant(false);
-                b.returnValue(TypeDesc.BOOLEAN);
-
-                Label tryEnd = b.createLabel().setLocation();
-                b.exceptionHandler(tryStart2, tryEnd, FetchException.class.getName());
-                b.invokeVirtual(FetchException.class.getName(), "toPersistException",
-                                TypeDesc.forClass(PersistException.class), null);
-                b.throwObject();
-            }
-
-            doUpdate.setLocation();
-
             // Call doTryUpdate.
             b.loadThis();
             b.invokeVirtual(DO_TRY_UPDATE_METHOD_NAME, TypeDesc.BOOLEAN, null);

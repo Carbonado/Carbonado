@@ -131,69 +131,36 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
     private Object beforeUpdate(S replica, boolean forTry) throws PersistException {
         final S master = mMasterStorage.prepare();
         replica.copyPrimaryKeyProperties(master);
+        replica.copyVersionProperty(master);
+        replica.copyDirtyProperties(master);
 
-        if (!replica.hasDirtyProperties()) {
-            // Nothing to update, but must load from master anyhow, since
-            // update must always perform a fresh load as a side-effect. We
-            // cannot simply call update on the master, since it may need a
-            // version property to be set. Setting the version has the
-            // side-effect of making the storable look dirty, so the master
-            // will perform an update. This in turn causes the version to
-            // increase for no reason.
-            try {
-                if (forTry) {
-                    if (!master.tryLoad()) {
-                        // Master record does not exist. To ensure consistency,
-                        // delete record from replica.
-                        tryDeleteReplica(replica);
-                        throw abortTry();
-                    }
-                } else {
-                    try {
-                        master.load();
-                    } catch (FetchNoneException e) {
-                        // Master record does not exist. To ensure consistency,
-                        // delete record from replica.
-                        tryDeleteReplica(replica);
-                        throw e;
-                    }
+        try {
+            if (forTry) {
+                if (!master.tryUpdate()) {
+                    // Master record does not exist. To ensure consistency,
+                    // delete record from replica.
+                    tryDeleteReplica(replica);
+                    throw abortTry();
                 }
-            } catch (FetchException e) {
-                throw e.toPersistException
-                    ("Could not load master object for update: " + master.toStringKeyOnly());
-            }
-        } else {
-            replica.copyVersionProperty(master);
-            replica.copyDirtyProperties(master);
-
-            try {
-                if (forTry) {
-                    if (!master.tryUpdate()) {
-                        // Master record does not exist. To ensure consistency,
-                        // delete record from replica.
-                        tryDeleteReplica(replica);
-                        throw abortTry();
-                    }
-                } else {
-                    try {
-                        master.update();
-                    } catch (PersistNoneException e) {
-                        // Master record does not exist. To ensure consistency,
-                        // delete record from replica.
-                        tryDeleteReplica(replica);
-                        throw e;
-                    }
+            } else {
+                try {
+                    master.update();
+                } catch (PersistNoneException e) {
+                    // Master record does not exist. To ensure consistency,
+                    // delete record from replica.
+                    tryDeleteReplica(replica);
+                    throw e;
                 }
-            } catch (OptimisticLockException e) {
-                // This may be caused by an inconsistency between replica and
-                // master.
-
-                repair(replica);
-
-                // Throw original exception since we don't know what the user's
-                // intentions really are.
-                throw e;
             }
+        } catch (OptimisticLockException e) {
+            // This may be caused by an inconsistency between replica and
+            // master.
+
+            repair(replica);
+
+            // Throw original exception since we don't know what the user's
+            // intentions really are.
+            throw e;
         }
 
         // Copy master properties back, since its repository may have
