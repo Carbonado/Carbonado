@@ -174,6 +174,18 @@ public @interface DateTimeAdapter {
             return date == null ? null : new DateTime(date, mZone);
         }
 
+        public DateTime adaptToDateTime(java.sql.Date date) {
+            return date == null ? null : new DateTime(date.getTime(), mZone);
+        }
+
+        public DateTime adaptToDateTime(Time time) {
+            return time == null ? null : new DateTime(time.getTime(), mZone);
+        }
+
+        public DateTime adaptToDateTime(Timestamp timestamp) {
+            return timestamp == null ? null : new DateTime(timestamp.getTime(), mZone);
+        }
+
         // Adapt to DateMidnight...
 
         public DateMidnight adaptToDateMidnight(long instant) {
@@ -190,6 +202,18 @@ public @interface DateTimeAdapter {
 
         public DateMidnight adaptToDateMidnight(Date date) {
             return date == null ? null : new DateMidnight(date, mZone);
+        }
+
+        public DateMidnight adaptToDateMidnight(java.sql.Date date) {
+            return date == null ? null : new DateMidnight(date.getTime(), mZone);
+        }
+
+        public DateMidnight adaptToDateMidnight(Time time) {
+            return time == null ? null : new DateMidnight(time.getTime(), mZone);
+        }
+
+        public DateMidnight adaptToDateMidnight(Timestamp timestamp) {
+            return timestamp == null ? null : new DateMidnight(timestamp.getTime(), mZone);
         }
 
         // Adapt to LocalDateTime...
@@ -210,6 +234,18 @@ public @interface DateTimeAdapter {
             return date == null ? null : new LocalDateTime(date, mZone);
         }
 
+        public LocalDateTime adaptToLocalDateTime(java.sql.Date date) {
+            return date == null ? null : new LocalDateTime(date.getTime(), mZone);
+        }
+
+        public LocalDateTime adaptToLocalDateTime(Time time) {
+            return time == null ? null : new LocalDateTime(time.getTime(), mZone);
+        }
+
+        public LocalDateTime adaptToLocalDateTime(Timestamp timestamp) {
+            return timestamp == null ? null : new LocalDateTime(timestamp.getTime(), mZone);
+        }
+
         // Adapt to LocalDate...
 
         public LocalDate adaptToLocalDate(long instant) {
@@ -226,6 +262,18 @@ public @interface DateTimeAdapter {
 
         public LocalDate adaptToLocalDate(Date date) {
             return date == null ? null : new LocalDate(date, mZone);
+        }
+
+        public LocalDate adaptToLocalDate(java.sql.Date date) {
+            return date == null ? null : new LocalDate(date.getTime(), mZone);
+        }
+
+        public LocalDate adaptToLocalDate(Time time) {
+            return time == null ? null : new LocalDate(time.getTime(), mZone);
+        }
+
+        public LocalDate adaptToLocalDate(Timestamp timestamp) {
+            return timestamp == null ? null : new LocalDate(timestamp.getTime(), mZone);
         }
 
         // Adapt from DateTime and DateMidnight... (accept the more generic ReadableInstant)
