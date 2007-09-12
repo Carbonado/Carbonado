@@ -222,19 +222,38 @@ class JDBCStorableGenerator<S extends Storable> {
         defineExtractDataMethod(lobLoaderMap);
 
         // For all unsupported properties, override get/set method to throw
-        // UnsupportedOperationException.
+        // UnsupportedOperationException. Special treatment given if property
+        // is also Nullable. Get returns null and set only allows null.
         {
             for (JDBCStorableProperty<S> property : mAllProperties.values()) {
                 if (property.isDerived() || property.isJoin() || property.isSupported()) {
                     continue;
                 }
+
+                CodeBuilder b;
+                Class exClass = UnsupportedOperationException.class;
                 String message = "Independent property \"" + property.getName() +
                     "\" is not supported by the SQL schema: ";
-                message += mInfo.getTableName();
-                CodeBuilder b = new CodeBuilder(mClassFile.addMethod(property.getReadMethod()));
-                CodeBuilderUtil.throwException(b, UnsupportedOperationException.class, message);
-                b = new CodeBuilder(mClassFile.addMethod(property.getWriteMethod()));
-                CodeBuilderUtil.throwException(b, UnsupportedOperationException.class, message);
+
+                if (property.isNullable()) {
+                    b = new CodeBuilder(mClassFile.addMethod(property.getReadMethod()));
+                    b.loadNull();
+                    b.returnValue(TypeDesc.OBJECT);
+
+                    b = new CodeBuilder(mClassFile.addMethod(property.getWriteMethod()));
+                    b.loadLocal(b.getParameter(0));
+                    Label notNull = b.createLabel();
+                    b.ifNullBranch(notNull, false);
+                    b.returnVoid();
+                    notNull.setLocation();
+                    CodeBuilderUtil.throwException(b, exClass, message);
+                } else {
+                    message += mInfo.getTableName();
+                    b = new CodeBuilder(mClassFile.addMethod(property.getReadMethod()));
+                    CodeBuilderUtil.throwException(b, exClass, message);
+                    b = new CodeBuilder(mClassFile.addMethod(property.getWriteMethod()));
+                    CodeBuilderUtil.throwException(b, exClass, message);
+                }
             }
         }
 
