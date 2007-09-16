@@ -536,6 +536,8 @@ public final class MasterStorableGenerator<S extends Storable> {
 
             Label failed = b.createLabel();
 
+            Label tryLoadStart = null, tryLoadEnd = null;
+
             if (mFeatures.contains(MasterFeature.UPDATE_FULL)) {
                 // Storable saved = copy();
                 b.loadThis();
@@ -544,12 +546,28 @@ public final class MasterStorableGenerator<S extends Storable> {
                 savedVar = b.createLocalVariable(null, mClassFile.getType());
                 b.storeLocal(savedVar);
 
-                // if (!saved.tryLoad()) {
-                //     goto failed;
+                // support.locallyDisableLoadTrigger();
+                // try {
+                //     if (!saved.tryLoad()) {
+                //         goto failed;
+                //     }
+                // } finally {
+                //     support.locallyEnableLoadTrigger();
                 // }
+                b.loadThis();
+                b.loadField(StorableGenerator.SUPPORT_FIELD_NAME, triggerSupportType);
+                b.invokeInterface(triggerSupportType, "locallyDisableLoadTrigger", null, null);
+
+                tryLoadStart = b.createLabel().setLocation();
                 b.loadLocal(savedVar);
                 b.invokeInterface(storableType, TRY_LOAD_METHOD_NAME, TypeDesc.BOOLEAN, null);
+                tryLoadEnd = b.createLabel().setLocation();
+                b.loadThis();
+                b.loadField(StorableGenerator.SUPPORT_FIELD_NAME, triggerSupportType);
+                b.invokeInterface(triggerSupportType, "locallyEnableLoadTrigger", null, null);
                 b.ifZeroComparisonBranch(failed, "==");
+
+                // Exception handler generated at the end of method.
 
                 // if (version support enabled) {
                 //     if (!derived version) {
@@ -705,6 +723,14 @@ public final class MasterStorableGenerator<S extends Storable> {
             // return false;
             b.loadConstant(false);
             b.returnValue(TypeDesc.BOOLEAN);
+
+            if (tryLoadStart != null) {
+                b.exceptionHandler(tryLoadStart, tryLoadEnd, null);
+                b.loadThis();
+                b.loadField(StorableGenerator.SUPPORT_FIELD_NAME, triggerSupportType);
+                b.invokeInterface(triggerSupportType, "locallyEnableLoadTrigger", null, null);
+                b.throwObject();
+            }
 
             addExitTransaction(b, UPDATE_OP, txnVar, tryStart);
         }
