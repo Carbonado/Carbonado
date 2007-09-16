@@ -59,8 +59,8 @@ public interface TriggerSupport<S extends Storable> extends StorableSupport<S> {
 
     /**
      * Disables execution of load trigger for the current thread. Call
-     * localEnableLoadTrigger to enable again. This call can be made multiple
-     * times, but be sure to call localEnableLoadTrigger the same number of
+     * locallyEnableLoadTrigger to enable again. This call can be made multiple
+     * times, but be sure to call locallyEnableLoadTrigger the same number of
      * times to fully enable.
      *
      * @since 1.2
