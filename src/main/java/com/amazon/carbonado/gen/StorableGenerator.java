@@ -617,18 +617,15 @@ public final class StorableGenerator<S extends Storable> {
 
                             // Now load the object.
                             b.loadLocal(join);
-                            if (!property.isNullable()) {
-                                b.invokeInterface(storableDesc, LOAD_METHOD_NAME, null, null);
-                            } else {
-                                b.invokeInterface
-                                    (storableDesc, TRY_LOAD_METHOD_NAME, TypeDesc.BOOLEAN, null);
-                                Label wasLoaded = b.createLabel();
-                                b.ifZeroComparisonBranch(wasLoaded, "!=");
-                                // Not loaded, so replace joined object with null.
-                                b.loadNull();
-                                b.storeLocal(join);
-                                wasLoaded.setLocation();
-                            }
+                            // Always call "try load", even for non-nullable joins.
+                            b.invokeInterface
+                                (storableDesc, TRY_LOAD_METHOD_NAME, TypeDesc.BOOLEAN, null);
+                            Label wasLoaded = b.createLabel();
+                            b.ifZeroComparisonBranch(wasLoaded, "!=");
+                            // Not loaded, so replace joined object with null.
+                            b.loadNull();
+                            b.storeLocal(join);
+                            wasLoaded.setLocation();
                         } else {
                             // Generate query load form.
 
@@ -671,11 +668,9 @@ public final class StorableGenerator<S extends Storable> {
                                 // Just save and return the query.
                                 b.storeLocal(join);
                             } else {
-                                String loadMethod =
-                                    property.isNullable() ?
-                                        TRY_LOAD_ONE_METHOD_NAME :
-                                        LOAD_ONE_METHOD_NAME;
-                                b.invokeInterface(queryType, loadMethod, storableDesc, null);
+                                // Always call "try load", even for non-nullable joins.
+                                b.invokeInterface
+                                    (queryType, TRY_LOAD_ONE_METHOD_NAME, storableDesc, null);
                                 b.checkCast(type);
                                 b.storeLocal(join);
                             }
@@ -687,7 +682,14 @@ public final class StorableGenerator<S extends Storable> {
                         b.loadLocal(join);
                         b.storeField(property.getName(), type);
 
-                        // Add code to identify this property as being loaded.
+                        // Add code to identify this property as being loaded,
+                        // except if value is null and join is not nullable.
+
+                        if (!property.isNullable()) {
+                            b.loadLocal(join);
+                            b.ifNullBranch(isLoaded, true);
+                        }
+
                         b.loadThis();
                         b.loadThis();
                         b.loadField(stateFieldName, TypeDesc.INT);
