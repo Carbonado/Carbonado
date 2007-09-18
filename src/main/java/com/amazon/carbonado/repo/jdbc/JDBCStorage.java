@@ -484,15 +484,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 JDBCStorableProperty<?> jProperty =
                     mRepository.getJDBCStorableProperty(property);
 
-                Method psSetMethod = jProperty.getPreparedStatementSetMethod();
-                mPreparedStatementSetMethods[i] = psSetMethod;
-
-                StorablePropertyAdapter adapter = jProperty.getAppliedAdapter();
-                if (adapter != null) {
-                    Class toType = psSetMethod.getParameterTypes()[1];
-                    mAdapterMethods[i] = adapter.findAdaptMethod(jProperty.getType(), toType);
-                    mAdapterInstances[i] = adapter.getAdapterInstance();
-                }
+                mPreparedStatementSetMethods[i] = jProperty.getPreparedStatementSetMethod();
+                mAdapterMethods[i] = jProperty.getAppliedAdapterFromMethod();
+                mAdapterInstances[i] = jProperty.getAppliedAdapter();
             }
         }
 
@@ -669,6 +663,11 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     Method adapter = adapterMethods[ordinal];
                     if (adapter != null) {
                         value = adapter.invoke(adapterInstances[ordinal], value);
+                    }
+
+                    // Special case for converting character to String.
+                    if (value != null && value instanceof Character) {
+                        value = String.valueOf((Character) value);
                     }
 
                     psSetMethods[ordinal].invoke(ps, psOrdinal, value);

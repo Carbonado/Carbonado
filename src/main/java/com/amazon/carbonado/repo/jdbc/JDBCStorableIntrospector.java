@@ -362,7 +362,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                                                  autoIncrement,
                                                  accessInfo.mResultSetGet,
                                                  accessInfo.mPreparedStatementSet,
-                                                 accessInfo.getAdapter());
+                                                 accessInfo.getAdapter(),
+                                                 accessInfo.getAdapterFromMethod(),
+                                                 accessInfo.getAdapterToMethod());
 
                     break findName;
                 }
@@ -531,12 +533,13 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             for (Method toMethod : toMethods) {
                 Class fromType = toMethod.getParameterTypes()[0];
                 // Verify that reverse adapt method exists as well...
-                if (adapter.findAdaptMethod(property.getType(), fromType) != null) {
+                Method fromMethod = adapter.findAdaptMethod(property.getType(), fromType);
+                if (fromMethod != null) {
                     // ...and try to get access info for fromType.
                     info = getAccessInfo
                         (fromType, dataType, dataTypeName, columnSize, decimalDigits);
                     if (info != null) {
-                        info.setAdapter(adapter);
+                        info.setAdapter(adapter, fromMethod, toMethod);
                         return info;
                     }
                 }
@@ -914,6 +917,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         // Is null if no adapter needed.
         private StorablePropertyAdapter mAdapter;
+        private Method mAdapterFromMethod;
+        private Method mAdapterToMethod;
 
         AccessInfo(String suffix, Class actualClass) {
             try {
@@ -929,8 +934,18 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mAdapter;
         }
 
-        void setAdapter(StorablePropertyAdapter adapter) {
+        void setAdapter(StorablePropertyAdapter adapter, Method fromMethod, Method toMethod) {
             mAdapter = adapter;
+            mAdapterFromMethod = fromMethod;
+            mAdapterToMethod = toMethod;
+        }
+
+        Method getAdapterFromMethod() {
+            return mAdapterFromMethod;
+        }
+
+        Method getAdapterToMethod() {
+            return mAdapterToMethod;
         }
     }
 
@@ -1122,6 +1137,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         private final Method mResultSetGet;
         private final Method mPreparedStatementSet;
         private final StorablePropertyAdapter mAdapter;
+        private final Method mAdapterFromMethod;
+        private final Method mAdapterToMethod;
         private final Integer mColumnSize;
         private final Integer mDecimalDigits;
         private final Integer mCharOctetLength;
@@ -1139,7 +1156,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                   boolean autoIncrement,
                   Method resultSetGet,
                   Method preparedStatementSet,
-                  StorablePropertyAdapter adapter)
+                  StorablePropertyAdapter adapter,
+                  Method adapterFromMethod,
+                  Method adapterToMethod)
         {
             mMainProperty = mainProperty;
             mColumnName = columnInfo.columnName;
@@ -1148,11 +1167,27 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             mResultSetGet = resultSetGet;
             mPreparedStatementSet = preparedStatementSet;
             mAdapter = adapter;
+            mAdapterFromMethod = adapterFromMethod;
+            mAdapterToMethod = adapterToMethod;
             mColumnSize = columnInfo.columnSize;
             mDecimalDigits = columnInfo.decimalDigits;
             mCharOctetLength = columnInfo.charOctetLength;
             mOrdinalPosition = columnInfo.ordinalPosition;
             mAutoIncrement = autoIncrement;
+
+            if (adapterToMethod != null) {
+                if (!getType().isAssignableFrom(adapterToMethod.getReturnType())) {
+                    throw new IllegalArgumentException
+                        ("Illegal adapter \"to\" method: " + adapterToMethod);
+                }
+            }
+
+            if (adapterFromMethod != null) {
+                if (!adapterFromMethod.getParameterTypes()[0].isAssignableFrom(getType())) {
+                    throw new IllegalArgumentException
+                        ("Illegal adapter \"from\" method: " + adapterFromMethod);
+                }
+            }
         }
 
         JProperty(StorableProperty<S> mainProperty) {
@@ -1163,6 +1198,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             mResultSetGet = null;
             mPreparedStatementSet = null;
             mAdapter = null;
+            mAdapterFromMethod = null;
+            mAdapterToMethod = null;
             mColumnSize = null;
             mDecimalDigits = null;
             mCharOctetLength = null;
@@ -1325,6 +1362,14 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         public StorablePropertyAdapter getAppliedAdapter() {
             return mAdapter;
+        }
+
+        public Method getAppliedAdapterFromMethod() {
+            return mAdapterFromMethod;
+        }
+
+        public Method getAppliedAdapterToMethod() {
+            return mAdapterToMethod;
         }
 
         public Integer getColumnSize() {
