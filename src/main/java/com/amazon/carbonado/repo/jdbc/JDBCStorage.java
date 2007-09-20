@@ -484,9 +484,15 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 JDBCStorableProperty<?> jProperty =
                     mRepository.getJDBCStorableProperty(property);
 
-                mPreparedStatementSetMethods[i] = jProperty.getPreparedStatementSetMethod();
-                mAdapterMethods[i] = jProperty.getAppliedAdapterFromMethod();
-                mAdapterInstances[i] = jProperty.getAppliedAdapter();
+                Method psSetMethod = jProperty.getPreparedStatementSetMethod();
+                mPreparedStatementSetMethods[i] = psSetMethod;
+
+                StorablePropertyAdapter adapter = jProperty.getAppliedAdapter();
+                if (adapter != null) {
+                    Class toType = psSetMethod.getParameterTypes()[1];
+                    mAdapterMethods[i] = adapter.findAdaptMethod(jProperty.getType(), toType);
+                    mAdapterInstances[i] = adapter.getAdapterInstance();
+                }
             }
         }
 

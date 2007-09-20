@@ -1511,7 +1511,13 @@ class JDBCStorableGenerator<S extends Storable> {
             }
             fromType = propertyType;
         } else {
-            Method adaptMethod = property.getAppliedAdapterFromMethod();
+            Class toClass = psClass;
+            if (java.sql.Blob.class.isAssignableFrom(toClass)) {
+                toClass = com.amazon.carbonado.lob.Blob.class;
+            } else if (java.sql.Clob.class.isAssignableFrom(toClass)) {
+                toClass = com.amazon.carbonado.lob.Clob.class;
+            }
+            Method adaptMethod = adapter.findAdaptMethod(property.getType(), toClass);
             TypeDesc adaptType = TypeDesc.forClass(adaptMethod.getReturnType());
             if (mode != INITIAL_VERSION) {
                 // Invoke special inherited protected method that gets the field
@@ -1765,7 +1771,9 @@ class JDBCStorableGenerator<S extends Storable> {
         b.ifComparisonBranch(target, branchIfDirty ? "==" : "!=");
     }
 
-    private void defineExtractAllMethod(Map<JDBCStorableProperty<S>, Class<?>> lobLoaderMap) {
+    private void defineExtractAllMethod(Map<JDBCStorableProperty<S>, Class<?>> lobLoaderMap)
+        throws SupportException
+    {
         MethodInfo mi = mClassFile.addMethod
             (Modifiers.PRIVATE, EXTRACT_ALL_METHOD_NAME, null,
              new TypeDesc[] {TypeDesc.forClass(ResultSet.class), TypeDesc.INT});
@@ -1791,7 +1799,9 @@ class JDBCStorableGenerator<S extends Storable> {
         b.returnVoid();
     }
 
-    private void defineExtractDataMethod(Map<JDBCStorableProperty<S>, Class<?>> lobLoaderMap) {
+    private void defineExtractDataMethod(Map<JDBCStorableProperty<S>, Class<?>> lobLoaderMap)
+        throws SupportException
+    {
         MethodInfo mi = mClassFile.addMethod
             (Modifiers.PRIVATE, EXTRACT_DATA_METHOD_NAME, null,
              new TypeDesc[] {TypeDesc.forClass(ResultSet.class), TypeDesc.INT,
@@ -1807,6 +1817,7 @@ class JDBCStorableGenerator<S extends Storable> {
          LocalVariable rsVar, LocalVariable initialOffsetVar, LocalVariable lobArrayVar,
          Iterable<JDBCStorableProperty<S>> properties,
          Map<JDBCStorableProperty<S>, Class<?>> lobLoaderMap)
+        throws SupportException
     {
         LocalVariable offsetVar = null;
         int lobIndex = 0;
@@ -1944,7 +1955,26 @@ class JDBCStorableGenerator<S extends Storable> {
                 // Set protected field directly, since no adapter.
                 b.storeField(superType, property.getName(), propertyType);
             } else {
-                Method adaptMethod = property.getAppliedAdapterToMethod();
+                Method adaptMethod = adapter.findAdaptMethod
+                    (resultSetType.toClass(), property.getType());
+
+                if (adaptMethod == null) {
+                    if (resultSetType == TypeDesc.STRING) {
+                        // Check if special case for converting String to character.
+                        adaptMethod = adapter.findAdaptMethod(char.class, property.getType());
+                        if (adaptMethod == null) {
+                            adaptMethod = adapter.findAdaptMethod
+                                (Character.class, property.getType());
+                        }
+                    }
+
+                    if (adaptMethod == null) {
+                        throw new SupportException
+                            ("Unable to adapt " +
+                             resultSetType.toClass().getName() + " to " + property.getType());
+                    }
+                }
+
                 TypeDesc adaptType = TypeDesc.forClass(adaptMethod.getParameterTypes()[0]);
                 convertFromResultSet(b, property, resultSetType, adaptType);
                 wasNull.setLocation();

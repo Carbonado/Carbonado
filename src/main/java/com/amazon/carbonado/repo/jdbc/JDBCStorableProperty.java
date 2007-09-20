@@ -99,25 +99,6 @@ public interface JDBCStorableProperty<S extends Storable> extends StorableProper
     StorablePropertyAdapter getAppliedAdapter();
 
     /**
-     * Returns the applied adapter method for converting from this property's
-     * actual type. The method's single argument type is the same as for this
-     * property.
-     *
-     * @return null if property is unsupported or if adapter not needed.
-     * @since 1.2
-     */
-    Method getAppliedAdapterFromMethod();
-
-    /**
-     * Returns the applied adapter method for converting to this property's
-     * actual type. The method's return type is the same as for this property.
-     *
-     * @return null if property is unsupported or if adapter not needed.
-     * @since 1.2
-     */
-    Method getAppliedAdapterToMethod();
-
-    /**
      * The column size is either the maximum number of characters or the
      * numeric precision.
      *
