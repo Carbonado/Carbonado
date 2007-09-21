@@ -1518,6 +1518,23 @@ class JDBCStorableGenerator<S extends Storable> {
                 toClass = com.amazon.carbonado.lob.Clob.class;
             }
             Method adaptMethod = adapter.findAdaptMethod(property.getType(), toClass);
+
+            if (adaptMethod == null) {
+                if (toClass == String.class) {
+                    // Check if special case for converting character to String.
+                    adaptMethod = adapter.findAdaptMethod(property.getType(), char.class);
+                    if (adaptMethod == null) {
+                        adaptMethod = adapter.findAdaptMethod
+                            (property.getType(), Character.class);
+                    }
+                }
+
+                if (adaptMethod == null) {
+                    throw new SupportException
+                        ("Unable to adapt " + property.getType() + " to " + toClass.getName());
+                }
+            }
+
             TypeDesc adaptType = TypeDesc.forClass(adaptMethod.getReturnType());
             if (mode != INITIAL_VERSION) {
                 // Invoke special inherited protected method that gets the field
