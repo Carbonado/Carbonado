@@ -24,7 +24,7 @@ import org.cojen.classfile.TypeDesc;
 
 /**
  * Minimal information required by {@link GenericEncodingStrategy} to encode
- * and decode a storable property or layout property.
+ * and decode a storable property.
  *
  * @author Brian S O'Neill
  */
