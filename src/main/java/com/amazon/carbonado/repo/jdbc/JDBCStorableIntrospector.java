@@ -899,6 +899,12 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 } else if (dataTypeName.toUpperCase().contains("TIMESTAMP")) {
                     dt = TIMESTAMP;
                 }
+            } else if (dt == LONGVARBINARY && "BLOB".equalsIgnoreCase(dataTypeName)) {
+                // Workaround MySQL bug.
+                dt = BLOB;
+            } else if (dt == LONGVARCHAR && "CLOB".equalsIgnoreCase(dataTypeName)) {
+                // Workaround MySQL bug.
+                dt = CLOB;
             }
 
             dataType = dt;
