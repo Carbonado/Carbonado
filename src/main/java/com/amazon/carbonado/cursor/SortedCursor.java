@@ -22,9 +22,14 @@ import java.lang.reflect.UndeclaredThrowableException;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import org.cojen.util.BeanComparator;
+import org.cojen.util.BeanIntrospector;
+import org.cojen.util.BeanProperty;
+
+import org.cojen.classfile.TypeDesc;
 
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchInterruptedException;
@@ -58,10 +63,36 @@ public class SortedCursor<S> extends AbstractCursor<S> {
     public static <S> Comparator<S> createComparator(Class<S> type, String... orderProperties) {
         BeanComparator bc = BeanComparator.forClass(type);
         for (String property : orderProperties) {
-            bc = bc.orderBy(property);
-            bc = bc.caseSensitive();
+            Class propertyType;
+            {
+                String name = property;
+                if (name.startsWith("+") || name.startsWith("-")) {
+                    name = name.substring(1);
+                }
+                propertyType = propertyType(type, name);
+            }
+            bc = orderBy(bc, property, propertyType, Direction.ASCENDING);
         }
         return bc;
+    }
+
+    /**
+     * @return null if unknown
+     */
+    private static Class propertyType(Class enclosingType, String propertyName) {
+        Map<String, BeanProperty> properties = BeanIntrospector.getAllProperties(enclosingType);
+        int dotIndex = propertyName.indexOf('.');
+        if (dotIndex < 0) {
+            BeanProperty bp = properties.get(propertyName);
+            return bp == null ? null : bp.getType();
+        } else {
+            String parentName = propertyName.substring(0, dotIndex);
+            BeanProperty bp = properties.get(parentName);
+            if (bp == null) {
+                return null;
+            }
+            return propertyType(bp.getType(), propertyName.substring(dotIndex + 1));
+        }
     }
 
     /**
@@ -86,15 +117,13 @@ public class SortedCursor<S> extends AbstractCursor<S> {
             if (property == null) {
                 throw new IllegalArgumentException();
             }
-            bc = bc.orderBy(property.getChainedProperty().toString());
-            bc = bc.caseSensitive();
-            if (property.getDirection() == Direction.DESCENDING) {
-                bc = bc.reverse();
-            }
+            bc = orderBy(bc, property.getChainedProperty().toString(),
+                         property.getChainedProperty().getType(), property.getDirection());
         }
 
         return bc;
     }
+
 
     /**
      * Convenience method to create a comparator which orders storables by the
@@ -119,11 +148,35 @@ public class SortedCursor<S> extends AbstractCursor<S> {
             if (property == null) {
                 throw new IllegalArgumentException();
             }
-            bc = bc.orderBy(property.getChainedProperty().toString());
-            bc = bc.caseSensitive();
-            if (property.getDirection() == Direction.DESCENDING) {
-                bc = bc.reverse();
+            bc = orderBy(bc, property.getChainedProperty().toString(),
+                         property.getChainedProperty().getType(), property.getDirection());
+        }
+
+        return bc;
+    }
+
+    private static BeanComparator orderBy(BeanComparator bc, String property,
+                                          Class type, Direction direction)
+    {
+        bc = bc.orderBy(property);
+
+        if (type != null && type.isArray()) {
+            TypeDesc td = TypeDesc.forClass(type);
+            if (td.getRootComponentType() == TypeDesc.BYTE) {
+                bc = bc.using(Comparators.arrayComparator(type, true));
+            } else {
+                bc = bc.using(Comparators.arrayComparator(type, false));
+                if (bc == null) {
+                    throw new IllegalArgumentException("Cannot sort by property type of " +
+                                                       type.getName() + " for " + property);
+                }
             }
+        } else {
+            bc = bc.caseSensitive();
+        }
+
+        if (direction == Direction.DESCENDING) {
+            bc = bc.reverse();
         }
 
         return bc;

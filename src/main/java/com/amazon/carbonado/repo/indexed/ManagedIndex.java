@@ -287,7 +287,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                         buffer.close();
                         throw new UniqueConstraintException
                             ("Cannot build unique index because duplicates exist: "
-                             + this);
+                             + this + ", " + last + " == " + obj);
                     }
                 }
                 last = obj;

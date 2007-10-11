@@ -24,8 +24,6 @@ import java.util.Set;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import org.cojen.util.BeanComparator;
-
 import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
@@ -48,6 +46,8 @@ import com.amazon.carbonado.capability.IndexInfoCapability;
 import com.amazon.carbonado.capability.ResyncCapability;
 import com.amazon.carbonado.capability.ShutdownCapability;
 import com.amazon.carbonado.capability.StorableInfoCapability;
+
+import com.amazon.carbonado.cursor.SortedCursor;
 
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.StorableInfo;
@@ -389,11 +389,7 @@ class ReplicatedRepository
             }
         }
 
-        BeanComparator bc = BeanComparator.forClass(type);
-        for (String order : orderBy) {
-            bc = bc.orderBy(order);
-            bc = bc.caseSensitive();
-        }
+        Comparator comparator = SortedCursor.createComparator(type, orderBy);
 
         replicaQuery = replicaQuery.orderBy(orderBy);
         masterQuery = masterQuery.orderBy(orderBy);
@@ -417,7 +413,7 @@ class ReplicatedRepository
                    replicaStorage, replicaQuery,
                    masterStorage, masterQuery,
                    throttle, desiredSpeed,
-                   bc, replicaTxn);
+                   comparator, replicaTxn);
 
             replicaTxn.commit();
         } finally {

@@ -29,6 +29,7 @@ import java.util.Set;
 
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
+import com.amazon.carbonado.cursor.SortedCursor;
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
@@ -219,18 +220,14 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
             mSyntheticClass = mBuilder.getStorableClass();
 
             // We need a comparator which follows the same order as the generated
-            // storable.  We can't construct it until we get here
-            {
-                BeanComparator bc = BeanComparator.forClass(mSyntheticClass);
-                Iterator<String> props = mPrimaryKey.getProperties();
-                while (props.hasNext()) {
-                    String prop = props.next();
-                    // BeanComparator knows how to handle the '+' or '-' prefix.
-                    bc = bc.orderBy(prop);
-                    bc = bc.caseSensitive();
-                }
-                mComparator = bc;
+            // storable. We can't construct it until we get here.
+            String[] orderBy = new String[mPrimaryKey.getPropertyCount()];
+            int i=0;
+            Iterator<String> it = mPrimaryKey.getProperties();
+            while (it.hasNext()) {
+                orderBy[i++] = it.next();
             }
+            mComparator = SortedCursor.createComparator(mSyntheticClass, orderBy);
         }
         return mSyntheticClass;
     }
