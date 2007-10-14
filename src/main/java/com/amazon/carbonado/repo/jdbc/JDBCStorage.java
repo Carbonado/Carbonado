@@ -58,6 +58,7 @@ import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.info.StorablePropertyAdapter;
 import com.amazon.carbonado.qe.AbstractQueryExecutor;
+import com.amazon.carbonado.qe.FilteredQueryExecutor;
 import com.amazon.carbonado.qe.OrderingList;
 import com.amazon.carbonado.qe.QueryExecutor;
 import com.amazon.carbonado.qe.QueryExecutorCache;
@@ -367,32 +368,56 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 jn.appendFullJoinTo(fromWhereBuilder);
             }
 
-            PropertyFilter<S>[] propertyFilters;
-            boolean[] propertyFilterNullable;
+            // Appending where clause. Remainder filter is required if a
+            // derived property is used. Derived properties in exists filters
+            // is not supported.
 
-            if (filter == null || filter.isOpen()) {
-                propertyFilters = null;
-                propertyFilterNullable = null;
-            } else {
-                // Build the WHERE clause only if anything to filter on.
-                selectBuilder.append(" WHERE ");
-                fromWhereBuilder.append(" WHERE ");
+            Filter<S> remainderFilter = null;
 
-                WhereBuilder<S> wb = new WhereBuilder<S>
-                    (selectBuilder, alias == null ? null : jn, aliasGenerator);
-                FetchException e = filter.accept(wb, null);
-                if (e != null) {
-                    throw e;
+            PropertyFilter<S>[] propertyFilters = null;
+            boolean[] propertyFilterNullable = null;
+
+            if (filter != null && !filter.isOpen()) {
+                Filter<S> sqlFilter = null;
+                
+                List<Filter<S>> splitList = filter.conjunctiveNormalFormSplit();
+                for (Filter<S> split : splitList) {
+                    if (usesDerivedProperty(split)) {
+                        remainderFilter = and(remainderFilter, split);
+                    } else {
+                        sqlFilter = and(sqlFilter, split);
+                    }
                 }
 
-                propertyFilters = wb.getPropertyFilters();
-                propertyFilterNullable = wb.getPropertyFilterNullable();
+                if (remainderFilter == null) {
+                    // Just use original filter.
+                    sqlFilter = filter;
+                }
 
-                wb = new WhereBuilder<S>
-                    (fromWhereBuilder, alias == null ? null : jn, aliasGenerator);
-                e = filter.accept(wb, null);
-                if (e != null) {
-                    throw e;
+                if (sqlFilter == null) {
+                    // Just use original filter for remainder.
+                    remainderFilter = filter;
+                } else {
+                    // Build the WHERE clause only if anything to filter on.
+                    selectBuilder.append(" WHERE ");
+                    fromWhereBuilder.append(" WHERE ");
+
+                    WhereBuilder<S> wb = new WhereBuilder<S>
+                        (selectBuilder, alias == null ? null : jn, aliasGenerator);
+                    FetchException e = sqlFilter.accept(wb, null);
+                    if (e != null) {
+                        throw e;
+                    }
+
+                    propertyFilters = wb.getPropertyFilters();
+                    propertyFilterNullable = wb.getPropertyFilterNullable();
+
+                    wb = new WhereBuilder<S>
+                        (fromWhereBuilder, alias == null ? null : jn, aliasGenerator);
+                    e = sqlFilter.accept(wb, null);
+                    if (e != null) {
+                        throw e;
+                    }
                 }
             }
 
@@ -437,6 +462,10 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                                                      propertyFilters,
                                                      propertyFilterNullable);
 
+            if (remainderFilter != null && !remainderFilter.isOpen()) {
+                executor = new FilteredQueryExecutor<S>(executor, remainderFilter);
+            }
+
             if (remainderOrdering != null && remainderOrdering.size() > 0) {
                 // FIXME: use MergeSortBuffer
                 executor = new SortedQueryExecutor<S>
@@ -444,6 +473,47 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             }
 
             return executor;
+        }
+
+        private Filter<S> and(Filter<S> left, Filter<S> right) {
+            if (left == null) {
+                return right;
+            }
+            if (right == null) {
+                return left;
+            }
+            return left.and(right);
+        }
+
+        private boolean usesDerivedProperty(Filter<S> filter) {
+            Boolean result = filter.accept(new Visitor<S, Boolean, Object>() {
+                @Override
+                public Boolean visit(OrFilter<S> orFilter, Object param) {
+                    Boolean result = orFilter.getLeftFilter().accept(this, param);
+                    if (result != null && result) {
+                        // Short-circuit.
+                        return result;
+                    }
+                    return orFilter.getRightFilter().accept(this, param);
+                }
+
+                @Override
+                public Boolean visit(AndFilter<S> andFilter, Object param) {
+                    Boolean result = andFilter.getLeftFilter().accept(this, param);
+                    if (result != null && result) {
+                        // Short-circuit.
+                        return result;
+                    }
+                    return andFilter.getRightFilter().accept(this, param);
+                }
+
+                @Override
+                public Boolean visit(PropertyFilter<S> propFilter, Object param) {
+                    return propFilter.getChainedProperty().isDerived();
+                }
+            }, null);
+
+            return result != null && result;
         }
     }
 
