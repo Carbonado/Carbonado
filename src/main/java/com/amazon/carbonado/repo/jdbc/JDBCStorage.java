@@ -63,6 +63,7 @@ import com.amazon.carbonado.qe.QueryExecutor;
 import com.amazon.carbonado.qe.QueryExecutorCache;
 import com.amazon.carbonado.qe.QueryExecutorFactory;
 import com.amazon.carbonado.qe.QueryFactory;
+import com.amazon.carbonado.qe.SortedQueryExecutor;
 import com.amazon.carbonado.qe.StandardQuery;
 import com.amazon.carbonado.qe.StandardQueryFactory;
 import com.amazon.carbonado.sequence.SequenceValueProducer;
@@ -395,29 +396,54 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 }
             }
 
-            // Append order-by clause.
-            if (ordering != null && ordering.size() != 0) {
-                selectBuilder.append(" ORDER BY ");
+            // Append order-by clause. Remainder ordering is required if a derived
+            // property is used.
+
+            OrderingList<S> sqlOrdering = ordering;
+            OrderingList<S> remainderOrdering = null;
+
+            if (ordering != null && ordering.size() > 0) {
                 ordinal = 0;
                 for (OrderedProperty<S> orderedProperty : ordering) {
-                    if (ordinal > 0) {
-                        selectBuilder.append(',');
-                    }
-                    selectBuilder.appendColumn(alias == null ? null : jn,
-                                               orderedProperty.getChainedProperty());
-                    if (orderedProperty.getDirection() == Direction.DESCENDING) {
-                        selectBuilder.append(" DESC");
+                    if (orderedProperty.getChainedProperty().isDerived()) {
+                        sqlOrdering = ordering.subList(0, ordinal);
+                        remainderOrdering = ordering.subList(ordinal, ordering.size());
+                        break;
                     }
                     ordinal++;
                 }
+
+                if (sqlOrdering != null && sqlOrdering.size() > 0) {
+                    selectBuilder.append(" ORDER BY ");
+                    ordinal = 0;
+                    for (OrderedProperty<S> orderedProperty : sqlOrdering) {
+                        if (ordinal > 0) {
+                            selectBuilder.append(',');
+                        }
+                        selectBuilder.appendColumn(alias == null ? null : jn,
+                                                   orderedProperty.getChainedProperty());
+                        if (orderedProperty.getDirection() == Direction.DESCENDING) {
+                            selectBuilder.append(" DESC");
+                        }
+                        ordinal++;
+                    }
+                }
             }
 
-            return new Executor(filter,
-                                ordering,
-                                selectBuilder.build(),
-                                fromWhereBuilder.build(),
-                                propertyFilters,
-                                propertyFilterNullable);
+            QueryExecutor<S> executor = new Executor(filter,
+                                                     sqlOrdering,
+                                                     selectBuilder.build(),
+                                                     fromWhereBuilder.build(),
+                                                     propertyFilters,
+                                                     propertyFilterNullable);
+
+            if (remainderOrdering != null && remainderOrdering.size() > 0) {
+                // FIXME: use MergeSortBuffer
+                executor = new SortedQueryExecutor<S>
+                    (null, executor, sqlOrdering, remainderOrdering);
+            }
+
+            return executor;
         }
     }
 
@@ -940,7 +966,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 if (ordering != null) {
                     for (OrderedProperty<?> orderedProperty : ordering) {
                         ChainedProperty<?> chained = orderedProperty.getChainedProperty();
-                        mRootJoinNode.addJoin(mRepository, chained, mAliasGenerator);
+                        if (!chained.isDerived()) {
+                            mRootJoinNode.addJoin(mRepository, chained, mAliasGenerator);
+                        }
                     }
                 }
             } catch (RepositoryException e) {

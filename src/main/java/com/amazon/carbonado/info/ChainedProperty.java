@@ -184,6 +184,26 @@ public class ChainedProperty<S extends Storable> implements Appender {
     }
 
     /**
+     * Returns true if any property in the chain is derived.
+     *
+     * @see com.amazon.carbonado.Derived
+     * @since 1.2
+     */
+    public boolean isDerived() {
+        if (mPrime.isDerived()) {
+            return true;
+        }
+        if (mChain != null) {
+            for (StorableProperty<?> prop : mChain) {
+                if (prop.isDerived()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns the last property in the chain, or the prime property if chain
      * is empty.
      */

@@ -122,6 +122,20 @@ public class UnionQueryExecutor<S extends Storable> extends AbstractQueryExecuto
         return mTotalOrdering;
     }
 
+    /**
+     * Prints native queries of the wrapped executors.
+     */
+    @Override
+    public boolean printNative(Appendable app, int indentLevel, FilterValues<S> values)
+        throws IOException
+    {
+        boolean result = false;
+        for (QueryExecutor<S> executor : mExecutors) {
+            result |= executor.printNative(app, indentLevel, values);
+        }
+        return result;
+    }
+
     public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)
         throws IOException
     {

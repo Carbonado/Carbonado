@@ -115,6 +115,16 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
         return mHandledOrdering.concat(mRemainderOrdering);
     }
 
+    /**
+     * Prints native query of the wrapped executor.
+     */
+    @Override
+    public boolean printNative(Appendable app, int indentLevel, FilterValues<S> values)
+        throws IOException
+    {
+        return mExecutor.printNative(app, indentLevel, values);
+    }
+
     public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)
         throws IOException
     {

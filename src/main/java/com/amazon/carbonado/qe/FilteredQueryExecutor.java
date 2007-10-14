@@ -75,6 +75,16 @@ public class FilteredQueryExecutor<S extends Storable> extends AbstractQueryExec
         return mExecutor.getOrdering();
     }
 
+    /**
+     * Prints native query of the wrapped executor.
+     */
+    @Override
+    public boolean printNative(Appendable app, int indentLevel, FilterValues<S> values)
+        throws IOException
+    {
+        return mExecutor.printNative(app, indentLevel, values);
+    }
+
     public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)
         throws IOException
     {
