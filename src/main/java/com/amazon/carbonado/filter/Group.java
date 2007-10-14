@@ -130,5 +130,13 @@ class Group<S extends Storable> {
         public Boolean visit(PropertyFilter<S> filter, Filter<S> child) {
             return filter == child;
         }
+
+        /**
+         * @return TRUE if overlap was found
+         */
+        @Override
+        public Boolean visit(ExistsFilter<S> filter, Filter<S> child) {
+            return filter == child;
+        }
     }
 }

@@ -182,5 +182,22 @@ class PropertyFilterList<S extends Storable> {
         public PropertyFilterList<S> visit(PropertyFilter<S> filter, PropertyFilterList<S> list) {
             return list == null ? new PropertyFilterList<S>(filter, null) : list.prepend(filter);
         }
+
+        public PropertyFilterList<S> visit(ExistsFilter<S> filter, PropertyFilterList<S> list) {
+            PropertyFilterList<S> subList =
+                filter.getJoinedSubFilter().getTailPropertyFilterList();
+
+            while (subList != null) {
+                PropertyFilter<S> joinedFilter = subList.getPropertyFilter();
+                if (list == null) {
+                    list = new PropertyFilterList<S>(joinedFilter, null);
+                } else {
+                    list = list.prepend(joinedFilter);
+                }
+                subList = subList.getPrevious();
+            }
+
+            return list;
+        }
     }
 }

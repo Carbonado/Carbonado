@@ -49,13 +49,20 @@ public class QueryEngine<S extends Storable> extends StandardQueryFactory<S>
         return mExecutorFactory.executor(filter, ordering);
     }
 
-    protected StandardQuery<S> createQuery(FilterValues<S> values, OrderingList<S> ordering) {
-        return new Query(values, ordering, null);
+    protected StandardQuery<S> createQuery(Filter<S> filter,
+                                           FilterValues<S> values,
+                                           OrderingList<S> ordering)
+    {
+        return new Query(filter, values, ordering, null);
     }
 
     private class Query extends StandardQuery<S> {
-        Query(FilterValues<S> values, OrderingList<S> ordering, QueryExecutor<S> executor) {
-            super(values, ordering, executor);
+        Query(Filter<S> filter,
+              FilterValues<S> values,
+              OrderingList<S> ordering,
+              QueryExecutor<S> executor)
+        {
+            super(filter, values, ordering, executor);
         }
 
         protected Transaction enterTransaction(IsolationLevel level) {
@@ -74,7 +81,7 @@ public class QueryEngine<S extends Storable> extends StandardQueryFactory<S>
                                                OrderingList<S> ordering,
                                                QueryExecutor<S> executor)
         {
-            return new Query(values, ordering, executor);
+            return new Query(values.getFilter(), values, ordering, executor);
         }
     }
 }

@@ -18,8 +18,13 @@
 
 package com.amazon.carbonado.cursor;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
@@ -38,9 +43,11 @@ import org.cojen.util.ClassInjector;
 import org.cojen.util.WeakIdentityMap;
 
 import com.amazon.carbonado.Cursor;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.AndFilter;
+import com.amazon.carbonado.filter.ExistsFilter;
 import com.amazon.carbonado.filter.OrFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.PropertyFilter;
@@ -50,7 +57,10 @@ import com.amazon.carbonado.filter.Visitor;
 import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.StorableProperty;
 
+import com.amazon.carbonado.util.ThrowUnchecked;
 import com.amazon.carbonado.util.QuickConstructorGenerator;
+
+import com.amazon.carbonado.gen.CodeBuilderUtil;
 
 
 /**
@@ -61,6 +71,8 @@ import com.amazon.carbonado.util.QuickConstructorGenerator;
  * @see FilteredCursor
  */
 class FilteredCursorGenerator {
+    private static final String SUB_FILTER_INIT_METHOD = "subFilterInit$";
+
     private static Map cCache = new WeakIdentityMap();
 
     /**
@@ -72,11 +84,6 @@ class FilteredCursorGenerator {
      */
     @SuppressWarnings("unchecked")
     static <S extends Storable> Factory<S> getFactory(Filter<S> filter) {
-        return getFactory(filter, false);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <S extends Storable> Factory<S> getFactory(Filter<S> filter, boolean optimize) {
         if (filter == null) {
             throw new IllegalArgumentException();
         }
@@ -85,16 +92,8 @@ class FilteredCursorGenerator {
             if (factory != null) {
                 return factory;
             }
-
-            Filter<S> optimized;
-            if (optimize && (optimized = ShortCircuitOptimizer.optimize(filter)) != filter) {
-                // Use factory for filter optimized for short-circuit logic.
-                factory = getFactory(optimized, false);
-            } else {
-                Class<Cursor<S>> clazz = generateClass(filter);
-                factory = QuickConstructorGenerator.getInstance(clazz, Factory.class);
-            }
-
+            Class<Cursor<S>> clazz = generateClass(filter);
+            factory = QuickConstructorGenerator.getInstance(clazz, Factory.class);
             cCache.put(filter, factory);
             return factory;
         }
@@ -145,7 +144,7 @@ class FilteredCursorGenerator {
         CodeBuilder isAllowedBuilder;
         LocalVariable storableVar;
         {
-            TypeDesc[] params = {TypeDesc.OBJECT};
+            TypeDesc[] params = {OBJECT};
             MethodInfo mi = cf.addMethod(Modifiers.PUBLIC, "isAllowed", BOOLEAN, params);
             isAllowedBuilder = new CodeBuilder(mi);
 
@@ -167,12 +166,38 @@ class FilteredCursorGenerator {
             isAllowedBuilder.storeLocal(storableVar);
         }
 
-        filter.accept(new CodeGen<S>(cf, ctorBuilder, isAllowedBuilder, storableVar), null);
+        // Capture property filter ordinals before optimization scrambles them.
+        Map<PropertyFilter, Integer> propertyOrdinalMap;
+        {
+            PropertyOrdinalMapVisitor<S> visitor = new PropertyOrdinalMapVisitor<S>();
+            filter.accept(visitor, null);
+            propertyOrdinalMap = visitor.getPropertyOrdinalMap();
+        }
+
+        filter = ShortCircuitOptimizer.optimize(filter);
+
+        CodeGen<S> cg = new CodeGen<S>
+            (propertyOrdinalMap, cf, ctorBuilder, isAllowedBuilder, storableVar);
+        filter.accept(cg, null);
+
+        List<Filter> subFilters = cg.finishSubFilterInit();
 
         // Finish constructor.
         ctorBuilder.returnVoid();
 
-        return (Class<Cursor<S>>) ci.defineClass(cf);
+        Class generated = ci.defineClass(cf);
+
+        // Pass sub-filter instances to be stored in static fields.
+        if (subFilters != null && subFilters.size() > 0) {
+            try {
+                Method init = generated.getMethod(SUB_FILTER_INIT_METHOD, Filter[].class);
+                init.invoke(null, (Object) subFilters.toArray(new Filter[subFilters.size()]));
+            } catch (Exception e) {
+                ThrowUnchecked.fireDeclaredRootCause(e);
+            }
+        }
+
+        return (Class<Cursor<S>>) generated;
     }
 
     public static interface Factory<S extends Storable> {
@@ -235,8 +260,10 @@ class FilteredCursorGenerator {
     }
 
     private static class CodeGen<S extends Storable> extends Visitor<S, Object, Object> {
-        private static String FIELD_PREFIX = "value$";
+        private static final String FIELD_PREFIX = "value$";
+        private static final String FILTER_FIELD_PREFIX = "filter$";
 
+        private final Map<PropertyFilter, Integer> mPropertyOrdinalMap;
         private final ClassFile mClassFile;
         private final CodeBuilder mCtorBuilder;
         private final CodeBuilder mIsAllowedBuilder;
@@ -244,17 +271,32 @@ class FilteredCursorGenerator {
 
         private final Stack<Scope> mScopeStack;
 
-        private int mPropertyOrdinal;
+        private List<Filter> mSubFilters;
+        private CodeBuilder mSubFilterInitBuilder;
 
-        CodeGen(ClassFile cf,
+        CodeGen(Map<PropertyFilter, Integer> propertyOrdinalMap,
+                ClassFile cf,
                 CodeBuilder ctorBuilder,
-                CodeBuilder isAllowedBuilder, LocalVariable storableVar) {
+                CodeBuilder isAllowedBuilder,
+                LocalVariable storableVar)
+        {
+            mPropertyOrdinalMap = propertyOrdinalMap;
             mClassFile = cf;
             mCtorBuilder = ctorBuilder;
             mIsAllowedBuilder = isAllowedBuilder;
             mStorableVar = storableVar;
             mScopeStack = new Stack<Scope>();
             mScopeStack.push(new Scope(null, null));
+        }
+
+        public List<Filter> finishSubFilterInit() {
+            if (mSubFilterInitBuilder != null) {
+                mSubFilterInitBuilder.returnVoid();
+            }
+            if (mSubFilters == null) {
+                return Collections.emptyList();
+            }
+            return mSubFilters;
         }
 
         public Object visit(OrFilter<S> filter, Object param) {
@@ -280,26 +322,144 @@ class FilteredCursorGenerator {
         }
 
         public Object visit(PropertyFilter<S> filter, Object param) {
-            ChainedProperty<S> chained = filter.getChainedProperty();
-            TypeDesc type = TypeDesc.forClass(chained.getType());
-            TypeDesc fieldType = actualFieldType(type);
-            String fieldName = FIELD_PREFIX + mPropertyOrdinal;
+            final int propertyOrdinal = mPropertyOrdinalMap.get(filter);
+            final TypeDesc type = TypeDesc.forClass(filter.getChainedProperty().getType());
+            final TypeDesc fieldType = actualFieldType(type);
+            final String fieldName = FIELD_PREFIX + propertyOrdinal;
 
             // Define storage field.
             mClassFile.addField(Modifiers.PRIVATE.toFinal(true), fieldName, fieldType);
 
             // Add code to constructor to store value into field.
-            CodeBuilder b = mCtorBuilder;
-            b.loadThis();
-            b.loadLocal(b.getParameter(1));
-            b.loadConstant(mPropertyOrdinal);
-            b.loadFromArray(OBJECT);
-            b.checkCast(type.toObjectType());
-            convertProperty(b, type.toObjectType(), fieldType);
-            b.storeField(fieldName, fieldType);
+            {
+                CodeBuilder b = mCtorBuilder;
+                b.loadThis();
+                b.loadLocal(b.getParameter(1));
+                b.loadConstant(propertyOrdinal);
+                b.loadFromArray(OBJECT);
+                b.checkCast(type.toObjectType());
+                convertProperty(b, type.toObjectType(), fieldType);
+                b.storeField(fieldName, fieldType);
+            }
 
-            // Add code to load property value to stack.
-            b = mIsAllowedBuilder;
+            loadChainedProperty(mIsAllowedBuilder, filter.getChainedProperty());
+            addPropertyFilter(mIsAllowedBuilder, propertyOrdinal, type, filter.getOperator());
+
+            return null;
+        }
+
+        public Object visit(ExistsFilter<S> filter, Object param) {
+            // Recursively gather all the properties to be passed to sub-filter.
+            final List<PropertyFilter> subPropFilters = new ArrayList<PropertyFilter>();
+
+            filter.getSubFilter().accept(new Visitor() {
+                @Override
+                public Object visit(PropertyFilter filter, Object param) {
+                    subPropFilters.add(filter);
+                    return null;
+                }
+                @Override
+                public Object visit(ExistsFilter filter, Object param) {
+                    return filter.getSubFilter().accept(this, param);
+                }
+            }, null);
+
+            // Load join property value to stack. It is expected to be a Query.
+            CodeBuilder b = mIsAllowedBuilder;
+            loadChainedProperty(b, filter.getChainedProperty());
+
+            final TypeDesc queryType = TypeDesc.forClass(Query.class);
+
+            // Refine Query filter, if sub-filter isn't open.
+            if (!filter.getSubFilter().isOpen()) {
+                String subFilterFieldName = addStaticFilterField(filter.getSubFilter());
+
+                TypeDesc filterType = TypeDesc.forClass(Filter.class);
+
+                b.loadStaticField(subFilterFieldName, filterType);
+                b.invokeInterface(queryType, "and", queryType, new TypeDesc[] {filterType});
+
+                for (PropertyFilter subPropFilter : subPropFilters) {
+                    final int propertyOrdinal = mPropertyOrdinalMap.get(subPropFilter);
+                    final ChainedProperty<S> chained = subPropFilter.getChainedProperty();
+                    final String fieldName = FIELD_PREFIX + propertyOrdinal;
+
+                    // Define storage for sub-filter.
+                    mClassFile.addField(Modifiers.PRIVATE.toFinal(true), fieldName, OBJECT);
+
+                    // Assign value passed from constructor.
+                    mCtorBuilder.loadThis();
+                    mCtorBuilder.loadLocal(mCtorBuilder.getParameter(1));
+                    mCtorBuilder.loadConstant(propertyOrdinal);
+                    mCtorBuilder.loadFromArray(OBJECT);
+                    mCtorBuilder.storeField(fieldName, OBJECT);
+
+                    // Pass value to Query.
+                    b.loadThis();
+                    b.loadField(fieldName, OBJECT);
+                    b.invokeInterface(queryType, "with", queryType, new TypeDesc[] {OBJECT});
+                }
+            }
+
+            // Call the all-important Query.exists method.
+            b.invokeInterface(queryType, "exists", BOOLEAN, null);
+
+            // Success if boolean value is true (non-zero), opposite for "not exists".
+            RelOp op = filter.isNotExists() ? RelOp.EQ : RelOp.NE;
+            getScope().successIfZeroComparisonElseFail(b, op);
+
+            return null;
+        }
+
+        private String addStaticFilterField(Filter filter) {
+            if (mSubFilters == null) {
+                mSubFilters = new ArrayList<Filter>();
+            }
+
+            final int filterOrdinal = mSubFilters.size();
+            final String fieldName = FILTER_FIELD_PREFIX + filterOrdinal;
+            final TypeDesc filterType = TypeDesc.forClass(Filter.class);
+
+            mClassFile.addField(Modifiers.PRIVATE.toStatic(true), fieldName, filterType);
+
+            mSubFilters.add(filter);
+
+            if (mSubFilterInitBuilder == null) {
+                TypeDesc filterArrayType = filterType.toArrayType();
+                mSubFilterInitBuilder = new CodeBuilder
+                    (mClassFile.addMethod
+                     (Modifiers.PUBLIC.toStatic(true),
+                      SUB_FILTER_INIT_METHOD, null, new TypeDesc[] {filterArrayType}));
+
+                // This method must be public, so add a check to ensure it is
+                // called at most once. Just check one filter to see if it is non-null.
+
+                mSubFilterInitBuilder.loadStaticField(fieldName, filterType);
+                Label isNull = mSubFilterInitBuilder.createLabel();
+                mSubFilterInitBuilder.ifNullBranch(isNull, true);
+                CodeBuilderUtil.throwException
+                    (mSubFilterInitBuilder, IllegalStateException.class, null);
+                isNull.setLocation();
+            }
+
+            // Now add code to init field later.
+            mSubFilterInitBuilder.loadLocal(mSubFilterInitBuilder.getParameter(0));
+            mSubFilterInitBuilder.loadConstant(filterOrdinal);
+            mSubFilterInitBuilder.loadFromArray(filterType);
+            mSubFilterInitBuilder.storeStaticField(fieldName, filterType);
+
+            return fieldName;
+        }
+
+        private Scope getScope() {
+            return mScopeStack.peek();
+        }
+
+        /**
+         * Generated code checks if chained properties resolve to null, and if
+         * so, branches to the current scope's fail location.
+         */
+        private void loadChainedProperty(CodeBuilder b, ChainedProperty<?> chained) {
             b.loadLocal(mStorableVar);
             loadProperty(b, chained.getPrimeProperty());
             for (int i=0; i<chained.getChainCount(); i++) {
@@ -314,15 +474,6 @@ class FilteredCursorGenerator {
                 // Now load next property in chain.
                 loadProperty(b, chained.getChainedProperty(i));
             }
-
-            addPropertyFilter(b, type, filter.getOperator());
-
-            mPropertyOrdinal++;
-            return null;
-        }
-
-        private Scope getScope() {
-            return mScopeStack.peek();
         }
 
         private void loadProperty(CodeBuilder b, StorableProperty<?> property) {
@@ -341,9 +492,9 @@ class FilteredCursorGenerator {
             b.invoke(readMethod);
         }
 
-        private void addPropertyFilter(CodeBuilder b, TypeDesc type, RelOp relOp) {
+        private void addPropertyFilter(CodeBuilder b, int ordinal, TypeDesc type, RelOp relOp) {
             TypeDesc fieldType = actualFieldType(type);
-            String fieldName = FIELD_PREFIX + mPropertyOrdinal;
+            String fieldName = FIELD_PREFIX + ordinal;
 
             if (type.getTypeCode() == OBJECT_CODE) {
                 // Check if actual property being examined is null.
@@ -524,7 +675,7 @@ class FilteredCursorGenerator {
         private void convertProperty(CodeBuilder b, TypeDesc fromType, TypeDesc toType) {
             TypeDesc fromPrimType = fromType.toPrimitiveType();
 
-            if (fromPrimType != TypeDesc.FLOAT && fromPrimType != TypeDesc.DOUBLE) {
+            if (fromPrimType != FLOAT && fromPrimType != DOUBLE) {
                 // Not converting floating point, so just convert as normal.
                 b.convert(fromType, toType);
                 return;
@@ -532,7 +683,7 @@ class FilteredCursorGenerator {
 
             TypeDesc toPrimType = toType.toPrimitiveType();
 
-            if (toPrimType != TypeDesc.INT && toPrimType != TypeDesc.LONG) {
+            if (toPrimType != INT && toPrimType != LONG) {
                 // Floating point not being converted to bits, so just convert as normal.
                 b.convert(fromType, toType);
                 return;
@@ -557,7 +708,7 @@ class FilteredCursorGenerator {
 
             // Floating point bits need to be flipped for negative values.
 
-            if (toPrimType == TypeDesc.INT) {
+            if (toPrimType == INT) {
                 b.dup();
                 b.ifZeroComparisonBranch(box, ">=");
                 b.loadConstant(0x7fffffff);

@@ -194,15 +194,14 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     }
 
     public Query<S> or(Filter<S> filter) throws FetchException {
-        FilterValues<S> values = filter == null ? null : filter.initialFilterValues();
-        return mFactory.query(values, mOrdering);
+        return mFactory.query(filter, null, mOrdering);
     }
 
     /**
      * Returns a query that fetches everything, possibly in a specified order.
      */
     public Query<S> not() throws FetchException {
-        return mFactory.query(null, mOrdering);
+        return mFactory.query(null, null, mOrdering);
     }
 
     public Query<S> orderBy(String property) throws FetchException {

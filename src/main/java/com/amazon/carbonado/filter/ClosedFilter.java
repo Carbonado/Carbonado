@@ -36,6 +36,16 @@ public class ClosedFilter<S extends Storable> extends Filter<S> {
         super(type);
     }
 
+    /**
+     * Always returns true.
+     *
+     * @since 1.2
+     */
+    @Override
+    public final boolean isClosed() {
+        return true;
+    }
+
     public ClosedFilter<S> and(Filter<S> filter) {
         return this;
     }
@@ -92,7 +102,7 @@ public class ClosedFilter<S extends Storable> extends Filter<S> {
         return true;
     }
 
-    public <T extends Storable> ClosedFilter<T> asJoinedFrom(ChainedProperty<T> joinProperty) {
+    <T extends Storable> ClosedFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
         return getClosedFilter(joinProperty.getPrimeProperty().getEnclosingType());
     }
 

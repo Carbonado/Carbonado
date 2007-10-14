@@ -28,7 +28,6 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.filter.ClosedFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 
@@ -109,6 +108,8 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
      * @throws IllegalArgumentException if filter is null
      */
     public Query<S> query(Filter<S> filter, OrderingList<S> ordering) throws FetchException {
+        filter = filter.bind();
+
         Map<OrderingList<S>, Query<S>> map;
         synchronized (mFilterToQuery) {
             map = mFilterToQuery.get(filter);
@@ -126,10 +127,10 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
             query = map.get(ordering);
             if (query == null) {
                 FilterValues<S> values = filter.initialFilterValues();
-                if (values == null && filter instanceof ClosedFilter) {
+                if (values == null && filter.isClosed()) {
                     query = new EmptyQuery<S>(this, ordering);
                 } else {
-                    StandardQuery<S> standardQuery = createQuery(values, ordering);
+                    StandardQuery<S> standardQuery = createQuery(filter, values, ordering);
                     if (!mLazySetExecutor) {
                         try {
                             standardQuery.setExecutor();
@@ -149,16 +150,19 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
     /**
      * Returns a new or cached query for the given query specification.
      *
-     * @param values optional values object, defaults to open filter if null
+     * @param filter optional filter object, defaults to open filter if null
+     * @param values optional values object, defaults to filter initial values
      * @param ordering optional order-by properties
      */
-    public Query<S> query(FilterValues<S> values, OrderingList<S> ordering) throws FetchException {
-        Query<S> query;
-        if (values == null) {
-            query = query(Filter.getOpenFilter(mType), ordering);
-        } else {
-            query = query(values.getFilter(), ordering).withValues(values.getSuppliedValues());
+    public Query<S> query(Filter<S> filter, FilterValues<S> values, OrderingList<S> ordering)
+        throws FetchException
+    {
+        Query<S> query = query(filter != null ? filter : Filter.getOpenFilter(mType), ordering);
+
+        if (values != null) {
+            query = query.withValues(values.getSuppliedValues());
         }
+
         return query;
     }
 
@@ -196,10 +200,12 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
     /**
      * Implement this method to return query implementations.
      *
-     * @param values optional values object, defaults to open filter if null
+     * @param filter optional filter object, defaults to open filter if null
+     * @param values optional values object, defaults to filter initial values
      * @param ordering optional order-by properties
      */
-    protected abstract StandardQuery<S> createQuery(FilterValues<S> values,
+    protected abstract StandardQuery<S> createQuery(Filter<S> filter,
+                                                    FilterValues<S> values,
                                                     OrderingList<S> ordering)
         throws FetchException;
 

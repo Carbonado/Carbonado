@@ -25,6 +25,7 @@ import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.filter.AndFilter;
 import com.amazon.carbonado.filter.ClosedFilter;
+import com.amazon.carbonado.filter.ExistsFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.OpenFilter;
 import com.amazon.carbonado.filter.OrFilter;
@@ -132,6 +133,7 @@ class ShortCircuitOptimizer {
     }
 
     private static class Walker<S extends Storable> extends Visitor<S, FilterAndCost<S>, Object> {
+        @Override
         public FilterAndCost<S> visit(OrFilter<S> filter, Object param) {
             FilterAndCost<S> leftCost = filter.getLeftFilter().accept(this, param);
             FilterAndCost<S> rightCost = filter.getRightFilter().accept(this, param);
@@ -154,6 +156,7 @@ class ShortCircuitOptimizer {
             return new FilterAndCost<S>(newFilter, expensiveProperty);
         }
 
+        @Override
         public FilterAndCost<S> visit(AndFilter<S> filter, Object param) {
             FilterAndCost<S> leftCost = filter.getLeftFilter().accept(this, param);
             FilterAndCost<S> rightCost = filter.getRightFilter().accept(this, param);
@@ -176,14 +179,22 @@ class ShortCircuitOptimizer {
             return new FilterAndCost<S>(newFilter, expensiveProperty);
         }
 
+        @Override
         public FilterAndCost<S> visit(PropertyFilter<S> filter, Object param) {
             return new FilterAndCost<S>(filter, filter.getChainedProperty());
         }
 
+        @Override
+        public FilterAndCost<S> visit(ExistsFilter<S> filter, Object param) {
+            return new FilterAndCost<S>(filter, filter.getChainedProperty());
+        }
+
+        @Override
         public FilterAndCost<S> visit(OpenFilter<S> filter, Object param) {
             return new FilterAndCost<S>(filter, null);
         }
 
+        @Override
         public FilterAndCost<S> visit(ClosedFilter<S> filter, Object param) {
             return new FilterAndCost<S>(filter, null);
         }

@@ -33,6 +33,7 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 
 import com.amazon.carbonado.filter.AndFilter;
+import com.amazon.carbonado.filter.ExistsFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.OrFilter;
 import com.amazon.carbonado.filter.PropertyFilter;
@@ -617,6 +618,17 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
         // This method should only be called if root filter has no logical operators.
         @Override
         public RepositoryException visit(PropertyFilter<S> filter, Object param) {
+            try {
+                subAnalyze(filter);
+                return null;
+            } catch (RepositoryException e) {
+                return e;
+            }
+        }
+
+        // This method should only be called if root filter has no logical operators.
+        @Override
+        public RepositoryException visit(ExistsFilter<S> filter, Object param) {
             try {
                 subAnalyze(filter);
                 return null;

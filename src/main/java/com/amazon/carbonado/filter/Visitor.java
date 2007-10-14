@@ -45,6 +45,13 @@ public abstract class Visitor<S extends Storable, R, P> {
         return null;
     }
 
+    /**
+     * @since 1.2
+     */
+    public R visit(ExistsFilter<S> filter, P param) {
+        return null;
+    }
+
     public R visit(OpenFilter<S> filter, P param) {
         return null;
     }

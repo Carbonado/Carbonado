@@ -36,6 +36,16 @@ public class OpenFilter<S extends Storable> extends Filter<S> {
         super(type);
     }
 
+    /**
+     * Always returns true.
+     *
+     * @since 1.2
+     */
+    @Override
+    public final boolean isOpen() {
+        return true;
+    }
+
     public Filter<S> and(Filter<S> filter) {
         return filter;
     }
@@ -92,7 +102,7 @@ public class OpenFilter<S extends Storable> extends Filter<S> {
         return true;
     }
 
-    public <T extends Storable> OpenFilter<T> asJoinedFrom(ChainedProperty<T> joinProperty) {
+    <T extends Storable> OpenFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
         return getOpenFilter(joinProperty.getPrimeProperty().getEnclosingType());
     }
 

@@ -42,7 +42,7 @@ public abstract class BinaryOpFilter<S extends Storable> extends Filter<S> {
     BinaryOpFilter(Filter<S> left, Filter<S> right) {
         super(left == null ? null : left.getStorableType());
         if (left == null || right == null) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Left or right filter is null");
         }
         if (left.getStorableType() != right.getStorableType()) {
             throw new IllegalArgumentException("Type mismatch");

@@ -22,6 +22,7 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
+import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 
 /**
@@ -35,8 +36,10 @@ public interface QueryFactory<S extends Storable> {
     /**
      * Returns a query that handles the given query specification.
      *
-     * @param values optional values object, defaults to open filter if null
+     * @param filter optional filter object, defaults to open filter if null
+     * @param values optional values object, defaults to filter initial values
      * @param ordering optional order-by properties
      */
-    Query<S> query(FilterValues<S> values, OrderingList<S> ordering) throws FetchException;
+    Query<S> query(Filter<S> filter, FilterValues<S> values, OrderingList<S> ordering)
+        throws FetchException;
 }

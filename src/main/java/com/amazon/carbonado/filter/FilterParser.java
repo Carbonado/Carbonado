@@ -41,6 +41,10 @@ class FilterParser<S extends Storable> {
     private int mPos;
 
     FilterParser(Class<S> type, String filter) {
+        this(type, filter, 0);
+    }
+
+    private FilterParser(Class<S> type, String filter, int pos) {
         if (type == null) {
             throw new IllegalArgumentException();
         }
@@ -49,6 +53,7 @@ class FilterParser<S extends Storable> {
         }
         mType = type;
         mFilter = filter;
+        mPos = pos;
     }
 
     // Design note: This parser is actually a scanner, parser, and type checker
@@ -120,12 +125,46 @@ class FilterParser<S extends Storable> {
             return test;
         } else {
             mPos--;
-            return parsePropertyFilter();
+            ChainedProperty<S> chained = parseChainedProperty();
+            c = nextCharIgnoreWhitespace();
+            if (c != '(') {
+                mPos--;
+                return parsePropertyFilter(chained);
+            }
+
+            boolean isExistsFilter = chained.getLastProperty().isQuery();
+
+            Filter<S> chainedFilter;
+            c = nextCharIgnoreWhitespace();
+            if (c == ')') {
+                if (isExistsFilter) {
+                    chainedFilter = ExistsFilter.getCanonical(chained, null, false);
+                } else {
+                    // FIXME: support exists filter for this case
+                    mPos--;
+                    throw error("Property \"" + chained +
+                                "\" is a many-to-one join and requires property filters");
+                }
+            } else {
+                mPos--;
+                Filter<?> cf = parseChainedFilter(chained);
+                if (isExistsFilter) {
+                    chainedFilter = ExistsFilter.getCanonical(chained, cf, false);
+                } else {
+                    chainedFilter = cf.asJoinedFrom(chained);
+                }
+                c = nextCharIgnoreWhitespace();
+                if (c != ')') {
+                    mPos--;
+                    throw error("Right paren expected");
+                }
+            }
+
+            return chainedFilter;
         }
     }
-
-    private PropertyFilter<S> parsePropertyFilter() {
-        ChainedProperty<S> chained = parseChainedProperty();
+    
+    private PropertyFilter<S> parsePropertyFilter(ChainedProperty<S> chained) {
         int c = nextCharIgnoreWhitespace();
 
         RelOp op;
@@ -204,6 +243,15 @@ class FilterParser<S extends Storable> {
     }
 
     @SuppressWarnings("unchecked")
+    private Filter<?> parseChainedFilter(ChainedProperty<S> chained) {
+        FilterParser<?> chainedParser = new FilterParser
+            (chained.getLastProperty().getJoinedType(), mFilter, mPos);
+        Filter<?> chainedFilter = chainedParser.parseFilter();
+        mPos = chainedParser.mPos;
+        return chainedFilter;
+    }
+
+    @SuppressWarnings("unchecked")
     ChainedProperty<S> parseChainedProperty() {
         String ident = parseIdentifier();
         StorableProperty<S> prime =
@@ -246,7 +294,8 @@ class FilterParser<S extends Storable> {
             }
         }
 
-        return ChainedProperty.get(prime, (StorableProperty<?>[]) chain.toArray(new StorableProperty[chain.size()]));
+        return ChainedProperty
+            .get(prime, (StorableProperty<?>[]) chain.toArray(new StorableProperty[chain.size()]));
     }
 
     private String parseIdentifier() {

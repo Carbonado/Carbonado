@@ -42,7 +42,6 @@ import com.amazon.carbonado.cursor.MultiTransformedCursor;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
-import com.amazon.carbonado.filter.OpenFilter;
 import com.amazon.carbonado.filter.RelOp;
 
 import com.amazon.carbonado.info.ChainedProperty;
@@ -501,7 +500,7 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
             throw new IllegalArgumentException("Outer loop executor filter must be bound");
         }
 
-        if (targetFilter instanceof OpenFilter) {
+        if (targetFilter.isOpen()) {
             targetFilter = null;
         }
 

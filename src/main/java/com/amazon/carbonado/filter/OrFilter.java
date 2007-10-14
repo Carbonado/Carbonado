@@ -62,16 +62,14 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
         return mLeft.unbind().or(mRight.unbind());
     }
 
-    public <T extends Storable> Filter<T> asJoinedFrom(ChainedProperty<T> joinProperty) {
-        return mLeft.asJoinedFrom(joinProperty).or(mRight.asJoinedFrom(joinProperty));
+    <T extends Storable> Filter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
+        return mLeft.asJoinedFromAny(joinProperty).or(mRight.asJoinedFromAny(joinProperty));
     }
 
     @Override
-    NotJoined notJoinedFrom(ChainedProperty<S> joinProperty,
-                            Class<? extends Storable> joinPropertyType)
-    {
-        NotJoined left = mLeft.notJoinedFrom(joinProperty, joinPropertyType);
-        NotJoined right = mRight.notJoinedFrom(joinProperty, joinPropertyType);
+    NotJoined notJoinedFromCNF(ChainedProperty<S> joinProperty) {
+        NotJoined left = mLeft.notJoinedFromCNF(joinProperty);
+        NotJoined right = mRight.notJoinedFromCNF(joinProperty);
 
         // Assert that our child nodes are only OrFilter or PropertyFilter.
         if (!isConjunctiveNormalForm()) {
@@ -85,10 +83,8 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
         // and remainder filters would need to logically or'd together to
         // reform the original filter, breaking the notJoinedFrom contract.
 
-        if (!(left.getRemainderFilter() instanceof OpenFilter) ||
-            !(right.getRemainderFilter() instanceof OpenFilter))
-        {
-            return super.notJoinedFrom(joinProperty, joinPropertyType);
+        if (!(left.getRemainderFilter().isOpen()) || !(right.getRemainderFilter().isOpen())) {
+            return super.notJoinedFromCNF(joinProperty);
         }
 
         // Remove wildcards to shut the compiler up.

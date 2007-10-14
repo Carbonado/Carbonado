@@ -32,10 +32,8 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Query;
 
-import com.amazon.carbonado.filter.ClosedFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
-import com.amazon.carbonado.filter.OpenFilter;
 import com.amazon.carbonado.filter.RelOp;
 
 import com.amazon.carbonado.info.Direction;
@@ -51,6 +49,8 @@ import com.amazon.carbonado.util.Appender;
 public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     implements Appender
 {
+    // Filter for this query, which may be null.
+    private final Filter<S> mFilter;
     // Values for this query, which may be null.
     private final FilterValues<S> mValues;
     // Properties that this query is ordered by.
@@ -59,15 +59,29 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     private volatile QueryExecutor<S> mExecutor;
 
     /**
-     * @param values optional values object, defaults to open filter if null
+     * @param filter optional filter object, defaults to open filter if null
+     * @param values optional values object, defaults to filter initial values
      * @param ordering optional order-by properties
      * @param executor optional executor to use (by default lazily obtains and caches executor)
      */
-    protected StandardQuery(FilterValues<S> values,
+    protected StandardQuery(Filter<S> filter,
+                            FilterValues<S> values,
                             OrderingList<S> ordering,
                             QueryExecutor<S> executor)
     {
+        if (filter != null && filter.isOpen()) {
+            filter = null;
+        }
+
+        if (values == null) {
+            if (filter != null) {
+                values = filter.initialFilterValues();
+            }
+        }
+
+        mFilter = filter;
         mValues = values;
+
         if (ordering == null) {
             ordering = OrderingList.emptyList();
         }
@@ -80,11 +94,11 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     public Filter<S> getFilter() {
-        FilterValues<S> values = mValues;
-        if (values != null) {
-            return values.getFilter();
+        Filter<S> filter = mFilter;
+        if (filter == null) {
+            return Filter.getOpenFilter(getStorableType());
         }
-        return Filter.getOpenFilter(getStorableType());
+        return filter;
     }
 
     public FilterValues<S> getFilterValues() {
@@ -139,46 +153,57 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     public Query<S> and(Filter<S> filter) throws FetchException {
+        Filter<S> newFilter;
         FilterValues<S> newValues;
-        if (mValues == null) {
+        if (mFilter == null) {
+            newFilter = filter;
             newValues = filter.initialFilterValues();
         } else {
             if (getBlankParameterCount() > 0) {
                 throw new IllegalStateException("Blank parameters exist in query: " + this);
             }
-            newValues = mValues.getFilter().and(filter)
-                .initialFilterValues().withValues(mValues.getSuppliedValues());
+            newFilter = mFilter.and(filter);
+            newValues = newFilter.initialFilterValues();
+            if (mValues != null) {
+                newValues = newValues.withValues(mValues.getSuppliedValues());
+            }
         }
-        return createQuery(newValues, mOrdering);
+        return createQuery(newFilter, newValues, mOrdering);
     }
 
     public Query<S> or(Filter<S> filter) throws FetchException {
-        if (mValues == null) {
+        if (mFilter == null) {
             throw new IllegalStateException("Query is already guaranteed to fetch everything");
         }
         if (getBlankParameterCount() > 0) {
             throw new IllegalStateException("Blank parameters exist in query: " + this);
         }
-        FilterValues<S> newValues = mValues.getFilter().or(filter)
-            .initialFilterValues().withValues(mValues.getSuppliedValues());
-        return createQuery(newValues, mOrdering);
+        Filter<S> newFilter = mFilter.or(filter);
+        FilterValues<S> newValues = newFilter.initialFilterValues();
+        if (mValues != null) {
+            newValues = newValues.withValues(mValues.getSuppliedValues());
+        }
+        return createQuery(newFilter, newValues, mOrdering);
     }
 
     public Query<S> not() throws FetchException {
-        if (mValues == null) {
+        if (mFilter == null) {
             return new EmptyQuery<S>(queryFactory(), mOrdering);
         }
-        FilterValues<S> newValues = mValues.getFilter().not()
-            .initialFilterValues().withValues(mValues.getSuppliedValues());
-        return createQuery(newValues, mOrdering);
+        Filter<S> newFilter = mFilter.not();
+        FilterValues<S> newValues = newFilter.initialFilterValues();
+        if (mValues != null) {
+            newValues = newValues.withValues(mValues.getSuppliedValues());
+        }
+        return createQuery(newFilter, newValues, mOrdering);
     }
 
     public Query<S> orderBy(String property) throws FetchException {
-        return createQuery(mValues, OrderingList.get(getStorableType(), property));
+        return createQuery(mFilter, mValues, OrderingList.get(getStorableType(), property));
     }
 
     public Query<S> orderBy(String... properties) throws FetchException {
-        return createQuery(mValues, OrderingList.get(getStorableType(), properties));
+        return createQuery(mFilter, mValues, OrderingList.get(getStorableType(), properties));
     }
 
     public Cursor<S> fetch() throws FetchException {
@@ -323,6 +348,9 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     public int hashCode() {
         int hash = queryFactory().hashCode();
         hash = hash * 31 + executorFactory().hashCode();
+        if (mFilter != null) {
+            hash = hash * 31 + mFilter.hashCode();
+        }
         if (mValues != null) {
             hash = hash * 31 + mValues.hashCode();
         }
@@ -339,6 +367,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             StandardQuery<?> other = (StandardQuery<?>) obj;
             return queryFactory().equals(other.queryFactory())
                 && executorFactory().equals(other.executorFactory())
+                && (mFilter == null ? (other.mFilter == null) : (mFilter.equals(other.mFilter)))
                 && (mValues == null ? (other.mValues == null) : (mValues.equals(other.mValues)))
                 && mOrdering.equals(other.mOrdering);
         }
@@ -350,7 +379,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         app.append(getStorableType().getName());
         app.append(", filter=");
         Filter<S> filter = getFilter();
-        if (filter instanceof OpenFilter || filter instanceof ClosedFilter) {
+        if (filter.isOpen() || filter.isClosed()) {
             filter.appendTo(app);
         } else {
             app.append('"');
@@ -386,8 +415,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     protected QueryExecutor<S> executor() throws RepositoryException {
         QueryExecutor<S> executor = mExecutor;
         if (executor == null) {
-            Filter<S> filter = mValues == null ? null : mValues.getFilter();
-            mExecutor = executor = executorFactory().executor(filter, mOrdering);
+            mExecutor = executor = executorFactory().executor(mFilter, mOrdering);
         }
         return executor;
     }
@@ -406,8 +434,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      */
     protected void resetExecutor() throws RepositoryException {
         if (mExecutor != null) {
-            Filter<S> filter = mValues == null ? null : mValues.getFilter();
-            mExecutor = executorFactory().executor(filter, mOrdering);
+            mExecutor = executorFactory().executor(mFilter, mOrdering);
         }
     }
 
@@ -443,7 +470,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      * new filter values. The Filter in the FilterValues is the same as was
      * passed in the constructor.
      *
-     * @param values optional values object, defaults to open filter if null
+     * @param values non-null values object
      * @param ordering order-by properties, never null
      */
     protected abstract StandardQuery<S> newInstance(FilterValues<S> values,
@@ -454,9 +481,11 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return newInstance(values, mOrdering, mExecutor);
     }
 
-    private Query<S> createQuery(FilterValues<S> values, OrderingList<S> ordering)
+    private Query<S> createQuery(Filter<S> filter,
+                                 FilterValues<S> values,
+                                 OrderingList<S> ordering)
         throws FetchException
     {
-        return queryFactory().query(values, ordering);
+        return queryFactory().query(filter, values, ordering);
     }
 }

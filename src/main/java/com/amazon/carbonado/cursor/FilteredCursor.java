@@ -25,10 +25,8 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchInterruptedException;
 import com.amazon.carbonado.Storable;
 
-import com.amazon.carbonado.filter.ClosedFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
-import com.amazon.carbonado.filter.OpenFilter;
 
 /**
  * Wraps another cursor and applies custom filtering to reduce the set of
@@ -66,7 +64,7 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
      * IllegalStateException will result otherwise.
      *
      * @param filter filter to apply
-     * @param filterValues values for filter
+     * @param filterValues values for filter, which may be null if filter has no parameters
      * @param cursor cursor to wrap
      * @return wrapped cursor which filters results
      * @throws IllegalStateException if any values are not specified
@@ -76,18 +74,18 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
                                                              FilterValues<S> filterValues,
                                                              Cursor<S> cursor)
     {
-        if (filter instanceof OpenFilter) {
+        if (filter.isOpen()) {
             return cursor;
         }
-        if (filter instanceof ClosedFilter) {
+        if (filter.isClosed()) {
             throw new IllegalArgumentException();
         }
 
         // Make sure the filter is the same one that filterValues should be using.
         filter = filter.bind();
 
-        return FilteredCursorGenerator.getFactory(filter)
-            .newFilteredCursor(cursor, filterValues.getValuesFor(filter));
+        Object[] values = filterValues == null ? null : filterValues.getValuesFor(filter);
+        return FilteredCursorGenerator.getFactory(filter).newFilteredCursor(cursor, values);
     }
 
     private final Cursor<S> mCursor;

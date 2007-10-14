@@ -75,4 +75,18 @@ class Distributer<S extends Storable> extends Visitor<S, Filter<S>, Filter<S>> {
             return mDoAnd ? distribute.and(filter) : distribute.or(filter);
         }
     }
+
+    /**
+     * @param filter candidate node to potentially replace
+     * @param distribute node to distribute into candidate node
+     * @return original candidate or replacement
+     */
+    @Override
+    public Filter<S> visit(ExistsFilter<S> filter, Filter<S> distribute) {
+        if (mDoRight) {
+            return mDoAnd ? filter.and(distribute) : filter.or(distribute);
+        } else {
+            return mDoAnd ? distribute.and(filter) : distribute.or(filter);
+        }
+    }
 }

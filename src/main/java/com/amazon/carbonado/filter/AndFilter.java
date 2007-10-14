@@ -62,16 +62,14 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
         return mLeft.unbind().and(mRight.unbind());
     }
 
-    public <T extends Storable> Filter<T> asJoinedFrom(ChainedProperty<T> joinProperty) {
-        return mLeft.asJoinedFrom(joinProperty).and(mRight.asJoinedFrom(joinProperty));
+    <T extends Storable> Filter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
+        return mLeft.asJoinedFromAny(joinProperty).and(mRight.asJoinedFromAny(joinProperty));
     }
 
     @Override
-    NotJoined notJoinedFrom(ChainedProperty<S> joinProperty,
-                            Class<? extends Storable> joinPropertyType)
-    {
-        NotJoined left = mLeft.notJoinedFrom(joinProperty, joinPropertyType);
-        NotJoined right = mRight.notJoinedFrom(joinProperty, joinPropertyType);
+    NotJoined notJoinedFromCNF(ChainedProperty<S> joinProperty) {
+        NotJoined left = mLeft.notJoinedFromCNF(joinProperty);
+        NotJoined right = mRight.notJoinedFromCNF(joinProperty);
 
         // Remove wildcards to shut the compiler up.
         Filter leftNotJoined = left.getNotJoinedFilter();

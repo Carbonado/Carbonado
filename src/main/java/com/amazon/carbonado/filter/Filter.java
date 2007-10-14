@@ -51,10 +51,12 @@ import com.amazon.carbonado.util.Appender;
  * AndFilter       = NotFilter { "&" NotFilter }
  * NotFilter       = [ "!" ] EntityFilter
  * EntityFilter    = PropertyFilter
+ *                 = ChainedFilter
  *                 | "(" Filter ")"
  * PropertyFilter  = ChainedProperty RelOp "?"
  * RelOp           = "=" | "!=" | "&lt;" | "&gt;=" | "&gt;" | "&lt;="
  * ChainedProperty = Identifier { "." Identifier }
+ * ChainedFilter   = ChainedProperty "(" [ Filter ] ")"
  * </pre>
  *
  * @author Brian S O'Neill
@@ -176,17 +178,12 @@ public abstract class Filter<S extends Storable> implements Appender {
      * difference is caused by the filter property values being {@link #bind bound}.
      */
     public FilterValues<S> initialFilterValues() {
-        if (mFilterValues == null) {
-            Filter<S> boundFilter = bind();
-
-            if (boundFilter != this) {
-                return boundFilter.initialFilterValues();
-            }
-
+        FilterValues<S> filterValues = mFilterValues;
+        if (filterValues == null) {
             buildFilterValues();
+            filterValues = mFilterValues;
         }
-
-        return mFilterValues;
+        return filterValues;
     }
 
     /**
@@ -196,27 +193,33 @@ public abstract class Filter<S extends Storable> implements Appender {
      * @return tail of PropertyFilterList, or null if no parameters
      */
     PropertyFilterList<S> getTailPropertyFilterList() {
-        if (mTailPropertyFilterList == null) {
+        PropertyFilterList<S> tail = mTailPropertyFilterList;
+        if (tail == null) {
             buildFilterValues();
+            tail = mTailPropertyFilterList;
         }
-
-        return mTailPropertyFilterList;
+        return tail;
     }
 
     private void buildFilterValues() {
+        Filter<S> boundFilter = bind();
+
+        if (boundFilter != this) {
+            mFilterValues = boundFilter.initialFilterValues();
+            mTailPropertyFilterList = boundFilter.getTailPropertyFilterList();
+            return;
+        }
+
         PropertyFilterList<S> list = accept(new PropertyFilterList.Builder<S>(), null);
 
-        // List should never be null since only OpenFilter and ClosedFilter
-        // have no properties, and they override initialFilterValues and
-        // getTailPropertyFilterList.
-        assert(list != null);
+        if (list != null) {
+            // Since FilterValues instances are immutable, save this for re-use.
+            mFilterValues = FilterValues.create(this, list);
 
-        // Since FilterValues instances are immutable, save this for re-use.
-        mFilterValues = FilterValues.create(this, list);
-
-        // PropertyFilterList can be saved for re-use because it too is
-        // immutable (after PropertyFilterListBuilder has run).
-        mTailPropertyFilterList = list.get(-1);
+            // PropertyFilterList can be saved for re-use because it too is
+            // immutable (after PropertyFilterListBuilder has run).
+            mTailPropertyFilterList = list.get(-1);
+        }
     }
 
     /**
@@ -239,10 +242,10 @@ public abstract class Filter<S extends Storable> implements Appender {
      * @throws IllegalArgumentException if filter is null
      */
     public Filter<S> and(Filter<S> filter) {
-        if (filter instanceof OpenFilter) {
+        if (filter.isOpen()) {
             return this;
         }
-        if (filter instanceof ClosedFilter) {
+        if (filter.isClosed()) {
             return filter;
         }
         return AndFilter.getCanonical(this, filter);
@@ -278,6 +281,38 @@ public abstract class Filter<S extends Storable> implements Appender {
     }
 
     /**
+     * Returns a combined filter instance that accepts records which are only
+     * accepted by this filter and the "exists" test applied to a one-to-many join.
+     *
+     * @param propertyName one-to-many join property name, which may be a chained property
+     * @param subFilter sub-filter to apply to one-to-many join, which may be
+     * null to test for any existing
+     * @return canonical Filter instance
+     * @throws IllegalArgumentException if property is not found
+     * @since 1.2
+     */
+    public final Filter<S> andExists(String propertyName, Filter<?> subFilter) {
+        ChainedProperty<S> prop = new FilterParser<S>(mType, propertyName).parseChainedProperty();
+        return and(ExistsFilter.getCanonical(prop, subFilter, false));
+    }
+
+    /**
+     * Returns a combined filter instance that accepts records which are only
+     * accepted by this filter and the "not exists" test applied to a one-to-many join.
+     *
+     * @param propertyName one-to-many join property name, which may be a chained property
+     * @param subFilter sub-filter to apply to one-to-many join, which may be
+     * null to test for any not existing
+     * @return canonical Filter instance
+     * @throws IllegalArgumentException if property is not found
+     * @since 1.2
+     */
+    public final Filter<S> andNotExists(String propertyName, Filter<?> subFilter) {
+        ChainedProperty<S> prop = new FilterParser<S>(mType, propertyName).parseChainedProperty();
+        return and(ExistsFilter.getCanonical(prop, subFilter, true));
+    }
+
+    /**
      * Returns a combined filter instance that accepts records which are
      * accepted either by this filter or the one given.
      *
@@ -297,10 +332,10 @@ public abstract class Filter<S extends Storable> implements Appender {
      * @throws IllegalArgumentException if filter is null
      */
     public Filter<S> or(Filter<S> filter) {
-        if (filter instanceof OpenFilter) {
+        if (filter.isOpen()) {
             return filter;
         }
-        if (filter instanceof ClosedFilter) {
+        if (filter.isClosed()) {
             return this;
         }
         return OrFilter.getCanonical(this, filter);
@@ -333,6 +368,40 @@ public abstract class Filter<S extends Storable> implements Appender {
     public final Filter<S> or(String propertyName, RelOp operator, Object constantValue) {
         ChainedProperty<S> prop = new FilterParser<S>(mType, propertyName).parseChainedProperty();
         return or(PropertyFilter.getCanonical(prop, operator, 0).constant(constantValue));
+    }
+
+    /**
+     * Returns a combined filter instance that accepts records which are
+     * accepted either by this filter or the "exists" test applied to a
+     * one-to-many join.
+     *
+     * @param propertyName one-to-many join property name, which may be a chained property
+     * @param subFilter sub-filter to apply to one-to-many join, which may be
+     * null to test for any existing
+     * @return canonical Filter instance
+     * @throws IllegalArgumentException if property is not found
+     * @since 1.2
+     */
+    public final Filter<S> orExists(String propertyName, Filter<?> subFilter) {
+        ChainedProperty<S> prop = new FilterParser<S>(mType, propertyName).parseChainedProperty();
+        return or(ExistsFilter.getCanonical(prop, subFilter, false));
+    }
+
+    /**
+     * Returns a combined filter instance that accepts records which are
+     * accepted either by this filter or the "not exists" test applied to a
+     * one-to-many join.
+     *
+     * @param propertyName one-to-many join property name, which may be a chained property
+     * @param subFilter sub-filter to apply to one-to-many join, which may be
+     * null to test for any not existing
+     * @return canonical Filter instance
+     * @throws IllegalArgumentException if property is not found
+     * @since 1.2
+     */
+    public final Filter<S> orNotExists(String propertyName, Filter<?> subFilter) {
+        ChainedProperty<S> prop = new FilterParser<S>(mType, propertyName).parseChainedProperty();
+        return or(ExistsFilter.getCanonical(prop, subFilter, true));
     }
 
     /**
@@ -382,6 +451,11 @@ public abstract class Filter<S extends Storable> implements Appender {
             }
 
             public Object visit(PropertyFilter<S> filter, Object param) {
+                list.add(filter);
+                return null;
+            }
+
+            public Object visit(ExistsFilter<S> filter, Object param) {
                 list.add(filter);
                 return null;
             }
@@ -438,6 +512,11 @@ public abstract class Filter<S extends Storable> implements Appender {
             }
 
             public Object visit(PropertyFilter<S> filter, Object param) {
+                list.add(filter);
+                return null;
+            }
+
+            public Object visit(ExistsFilter<S> filter, Object param) {
                 list.add(filter);
                 return null;
             }
@@ -534,7 +613,19 @@ public abstract class Filter<S extends Storable> implements Appender {
      * @return filter for type T
      * @throws IllegalArgumentException if property is not a join to type S
      */
-    public abstract <T extends Storable> Filter<T> asJoinedFrom(ChainedProperty<T> joinProperty);
+    public final <T extends Storable> Filter<T> asJoinedFrom(ChainedProperty<T> joinProperty) {
+        if (joinProperty.getType() != getStorableType()) {
+            throw new IllegalArgumentException
+                ("Property is not of type \"" + getStorableType().getName() + "\": " +
+                 joinProperty);
+        }
+        return asJoinedFromAny(joinProperty);
+    }
+
+    /**
+     * Allows join from any property type, including one-to-many joins.
+     */
+    abstract <T extends Storable> Filter<T> asJoinedFromAny(ChainedProperty<T> joinProperty);
 
     /**
      * Removes a join property prefix from all applicable properties of this
@@ -577,16 +668,17 @@ public abstract class Filter<S extends Storable> implements Appender {
      * @throws IllegalArgumentException if property does not refer to a Storable
      */
     public final NotJoined notJoinedFrom(ChainedProperty<S> joinProperty) {
-        Class<?> type = joinProperty.getType();
-        if (!Storable.class.isAssignableFrom(type)) {
+        if (!Storable.class.isAssignableFrom(joinProperty.getType())) {
             throw new IllegalArgumentException
                 ("Join property type is not a Storable: " + joinProperty);
         }
+        return notJoinedFromAny(joinProperty);
+    }
 
-        Filter<S> cnf = conjunctiveNormalForm();
-        NotJoined nj = cnf.notJoinedFrom(joinProperty, (Class<Storable>) type);
+    final NotJoined notJoinedFromAny(ChainedProperty<S> joinProperty) {
+        NotJoined nj = conjunctiveNormalForm().notJoinedFromCNF(joinProperty);
 
-        if (nj.getNotJoinedFilter() instanceof OpenFilter) {
+        if (nj.getNotJoinedFilter().isOpen()) {
             // Remainder filter should be same as original, but it might have
             // expanded with conjunctive normal form. If so, restore to
             // original, but still bind it to ensure consistent side-effects.
@@ -615,10 +707,26 @@ public abstract class Filter<S extends Storable> implements Appender {
     /**
      * Should only be called on a filter in conjunctive normal form.
      */
-    NotJoined notJoinedFrom(ChainedProperty<S> joinProperty,
-                            Class<? extends Storable> joinPropertyType)
-    {
-        return new NotJoined(getOpenFilter(joinPropertyType), this);
+    NotJoined notJoinedFromCNF(ChainedProperty<S> joinProperty) {
+        return new NotJoined(getOpenFilter(joinProperty.getLastProperty().getJoinedType()), this);
+    }
+
+    /**
+     * Returns true if filter allows all results to pass through.
+     *
+     * @since 1.2
+     */
+    public boolean isOpen() {
+        return false;
+    }
+
+    /**
+     * Returns true if filter prevents any results from passing through.
+     *
+     * @since 1.2
+     */
+    public boolean isClosed() {
+        return false;
     }
 
     abstract Filter<S> buildDisjunctiveNormalForm();

@@ -45,6 +45,7 @@ import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.capability.IndexInfo;
 import com.amazon.carbonado.filter.AndFilter;
+import com.amazon.carbonado.filter.ExistsFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 import com.amazon.carbonado.filter.OrFilter;
@@ -287,8 +288,11 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         return mInfo;
     }
 
-    protected StandardQuery<S> createQuery(FilterValues<S> values, OrderingList<S> ordering) {
-        return new JDBCQuery(values, ordering, null);
+    protected StandardQuery<S> createQuery(Filter<S> filter,
+                                           FilterValues<S> values,
+                                           OrderingList<S> ordering)
+    {
+        return new JDBCQuery(filter, values, ordering, null);
     }
 
     public S instantiate(ResultSet rs) throws SQLException {
@@ -313,24 +317,23 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
             JoinNode jn;
             try {
-                JoinNodeBuilder jnb = new JoinNodeBuilder(aliasGenerator);
-                if (filter == null) {
-                    jn = new JoinNode(getStorableInfo(), null);
-                } else {
+                JoinNodeBuilder<S> jnb =
+                    new JoinNodeBuilder<S>(mRepository, getStorableInfo(), aliasGenerator);
+                if (filter != null) {
                     filter.accept(jnb, null);
-                    jn = jnb.getRootJoinNode();
                 }
+                jn = jnb.getRootJoinNode();
                 jnb.captureOrderings(ordering);
             } catch (UndeclaredThrowableException e) {
                 throw mRepository.toFetchException(e);
             }
 
-            StatementBuilder selectBuilder = new StatementBuilder();
+            StatementBuilder<S> selectBuilder = new StatementBuilder<S>(mRepository);
             selectBuilder.append("SELECT ");
 
             // Don't bother using a table alias for one table. With just one table,
             // there's no need to disambiguate.
-            String alias = jn.hasAnyJoins() ? jn.getAlias() : null;
+            String alias = jn.isAliasRequired() ? jn.getAlias() : null;
 
             Map<String, JDBCStorableProperty<S>> properties = getStorableInfo().getAllProperties();
             int ordinal = 0;
@@ -351,7 +354,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
             selectBuilder.append(" FROM");
 
-            StatementBuilder fromWhereBuilder = new StatementBuilder();
+            StatementBuilder<S> fromWhereBuilder = new StatementBuilder<S>(mRepository);
             fromWhereBuilder.append(" FROM");
 
             if (alias == null) {
@@ -366,7 +369,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             PropertyFilter<S>[] propertyFilters;
             boolean[] propertyFilterNullable;
 
-            if (filter == null) {
+            if (filter == null || filter.isOpen()) {
                 propertyFilters = null;
                 propertyFilterNullable = null;
             } else {
@@ -374,7 +377,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 selectBuilder.append(" WHERE ");
                 fromWhereBuilder.append(" WHERE ");
 
-                WhereBuilder wb = new WhereBuilder(selectBuilder, alias == null ? null : jn);
+                WhereBuilder<S> wb = new WhereBuilder<S>
+                    (selectBuilder, alias == null ? null : jn, aliasGenerator);
                 FetchException e = filter.accept(wb, null);
                 if (e != null) {
                     throw e;
@@ -383,7 +387,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 propertyFilters = wb.getPropertyFilters();
                 propertyFilterNullable = wb.getPropertyFilterNullable();
 
-                wb = new WhereBuilder(fromWhereBuilder, alias == null ? null : jn);
+                wb = new WhereBuilder<S>
+                    (fromWhereBuilder, alias == null ? null : jn, aliasGenerator);
                 e = filter.accept(wb, null);
                 if (e != null) {
                     throw e;
@@ -686,8 +691,12 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     }
 
     private class JDBCQuery extends StandardQuery<S> {
-        JDBCQuery(FilterValues<S> values, OrderingList<S> ordering, QueryExecutor<S> executor) {
-            super(values, ordering, executor);
+        JDBCQuery(Filter<S> filter,
+                  FilterValues<S> values,
+                  OrderingList<S> ordering,
+                  QueryExecutor<S> executor)
+        {
+            super(filter, values, ordering, executor);
         }
 
         @Override
@@ -721,14 +730,14 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                                                OrderingList<S> ordering,
                                                QueryExecutor<S> executor)
         {
-            return new JDBCQuery(values, ordering, executor);
+            return new JDBCQuery(values.getFilter(), values, ordering, executor);
         }
     }
 
     /**
      * Node in a tree structure describing how tables are joined together.
      */
-    private class JoinNode {
+    private static class JoinNode {
         // Joined property which led to this node. For root node, it is null.
         private final JDBCStorableProperty<?> mProperty;
 
@@ -736,6 +745,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         private final String mAlias;
 
         private final Map<String, JoinNode> mSubNodes;
+
+        private boolean mAliasRequired;
 
         /**
          * @param alias table alias in SQL statement, i.e. "T1"
@@ -782,8 +793,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return null;
         }
 
-        public boolean hasAnyJoins() {
-            return mSubNodes.size() > 0;
+        public boolean isAliasRequired() {
+            return mAliasRequired || mSubNodes.size() > 0;
         }
 
         /**
@@ -843,13 +854,16 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             }
         }
 
-        public void addJoin(ChainedProperty<?> chained, TableAliasGenerator aliasGenerator)
+        public void addJoin(JDBCRepository repository,
+                            ChainedProperty<?> chained,
+                            TableAliasGenerator aliasGenerator)
             throws RepositoryException
         {
-            addJoin(chained, aliasGenerator, 0);
+            addJoin(repository, chained, aliasGenerator, 0);
         }
 
-        private void addJoin(ChainedProperty<?> chained,
+        private void addJoin(JDBCRepository repository,
+                             ChainedProperty<?> chained,
                              TableAliasGenerator aliasGenerator,
                              int offset)
             throws RepositoryException
@@ -867,12 +881,16 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             String name = property.getName();
             JoinNode subNode = mSubNodes.get(name);
             if (subNode == null) {
-                JDBCStorableInfo<?> info = mRepository.examineStorable(property.getJoinedType());
-                JDBCStorableProperty<?> jProperty = mRepository.getJDBCStorableProperty(property);
+                JDBCStorableInfo<?> info = repository.examineStorable(property.getJoinedType());
+                JDBCStorableProperty<?> jProperty = repository.getJDBCStorableProperty(property);
                 subNode = new JoinNode(jProperty, info, aliasGenerator.nextAlias());
                 mSubNodes.put(name, subNode);
             }
-            subNode.addJoin(chained, aliasGenerator, offset + 1);
+            subNode.addJoin(repository, chained, aliasGenerator, offset + 1);
+        }
+
+        public void aliasIsRequired() {
+            mAliasRequired = true;
         }
 
         public String toString() {
@@ -893,13 +911,18 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     /**
      * Filter visitor that constructs a JoinNode tree.
      */
-    private class JoinNodeBuilder extends Visitor<S, Object, Object> {
+    private static class JoinNodeBuilder<S extends Storable> extends Visitor<S, Object, Object> {
+        private final JDBCRepository mRepository;
         private final TableAliasGenerator mAliasGenerator;
         private final JoinNode mRootJoinNode;
 
-        JoinNodeBuilder(TableAliasGenerator aliasGenerator) {
+        JoinNodeBuilder(JDBCRepository repository,
+                        JDBCStorableInfo<S> info,
+                        TableAliasGenerator aliasGenerator)
+        {
+            mRepository = repository;
             mAliasGenerator = aliasGenerator;
-            mRootJoinNode = new JoinNode(getStorableInfo(), aliasGenerator.nextAlias());
+            mRootJoinNode = new JoinNode(info, aliasGenerator.nextAlias());
         }
 
         public JoinNode getRootJoinNode() {
@@ -917,7 +940,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 if (ordering != null) {
                     for (OrderedProperty<?> orderedProperty : ordering) {
                         ChainedProperty<?> chained = orderedProperty.getChainedProperty();
-                        mRootJoinNode.addJoin(chained, mAliasGenerator);
+                        mRootJoinNode.addJoin(mRepository, chained, mAliasGenerator);
                     }
                 }
             } catch (RepositoryException e) {
@@ -940,15 +963,37 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         private void visit(PropertyFilter<S> filter) throws RepositoryException {
             ChainedProperty<S> chained = filter.getChainedProperty();
-            mRootJoinNode.addJoin(chained, mAliasGenerator);
+            mRootJoinNode.addJoin(mRepository, chained, mAliasGenerator);
+        }
+
+        /**
+         * @throws UndeclaredThrowableException wraps a RepositoryException
+         * since RepositoryException cannot be thrown directly
+         */
+        public Object visit(ExistsFilter<S> filter, Object param) {
+            try {
+                visit(filter);
+                return null;
+            } catch (RepositoryException e) {
+                throw new UndeclaredThrowableException(e);
+            }
+        }
+
+        private void visit(ExistsFilter<S> filter) throws RepositoryException {
+            mRootJoinNode.aliasIsRequired();
+            ChainedProperty<S> chained = filter.getChainedProperty();
+            mRootJoinNode.addJoin(mRepository, chained, mAliasGenerator);
         }
     }
 
-    private class StatementBuilder {
+    private static class StatementBuilder<S extends Storable> {
+        private final JDBCRepository mRepository;
+
         private List<SQLStatement<S>> mStatements;
         private StringBuilder mLiteralBuilder;
 
-        StatementBuilder() {
+        StatementBuilder(JDBCRepository repository) {
+            mRepository = repository;
             mStatements = new ArrayList<SQLStatement<S>>();
             mLiteralBuilder = new StringBuilder();
         }
@@ -1013,18 +1058,31 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             }
             mLiteralBuilder.append(jProperty.getColumnName());
         }
+
+        JDBCRepository getRepository() {
+            return mRepository;
+        }
     }
 
-    private class WhereBuilder extends Visitor<S, FetchException, Object> {
+    private static class WhereBuilder<S extends Storable>
+        extends Visitor<S, FetchException, Object>
+    {
         private final StatementBuilder mStatementBuilder;
         private final JoinNode mJoinNode;
+        private final TableAliasGenerator mAliasGenerator;
 
         private List<PropertyFilter<S>> mPropertyFilters;
         private List<Boolean> mPropertyFilterNullable;
 
-        WhereBuilder(StatementBuilder statementBuilder, JoinNode jn) {
+        /**
+         * @param aliasGenerator used for supporting "EXISTS" filter
+         */
+        WhereBuilder(StatementBuilder statementBuilder, JoinNode jn,
+                     TableAliasGenerator aliasGenerator)
+        {
             mStatementBuilder = statementBuilder;
             mJoinNode = jn;
+            mAliasGenerator = aliasGenerator;
             mPropertyFilters = new ArrayList<PropertyFilter<S>>();
             mPropertyFilterNullable = new ArrayList<Boolean>();
         }
@@ -1110,6 +1168,74 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     addBindParameter(filter);
                 }
             }
+
+            return null;
+        }
+
+        public FetchException visit(ExistsFilter<S> filter, Object param) {
+            if (filter.isNotExists()) {
+                mStatementBuilder.append("NOT ");
+            }
+            mStatementBuilder.append("EXISTS (SELECT * FROM");
+
+            ChainedProperty<S> chained = filter.getChainedProperty();
+
+            JDBCStorableInfo<?> oneToManyInfo;
+            JDBCStorableProperty<?> oneToMany;
+
+            final JDBCRepository repo = mStatementBuilder.getRepository();
+            try {
+                StorableProperty<?> lastProp = chained.getLastProperty();
+                oneToManyInfo = repo.examineStorable(lastProp.getJoinedType());
+                oneToMany = repo.getJDBCStorableProperty(lastProp);
+            } catch (RepositoryException e) {
+                return repo.toFetchException(e);
+            }
+
+            Filter<?> subFilter = filter.getSubFilter();
+
+            JoinNode oneToManyNode;
+            try {
+                JoinNodeBuilder jnb =
+                    new JoinNodeBuilder(repo, oneToManyInfo, mAliasGenerator);
+                if (subFilter != null) {
+                    subFilter.accept(jnb, null);
+                }
+                oneToManyNode = jnb.getRootJoinNode();
+            } catch (UndeclaredThrowableException e) {
+                return repo.toFetchException(e);
+            }
+
+            oneToManyNode.appendFullJoinTo(mStatementBuilder);
+
+            mStatementBuilder.append(" WHERE ");
+
+            int count = oneToMany.getJoinElementCount();
+            for (int i=0; i<count; i++) {
+                if (i > 0) {
+                    mStatementBuilder.append(" AND ");
+                }
+                mStatementBuilder.append(oneToManyNode.getAlias());
+                mStatementBuilder.append('.');
+                mStatementBuilder.append(oneToMany.getInternalJoinElement(i).getColumnName());
+                mStatementBuilder.append('=');
+                mStatementBuilder.append(mJoinNode.findAliasFor(chained));
+                mStatementBuilder.append('.');
+                mStatementBuilder.append(oneToMany.getExternalJoinElement(i).getColumnName());
+            }
+
+            if (subFilter != null && !subFilter.isOpen()) {
+                mStatementBuilder.append(" AND (");
+                WhereBuilder wb = new WhereBuilder
+                    (mStatementBuilder, oneToManyNode, mAliasGenerator);
+                FetchException e = (FetchException) subFilter.accept(wb, null);
+                if (e != null) {
+                    return e;
+                }
+                mStatementBuilder.append(')');
+            }
+
+            mStatementBuilder.append(')');
 
             return null;
         }

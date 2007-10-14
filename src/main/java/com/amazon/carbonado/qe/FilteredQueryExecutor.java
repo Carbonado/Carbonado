@@ -26,10 +26,8 @@ import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.cursor.FilteredCursor;
 
-import com.amazon.carbonado.filter.ClosedFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
-import com.amazon.carbonado.filter.OpenFilter;
 
 /**
  * QueryExecutor which wraps another and filters results.
@@ -50,12 +48,16 @@ public class FilteredQueryExecutor<S extends Storable> extends AbstractQueryExec
         if (executor == null) {
             throw new IllegalArgumentException();
         }
-        if (filter == null || filter instanceof OpenFilter || filter instanceof ClosedFilter) {
+        if (filter == null || filter.isOpen() || filter.isClosed()) {
             throw new IllegalArgumentException();
         }
         mExecutor = executor;
         // Ensure filter is same as what will be provided by values.
-        mFilter = filter.initialFilterValues().getFilter();
+        FilterValues<S> values = filter.initialFilterValues();
+        if (values != null) {
+            filter = values.getFilter();
+        }
+        mFilter = filter;
     }
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {

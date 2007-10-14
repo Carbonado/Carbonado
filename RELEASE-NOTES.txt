@@ -40,6 +40,7 @@ Carbonado change history
   properties, which never threw FetchNoneException. Nullable join properties
   which resolve to null are cached as before, but non-nullable join properties
   do not cache null.
+- Added support for "where exists" in queries via new syntax.
 
 1.1 to 1.1.2
 -------------------------------

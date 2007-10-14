@@ -336,8 +336,9 @@ public class ChainedProperty<S extends Storable> implements Appender {
     }
 
     /**
-     * Returns the chained property in a parseable form. The format is
-     * "name.subname.subsubname".
+     * Returns the chained property formatted as "name.subname.subsubname".
+     * This format is parseable only if the chain is composed of valid
+     * many-to-one joins.
      */
     @Override
     public String toString() {
@@ -354,8 +355,9 @@ public class ChainedProperty<S extends Storable> implements Appender {
     }
 
     /**
-     * Appends the chained property in a parseable form. The format is
-     * "name.subname.subsubname".
+     * Appends the chained property formatted as "name.subname.subsubname".
+     * This format is parseable only if the chain is composed of valid
+     * many-to-one joins.
      */
     public void appendTo(Appendable app) throws IOException {
         app.append(mPrime.getName());

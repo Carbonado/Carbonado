@@ -39,6 +39,10 @@ class Binder<S extends Storable> extends Visitor<S, Filter<S>, Object> {
         mBindMap = new IdentityHashMap<PropertyFilter<S>, PropertyFilter<S>>();
     }
 
+    private Binder(Map<PropertyFilter<S>, PropertyFilter<S>> bindMap) {
+        mBindMap = bindMap;
+    }
+
     @Override
     public Filter<S> visit(OrFilter<S> filter, Object param) {
         Filter<S> left = filter.getLeftFilter();
@@ -77,7 +81,7 @@ class Binder<S extends Storable> extends Visitor<S, Filter<S>, Object> {
 
     @Override
     public Filter<S> visit(PropertyFilter<S> filter, Object param) {
-        if (filter.getBindID() != 0) {
+        if (filter.isBound()) {
             return filter;
         }
         filter = PropertyFilter.getCanonical(filter, 1);
@@ -89,5 +93,22 @@ class Binder<S extends Storable> extends Visitor<S, Filter<S>, Object> {
         }
         mBindMap.put(filter, highest);
         return highest;
+    }
+
+    @Override
+    public Filter<S> visit(ExistsFilter<S> filter, Object param) {
+        if (filter.isBound()) {
+            return filter;
+        }
+        Filter<S> boundJoinedSubFilter =
+            filter.getJoinedSubFilter().accept(new Binder<S>(mBindMap), null);
+        Filter<S>.NotJoined nj =
+            boundJoinedSubFilter.notJoinedFromAny(filter.getChainedProperty());
+        if (nj.getRemainderFilter() != null && !(nj.getRemainderFilter().isOpen())) {
+            // This should not happen.
+            throw new IllegalStateException(nj.toString());
+        }
+        return ExistsFilter.getCanonical
+            (filter.getChainedProperty(), nj.getNotJoinedFilter(), filter.isNotExists());
     }
 }

@@ -100,4 +100,15 @@ class Reducer<S extends Storable> extends Visitor<S, Filter<S>, Group<S>> {
         group.add(filter);
         return null;
     }
+
+    /**
+     * @param filter candidate node to potentially replace
+     * @param group gathered children
+     * @return original candidate or replacement
+     */
+    @Override
+    public Filter<S> visit(ExistsFilter<S> filter, Group<S> group) {
+        group.add(filter);
+        return null;
+    }
 }

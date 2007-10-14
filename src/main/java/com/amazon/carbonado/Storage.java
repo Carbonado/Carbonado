@@ -86,10 +86,12 @@ public interface Storage<S extends Storable> {
      * AndFilter       = NotFilter { "&" NotFilter }
      * NotFilter       = [ "!" ] EntityFilter
      * EntityFilter    = PropertyFilter
+     *                 = ChainedFilter
      *                 | "(" Filter ")"
      * PropertyFilter  = ChainedProperty RelOp "?"
      * RelOp           = "=" | "!=" | "&lt;" | "&gt;=" | "&gt;" | "&lt;="
      * ChainedProperty = Identifier { "." Identifier }
+     * ChainedFilter   = ChainedProperty "(" [ Filter ] ")"
      * </pre>
      *
      * @param filter query filter expression
