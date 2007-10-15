@@ -451,12 +451,18 @@ public abstract class TransactionManager<Txn> {
         }
 
         public void setDesiredLockTimeout(int timeout, TimeUnit unit) {
-            if (timeout < 0) {
-                mDesiredLockTimeout = 0;
-                mTimeoutUnit = null;
-            } else {
-                mDesiredLockTimeout = timeout;
-                mTimeoutUnit = unit;
+            TransactionManager<Txn> txnMgr = mTxnMgr;
+            txnMgr.mLock.lock();
+            try {
+                if (timeout < 0) {
+                    mDesiredLockTimeout = 0;
+                    mTimeoutUnit = null;
+                } else {
+                    mDesiredLockTimeout = timeout;
+                    mTimeoutUnit = unit;
+                }
+            } finally {
+                txnMgr.mLock.unlock();
             }
         }
 
@@ -464,6 +470,7 @@ public abstract class TransactionManager<Txn> {
             return mLevel;
         }
 
+        // Caller must hold mLock.
         <S extends Storable> void register(Cursor<S> cursor) {
             if (mCursorList == null) {
                 mCursorList = new CursorList<Object>();
@@ -471,30 +478,28 @@ public abstract class TransactionManager<Txn> {
             mCursorList.register(cursor, null);
         }
 
+        // Caller must hold mLock.
         <S extends Storable> void unregister(Cursor<S> cursor) {
             if (mCursorList != null) {
                 mCursorList.unregister(cursor);
             }
         }
 
+        // Caller must hold mLock.
         Txn getTxn() throws Exception {
-            TransactionManager<Txn> txnMgr = mTxnMgr;
-            txnMgr.mLock.lock();
-            try {
-                if (mTxn == null) {
-                    Txn parent = (mParent == null || mTop) ? null : mParent.getTxn();
-                    if (mTimeoutUnit == null) {
-                        mTxn = txnMgr.createTxn(parent, mLevel);
-                    } else {
-                        mTxn = txnMgr.createTxn(parent, mLevel, mDesiredLockTimeout, mTimeoutUnit);
-                    }
+            if (mTxn == null) {
+                TransactionManager<Txn> txnMgr = mTxnMgr;
+                Txn parent = (mParent == null || mTop) ? null : mParent.getTxn();
+                if (mTimeoutUnit == null) {
+                    mTxn = txnMgr.createTxn(parent, mLevel);
+                } else {
+                    mTxn = txnMgr.createTxn(parent, mLevel, mDesiredLockTimeout, mTimeoutUnit);
                 }
-                return mTxn;
-            } finally {
-                txnMgr.mLock.unlock();
             }
+            return mTxn;
         }
 
+        // Caller must hold mLock.
         private void closeCursors() throws PersistException {
             if (mCursorList != null) {
                 mCursorList.closeCursors();
