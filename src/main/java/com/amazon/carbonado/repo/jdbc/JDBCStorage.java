@@ -592,6 +592,15 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 if (adapter != null) {
                     Class toType = psSetMethod.getParameterTypes()[1];
                     mAdapterMethods[i] = adapter.findAdaptMethod(jProperty.getType(), toType);
+                    // Special case for converting character to String.
+                    if (mAdapterMethods[i] == null) {
+                        if (toType == String.class) {
+                            mAdapterMethods[i] = adapter.findAdaptMethod(jProperty.getType(), Character.class);
+                            if (mAdapterMethods[i] == null) {
+                                mAdapterMethods[i] = adapter.findAdaptMethod(jProperty.getType(), char.class);
+                            }
+                        }
+                    }
                     mAdapterInstances[i] = adapter.getAdapterInstance();
                 }
             }
