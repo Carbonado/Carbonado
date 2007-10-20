@@ -35,7 +35,7 @@ Carbonado change history
 - Calling Storable.update when there are no dirty properties actually does an
   update instead of being "smart" and ignoring the update request. The old
   behavior was non-intuitive and interfered with expected trigger behavior.
-- One-to-many join properties which don't exist always return null now, instead
+- Many-to-one join properties which don't exist always return null now, instead
   of throwing FetchNoneException. Behavior now matches that of nullable join
   properties, which never threw FetchNoneException. Nullable join properties
   which resolve to null are cached as before, but non-nullable join properties
