@@ -108,7 +108,7 @@ class Binder<S extends Storable> extends Visitor<S, Filter<S>, Object> {
             // This should not happen.
             throw new IllegalStateException(nj.toString());
         }
-        return ExistsFilter.getCanonical
+        return ExistsFilter.build
             (filter.getChainedProperty(), nj.getNotJoinedFilter(), filter.isNotExists());
     }
 }

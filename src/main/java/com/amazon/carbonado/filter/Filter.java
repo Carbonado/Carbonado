@@ -282,34 +282,34 @@ public abstract class Filter<S extends Storable> implements Appender {
 
     /**
      * Returns a combined filter instance that accepts records which are only
-     * accepted by this filter and the "exists" test applied to a one-to-many join.
+     * accepted by this filter and the "exists" test applied to a join.
      *
-     * @param propertyName one-to-many join property name, which may be a chained property
-     * @param subFilter sub-filter to apply to one-to-many join, which may be
-     * null to test for any existing
+     * @param propertyName join property name, which may be a chained property
+     * @param subFilter sub-filter to apply to join, which may be null to test
+     * for any existing
      * @return canonical Filter instance
      * @throws IllegalArgumentException if property is not found
      * @since 1.2
      */
     public final Filter<S> andExists(String propertyName, Filter<?> subFilter) {
         ChainedProperty<S> prop = new FilterParser<S>(mType, propertyName).parseChainedProperty();
-        return and(ExistsFilter.getCanonical(prop, subFilter, false));
+        return and(ExistsFilter.build(prop, subFilter, false));
     }
 
     /**
      * Returns a combined filter instance that accepts records which are only
-     * accepted by this filter and the "not exists" test applied to a one-to-many join.
+     * accepted by this filter and the "not exists" test applied to a join.
      *
-     * @param propertyName one-to-many join property name, which may be a chained property
-     * @param subFilter sub-filter to apply to one-to-many join, which may be
-     * null to test for any not existing
+     * @param propertyName join property name, which may be a chained property
+     * @param subFilter sub-filter to apply to join, which may be null to test
+     * for any not existing
      * @return canonical Filter instance
      * @throws IllegalArgumentException if property is not found
      * @since 1.2
      */
     public final Filter<S> andNotExists(String propertyName, Filter<?> subFilter) {
         ChainedProperty<S> prop = new FilterParser<S>(mType, propertyName).parseChainedProperty();
-        return and(ExistsFilter.getCanonical(prop, subFilter, true));
+        return and(ExistsFilter.build(prop, subFilter, true));
     }
 
     /**
@@ -372,36 +372,35 @@ public abstract class Filter<S extends Storable> implements Appender {
 
     /**
      * Returns a combined filter instance that accepts records which are
-     * accepted either by this filter or the "exists" test applied to a
-     * one-to-many join.
+     * accepted either by this filter or the "exists" test applied to a join.
      *
      * @param propertyName one-to-many join property name, which may be a chained property
-     * @param subFilter sub-filter to apply to one-to-many join, which may be
-     * null to test for any existing
+     * @param subFilter sub-filter to apply to join, which may be null to test
+     * for any existing
      * @return canonical Filter instance
      * @throws IllegalArgumentException if property is not found
      * @since 1.2
      */
     public final Filter<S> orExists(String propertyName, Filter<?> subFilter) {
         ChainedProperty<S> prop = new FilterParser<S>(mType, propertyName).parseChainedProperty();
-        return or(ExistsFilter.getCanonical(prop, subFilter, false));
+        return or(ExistsFilter.build(prop, subFilter, false));
     }
 
     /**
      * Returns a combined filter instance that accepts records which are
      * accepted either by this filter or the "not exists" test applied to a
-     * one-to-many join.
+     * join.
      *
      * @param propertyName one-to-many join property name, which may be a chained property
-     * @param subFilter sub-filter to apply to one-to-many join, which may be
-     * null to test for any not existing
+     * @param subFilter sub-filter to apply to join, which may be null to test
+     * for any not existing
      * @return canonical Filter instance
      * @throws IllegalArgumentException if property is not found
      * @since 1.2
      */
     public final Filter<S> orNotExists(String propertyName, Filter<?> subFilter) {
         ChainedProperty<S> prop = new FilterParser<S>(mType, propertyName).parseChainedProperty();
-        return or(ExistsFilter.getCanonical(prop, subFilter, true));
+        return or(ExistsFilter.build(prop, subFilter, true));
     }
 
     /**

@@ -97,7 +97,7 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
      */
     private PropertyFilter(ChainedProperty<S> property, RelOp op, int bindID, Object constant) {
         super(property == null ? null : property.getPrimeProperty().getEnclosingType());
-        if (op == null) {
+        if (property == null || op == null) {
             throw new IllegalArgumentException();
         }
         mProperty = property;

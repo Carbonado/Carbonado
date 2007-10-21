@@ -349,6 +349,17 @@ class FilteredCursorGenerator {
         }
 
         public Object visit(ExistsFilter<S> filter, Object param) {
+            // Load join property value to stack.
+            CodeBuilder b = mIsAllowedBuilder;
+            loadChainedProperty(b, filter.getChainedProperty());
+
+            if (!filter.getChainedProperty().getLastProperty().isQuery()) {
+                // Checking for existence or non-existence of many-to-one join.
+                // Implement by comparing against null.
+                getScope().successIfNullElseFail(b, filter.isNotExists());
+                return null;
+            }
+            
             // Recursively gather all the properties to be passed to sub-filter.
             final List<PropertyFilter> subPropFilters = new ArrayList<PropertyFilter>();
 
@@ -363,10 +374,6 @@ class FilteredCursorGenerator {
                     return filter.getSubFilter().accept(this, param);
                 }
             }, null);
-
-            // Load join property value to stack. It is expected to be a Query.
-            CodeBuilder b = mIsAllowedBuilder;
-            loadChainedProperty(b, filter.getChainedProperty());
 
             final TypeDesc queryType = TypeDesc.forClass(Query.class);
 

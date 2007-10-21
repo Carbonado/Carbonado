@@ -132,27 +132,13 @@ class FilterParser<S extends Storable> {
                 return parsePropertyFilter(chained);
             }
 
-            boolean isExistsFilter = chained.getLastProperty().isQuery();
-
-            Filter<S> chainedFilter;
+            Filter<?> subFilter;
             c = nextCharIgnoreWhitespace();
             if (c == ')') {
-                if (isExistsFilter) {
-                    chainedFilter = ExistsFilter.getCanonical(chained, null, false);
-                } else {
-                    // FIXME: support exists filter for this case
-                    mPos--;
-                    throw error("Property \"" + chained +
-                                "\" is a many-to-one join and requires property filters");
-                }
+                subFilter = null;
             } else {
                 mPos--;
-                Filter<?> cf = parseChainedFilter(chained);
-                if (isExistsFilter) {
-                    chainedFilter = ExistsFilter.getCanonical(chained, cf, false);
-                } else {
-                    chainedFilter = cf.asJoinedFrom(chained);
-                }
+                subFilter = parseChainedFilter(chained);
                 c = nextCharIgnoreWhitespace();
                 if (c != ')') {
                     mPos--;
@@ -160,7 +146,7 @@ class FilterParser<S extends Storable> {
                 }
             }
 
-            return chainedFilter;
+            return ExistsFilter.build(chained, subFilter, false);
         }
     }
     

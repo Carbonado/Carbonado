@@ -28,7 +28,7 @@ import com.amazon.carbonado.info.StorableProperty;
 
 /**
  * Filter tree node that performs an existence or non-existence test against a
- * one-to-many join.
+ * join property.
  *
  * @author Brian S O'Neill
  * @since 1.2
@@ -38,10 +38,45 @@ public class ExistsFilter<S extends Storable> extends Filter<S> {
      * Returns a canonical instance, creating a new one if there isn't one
      * already in the cache.
      */
+    static <S extends Storable> Filter<S> build(ChainedProperty<S> property,
+                                                Filter<?> subFilter,
+                                                boolean not)
+    {
+        if (property == null) {
+            throw new IllegalArgumentException();
+        }
+
+        StorableProperty<?> joinProperty = property.getLastProperty();
+
+        if (subFilter == null) {
+            subFilter = Filter.getOpenFilter(joinProperty.getJoinedType());
+        } else if (joinProperty.getJoinedType() != subFilter.getStorableType()) {
+            throw new IllegalArgumentException
+                ("Filter not compatible with join property type: " +
+                 property + " joins to a " + joinProperty.getJoinedType().getName() +
+                 ", but filter is for a " + subFilter.getStorableType().getName());
+        }
+
+        if (subFilter.isClosed()) {
+            // Exists filter reduces to a closed (or open) filter.
+            Filter<S> f = Filter.getClosedFilter(property.getPrimeProperty().getEnclosingType());
+            return not ? f.not() : f;
+        } else if (joinProperty.isQuery() || subFilter.isOpen()) {
+            return getCanonical(property, subFilter, not);
+        } else {
+            // Convert to normal join filter.
+            return subFilter.asJoinedFrom(property);
+        }
+    }
+
+    /**
+     * Returns a canonical instance, creating a new one if there isn't one
+     * already in the cache.
+     */
     @SuppressWarnings("unchecked")
-    static <S extends Storable> ExistsFilter<S> getCanonical(ChainedProperty<S> property,
-                                                             Filter<?> subFilter,
-                                                             boolean not)
+    private static <S extends Storable> ExistsFilter<S> getCanonical(ChainedProperty<S> property,
+                                                                     Filter<?> subFilter,
+                                                                     boolean not)
     {
         return (ExistsFilter<S>) cCanonical.put(new ExistsFilter<S>(property, subFilter, not));
     }
@@ -53,38 +88,30 @@ public class ExistsFilter<S extends Storable> extends Filter<S> {
     private transient volatile Filter<S> mJoinedSubFilter;
     private transient volatile boolean mNoParameters;
 
-    ExistsFilter(ChainedProperty<S> property, Filter<?> subFilter, boolean not) {
-        super(property == null ? null : property.getPrimeProperty().getEnclosingType());
-
-        StorableProperty<?> joinProperty = property.getLastProperty();
-        if (!joinProperty.isQuery()) {
-            throw new IllegalArgumentException("Not a one-to-many join property: " + property);
-        }
-        if (subFilter == null) {
-            subFilter = Filter.getOpenFilter(joinProperty.getJoinedType());
-        } else if (subFilter.isClosed()) {
-            throw new IllegalArgumentException("Exists sub-filter cannot be closed: " + subFilter);
-        } else if (joinProperty.getJoinedType() != subFilter.getStorableType()) {
-            throw new IllegalArgumentException
-                ("Filter not compatible with join property type: " +
-                 property + " joins to a " + joinProperty.getJoinedType().getName() +
-                 ", but filter is for a " + subFilter.getStorableType().getName());
-        }
-
+    private ExistsFilter(ChainedProperty<S> property, Filter<?> subFilter, boolean not) {
+        super(property.getPrimeProperty().getEnclosingType());
         mProperty = property;
         mSubFilter = subFilter;
         mNot = not;
     }
 
     /**
-     * @return chained property whose last property is a one-to-many join
+     * Returns the join property that is being checked for existence or
+     * non-existence. The last property in the chain is a one-to-many or
+     * many-to-one join, but it is a many-to-one join only if the sub-filter is
+     * also open.
+     *
+     * @return chained property whose last property is a join
      */
     public ChainedProperty<S> getChainedProperty() {
         return mProperty;
     }
 
     /**
-     * @return filter which is applied to last property of chain, which might be open
+     * Returns the filter applied to the join, which might be open. For a
+     * many-to-one join, the sub-filter is always open.
+     *
+     * @return filter which is applied to last property of chain
      */
     public Filter<?> getSubFilter() {
         return mSubFilter;
