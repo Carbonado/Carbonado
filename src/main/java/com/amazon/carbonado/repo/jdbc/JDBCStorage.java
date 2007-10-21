@@ -45,6 +45,7 @@ import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.capability.IndexInfo;
 import com.amazon.carbonado.filter.AndFilter;
+import com.amazon.carbonado.filter.ClosedFilter;
 import com.amazon.carbonado.filter.ExistsFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
@@ -1059,6 +1060,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
          * @throws UndeclaredThrowableException wraps a RepositoryException
          * since RepositoryException cannot be thrown directly
          */
+        @Override
         public Object visit(PropertyFilter<S> filter, Object param) {
             try {
                 visit(filter);
@@ -1077,6 +1079,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
          * @throws UndeclaredThrowableException wraps a RepositoryException
          * since RepositoryException cannot be thrown directly
          */
+        @Override
         public Object visit(ExistsFilter<S> filter, Object param) {
             try {
                 visit(filter);
@@ -1207,6 +1210,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return array;
         }
 
+        @Override
         public FetchException visit(OrFilter<S> filter, Object param) {
             FetchException e;
             mStatementBuilder.append('(');
@@ -1223,6 +1227,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return null;
         }
 
+        @Override
         public FetchException visit(AndFilter<S> filter, Object param) {
             FetchException e;
             mStatementBuilder.append('(');
@@ -1239,6 +1244,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return null;
         }
 
+        @Override
         public FetchException visit(PropertyFilter<S> filter, Object param) {
             try {
                 mStatementBuilder.appendColumn(mJoinNode, filter.getChainedProperty());
@@ -1279,6 +1285,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return null;
         }
 
+        @Override
         public FetchException visit(ExistsFilter<S> filter, Object param) {
             if (filter.isNotExists()) {
                 mStatementBuilder.append("NOT ");
@@ -1344,6 +1351,12 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
             mStatementBuilder.append(')');
 
+            return null;
+        }
+
+        @Override
+        public FetchException visit(ClosedFilter<S> filter, Object param) {
+            mStatementBuilder.append("1=0");
             return null;
         }
 
