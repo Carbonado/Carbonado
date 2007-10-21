@@ -1184,6 +1184,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mMainProperty.getType();
         }
 
+        public int getNumber() {
+            return mMainProperty.getNumber();
+        }
+
         public Class<S> getEnclosingType() {
             return mMainProperty.getEnclosingType();
         }

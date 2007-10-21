@@ -40,6 +40,14 @@ public interface StorableProperty<S extends Storable> extends Appender {
     Class<?> getType();
 
     /**
+     * Returns the zero-based numerical position of this property within its
+     * enclosing type.
+     *
+     * @since 1.2
+     */
+    int getNumber();
+
+    /**
      * Returns the enclosing type of this property.
      */
     Class<S> getEnclosingType();

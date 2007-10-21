@@ -228,9 +228,16 @@ public class StorableIntrospector {
 
             // Now that the StorableInfo object has been constructed, assign it
             // to all properties to prevent it from being prematurely uncached.
-            for (StorableProperty property : properties.values()) {
-                if (property instanceof SimpleProperty) {
-                    ((SimpleProperty)property).setEnclosingInfo(info);
+            // Also assign number now that properties have been sorted.
+            {
+                int number = 0;
+                for (StorableProperty property : properties.values()) {
+                    if (property instanceof SimpleProperty) {
+                        SimpleProperty sp = (SimpleProperty) property;
+                        sp.setEnclosingInfo(info);
+                        sp.setNumber(number);
+                    }
+                    number++;
                 }
             }
 
@@ -1584,6 +1591,9 @@ public class StorableIntrospector {
         // Resolved derived to properties.
         private ChainedProperty<S>[] mDerivedTo;
 
+        // Resolved number.
+        private int mNumber = -1;
+
         // Reference to enclosing StorableInfo. This reference exists to
         // prevent the StorableInfo from being uncached so as long as a
         // reference from a property exists.
@@ -1619,6 +1629,10 @@ public class StorableIntrospector {
 
         public final Class<?> getType() {
             return mBeanProperty.getType();
+        }
+
+        public final int getNumber() {
+            return mNumber;
         }
 
         public final Class<S> getEnclosingType() {
@@ -1836,6 +1850,10 @@ public class StorableIntrospector {
             app.append(", enclosing=");
             app.append(getEnclosingType().getName());
             app.append('}');
+        }
+
+        void setNumber(int number) {
+            mNumber = number;
         }
 
         void setEnclosingInfo(StorableInfo<S> info) {

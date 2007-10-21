@@ -113,7 +113,7 @@ public final class StorableGenerator<S extends Storable> {
     /**
      * Name prefix of protected method in generated storable that returns false
      * if a specific alternate key is uninitialized. The complete name is
-     * formed by the prefix appended with the zero-based alternate key ordinal.
+     * formed by the prefix appended with the zero-based alternate key number.
      */
     public static final String IS_ALT_KEY_INITIALIZED_PREFIX = "isAltKeyInitialized$";
 
@@ -146,10 +146,10 @@ public final class StorableGenerator<S extends Storable> {
      */
     public static final String PROPERTY_STATE_FIELD_NAME = "propertyState$";
 
-    /** Adapter field names are propertyName + "$adapter$" + ordinal */
+    /** Adapter field names are propertyName + "$adapter$" + number */
     public static final String ADAPTER_FIELD_ELEMENT = "$adapter$";
 
-    /** Constraint field names are propertyName + "$constraint$" + ordinal */
+    /** Constraint field names are propertyName + "$constraint$" + number */
     public static final String CONSTRAINT_FIELD_ELEMENT = "$constraint$";
 
     /** Reference to TriggerSupport instance */
@@ -278,8 +278,8 @@ public final class StorableGenerator<S extends Storable> {
      *
      * Property state field names are defined by the concatenation of
      * {@code PROPERTY_STATE_FIELD_NAME} and a zero-based decimal
-     * ordinal. To determine which field holds a particular property's state,
-     * the field ordinal is computed as the property ordinal divided by 16. The
+     * number. To determine which field holds a particular property's state,
+     * the field number is computed as the property number divided by 16. The
      * specific two-bit state position is the remainder of this division times 2.
      *
      * @throws com.amazon.carbonado.MalformedTypeException if Storable type is not well-formed
@@ -451,12 +451,11 @@ public final class StorableGenerator<S extends Storable> {
         // Also remember ordinal of optional version property for use later.
         int versionOrdinal = -1;
         {
-            int ordinal = -1;
             int maxOrdinal = mAllProperties.size() - 1;
             boolean requireStateField = false;
 
             for (StorableProperty<S> property : mAllProperties.values()) {
-                ordinal++;
+                int ordinal = property.getNumber();
 
                 if (!property.isDerived() && property.isVersion()) {
                     versionOrdinal = ordinal;
@@ -853,7 +852,7 @@ public final class StorableGenerator<S extends Storable> {
                             Label setInternalProp = b.createLabel();
 
                             // Access state of internal property directly.
-                            int ord = findPropertyOrdinal(internal);
+                            int ord = internal.getNumber();
                             b.loadThis();
                             b.loadField(PROPERTY_STATE_FIELD_NAME + (ord >> 4), TypeDesc.INT);
                             b.loadConstant(PROPERTY_STATE_MASK << ((ord & 0xf) * 2));
@@ -1792,7 +1791,6 @@ public final class StorableGenerator<S extends Storable> {
         LocalVariable target = CodeBuilderUtil.uneraseGenericParameter(b, storableTypeDesc, 0);
 
         LocalVariable stateBits = null;
-        int ordinal = 0;
         int mask = PROPERTY_STATE_DIRTY;
 
         for (StorableProperty property : mAllProperties.values()) {
@@ -1803,6 +1801,8 @@ public final class StorableGenerator<S extends Storable> {
                  !property.isPrimaryKeyMember() && dataProperties);
 
             if (shouldCopy) {
+                int ordinal = property.getNumber();
+
                 if (stateBits == null) {
                     // Load state bits into local for quick retrieval.
                     stateBits = b.createLocalVariable(null, TypeDesc.INT);
@@ -1855,7 +1855,6 @@ public final class StorableGenerator<S extends Storable> {
                 skipCopy.setLocation();
             }
 
-            ordinal++;
             if ((mask <<= 2) == 0) {
                 mask = 3;
                 stateBits = null;
@@ -2288,7 +2287,7 @@ public final class StorableGenerator<S extends Storable> {
         }
 
         if (properties.size() == 1) {
-            int ordinal = findPropertyOrdinal(properties.values().iterator().next());
+            int ordinal = properties.values().iterator().next().getNumber();
             b.loadThis();
             b.loadField(PROPERTY_STATE_FIELD_NAME + (ordinal >> 4), TypeDesc.INT);
             b.loadConstant(PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2));
@@ -2347,18 +2346,6 @@ public final class StorableGenerator<S extends Storable> {
 
         b.loadConstant(true);
         b.returnValue(TypeDesc.BOOLEAN);
-    }
-
-    private int findPropertyOrdinal(StorableProperty<S> property) {
-        int ordinal = 0;
-        for (StorableProperty<S> p : mAllProperties.values()) {
-            if (p == property) {
-                return ordinal;
-            }
-            ordinal++;
-        }
-        throw new IllegalArgumentException
-            ("Unable to find property " + property + " in " + mAllProperties);
     }
 
     /**
@@ -2443,15 +2430,6 @@ public final class StorableGenerator<S extends Storable> {
 
         b.switchBranch(cases, switchLabels, noMatch);
 
-        // Gather property ordinals.
-        Map<StorableProperty<?>, Integer> ordinalMap = new HashMap<StorableProperty<?>, Integer>();
-        {
-            int ordinal = 0;
-            for (StorableProperty<?> prop : mAllProperties.values()) {
-                ordinalMap.put(prop, ordinal++);
-            }
-        }
-
         // Params to invoke String.equals.
         TypeDesc[] params = {TypeDesc.OBJECT};
 
@@ -2502,8 +2480,7 @@ public final class StorableGenerator<S extends Storable> {
                         }
                         b.branch(joinMatch);
                     } else {
-                        int ordinal = ordinalMap.get(prop);
-
+                        int ordinal = prop.getNumber();
                         b.loadThis();
                         b.loadField(PROPERTY_STATE_FIELD_NAME + (ordinal >> 4), TypeDesc.INT);
                         int shift = (ordinal & 0xf) * 2;
@@ -2964,21 +2941,14 @@ public final class StorableGenerator<S extends Storable> {
         b.loadConstant(detail);
         invokeAppend(b, TypeDesc.STRING);
 
-        // First pass, just print primary keys. Also gather ordinals.
+        // First pass, just print primary keys.
         
-        Map<Object, Integer> ordinals = new IdentityHashMap<Object, Integer>();
-        int ordinal = 0;
-
         LocalVariable commaCountVar = b.createLocalVariable(null, TypeDesc.INT);
         b.loadConstant(-1);
         b.storeLocal(commaCountVar);
 
-        for (StorableProperty property : mAllProperties.values()) {
-            ordinals.put(property, ordinal);
-            if (property.isPrimaryKeyMember()) {
-                addPropertyAppendCall(b, property, commaCountVar, ordinal);
-            }
-            ordinal++;
+        for (StorableProperty property : mInfo.getPrimaryKeyProperties().values()) {
+            addPropertyAppendCall(b, property, commaCountVar);
         }
 
         // Second pass, print non-primary keys.
@@ -2989,7 +2959,7 @@ public final class StorableGenerator<S extends Storable> {
                 if (!property.isPrimaryKeyMember() &&
                     (!property.isDerived()) && (!property.isJoin()))
                 {
-                    addPropertyAppendCall(b, property, commaCountVar, ordinals.get(property));
+                    addPropertyAppendCall(b, property, commaCountVar);
                 }
             }
         }
@@ -3010,10 +2980,9 @@ public final class StorableGenerator<S extends Storable> {
 
                 StorableKey<S> key = mInfo.getAlternateKey(i);
 
-                ordinal = 0;
                 for (OrderedProperty<S> op : key.getProperties()) {
                     StorableProperty<S> property = op.getChainedProperty().getPrimeProperty();
-                    addPropertyAppendCall(b, property, commaCountVar, ordinals.get(property));
+                    addPropertyAppendCall(b, property, commaCountVar);
                 }
 
                 b.loadConstant('}');
@@ -3032,8 +3001,7 @@ public final class StorableGenerator<S extends Storable> {
 
     private void addPropertyAppendCall(CodeBuilder b,
                                        StorableProperty property,
-                                       LocalVariable commaCountVar,
-                                       int ordinal)
+                                       LocalVariable commaCountVar)
     {
         Label skipPrint = b.createLabel();
 
@@ -3041,6 +3009,8 @@ public final class StorableGenerator<S extends Storable> {
         if (property.isIndependent()) {
             addSkipIndependent(b, null, property, skipPrint);
         }
+
+        int ordinal = property.getNumber();
 
         // Check if property is initialized, and skip if not.
         b.loadThis();
