@@ -106,6 +106,13 @@
       <email>bcastill@users.sourceforge.net</email>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
+
+    <developer>
+      <name>Fang Chen</name>
+      <id>fangchen</id>
+      <email>fangchen@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
   </developers>
 
   <contributors>
