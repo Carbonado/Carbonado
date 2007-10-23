@@ -22,6 +22,7 @@ import java.lang.ref.WeakReference;
 import java.util.concurrent.TimeUnit;
 
 import com.amazon.carbonado.IsolationLevel;
+import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Transaction;
 
 import com.amazon.carbonado.spi.ExceptionTransformer;
@@ -35,12 +36,14 @@ import com.amazon.carbonado.spi.TransactionManager;
  * @author Brian S O'Neill
  */
 class BDBTransactionManager<Txn> extends TransactionManager<Txn> {
+    private final ExceptionTransformer mExTransformer;
+
     // Weakly reference repository because thread locals are not cleaned up
     // very quickly and BDB environments hang on to a ton of memory.
     private final WeakReference<BDBRepository<Txn>> mRepositoryRef;
 
     BDBTransactionManager(ExceptionTransformer exTransformer, BDBRepository<Txn> repository) {
-        super(exTransformer);
+        mExTransformer = exTransformer;
         mRepositoryRef = new WeakReference<BDBRepository<Txn>>(repository);
     }
 
@@ -69,13 +72,21 @@ class BDBTransactionManager<Txn> extends TransactionManager<Txn> {
         }
     }
 
-    protected boolean commitTxn(Txn txn) throws Exception {
-        repository().txn_commit(txn);
-        return false;
+    protected boolean commitTxn(Txn txn) throws PersistException {
+        try {
+            repository().txn_commit(txn);
+            return false;
+        } catch (Throwable e) {
+            throw mExTransformer.toPersistException(e);
+        }
     }
 
-    protected void abortTxn(Txn txn) throws Exception {
-        repository().txn_abort(txn);
+    protected void abortTxn(Txn txn) throws PersistException {
+        try {
+            repository().txn_abort(txn);
+        } catch (Throwable e) {
+            throw mExTransformer.toPersistException(e);
+        }
     }
 
     private BDBRepository<Txn> repository() {

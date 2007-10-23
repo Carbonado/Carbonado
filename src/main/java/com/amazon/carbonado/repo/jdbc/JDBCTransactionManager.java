@@ -24,6 +24,7 @@ import java.sql.SQLException;
 
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
+import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.spi.TransactionManager;
 
@@ -34,12 +35,14 @@ import com.amazon.carbonado.spi.TransactionManager;
  * @author Brian S O'Neill
  */
 class JDBCTransactionManager extends TransactionManager<JDBCTransaction> {
+    private final JDBCExceptionTransformer mExTransformer;
+
     // Weakly reference repository because thread locals are not cleaned up
     // very quickly.
     private final WeakReference<JDBCRepository> mRepositoryRef;
 
     JDBCTransactionManager(JDBCRepository repository) {
-        super(repository.getExceptionTransformer());
+        mExTransformer = repository.getExceptionTransformer();
         mRepositoryRef = new WeakReference<JDBCRepository>(repository);
     }
 
@@ -75,20 +78,28 @@ class JDBCTransactionManager extends TransactionManager<JDBCTransaction> {
         return new JDBCTransaction(repo.getConnectionForTxn(level));
     }
 
-    protected boolean commitTxn(JDBCTransaction txn) throws SQLException {
-        txn.commit();
-        return true;
+    protected boolean commitTxn(JDBCTransaction txn) throws PersistException {
+        try {
+            txn.commit();
+            return true;
+        } catch (Throwable e) {
+            throw mExTransformer.toPersistException(e);
+        }
     }
 
-    protected void abortTxn(JDBCTransaction txn) throws SQLException, FetchException {
-        Connection con;
-        if ((con = txn.abort()) != null) {
-            JDBCRepository repo = mRepositoryRef.get();
-            if (repo == null) {
-                con.close();
-            } else {
-                repo.yieldConnection(con);
+    protected void abortTxn(JDBCTransaction txn) throws PersistException {
+        try {
+            Connection con;
+            if ((con = txn.abort()) != null) {
+                JDBCRepository repo = mRepositoryRef.get();
+                if (repo == null) {
+                    con.close();
+                } else {
+                    repo.yieldConnection(con);
+                }
             }
+        } catch (Throwable e) {
+            throw mExTransformer.toPersistException(e);
         }
     }
 }

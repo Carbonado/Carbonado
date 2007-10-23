@@ -50,6 +50,9 @@ public abstract class TransactionManager<Txn> {
 
     private boolean mClosed;
 
+    /**
+     * @deprecated
+     */
     public TransactionManager(ExceptionTransformer exTransformer) {
         // The use of a fair lock is essential for shutdown hooks that attempt
         // to acquire the locks of all TransactionManagers. Otherwise, the
@@ -58,8 +61,14 @@ public abstract class TransactionManager<Txn> {
         mExTransformer = exTransformer;
     }
 
+    public TransactionManager() {
+        this(null);
+    }
+
     /**
      * Returns the exception transformer in use.
+     *
+     * @deprecated
      */
     public ExceptionTransformer getExceptionTransformer() {
         return mExTransformer;
@@ -337,12 +346,12 @@ public abstract class TransactionManager<Txn> {
      *
      * @return true if transaction object is still valid
      */
-    protected abstract boolean commitTxn(Txn txn) throws Exception;
+    protected abstract boolean commitTxn(Txn txn) throws PersistException;
 
     /**
      * Aborts and closes the given internal transaction.
      */
-    protected abstract void abortTxn(Txn txn) throws Exception;
+    protected abstract void abortTxn(Txn txn) throws PersistException;
 
     private static class TransactionImpl<Txn> implements Transaction {
         private final TransactionManager<Txn> mTxnMgr;
@@ -393,9 +402,15 @@ public abstract class TransactionManager<Txn> {
                                 if (!txnMgr.commitTxn(mTxn)) {
                                     mTxn = null;
                                 }
+                            } catch (PersistException e) {
+                                mTxn = null;
+                                throw e;
                             } catch (Throwable e) {
                                 mTxn = null;
-                                throw txnMgr.mExTransformer.toPersistException(e);
+                                if (txnMgr.mExTransformer != null) {
+                                    throw txnMgr.mExTransformer.toPersistException(e);
+                                }
+                                throw new PersistException(e);
                             }
                         } else {
                             // Indicate fake nested transaction committed.
@@ -424,8 +439,13 @@ public abstract class TransactionManager<Txn> {
                             if (mParent == null || mParent.mTxn != mTxn) {
                                 try {
                                     txnMgr.abortTxn(mTxn);
+                                } catch (PersistException e) {
+                                    throw e;
                                 } catch (Throwable e) {
-                                    throw txnMgr.mExTransformer.toPersistException(e);
+                                    if (txnMgr.mExTransformer != null) {
+                                        throw txnMgr.mExTransformer.toPersistException(e);
+                                    }
+                                    throw new PersistException(e);
                                 }
                             }
                         } finally {
