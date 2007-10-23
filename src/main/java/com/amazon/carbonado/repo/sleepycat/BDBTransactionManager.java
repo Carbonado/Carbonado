@@ -65,7 +65,7 @@ class BDBTransactionManager<Txn> extends TransactionManager<Txn> {
         if (timeout == 0) {
             return repository().txn_begin_nowait(parent, level);
         } else {
-            return repository().txn_begin(parent, level);
+            return repository().txn_begin(parent, level, timeout, unit);
         }
     }
 

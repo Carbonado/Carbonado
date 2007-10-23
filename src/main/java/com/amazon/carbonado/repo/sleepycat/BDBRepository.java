@@ -22,6 +22,7 @@ import java.io.File;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.logging.Log;
@@ -439,6 +440,11 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     abstract IsolationLevel selectIsolationLevel(Transaction parent, IsolationLevel level);
 
     abstract Txn txn_begin(Txn parent, IsolationLevel level) throws Exception;
+
+    // Subclass should override this method to actually apply the timeout
+    Txn txn_begin(Txn parent, IsolationLevel level, int timeout, TimeUnit unit) throws Exception {
+        return txn_begin(parent, level);
+    }
 
     abstract Txn txn_begin_nowait(Txn parent, IsolationLevel level) throws Exception;
 
