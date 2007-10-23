@@ -402,15 +402,12 @@ public abstract class TransactionManager<Txn> {
                                 if (!txnMgr.commitTxn(mTxn)) {
                                     mTxn = null;
                                 }
-                            } catch (PersistException e) {
-                                mTxn = null;
-                                throw e;
                             } catch (Throwable e) {
                                 mTxn = null;
                                 if (txnMgr.mExTransformer != null) {
                                     throw txnMgr.mExTransformer.toPersistException(e);
                                 }
-                                throw new PersistException(e);
+                                throw ExceptionTransformer.getInstance().toPersistException(e);
                             }
                         } else {
                             // Indicate fake nested transaction committed.
@@ -439,13 +436,11 @@ public abstract class TransactionManager<Txn> {
                             if (mParent == null || mParent.mTxn != mTxn) {
                                 try {
                                     txnMgr.abortTxn(mTxn);
-                                } catch (PersistException e) {
-                                    throw e;
                                 } catch (Throwable e) {
                                     if (txnMgr.mExTransformer != null) {
                                         throw txnMgr.mExTransformer.toPersistException(e);
                                     }
-                                    throw new PersistException(e);
+                                    throw ExceptionTransformer.getInstance().toPersistException(e);
                                 }
                             }
                         } finally {
