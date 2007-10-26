@@ -209,10 +209,18 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             if (!isProperJoin(chainedProp.getPrimeProperty())) {
                 break evaluate;
             }
+            if (chainedProp.isOuterJoin(0)) {
+                // Outer joins cannot be optimized via foreign indexes.
+                break evaluate;
+            }
 
             int count = chainedProp.getChainCount();
             for (int i=0; i<count; i++) {
                 if (!isProperJoin(chainedProp.getChainedProperty(i))) {
+                    break evaluate;
+                }
+                if (chainedProp.isOuterJoin(i + 1)) {
+                    // Outer joins cannot be optimized via foreign indexes.
                     break evaluate;
                 }
             }

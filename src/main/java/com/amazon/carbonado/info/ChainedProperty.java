@@ -29,7 +29,7 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.util.Appender;
 
 /**
- * Represents a property to query against or to order by. Properties may be
+ * Represents a property to filter on or to order by. Properties may be
  * specified in a simple form, like "firstName", or in a chained form, like
  * "address.state". In both forms, the first property is the "prime"
  * property. All properties that follow are chained.
@@ -46,7 +46,7 @@ public class ChainedProperty<S extends Storable> implements Appender {
      */
     @SuppressWarnings("unchecked")
     public static <S extends Storable> ChainedProperty<S> get(StorableProperty<S> prime) {
-        return (ChainedProperty<S>) cCanonical.put(new ChainedProperty<S>(prime, null));
+        return (ChainedProperty<S>) cCanonical.put(new ChainedProperty<S>(prime, null, null));
     }
 
     /**
@@ -58,7 +58,22 @@ public class ChainedProperty<S extends Storable> implements Appender {
     @SuppressWarnings("unchecked")
     public static <S extends Storable> ChainedProperty<S> get(StorableProperty<S> prime,
                                                               StorableProperty<?>... chain) {
-        return (ChainedProperty<S>) cCanonical.put(new ChainedProperty<S>(prime, chain));
+        return (ChainedProperty<S>) cCanonical.put(new ChainedProperty<S>(prime, chain, null));
+    }
+
+    /**
+     * Returns a canonical instance.
+     *
+     * @throws IllegalArgumentException if prime is null or if chained
+     * properties are not formed properly
+     * @since 1.2
+     */
+    @SuppressWarnings("unchecked")
+    public static <S extends Storable> ChainedProperty<S> get(StorableProperty<S> prime,
+                                                              StorableProperty<?>[] chain,
+                                                              boolean[] outerJoin) {
+        return (ChainedProperty<S>) cCanonical.put
+            (new ChainedProperty<S>(prime, chain, outerJoin));
     }
 
     /**
@@ -82,10 +97,18 @@ public class ChainedProperty<S extends Storable> implements Appender {
 
         String name;
         if (dot < 0) {
-            name = str;
+            name = str.trim();
         } else {
-            name = str.substring(pos, dot);
+            name = str.substring(pos, dot).trim();
             pos = dot + 1;
+        }
+
+        List<Boolean> outerJoinList = null;
+
+        if (name.startsWith("(") && name.endsWith(")")) {
+            outerJoinList = new ArrayList<Boolean>(4);
+            outerJoinList.add(true);
+            name = name.substring(1, name.length() - 1).trim();
         }
 
         StorableProperty<S> prime = info.getAllProperties().get(name);
@@ -97,7 +120,11 @@ public class ChainedProperty<S extends Storable> implements Appender {
         }
 
         if (pos <= 0) {
-            return get(prime);
+            if (outerJoinList == null || !outerJoinList.get(0)) {
+                return get(prime);
+            } else {
+                return get(prime, null, new boolean[] {true});
+            }
         }
 
         List<StorableProperty<?>> chain = new ArrayList<StorableProperty<?>>(4);
@@ -106,12 +133,28 @@ public class ChainedProperty<S extends Storable> implements Appender {
         while (pos > 0) {
             dot = str.indexOf('.', pos);
             if (dot < 0) {
-                name = str.substring(pos);
+                name = str.substring(pos).trim();
                 pos = -1;
             } else {
-                name = str.substring(pos, dot);
+                name = str.substring(pos, dot).trim();
                 pos = dot + 1;
             }
+
+            if (name.startsWith("(") && name.endsWith(")")) {
+                if (outerJoinList == null) {
+                    outerJoinList = new ArrayList<Boolean>(4);
+                    // Fill in false values.
+                    outerJoinList.add(false); // prime is inner join
+                    for (int i=chain.size(); --i>=0; ) {
+                        outerJoinList.add(false);
+                    }
+                }
+                outerJoinList.add(true);
+                name = name.substring(1, name.length() - 1).trim();
+            } else if (outerJoinList != null) {
+                outerJoinList.add(false);
+            }
+
             if (Storable.class.isAssignableFrom(type)) {
                 StorableInfo propInfo =
                     StorableIntrospector.examine((Class<? extends Storable>) type);
@@ -131,24 +174,51 @@ public class ChainedProperty<S extends Storable> implements Appender {
             }
         }
 
+        boolean[] outerJoin = null;
+        if (outerJoinList != null) {
+            outerJoin = new boolean[outerJoinList.size()];
+            for (int i=outerJoinList.size(); --i>=0; ) {
+                outerJoin[i] = outerJoinList.get(i);
+            }
+        }
+
         return get(prime,
-                   (StorableProperty<?>[]) chain.toArray(new StorableProperty[chain.size()]));
+                   (StorableProperty<?>[]) chain.toArray(new StorableProperty[chain.size()]),
+                   outerJoin);
     }
 
     private final StorableProperty<S> mPrime;
     private final StorableProperty<?>[] mChain;
+    private final boolean[] mOuterJoin;
 
     /**
      * @param prime must not be null
      * @param chain can be null if none
-     * @throws IllegalArgumentException if prime is null
+     * @param outerJoin can be null for all inner joins
+     * @throws IllegalArgumentException if prime is null or if outer join chain is too long
      */
-    private ChainedProperty(StorableProperty<S> prime, StorableProperty<?>[] chain) {
+    private ChainedProperty(StorableProperty<S> prime, StorableProperty<?>[] chain,
+                            boolean[] outerJoin)
+    {
         if (prime == null) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("No prime property");
         }
+
         mPrime = prime;
         mChain = (chain == null || chain.length == 0) ? null : chain.clone();
+
+        if (outerJoin != null) {
+            int expectedLength = (chain == null ? 0 : chain.length) + 1;
+            if (outerJoin.length > expectedLength) {
+                throw new IllegalArgumentException
+                    ("Outer join array too long: " + outerJoin.length + " > " + expectedLength);
+            }
+            boolean[] newOuterJoin = new boolean[expectedLength];
+            System.arraycopy(outerJoin, 0, newOuterJoin, 0, outerJoin.length);
+            outerJoin = newOuterJoin;
+        }
+
+        mOuterJoin = outerJoin;
     }
 
     public StorableProperty<S> getPrimeProperty() {
@@ -219,6 +289,9 @@ public class ChainedProperty<S extends Storable> implements Appender {
         return mChain == null ? 0 : mChain.length;
     }
 
+    /**
+     * @param index valid range is 0 to chainCount - 1
+     */
     public StorableProperty<?> getChainedProperty(int index) throws IndexOutOfBoundsException {
         if (mChain == null) {
             throw new IndexOutOfBoundsException();
@@ -228,24 +301,73 @@ public class ChainedProperty<S extends Storable> implements Appender {
     }
 
     /**
+     * Returns true if the property at the given index should be treated as an
+     * outer join. Index zero is the prime property.
+     *
+     * @param index valid range is 0 to chainCount
+     * @since 1.2
+     */
+    public boolean isOuterJoin(int index) throws IndexOutOfBoundsException {
+        if (index < 0) {
+            throw new IndexOutOfBoundsException();
+        }
+        if (mOuterJoin == null) {
+            if (index > getChainCount()) {
+                throw new IndexOutOfBoundsException();
+            }
+            return false;
+        }
+        return mOuterJoin[index];
+    }
+
+    /**
      * Returns a new ChainedProperty with another property appended.
      */
     public ChainedProperty<S> append(StorableProperty<?> property) {
+        return append(property, false);
+    }
+
+    /**
+     * Returns a new ChainedProperty with another property appended.
+     *
+     * @param outerJoin pass true for outer join
+     * @since 1.2
+     */
+    public ChainedProperty<S> append(StorableProperty<?> property, boolean outerJoin) {
+        if (property == null) {
+            throw new IllegalArgumentException();
+        }
+
         StorableProperty<?>[] newChain = new StorableProperty[getChainCount() + 1];
         if (newChain.length > 1) {
             System.arraycopy(mChain, 0, newChain, 0, mChain.length);
         }
         newChain[newChain.length - 1] = property;
-        return get(mPrime, newChain);
+
+        boolean[] newOuterJoin = mOuterJoin;
+
+        if (outerJoin) {
+            newOuterJoin = new boolean[newChain.length + 1];
+            if (mOuterJoin != null) {
+                System.arraycopy(mOuterJoin, 0, newOuterJoin, 0, mOuterJoin.length);
+            }
+            newOuterJoin[newOuterJoin.length - 1] = true;
+        }
+
+        return get(mPrime, newChain, newOuterJoin);
     }
 
     /**
      * Returns a new ChainedProperty with another property appended.
      */
     public ChainedProperty<S> append(ChainedProperty<?> property) {
+        if (property == null) {
+            throw new IllegalArgumentException();
+        }
+
         final int propChainCount = property.getChainCount();
         if (propChainCount == 0) {
-            return append(property.getPrimeProperty());
+            return append(property.getPrimeProperty(), property.isOuterJoin(0));
         }
 
         StorableProperty<?>[] newChain =
@@ -262,7 +384,19 @@ public class ChainedProperty<S extends Storable> implements Appender {
             newChain[pos++] = property.getChainedProperty(i);
         }
 
-        return get(mPrime, newChain);
+        boolean[] newOuterJoin = mOuterJoin;
+
+        if (property.mOuterJoin != null) {
+            newOuterJoin = new boolean[newChain.length + 1];
+            if (mOuterJoin != null) {
+                System.arraycopy(mOuterJoin, 0, newOuterJoin, 0, mOuterJoin.length);
+            }
+            System.arraycopy(property.mOuterJoin, 0,
+                             newOuterJoin, mOuterJoin.length,
+                             property.mOuterJoin.length);
+        }
+
+        return get(mPrime, newChain, newOuterJoin);
     }
 
     /**
@@ -275,11 +409,23 @@ public class ChainedProperty<S extends Storable> implements Appender {
             throw new IllegalStateException();
         }
         if (getChainCount() == 1) {
-            return get(mPrime);
+            if (!isOuterJoin(0)) {
+                return get(mPrime);
+            } else {
+                return get(mPrime, null, new boolean[] {true});
+            }
         }
         StorableProperty<?>[] newChain = new StorableProperty[getChainCount() - 1];
         System.arraycopy(mChain, 0, newChain, 0, newChain.length);
-        return get(mPrime, newChain);
+
+        boolean[] newOuterJoin = mOuterJoin;
+
+        if (newOuterJoin != null && newOuterJoin.length > (newChain.length + 1)) {
+            newOuterJoin = new boolean[newChain.length + 1];
+            System.arraycopy(mOuterJoin, 0, newOuterJoin, 0, newChain.length + 1);
+        }
+
+        return get(mPrime, newChain, newOuterJoin);
     }
 
     /**
@@ -293,11 +439,23 @@ public class ChainedProperty<S extends Storable> implements Appender {
             throw new IllegalStateException();
         }
         if (getChainCount() == 1) {
-            return get(mChain[0]);
+            if (!isOuterJoin(1)) {
+                return get(mChain[0]);
+            } else {
+                return get(mChain[0], null, new boolean[] {true});
+            }
         }
         StorableProperty<?>[] newChain = new StorableProperty[getChainCount() - 1];
         System.arraycopy(mChain, 1, newChain, 0, newChain.length);
-        return get(mChain[0], newChain);
+
+        boolean[] newOuterJoin = mOuterJoin;
+
+        if (newOuterJoin != null) {
+            newOuterJoin = new boolean[newChain.length + 1];
+            System.arraycopy(mOuterJoin, 1, newOuterJoin, 0, mOuterJoin.length - 1);
+        }
+
+        return get(mChain[0], newChain, newOuterJoin);
     }
 
     @Override
@@ -307,6 +465,14 @@ public class ChainedProperty<S extends Storable> implements Appender {
         if (chain != null) {
             for (int i=chain.length; --i>=0; ) {
                 hash = hash * 31 + chain[i].hashCode();
+            }
+        }
+        boolean[] outerJoin = mOuterJoin;
+        if (outerJoin != null) {
+            for (int i=outerJoin.length; --i>=0; ) {
+                if (outerJoin[i]) {
+                    hash += 1;
+                }
             }
         }
         return hash;
@@ -324,8 +490,18 @@ public class ChainedProperty<S extends Storable> implements Appender {
             // equals method. Otherwise, canonical ChainedProperty instances
             // may refer to StorableProperty instances which are no longer
             // available through the Introspector.
-            return getType() == other.getType() && mPrime == other.mPrime
-                && identityEquals(mChain, other.mChain);
+            if (getType() == other.getType() && mPrime == other.mPrime
+                && identityEquals(mChain, other.mChain))
+            {
+                // Compare outer joins.
+                int count = getChainCount() + 1;
+                for (int i=0; i<count; i++) {
+                    if (isOuterJoin(i) != other.isOuterJoin(i)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
         }
         return false;
     }
@@ -362,7 +538,7 @@ public class ChainedProperty<S extends Storable> implements Appender {
      */
     @Override
     public String toString() {
-        if (mChain == null) {
+        if (mChain == null && !isOuterJoin(0)) {
             return mPrime.getName();
         }
         StringBuilder buf = new StringBuilder();
@@ -380,7 +556,7 @@ public class ChainedProperty<S extends Storable> implements Appender {
      * many-to-one joins.
      */
     public void appendTo(Appendable app) throws IOException {
-        app.append(mPrime.getName());
+        appendPropTo(app, mPrime.getName(), isOuterJoin(0));
         StorableProperty<?>[] chain = mChain;
         if (chain != null) {
             app.append('.');
@@ -388,8 +564,18 @@ public class ChainedProperty<S extends Storable> implements Appender {
                 if (i > 0) {
                     app.append('.');
                 }
-                app.append(chain[i].getName());
+                appendPropTo(app, chain[i].getName(), isOuterJoin(i + 1));
             }
+        }
+    }
+
+    private void appendPropTo(Appendable app, String name, boolean outer) throws IOException {
+        if (outer) {
+            app.append('(');
+        }
+        app.append(name);
+        if (outer) {
+            app.append(')');
         }
     }
 }

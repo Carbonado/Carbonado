@@ -115,7 +115,22 @@ class FilterParser<S extends Storable> {
 
     private Filter<S> parseEntityFilter() {
         int c = nextCharIgnoreWhitespace();
-        if (c == '(') {
+
+        parenFilter: if (c == '(') {
+            // Need to peek ahead to see if this is an outer join.
+            int savedPos = mPos;
+            try {
+                if (Character.isJavaIdentifierStart(nextCharIgnoreWhitespace())) {
+                    mPos--;
+                    parseIdentifier();
+                    if (nextCharIgnoreWhitespace() == ')') {
+                        // Is an outer join, so back up.
+                        break parenFilter;
+                    }
+                }
+            } finally {
+                mPos = savedPos;
+            }
             Filter<S> test = parseFilter();
             c = nextCharIgnoreWhitespace();
             if (c != ')') {
@@ -123,31 +138,31 @@ class FilterParser<S extends Storable> {
                 throw error("Right paren expected");
             }
             return test;
+        }
+
+        mPos--;
+        ChainedProperty<S> chained = parseChainedProperty();
+        c = nextCharIgnoreWhitespace();
+        if (c != '(') {
+            mPos--;
+            return parsePropertyFilter(chained);
+        }
+
+        Filter<?> subFilter;
+        c = nextCharIgnoreWhitespace();
+        if (c == ')') {
+            subFilter = null;
         } else {
             mPos--;
-            ChainedProperty<S> chained = parseChainedProperty();
+            subFilter = parseChainedFilter(chained);
             c = nextCharIgnoreWhitespace();
-            if (c != '(') {
+            if (c != ')') {
                 mPos--;
-                return parsePropertyFilter(chained);
+                throw error("Right paren expected");
             }
-
-            Filter<?> subFilter;
-            c = nextCharIgnoreWhitespace();
-            if (c == ')') {
-                subFilter = null;
-            } else {
-                mPos--;
-                subFilter = parseChainedFilter(chained);
-                c = nextCharIgnoreWhitespace();
-                if (c != ')') {
-                    mPos--;
-                    throw error("Right paren expected");
-                }
-            }
-
-            return ExistsFilter.build(chained, subFilter, false);
         }
+
+        return ExistsFilter.build(chained, subFilter, false);
     }
     
     private PropertyFilter<S> parsePropertyFilter(ChainedProperty<S> chained) {
@@ -239,6 +254,18 @@ class FilterParser<S extends Storable> {
 
     @SuppressWarnings("unchecked")
     ChainedProperty<S> parseChainedProperty() {
+        List<Boolean> outerJoinList = null;
+        int lastOuterJoinPos = -1;
+
+        if (nextChar() == '(') {
+            lastOuterJoinPos = mPos - 1;
+            // Skip any whitespace after paren.
+            nextCharIgnoreWhitespace();
+            outerJoinList = new ArrayList<Boolean>(4);
+            outerJoinList.add(true);
+        }
+        mPos--;
+
         String ident = parseIdentifier();
         StorableProperty<S> prime =
             StorableIntrospector.examine(mType).getAllProperties().get(ident);
@@ -248,8 +275,21 @@ class FilterParser<S extends Storable> {
                         mType.getName() + '"');
         }
 
+        if (outerJoinList != null && outerJoinList.get(0)) {
+            if (nextCharIgnoreWhitespace() != ')') {
+                mPos--;
+                throw error("Right paren expected");
+            }
+        }
+
         if (nextCharIgnoreWhitespace() != '.') {
             mPos--;
+            if (outerJoinList != null && outerJoinList.get(0)) {
+                if (lastOuterJoinPos >= 0) {
+                    mPos = lastOuterJoinPos;
+                }
+                throw error("Outer join not allowed for non-chained property");
+            }
             return ChainedProperty.get(prime);
         }
 
@@ -257,7 +297,28 @@ class FilterParser<S extends Storable> {
         Class<?> type = prime.getType();
 
         while (true) {
+            lastOuterJoinPos = -1;
+
+            if (nextChar() == '(') {
+                lastOuterJoinPos = mPos - 1;
+                // Skip any whitespace after paren.
+                nextCharIgnoreWhitespace();
+                if (outerJoinList == null) {
+                    outerJoinList = new ArrayList<Boolean>(4);
+                    // Fill in false values.
+                    outerJoinList.add(false); // prime is inner join
+                    for (int i=chain.size(); --i>=0; ) {
+                        outerJoinList.add(false);
+                    }
+                }
+                outerJoinList.add(true);
+            } else if (outerJoinList != null) {
+                outerJoinList.add(false);
+            }
+            mPos--;
+
             ident = parseIdentifier();
+
             if (Storable.class.isAssignableFrom(type)) {
                 StorableInfo<?> info =
                     StorableIntrospector.examine((Class<? extends Storable>) type);
@@ -274,14 +335,38 @@ class FilterParser<S extends Storable> {
                 throw error("Property \"" + ident + "\" not found for type \"" +
                             type.getName() + "\" because it has no properties");
             }
+
+            if (outerJoinList != null && outerJoinList.get(outerJoinList.size() - 1)) {
+                if (nextCharIgnoreWhitespace() != ')') {
+                    mPos--;
+                    throw error("Right paren expected");
+                }
+            }
+
             if (nextCharIgnoreWhitespace() != '.') {
                 mPos--;
                 break;
             }
         }
 
+        boolean[] outerJoin = null;
+        if (outerJoinList != null) {
+            if (outerJoinList.get(outerJoinList.size() - 1)) {
+                if (lastOuterJoinPos >= 0) {
+                    mPos = lastOuterJoinPos;
+                }
+                throw error("Outer join not allowed for last property in chain");
+            }
+            outerJoin = new boolean[outerJoinList.size()];
+            for (int i=outerJoinList.size(); --i>=0; ) {
+                outerJoin[i] = outerJoinList.get(i);
+            }
+        }
+
         return ChainedProperty
-            .get(prime, (StorableProperty<?>[]) chain.toArray(new StorableProperty[chain.size()]));
+            .get(prime,
+                 (StorableProperty<?>[]) chain.toArray(new StorableProperty[chain.size()]),
+                 outerJoin);
     }
 
     private String parseIdentifier() {

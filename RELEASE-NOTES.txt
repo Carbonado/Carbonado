@@ -41,6 +41,7 @@ Carbonado change history
   which resolve to null are cached as before, but non-nullable join properties
   do not cache null.
 - Added support for "where exists" in queries via new syntax.
+- Added support for outer joins via new syntax.
 
 1.1 to 1.1.2
 -------------------------------

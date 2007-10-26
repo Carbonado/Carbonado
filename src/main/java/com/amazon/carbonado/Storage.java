@@ -90,8 +90,12 @@ public interface Storage<S extends Storable> {
      *                 | "(" Filter ")"
      * PropertyFilter  = ChainedProperty RelOp "?"
      * RelOp           = "=" | "!=" | "&lt;" | "&gt;=" | "&gt;" | "&lt;="
-     * ChainedProperty = Identifier { "." Identifier }
      * ChainedFilter   = ChainedProperty "(" [ Filter ] ")"
+     * ChainedProperty = Identifier
+     *                 | InnerJoin "." ChainedProperty
+     *                 | OuterJoin "." ChainedProperty
+     * InnerJoin       = Identifier
+     * OuterJoin       = '(' Identifier ')'
      * </pre>
      *
      * @param filter query filter expression

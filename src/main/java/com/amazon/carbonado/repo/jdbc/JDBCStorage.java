@@ -846,11 +846,45 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     private static class JoinNode {
         // Joined property which led to this node. For root node, it is null.
         private final JDBCStorableProperty<?> mProperty;
+        private final boolean mOuterJoin;
 
         private final JDBCStorableInfo<?> mInfo;
         private final String mAlias;
 
-        private final Map<String, JoinNode> mSubNodes;
+        private static class SubNodeKey {
+            final String mPropertyName;
+            final boolean mOuterJoin;
+
+            SubNodeKey(String propertyName, boolean outerJoin) {
+                mPropertyName = propertyName;
+                mOuterJoin = outerJoin;
+            }
+
+            @Override
+            public int hashCode() {
+                return mPropertyName.hashCode();
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (this == obj) {
+                    return true;
+                }
+                if (obj instanceof SubNodeKey) {
+                    SubNodeKey other = (SubNodeKey) obj;
+                    return mPropertyName.equals(other.mPropertyName)
+                        && mOuterJoin == other.mOuterJoin;
+                }
+                return false;
+            }
+
+            @Override
+            public String toString() {
+                return "propertyName=" + mPropertyName + ", outerJoin=" + mOuterJoin;
+            }
+        }
+
+        private final Map<SubNodeKey, JoinNode> mSubNodes;
 
         private boolean mAliasRequired;
 
@@ -858,15 +892,19 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
          * @param alias table alias in SQL statement, i.e. "T1"
          */
         JoinNode(JDBCStorableInfo<?> info, String alias) {
-            this(null, info, alias);
+            this(null, false, info, alias);
         }
 
-        private JoinNode(JDBCStorableProperty<?> property, JDBCStorableInfo<?> info, String alias)
+        private JoinNode(JDBCStorableProperty<?> property,
+                         boolean outerJoin,
+                         JDBCStorableInfo<?> info,
+                         String alias)
         {
             mProperty = property;
+            mOuterJoin = outerJoin;
             mInfo = info;
             mAlias = alias;
-            mSubNodes = new LinkedHashMap<String, JoinNode>();
+            mSubNodes = new LinkedHashMap<SubNodeKey, JoinNode>();
         }
 
         /**
@@ -891,8 +929,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             } else {
                 property = chained.getChainedProperty(offset - 1);
             }
-            String name = property.getName();
-            JoinNode subNode = mSubNodes.get(name);
+            boolean outerJoin = chained.isOuterJoin(offset);
+            SubNodeKey key = new SubNodeKey(property.getName(), outerJoin); 
+            JoinNode subNode = mSubNodes.get(key);
             if (subNode != null) {
                 return subNode.findAliasFor(chained, offset + 1);
             }
@@ -931,15 +970,11 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         private void appendTailJoinTo(StatementBuilder fromClause) {
             for (JoinNode jn : mSubNodes.values()) {
-                // TODO: By default, joins are all inner. A join could become
-                // LEFT OUTER JOIN if the query filter has a term like this:
-                // "address = ? | address.state = ?", and the runtime value of
-                // address is null. Because of DNF transformation and lack of
-                // short-circuit ops, this syntax might be difficult to parse.
-                // This might be a better way of expressing an outer join:
-                // "address(.)state = ?".
-
-                fromClause.append(" INNER JOIN");
+                if (jn.mOuterJoin) {
+                    fromClause.append(" LEFT OUTER JOIN");
+                } else {
+                    fromClause.append(" INNER JOIN");
+                }
                 jn.appendTableNameAndAliasTo(fromClause);
                 fromClause.append(" ON ");
                 int count = jn.mProperty.getJoinElementCount();
@@ -984,13 +1019,14 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             } else {
                 property = chained.getChainedProperty(offset - 1);
             }
-            String name = property.getName();
-            JoinNode subNode = mSubNodes.get(name);
+            boolean outerJoin = chained.isOuterJoin(offset);
+            SubNodeKey key = new SubNodeKey(property.getName(), outerJoin); 
+            JoinNode subNode = mSubNodes.get(key);
             if (subNode == null) {
                 JDBCStorableInfo<?> info = repository.examineStorable(property.getJoinedType());
                 JDBCStorableProperty<?> jProperty = repository.getJDBCStorableProperty(property);
-                subNode = new JoinNode(jProperty, info, aliasGenerator.nextAlias());
-                mSubNodes.put(name, subNode);
+                subNode = new JoinNode(jProperty, outerJoin, info, aliasGenerator.nextAlias());
+                mSubNodes.put(key, subNode);
             }
             subNode.addJoin(repository, chained, aliasGenerator, offset + 1);
         }

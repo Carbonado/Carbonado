@@ -464,18 +464,23 @@ class FilteredCursorGenerator {
 
         /**
          * Generated code checks if chained properties resolve to null, and if
-         * so, branches to the current scope's fail location.
+         * so, branches to the current scope's fail or success location.
          */
         private void loadChainedProperty(CodeBuilder b, ChainedProperty<?> chained) {
             b.loadLocal(mStorableVar);
             loadProperty(b, chained.getPrimeProperty());
             for (int i=0; i<chained.getChainCount(); i++) {
-                // Check if last loaded property was null, and fail if so.
+                // Check if last loaded property was null. Fail for inner join,
+                // success for outer join.
                 b.dup();
                 Label notNull = b.createLabel();
                 b.ifNullBranch(notNull, false);
                 b.pop();
-                getScope().fail(b);
+                if (chained.isOuterJoin(i)) {
+                    getScope().success(b);
+                } else {
+                    getScope().fail(b);
+                }
                 notNull.setLocation();
 
                 // Now load next property in chain.

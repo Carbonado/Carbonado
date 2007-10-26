@@ -26,6 +26,7 @@ import org.cojen.classfile.TypeDesc;
 
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.info.ChainedProperty;
+import com.amazon.carbonado.info.StorableProperty;
 
 /**
  * Filter tree node that performs a relational test against a specific property
@@ -100,6 +101,10 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         if (property == null || op == null) {
             throw new IllegalArgumentException();
         }
+        if (property.isOuterJoin(property.getChainCount())) {
+            throw new IllegalArgumentException
+                ("Last property in chain cannot be an outer join: " + property);
+        }
         mProperty = property;
         mOp = op;
         mBindID = bindID;
@@ -108,10 +113,35 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
 
     @Override
     public PropertyFilter<S> not() {
+        ChainedProperty<S> property = mProperty;
+
+        if (property.getChainCount() > 0) {
+            // Flip inner/outer joins.
+
+            int chainCount = property.getChainCount();
+            StorableProperty<?>[] chain = new StorableProperty[chainCount];
+            for (int i=0; i<chainCount; i++) {
+                chain[i] = property.getChainedProperty(i);
+            }
+
+            boolean[] outerJoin = null;
+            // Flip all but the last property in the chain.
+            for (int i=0; i<chainCount; i++) {
+                if (!property.isOuterJoin(i)) {
+                    if (outerJoin == null) {
+                        outerJoin = new boolean[chainCount + 1];
+                    }
+                    outerJoin[i] = true;
+                }
+            }
+
+            property = ChainedProperty.get(property.getPrimeProperty(), chain, outerJoin);
+        }
+
         if (mBindID == BOUND_CONSTANT) {
-            return getCanonical(mProperty, mOp.reverse(), mConstant);
+            return getCanonical(property, mOp.reverse(), mConstant);
         } else {
-            return getCanonical(mProperty, mOp.reverse(), mBindID);
+            return getCanonical(property, mOp.reverse(), mBindID);
         }
     }
 
