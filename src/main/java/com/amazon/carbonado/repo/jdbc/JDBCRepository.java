@@ -176,6 +176,9 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
     // Maps Storable types which should have automatic version management.
     private Map<String, Boolean> mAutoVersioningMap;
 
+    // Maps Storable types which should not auto reload after insert or update.
+    private Map<String, Boolean> mSuppressReloadMap;
+
     // Track all open connections so that they can be closed when this
     // repository is closed.
     private Map<Connection, Object> mOpenConnections;
@@ -217,6 +220,7 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
                    String catalog, String schema,
                    Integer fetchSize,
                    Map<String, Boolean> autoVersioningMap,
+                   Map<String, Boolean> suppressReloadMap,
                    String sequenceSelectStatement, boolean forceStoredSequence)
         throws RepositoryException
     {
@@ -234,6 +238,7 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
         mFetchSize = fetchSize;
 
         mAutoVersioningMap = autoVersioningMap;
+        mSuppressReloadMap = suppressReloadMap;
 
         mOpenConnections = new IdentityHashMap<Connection, Object>();
         mOpenConnectionsLock = new ReentrantLock(true);
@@ -291,7 +296,11 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
         } catch (SQLException e) {
             throw toRepositoryException(e);
         } finally {
-            forceYieldConnection(con);
+            try {
+                closeConnection(con);
+            } catch (SQLException e) {
+                // Don't care.
+            }
         }
 
         mSupportStrategy = JDBCSupportStrategy.createStrategy(this);
@@ -483,34 +492,16 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
     public void yieldConnection(Connection con) throws FetchException {
         try {
             if (con.getAutoCommit()) {
-                mOpenConnectionsLock.lock();
-                try {
-                    if (mOpenConnections != null) {
-                        mOpenConnections.remove(con);
-                    }
-                } finally {
-                    mOpenConnectionsLock.unlock();
-                }
-                // Close connection outside lock section since it may block.
-                if (con.getTransactionIsolation() != mJdbcDefaultIsolationLevel) {
-                    con.setTransactionIsolation(mJdbcDefaultIsolationLevel);
-                }
-                con.close();
+                closeConnection(con);
             }
-
-            // Connections which aren't auto-commit are in a transaction.
-            // When transaction is finished, JDBCTransactionManager switches
-            // connection back to auto-commit and calls yieldConnection.
+            // Connections which aren't auto-commit are in a transaction. Keep
+            // them around instead of closing them.
         } catch (Exception e) {
             throw toFetchException(e);
         }
     }
 
-    /**
-     * Yields connection without attempting to restore isolation level. Ignores
-     * any exceptions too.
-     */
-    private void forceYieldConnection(Connection con) {
+    void closeConnection(Connection con) throws SQLException {
         mOpenConnectionsLock.lock();
         try {
             if (mOpenConnections != null) {
@@ -520,11 +511,7 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
             mOpenConnectionsLock.unlock();
         }
         // Close connection outside lock section since it may block.
-        try {
-            con.close();
-        } catch (SQLException e) {
-            // Don't care.
-        }
+        con.close();
     }
 
     boolean supportsSavepoints() {
@@ -693,7 +680,19 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
             }
         }
 
-        return new JDBCStorage<S>(this, info, autoVersioning);
+        Boolean suppressReload = false;
+        if (mSuppressReloadMap != null) {
+            suppressReload = mSuppressReloadMap.get(type.getName());
+            if (suppressReload == null) {
+                // No explicit setting, so check wildcard setting.
+                suppressReload = mSuppressReloadMap.get(null);
+                if (suppressReload == null) {
+                    suppressReload = false;
+                }
+            }
+        }
+
+        return new JDBCStorage<S>(this, info, autoVersioning, suppressReload);
     }
 
     protected SequenceValueProducer createSequenceValueProducer(String name)

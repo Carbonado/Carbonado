@@ -39,13 +39,18 @@ class JDBCTransaction {
     // avoid a round trip call to the remote database.
     private static final int LEVEL_NOT_CHANGED = -1;
 
+    private final boolean mIsNested;
     private final Connection mConnection;
     private final int mOriginalLevel;
+
+    private boolean mReady = true;
+
     private Savepoint mSavepoint;
 
     private List<JDBCLob> mRegisteredLobs;
 
     JDBCTransaction(Connection con) {
+        mIsNested = false;
         mConnection = con;
         // Don't change level upon abort.
         mOriginalLevel = LEVEL_NOT_CHANGED;
@@ -55,6 +60,7 @@ class JDBCTransaction {
      * Construct a nested transaction.
      */
     JDBCTransaction(JDBCTransaction parent, IsolationLevel level) throws SQLException {
+        mIsNested = true;
         mConnection = parent.mConnection;
 
         if (level == null) {
@@ -83,14 +89,20 @@ class JDBCTransaction {
         return mConnection;
     }
 
-    void commit() throws SQLException {
-        if (mSavepoint == null) {
-            mConnection.commit();
-        } else {
-            // Don't commit, make a new savepoint. Root transaction has no
-            // savepoint, and so it will do the real commit.
+    void reuse() throws SQLException {
+        if (mIsNested && mSavepoint == null) {
             mSavepoint = mConnection.setSavepoint();
         }
+        mReady = true;
+    }
+
+    void commit() throws SQLException {
+        if (mIsNested) {
+            mSavepoint = null;
+        } else {
+            mConnection.commit();
+        }
+        mReady = false;
     }
 
     /**
@@ -104,12 +116,16 @@ class JDBCTransaction {
             }
             mRegisteredLobs = null;
         }
-        if (mSavepoint == null) {
-            mConnection.rollback();
-            mConnection.setAutoCommit(true);
-            return mConnection;
-        } else {
-            mConnection.rollback(mSavepoint);
+
+        if (mIsNested) {
+            if (mReady) {
+                if (mSavepoint != null) {
+                    mConnection.rollback(mSavepoint);
+                    mSavepoint = null;
+                }
+                mReady = false;
+            }
+
             if (mOriginalLevel != LEVEL_NOT_CHANGED) {
                 if (mOriginalLevel == Connection.TRANSACTION_NONE) {
                     mConnection.setAutoCommit(true);
@@ -117,8 +133,14 @@ class JDBCTransaction {
                     mConnection.setTransactionIsolation(mOriginalLevel);
                 }
             }
-            mSavepoint = null;
+
             return null;
+        } else {
+            if (mReady) {
+                mConnection.rollback();
+                mReady = false;
+            }
+            return mConnection;
         }
     }
 

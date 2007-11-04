@@ -249,7 +249,7 @@ public abstract class TransactionManager<Txn> {
     /**
      * Returns null if no transaction is in progress.
      *
-     * @throws Exception thrown by createTxn
+     * @throws Exception thrown by createTxn or reuseTxn
      */
     public Txn getTxn() throws Exception {
         mLock.lock();
@@ -339,6 +339,17 @@ public abstract class TransactionManager<Txn> {
         throws Exception
     {
         return createTxn(parent, level);
+    }
+
+    /**
+     * Called when a transaction is about to be reused. The default
+     * implementation of this method does nothing. Override if any preparation
+     * is required to ready a transaction for reuse.
+     *
+     * @param txn transaction to reuse, never null
+     * @since 1.1.3
+     */
+    protected void reuseTxn(Txn txn) throws Exception {
     }
 
     /**
@@ -502,13 +513,28 @@ public abstract class TransactionManager<Txn> {
 
         // Caller must hold mLock.
         Txn getTxn() throws Exception {
-            if (mTxn == null) {
-                TransactionManager<Txn> txnMgr = mTxnMgr;
-                Txn parent = (mParent == null || mTop) ? null : mParent.getTxn();
+            TransactionManager<Txn> txnMgr = mTxnMgr;
+            if (mTxn != null) {
+                txnMgr.reuseTxn(mTxn);
+            } else {
+                Txn parentTxn;
+                if (mParent == null || mTop) {
+                    parentTxn = null;
+                } else if ((parentTxn = mParent.mTxn) == null) {
+                    // No point in creating nested transaction if parent
+                    // has never been used. Create parent transaction
+                    // and use it in child transaction, just like a fake
+                    // nested transaction.
+                    if ((parentTxn = mParent.getTxn()) != null) {
+                        return mTxn = parentTxn;
+                    }
+                    // Isolation level of parent is none, so proceed to create
+                    // a real transaction.
+                }
                 if (mTimeoutUnit == null) {
-                    mTxn = txnMgr.createTxn(parent, mLevel);
+                    mTxn = txnMgr.createTxn(parentTxn, mLevel);
                 } else {
-                    mTxn = txnMgr.createTxn(parent, mLevel, mDesiredLockTimeout, mTimeoutUnit);
+                    mTxn = txnMgr.createTxn(parentTxn, mLevel, mDesiredLockTimeout, mTimeoutUnit);
                 }
             }
             return mTxn;

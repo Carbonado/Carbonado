@@ -36,6 +36,7 @@ import org.cojen.util.KeyFactory;
 import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.ConstraintException;
+import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.OptimisticLockException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Repository;
@@ -795,7 +796,7 @@ public final class MasterStorableGenerator<S extends Storable> {
     }
 
     /**
-     * Generates code to enter a transaction, if required.
+     * Generates code to enter a transaction, if required and if none in progress.
      *
      * @param opType type of operation, Insert, Update, or Delete
      * @param txnVar required variable of type Transaction for storing transaction
@@ -806,26 +807,59 @@ public final class MasterStorableGenerator<S extends Storable> {
             return null;
         }
 
-        // txn = masterSupport.getRootRepository().enterTransaction();
+        // Repository repo = masterSupport.getRootRepository();
 
         TypeDesc repositoryType = TypeDesc.forClass(Repository.class);
         TypeDesc transactionType = TypeDesc.forClass(Transaction.class);
         TypeDesc triggerSupportType = TypeDesc.forClass(TriggerSupport.class);
         TypeDesc masterSupportType = TypeDesc.forClass(MasterSupport.class);
+        TypeDesc isolationLevelType = TypeDesc.forClass(IsolationLevel.class);
 
         b.loadThis();
         b.loadField(StorableGenerator.SUPPORT_FIELD_NAME, triggerSupportType);
         b.invokeInterface(masterSupportType, "getRootRepository",
                           repositoryType, null);
-        b.invokeInterface(repositoryType, ENTER_TRANSACTION_METHOD_NAME,
-                          transactionType, null);
-        b.storeLocal(txnVar);
+
         if (requiresTxnForUpdate(opType)) {
+            // Always create nested transaction.
+
+            // txn = repo.enterTransaction();
             // txn.setForUpdate(true);
+            
+            b.invokeInterface(repositoryType, ENTER_TRANSACTION_METHOD_NAME,
+                              transactionType, null);
+            b.storeLocal(txnVar);
             b.loadLocal(txnVar);
             b.loadConstant(true);
             b.invokeInterface(transactionType, SET_FOR_UPDATE_METHOD_NAME, null,
                               new TypeDesc[] {TypeDesc.BOOLEAN});
+        } else {
+            LocalVariable repoVar = b.createLocalVariable(null, repositoryType);
+            b.storeLocal(repoVar);
+
+            // if (repo.getTransactionIsolationLevel() != null) {
+            //     txn = null;
+            // } else {
+            //     txn = repo.enterTransaction();
+            // }
+
+            b.loadLocal(repoVar);
+            b.invokeInterface(repositoryType, GET_TRANSACTION_ISOLATION_LEVEL_METHOD_NAME,
+                              isolationLevelType, null);
+            Label notInTxn = b.createLabel();
+            b.ifNullBranch(notInTxn, true);
+
+            b.loadNull();
+            Label storeTxn = b.createLabel();
+            b.branch(storeTxn);
+
+            notInTxn.setLocation();
+            b.loadLocal(repoVar);
+            b.invokeInterface(repositoryType, ENTER_TRANSACTION_METHOD_NAME,
+                              transactionType, null);
+
+            storeTxn.setLocation();
+            b.storeLocal(txnVar);
         }
 
         return b.createLabel().setLocation();
@@ -879,12 +913,24 @@ public final class MasterStorableGenerator<S extends Storable> {
 
         TypeDesc transactionType = TypeDesc.forClass(Transaction.class);
 
+        Label noTxn = b.createLabel();
+
+        if (!requiresTxnForUpdate(opType)) {
+            // Might be null, if transaction was already in progress. If
+            // requires transaction for update, then a new transaction is
+            // always created.
+            b.loadLocal(txnVar);
+            b.ifNullBranch(noTxn, true);
+        }
+
         // txn.commit();
         // txn.exit();
         b.loadLocal(txnVar);
         b.invokeInterface(transactionType, COMMIT_METHOD_NAME, null, null);
         b.loadLocal(txnVar);
         b.invokeInterface(transactionType, EXIT_METHOD_NAME, null, null);
+
+        noTxn.setLocation();
     }
 
     /**
@@ -898,9 +944,21 @@ public final class MasterStorableGenerator<S extends Storable> {
 
         TypeDesc transactionType = TypeDesc.forClass(Transaction.class);
 
+        Label noTxn = b.createLabel();
+
+        if (!requiresTxnForUpdate(opType)) {
+            // Might be null, if transaction was already in progress. If
+            // requires transaction for update, then a new transaction is
+            // always created.
+            b.loadLocal(txnVar);
+            b.ifNullBranch(noTxn, true);
+        }
+
         // txn.exit();
         b.loadLocal(txnVar);
         b.invokeInterface(transactionType, EXIT_METHOD_NAME, null, null);
+
+        noTxn.setLocation();
     }
 
     /**

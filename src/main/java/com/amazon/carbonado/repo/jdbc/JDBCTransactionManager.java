@@ -78,6 +78,11 @@ class JDBCTransactionManager extends TransactionManager<JDBCTransaction> {
         return new JDBCTransaction(repo.getConnectionForTxn(level));
     }
 
+    @Override
+    protected void reuseTxn(JDBCTransaction txn) throws SQLException {
+        txn.reuse();
+    }
+
     protected boolean commitTxn(JDBCTransaction txn) throws PersistException {
         try {
             txn.commit();
@@ -95,7 +100,7 @@ class JDBCTransactionManager extends TransactionManager<JDBCTransaction> {
                 if (repo == null) {
                     con.close();
                 } else {
-                    repo.yieldConnection(con);
+                    repo.closeConnection(con);
                 }
             }
         } catch (Throwable e) {

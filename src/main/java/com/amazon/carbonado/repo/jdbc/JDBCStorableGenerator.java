@@ -90,18 +90,19 @@ class JDBCStorableGenerator<S extends Storable> {
     }
 
     static <S extends Storable> Class<? extends S> getGeneratedClass(JDBCStorableInfo<S> info,
-                                                                     boolean autoVersioning)
+                                                                     boolean autoVersioning,
+                                                                     boolean suppressReload)
         throws SupportException
     {
-        Object key = KeyFactory.createKey(new Object[] {info, autoVersioning});
+        Object key = KeyFactory.createKey(new Object[] {info, autoVersioning, suppressReload});
 
         synchronized (cCache) {
             Class<? extends S> generatedClass = (Class<? extends S>) cCache.get(key);
             if (generatedClass != null) {
                 return generatedClass;
             }
-            generatedClass =
-                new JDBCStorableGenerator<S>(info, autoVersioning).generateAndInjectClass();
+            generatedClass = new JDBCStorableGenerator<S>(info, autoVersioning, suppressReload)
+                .generateAndInjectClass();
             cCache.put(key, generatedClass);
             return generatedClass;
         }
@@ -110,13 +111,15 @@ class JDBCStorableGenerator<S extends Storable> {
     private final Class<S> mStorableType;
     private final JDBCStorableInfo<S> mInfo;
     private final boolean mAutoVersioning;
+    private final boolean mSuppressReload;
     private final Map<String, ? extends JDBCStorableProperty<S>> mAllProperties;
 
     private final ClassLoader mParentClassLoader;
     private final ClassInjector mClassInjector;
     private final ClassFile mClassFile;
 
-    private JDBCStorableGenerator(JDBCStorableInfo<S> info, boolean autoVersioning)
+    private JDBCStorableGenerator(JDBCStorableInfo<S> info,
+                                  boolean autoVersioning, boolean suppressReload)
         throws SupportException
     {
         mStorableType = info.getStorableType();
@@ -129,6 +132,35 @@ class JDBCStorableGenerator<S extends Storable> {
                 MasterFeature.INSERT_CHECK_REQUIRED, // Must use @Automatic to override.
                 MasterFeature.INSERT_TXN,            // Required because of reload after insert.
                 MasterFeature.UPDATE_TXN);           // Required because of reload after update.
+
+        if (suppressReload) {
+            // No need to be in a transaction if reload never happens.
+            honorSuppression: {
+                Map<String, JDBCStorableProperty<S>> identityProperties =
+                    info.getIdentityProperties();
+
+                for (JDBCStorableProperty<S> prop : mAllProperties.values()) {
+                    if (prop.isAutomatic() && !identityProperties.containsKey(prop.getName())) {
+                        // Might still need to reload. This could be determined
+                        // dynamically, but this is an optimization that be
+                        // implemented later.
+                        // TODO: leave suppressReload alone and perform dynamic check
+                        suppressReload = false;
+                        break honorSuppression;
+                    }
+                    if (prop.isVersion() && !mAutoVersioning) {
+                        // Always need to reload for version.
+                        suppressReload = false;
+                        break honorSuppression;
+                    }
+                }
+
+                features.remove(MasterFeature.INSERT_TXN);
+                features.remove(MasterFeature.UPDATE_TXN);
+            }
+        }
+
+        mSuppressReload = suppressReload;
 
         final Class<? extends S> abstractClass =
             MasterStorableGenerator.getAbstractClass(mStorableType, features);
@@ -711,23 +743,25 @@ class JDBCStorableGenerator<S extends Storable> {
 
             closeStatement(b, psVar, tryAfterPs);
 
-            // Immediately reload object, to ensure that any database supplied
-            // default values are properly retrieved. Since INSERT_TXN is
-            // enabled, superclass ensures that transaction is still in
-            // progress at this point.
+            if (!mSuppressReload) {
+                // Immediately reload object, to ensure that any database supplied
+                // default values are properly retrieved. Since INSERT_TXN is
+                // enabled, superclass ensures that transaction is still in
+                // progress at this point.
 
-            b.loadThis();
-            b.loadLocal(repoVar);
-            b.loadLocal(conVar);
-            if (lobArrayVar == null) {
-                b.loadNull();
-            } else {
-                b.loadLocal(lobArrayVar);
+                b.loadThis();
+                b.loadLocal(repoVar);
+                b.loadLocal(conVar);
+                if (lobArrayVar == null) {
+                    b.loadNull();
+                } else {
+                    b.loadLocal(lobArrayVar);
+                }
+                b.invokeVirtual(MasterStorableGenerator.DO_TRY_LOAD_MASTER_METHOD_NAME,
+                                TypeDesc.BOOLEAN,
+                                new TypeDesc[] {jdbcRepoType, connectionType, lobArrayType});
+                b.pop();
             }
-            b.invokeVirtual(MasterStorableGenerator.DO_TRY_LOAD_MASTER_METHOD_NAME,
-                            TypeDesc.BOOLEAN,
-                            new TypeDesc[] {jdbcRepoType, connectionType, lobArrayType});
-            b.pop();
 
             // Note: yieldConAndHandleException is not called, allowing any
             // SQLException to be thrown. The insert or tryInsert methods must handle it.
@@ -787,8 +821,8 @@ class JDBCStorableGenerator<S extends Storable> {
                 propNumber++;
 
                 if (property.isSelectable() && !property.isPrimaryKeyMember()) {
-                    // Assume database trigger manages version.
                     if (property.isVersion() && !mAutoVersioning) {
+                        // Assume database trigger manages version.
                         continue;
                     }
 
@@ -938,8 +972,8 @@ class JDBCStorableGenerator<S extends Storable> {
                 propNumber++;
 
                 if (property.isSelectable() && !property.isPrimaryKeyMember()) {
-                    // Assume database trigger manages version.
                     if (property.isVersion() && !mAutoVersioning) {
+                        // Assume database trigger manages version.
                         continue;
                     }
 
@@ -1061,26 +1095,28 @@ class JDBCStorableGenerator<S extends Storable> {
                 }
             }
 
-            // Immediately reload object, to ensure that any database supplied
-            // default values are properly retrieved. Since UPDATE_TXN is
-            // enabled, superclass ensures that transaction is still in
-            // progress at this point.
-
             doReload.setLocation();
-            b.loadThis();
-            b.loadLocal(repoVar);
-            b.loadLocal(conVar);
-            if (lobArrayVar == null) {
-                b.loadNull();
-            } else {
-                b.loadLocal(lobArrayVar);
+            if (!mSuppressReload) {
+                // Immediately reload object, to ensure that any database supplied
+                // default values are properly retrieved. Since UPDATE_TXN is
+                // enabled, superclass ensures that transaction is still in
+                // progress at this point.
+
+                b.loadThis();
+                b.loadLocal(repoVar);
+                b.loadLocal(conVar);
+                if (lobArrayVar == null) {
+                    b.loadNull();
+                } else {
+                    b.loadLocal(lobArrayVar);
+                }
+                b.invokeVirtual(MasterStorableGenerator.DO_TRY_LOAD_MASTER_METHOD_NAME,
+                                TypeDesc.BOOLEAN,
+                                new TypeDesc[] {jdbcRepoType, connectionType, lobArrayType});
+                // Even though a boolean is returned, the actual value for true and
+                // false is an int, 1 or 0.
+                b.storeLocal(updateCount);
             }
-            b.invokeVirtual(MasterStorableGenerator.DO_TRY_LOAD_MASTER_METHOD_NAME,
-                            TypeDesc.BOOLEAN,
-                            new TypeDesc[] {jdbcRepoType, connectionType, lobArrayType});
-            // Even though a boolean is returned, the actual value for true and
-            // false is an int, 1 or 0.
-            b.storeLocal(updateCount);
 
             skipReload.setLocation();
 

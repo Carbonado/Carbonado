@@ -126,6 +126,7 @@ class LoggingConnection implements Connection {
     }
 
     public void setAutoCommit(boolean autoCommit) throws SQLException {
+        mLog.debug("Connection.setAutoCommit(" + autoCommit + ')');
         mCon.setAutoCommit(autoCommit);
     }
 
@@ -174,6 +175,29 @@ class LoggingConnection implements Connection {
     }
 
     public void setTransactionIsolation(int level) throws SQLException {
+        String levelStr;
+        switch (level) {
+        default:
+            levelStr = String.valueOf(level);
+            break;
+        case Connection.TRANSACTION_NONE:
+            levelStr = "TRANSACTION_NONE";
+            break;
+        case Connection.TRANSACTION_READ_UNCOMMITTED:
+            levelStr = "TRANSACTION_READ_UNCOMMITTED";
+            break;
+        case Connection.TRANSACTION_READ_COMMITTED:
+            levelStr = "TRANSACTION_READ_COMMITTED";
+            break;
+        case Connection.TRANSACTION_REPEATABLE_READ:
+            levelStr = "TRANSACTION_REPEATABLE_READ";
+            break;
+        case Connection.TRANSACTION_SERIALIZABLE:
+            levelStr = "TRANSACTION_SERIALIZABLE";
+            break;
+        }
+
+        mLog.debug("Connection.setTransactionIsolation(" + levelStr + ')');
         mCon.setTransactionIsolation(level);
     }
 

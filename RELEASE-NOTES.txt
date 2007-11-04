@@ -43,6 +43,12 @@ Carbonado change history
 - Added support for "where exists" in queries via new syntax.
 - Added support for outer joins via new syntax.
 
+1.1.2 to 1.1.3
+-------------------------------
+- Reduce creation of unnecessary nested transactions.
+- Added feature to JDBCRepository to suppress Storable reloading after insert
+  or update.
+
 1.1 to 1.1.2
 -------------------------------
 - Fixed query engine rule which sometimes favored index with incorrect ordering.

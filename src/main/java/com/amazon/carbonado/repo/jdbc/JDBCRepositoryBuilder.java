@@ -72,6 +72,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     private String mPassword;
     private Integer mFetchSize;
     private Map<String, Boolean> mAutoVersioningMap;
+    private Map<String, Boolean> mSuppressReloadMap;
     private String mSequenceSelectStatement;
     private boolean mForceStoredSequence;
     
@@ -86,6 +87,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
              mCatalog, mSchema,
              mFetchSize,
              getAutoVersioningMap(),
+             getSuppressReloadMap(),
              mSequenceSelectStatement, mForceStoredSequence);
         rootRef.set(repo);
         return repo;
@@ -318,6 +320,35 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
             return null;
         }
         return new HashMap<String, Boolean>(mAutoVersioningMap);
+    }
+
+    /**
+     * By default, JDBCRepository reloads Storables after every insert or
+     * update. This ensures that any applied defaults or triggered changes are
+     * available to the Storable. If the database has no such defaults or
+     * triggers, suppressing reload can improve performance.
+     *
+     * <p>Note: If Storable has a version property and auto versioning is not
+     * enabled, or if the Storable has any automatic properties, the Storable
+     * might still be reloaded.
+     *
+     * @param suppress true to suppress, false to unsuppress
+     * @param className name of Storable type to suppress reload for; pass null
+     * to suppress all
+     * @since 1.1.3
+     */
+    public void setSuppressReload(boolean suppress, String className) {
+        if (mSuppressReloadMap == null) {
+            mSuppressReloadMap = new HashMap<String, Boolean>();
+        }
+        mSuppressReloadMap.put(className, suppress);
+    }
+
+    private Map<String, Boolean> getSuppressReloadMap() {
+        if (mSuppressReloadMap == null) {
+            return null;
+        }
+        return new HashMap<String, Boolean>(mSuppressReloadMap);
     }
 
     /**
