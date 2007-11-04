@@ -26,6 +26,7 @@ import com.amazon.carbonado.filter.FilterValues;
  * Simple DOM representing a SQL statement.
  *
  * @author Brian S O'Neill
+ * @see SQLStatementBuilder
  */
 abstract class SQLStatement<S extends Storable> {
     public abstract int maxLength();
