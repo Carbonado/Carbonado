@@ -58,6 +58,7 @@ import com.amazon.carbonado.Indexes;
 import com.amazon.carbonado.Join;
 import com.amazon.carbonado.Key;
 import com.amazon.carbonado.MalformedTypeException;
+import com.amazon.carbonado.Name;
 import com.amazon.carbonado.Nullable;
 import com.amazon.carbonado.Independent;
 import com.amazon.carbonado.PrimaryKey;
@@ -776,6 +777,7 @@ public class StorableIntrospector {
         Independent independent = null;
         Join join = null;
         Derived derived = null;
+        Name name = null;
 
         Method readMethod = property.getReadMethod();
         Method writeMethod = property.getWriteMethod();
@@ -796,6 +798,7 @@ public class StorableIntrospector {
             independent = readMethod.getAnnotation(Independent.class);
             join = readMethod.getAnnotation(Join.class);
             derived = readMethod.getAnnotation(Derived.class);
+            name = readMethod.getAnnotation(Name.class);
         }
 
         if (writeMethod == null) {
@@ -968,6 +971,11 @@ public class StorableIntrospector {
         if (sequence != null) {
             sequenceName = sequence.value();
         }
+        
+        String preferedName = null;
+        if (name != null) {
+            preferedName = name.value();
+        }
 
         if (join == null) {
             if (errorMessages.size() > 0) {
@@ -977,7 +985,7 @@ public class StorableIntrospector {
                 (property, enclosing, nullable != null, pk, altKey,
                  aliases, constraints, adapters == null ? null : adapters[0],
                  version != null, sequenceName,
-                 independent != null, automatic != null, derived);
+                 independent != null, automatic != null, derived, preferedName );
         }
 
         // Do additional work for join properties.
@@ -1086,7 +1094,7 @@ public class StorableIntrospector {
             (property, enclosing, nullable != null, aliases,
              constraints, adapters == null ? null : adapters[0],
              sequenceName, independent != null, automatic != null, derived,
-             joinedType, internal, external);
+             joinedType, internal, external, preferedName);
     }
 
     private static StorablePropertyConstraint[] gatherConstraints
@@ -1581,6 +1589,7 @@ public class StorableIntrospector {
         private final boolean mIndependent;
         private final boolean mAutomatic;
         private final boolean mIsDerived;
+        private final String mName;
 
         // Temporary reference until derived from is resolved.
         private Derived mDerived;
@@ -1605,7 +1614,8 @@ public class StorableIntrospector {
                        StorablePropertyAdapter adapter,
                        boolean isVersion, String sequence,
                        boolean independent, boolean automatic,
-                       Derived derived)
+                       Derived derived,
+                       String name)
         {
             mBeanProperty = property;
             mEnclosingType = enclosing;
@@ -1621,10 +1631,11 @@ public class StorableIntrospector {
             mAutomatic = automatic;
             mIsDerived = derived != null;
             mDerived = derived;
+            mName = name == null ? mBeanProperty.getName() : name;
         }
 
         public final String getName() {
-            return mBeanProperty.getName();
+            return mName;
         }
 
         public final Class<?> getType() {
@@ -2091,10 +2102,10 @@ public class StorableIntrospector {
                      String sequence, boolean independent, boolean automatic,
                      Derived derived,
                      Class<? extends Storable> joinedType,
-                     String[] internal, String[] external)
+                     String[] internal, String[] external, String name)
         {
             super(property, enclosing, nullable, false, false,
-                  aliases, constraints, adapter, false, sequence, independent, automatic, derived);
+                  aliases, constraints, adapter, false, sequence, independent, automatic, derived, name);
             mJoinedType = joinedType;
 
             int length = internal.length;
