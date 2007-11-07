@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2007 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -25,21 +25,25 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Identifies prefered name for a {@link Storable} or a Storable property. By default the 
- * property name is following the convention of a java Bean. Use this annotation when 
- * you want to use a prefered name for a storable property. .
+ * Overrides the primary name of a Storable property. By default, the primary
+ * name of a property is determined by JavaBeans conventions. When overridden,
+ * all references to the named property must use the new name.
  *
  * <p>Example:<pre>
+ * &#64;PrimaryKey(<b>"userId"</b>)
  * public interface UserInfo extends Storable&lt;UserInfo&gt; {
- *     <b>&#64;Name("MyName")</b>
- *     String getName();
- *     void setName(String name);
+ *     <b>&#64;Name("userId")</b>
+ *     long getUserInfoID();
+ *     void setUserInfoID(long id);
  *
  *     ...
  * }
  * </pre>
  *
+ * @since 1.2
  * @author Fang Chen
+ * @author Brian S O'Neill
+ * @see Alias
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
@@ -47,7 +51,7 @@ import java.lang.annotation.Target;
 public @interface Name {
 
     /**
-     * The prefered name of the property
+     * Name assigned to the property.
      */
     String value();
 

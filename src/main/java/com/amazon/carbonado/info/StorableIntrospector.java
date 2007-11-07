@@ -77,6 +77,7 @@ import com.amazon.carbonado.lob.Lob;
  * examination failed.
  *
  * @author Brian S O'Neill
+ * @author Fang Chen
  */
 public class StorableIntrospector {
     // Weakly maps Class objects to softly referenced StorableInfo objects.

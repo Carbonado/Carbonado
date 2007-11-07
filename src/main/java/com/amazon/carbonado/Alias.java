@@ -42,6 +42,7 @@ import java.lang.annotation.*;
  * </pre>
  *
  * @author Brian S O'Neill
+ * @see Name
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
