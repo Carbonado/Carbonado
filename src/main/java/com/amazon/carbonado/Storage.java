@@ -23,7 +23,7 @@ import com.amazon.carbonado.filter.Filter;
 /**
  * Access for a specific type of {@link Storable} from a {@link Repository}.
  *
- * <p>Storage instances are thread-safe and immutable.
+ * <p>Storage instances are mutable, but they are thread-safe.
  *
  * @author Brian S O'Neill
  */
