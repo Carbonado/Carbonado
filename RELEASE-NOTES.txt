@@ -48,6 +48,8 @@ Carbonado change history
 - Reduce creation of unnecessary nested transactions.
 - Added feature to JDBCRepository to suppress Storable reloading after insert
   or update.
+- Fixed query plan bug which sometimes caused a correctly selected index to be
+  fully scanned.
 
 1.1 to 1.1.2
 -------------------------------
