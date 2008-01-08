@@ -30,6 +30,7 @@ import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.Storable;
 
+import com.amazon.carbonado.filter.ExistsFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.OrFilter;
 import com.amazon.carbonado.filter.PropertyFilter;
@@ -68,20 +69,30 @@ class PropertyFilterList<S extends Storable> extends AbstractList<PropertyFilter
 
         List<PropertyFilter<S>> list;
         Map<PropertyFilter<S>, Integer> posMap;
+        List<ExistsFilter<S>> existsList;
 
         if (filter == null) {
             list = Collections.emptyList();
             posMap = Collections.emptyMap();
+            existsList = Collections.emptyList();
         } else if (filter instanceof PropertyFilter) {
             list = Collections.singletonList((PropertyFilter<S>) filter);
             posMap = Collections.singletonMap((PropertyFilter<S>) filter, 0);
+            existsList = Collections.emptyList();
         } else {
             list = new ArrayList<PropertyFilter<S>>();
+            existsList = new ArrayList<ExistsFilter<S>>();
             final List<PropertyFilter<S>> flist = list;
+            final List<ExistsFilter<S>> fexistsList = existsList;
 
             filter.accept(new Visitor<S, Object, Object>() {
                 public Object visit(OrFilter<S> filter, Object param) {
-                    throw new IllegalArgumentException("Logical 'or' not allowed");
+                    throw new IllegalArgumentException("OrFilter not allowed");
+                }
+
+                public Object visit(ExistsFilter<S> filter, Object param) {
+                    fexistsList.add(filter);
+                    return null;
                 }
 
                 public Object visit(PropertyFilter<S> filter, Object param) {
@@ -99,9 +110,10 @@ class PropertyFilterList<S extends Storable> extends AbstractList<PropertyFilter
 
             ((ArrayList) list).trimToSize();
             list = Collections.unmodifiableList(list);
+            existsList = Collections.unmodifiableList(existsList);
         }
 
-        plist = new PropertyFilterList<S>(list, posMap);
+        plist = new PropertyFilterList<S>(list, posMap, existsList);
 
         synchronized (cCache) {
             cCache.put(filter, plist);
@@ -112,12 +124,15 @@ class PropertyFilterList<S extends Storable> extends AbstractList<PropertyFilter
 
     private final List<PropertyFilter<S>> mList;
     private final Map<PropertyFilter<S>, Integer> mPosMap;
+    private final List<ExistsFilter<S>> mExistsList;
 
     private PropertyFilterList(List<PropertyFilter<S>> list,
-                               Map<PropertyFilter<S>, Integer> posMap)
+                               Map<PropertyFilter<S>, Integer> posMap,
+                               List<ExistsFilter<S>> existsList)
     {
         mList = list;
         mPosMap = posMap;
+        mExistsList = existsList;
     }
 
     public Integer getOriginalPosition(PropertyFilter<S> filter) {
@@ -130,6 +145,13 @@ class PropertyFilterList<S extends Storable> extends AbstractList<PropertyFilter
 
     public PropertyFilter<S> get(int index) {
         return mList.get(index);
+    }
+
+    /**
+     * Returns a list of extracted ExistsFilters which can be and'ed together.
+     */
+    public List<ExistsFilter<S>> getExistsFilters() {
+        return mExistsList;
     }
 
     private static class PFComparator<S extends Storable>

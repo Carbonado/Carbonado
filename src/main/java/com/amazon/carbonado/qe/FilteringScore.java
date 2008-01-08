@@ -112,7 +112,7 @@ public class FilteringScore<S extends Storable> {
         // operations are last.
         PropertyFilterList<S> originalFilterList = PropertyFilterList.get(filter);
 
-        // Copy so it so that matching elements can be removed.
+        // Copy it so that matching elements can be removed.
         List<PropertyFilter<S>> filterList = new ArrayList<PropertyFilter<S>>(originalFilterList);
 
         // First find the identity matches.
@@ -209,6 +209,15 @@ public class FilteringScore<S extends Storable> {
                 indexProperties[indexPropPos].getDirection() == Direction.DESCENDING;
         }
 
+        List<? extends Filter<S>> remainderFilters;
+        if (originalFilterList.getExistsFilters().size() == 0) {
+            remainderFilters = filterList;
+        } else {
+            remainderFilters = new ArrayList<Filter<S>>(filterList);
+            // Java "generics" suck. Note the stupid cast to make this work.
+            ((List) remainderFilters).addAll(originalFilterList.getExistsFilters());
+        }
+
         return new FilteringScore<S>(indexProperties,
                                      clustered,
                                      unique,
@@ -217,7 +226,7 @@ public class FilteringScore<S extends Storable> {
                                      rangeEndFilters,
                                      arrangementScore,
                                      preferenceScore,
-                                     filterList,
+                                     remainderFilters,
                                      shouldReverseRange);
     }
 
@@ -303,7 +312,7 @@ public class FilteringScore<S extends Storable> {
                            List<PropertyFilter<S>> rangeEndFilters,
                            int arrangementScore,
                            BigInteger preferenceScore,
-                           List<? extends PropertyFilter<S>> remainderFilters,
+                           List<? extends Filter<S>> remainderFilters,
                            boolean shouldReverseRange)
     {
         mIndexProperties = indexProperties;
