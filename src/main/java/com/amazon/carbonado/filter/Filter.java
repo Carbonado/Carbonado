@@ -595,6 +595,14 @@ public abstract class Filter<S extends Storable> implements Appender {
      * "homeAddress" which joins to Address. An Address filter, "city = ?", as
      * joined from Person's "homeAddress", becomes "homeAddress.city = ?".
      *
+     * <pre>
+     * Filter&lt;Address&gt; addressFilter = Filter.filterFor(Address.class, "city = ?");
+     * Filter&lt;Person&gt; personFilter = addressFilter.asJoinedFrom(Person.class, "homeAddress");
+     *
+     * // Equivalent filter:
+     * Filter&lt;Person&gt; personFilter2 = Filter.filterFor(Person.class, "homeAddress.city = ?");
+     * </pre>
+     *
      * @param type type of T which contains join property
      * @param joinProperty property of T which joins to this Filter's Storable type
      * @return filter for type T
