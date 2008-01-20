@@ -213,7 +213,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         if (jblob != null) {
             try {
-                JDBCTransaction txn = mRepository.localTxnManager().getTxn();
+                JDBCTransaction txn = mRepository.localTxnScope().getTxn();
                 if (txn != null) {
                     txn.register(jblob);
                 }
@@ -235,7 +235,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         if (jclob != null) {
             try {
-                JDBCTransaction txn = mRepository.localTxnManager().getTxn();
+                JDBCTransaction txn = mRepository.localTxnScope().getTxn();
                 if (txn != null) {
                     txn.register(jclob);
                 }
@@ -606,7 +606,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         }
 
         public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
-            boolean forUpdate = mRepository.localTxnManager().isForUpdate();
+            boolean forUpdate = mRepository.localTxnScope().isForUpdate();
             Connection con = mRepository.getConnection();
             try {
                 PreparedStatement ps = con.prepareStatement(prepareSelect(values, forUpdate));
@@ -674,7 +674,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             throws IOException
         {
             indent(app, indentLevel);
-            boolean forUpdate = mRepository.localTxnManager().isForUpdate();
+            boolean forUpdate = mRepository.localTxnScope().isForUpdate();
             app.append(prepareSelect(values, forUpdate));
             app.append('\n');
             return true;
@@ -684,7 +684,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             throws IOException
         {
             try {
-                boolean forUpdate = mRepository.localTxnManager().isForUpdate();
+                boolean forUpdate = mRepository.localTxnScope().isForUpdate();
                 String statement = prepareSelect(values, forUpdate);
                 return mRepository.getSupportStrategy().printPlan(app, indentLevel, statement);
             } catch (FetchException e) {

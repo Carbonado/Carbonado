@@ -63,7 +63,7 @@ import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.spi.AbstractRepository;
 import com.amazon.carbonado.spi.ExceptionTransformer;
 import com.amazon.carbonado.spi.LobEngine;
-import com.amazon.carbonado.spi.TransactionManager;
+import com.amazon.carbonado.spi.TransactionScope;
 
 /**
  * Repository implementation backed by a Berkeley DB. Data is encoded in the
@@ -326,10 +326,6 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         return mLog;
     }
 
-    protected TransactionManager createTransactionManager() {
-        return new BDBTransactionManager(mExTransformer, this);
-    }
-
     protected <S extends Storable> Storage createStorage(Class<S> type)
         throws RepositoryException
     {
@@ -344,6 +340,10 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         throws RepositoryException
     {
         return new SequenceValueGenerator(BDBRepository.this, name);
+    }
+
+    protected BDBTransactionManager<Txn> createTransactionManager() {
+        return new BDBTransactionManager<Txn>(mExTransformer, this);
     }
 
     /**
@@ -489,12 +489,9 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         return mExTransformer.toRepositoryException(e);
     }
 
-    /**
-     * Returns the thread-local BDBTransactionManager, creating it if needed.
-     */
-    // Provides access to transaction manager from other classes.
-    TransactionManager<Txn> localTxnManager() {
-        return localTransactionManager();
+    // Provides access to transaction scope from other classes.
+    final TransactionScope<Txn> localTxnScope() {
+        return localTransactionScope();
     }
 
     /**

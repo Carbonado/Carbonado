@@ -78,7 +78,7 @@ import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.spi.IndexInfoImpl;
 import com.amazon.carbonado.spi.LobEngine;
 import com.amazon.carbonado.spi.StorableIndexSet;
-import com.amazon.carbonado.spi.TransactionManager;
+import com.amazon.carbonado.spi.TransactionScope;
 import com.amazon.carbonado.spi.TriggerManager;
 
 /**
@@ -203,18 +203,18 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             }
         }
 
-        TransactionManager<Txn> txnMgr = localTxnManager();
+        TransactionScope<Txn> scope = localTxnScope();
 
         // Lock out shutdown task.
-        txnMgr.getLock().lock();
+        scope.getLock().lock();
         try {
             try {
-                db_truncate(txnMgr.getTxn());
+                db_truncate(scope.getTxn());
             } catch (Exception e) {
                 throw toPersistException(e);
             }
         } finally {
-            txnMgr.getLock().unlock();
+            scope.getLock().unlock();
         }
     }
 
@@ -317,7 +317,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                                  boolean reverseOrder)
         throws FetchException
     {
-        TransactionManager<Txn> txnMgr = localTxnManager();
+        TransactionScope<Txn> scope = localTxnScope();
 
         if (reverseRange) {
             {
@@ -334,7 +334,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         // Lock out shutdown task.
-        txnMgr.getLock().lock();
+        scope.getLock().lock();
         try {
             StorableCodec<S> codec = mStorableCodec;
 
@@ -381,7 +381,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
             try {
                 BDBCursor<Txn, S> cursor = openCursor
-                    (txnMgr,
+                    (scope,
                      startBound, inclusiveStart,
                      endBound, inclusiveEnd,
                      mStorableCodec.getPrimaryKeyPrefixLength(),
@@ -394,7 +394,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                 throw toFetchException(e);
             }
         } finally {
-            txnMgr.getLock().unlock();
+            scope.getLock().unlock();
         }
     }
 
@@ -447,15 +447,15 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         boolean isPrimaryEmpty;
 
         try {
-            TransactionManager<Txn> txnMgr = mRepository.localTxnManager();
+            TransactionScope<Txn> scope = mRepository.localTxnScope();
             // Lock out shutdown task.
-            txnMgr.getLock().lock();
+            scope.getLock().lock();
             try {
                 primaryDatabase = env_openPrimaryDatabase(openTxn, databaseName);
                 primaryInfo = registerPrimaryDatabase(readOnly, layout);
-                isPrimaryEmpty = db_isEmpty(null, primaryDatabase, txnMgr.isForUpdate());
+                isPrimaryEmpty = db_isEmpty(null, primaryDatabase, scope.isForUpdate());
             } finally {
-                txnMgr.getLock().unlock();
+                scope.getLock().unlock();
             }
         } catch (Exception e) {
             throw toRepositoryException(e);
@@ -572,7 +572,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         try {
-            Txn txn = mRepository.localTxnManager().getTxn();
+            Txn txn = mRepository.localTxnScope().getTxn();
             return db_compact(txn, mPrimaryDatabase, start, end);
         } catch (Exception e) {
             throw mRepository.toRepositoryException(e);
@@ -637,7 +637,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
     /**
      * @param txn optional transaction to commit when cursor is closed
-     * @param txnMgr
+     * @param scope
      * @param startBound specify the starting key for the cursor, or null if first
      * @param inclusiveStart true if start bound is inclusive
      * @param endBound specify the ending key for the cursor, or null if last
@@ -647,7 +647,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
      * @param database database to use
      */
     protected abstract BDBCursor<Txn, S> openCursor
-        (TransactionManager<Txn> txnMgr,
+        (TransactionScope<Txn> scope,
          byte[] startBound, boolean inclusiveStart,
          byte[] endBound, boolean inclusiveEnd,
          int maxPrefix,
@@ -667,8 +667,8 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         return mRepository.toRepositoryException(e);
     }
 
-    TransactionManager<Txn> localTxnManager() {
-        return mRepository.localTxnManager();
+    TransactionScope<Txn> localTxnScope() {
+        return mRepository.localTxnScope();
     }
 
     /**
@@ -726,15 +726,15 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
      * prevent threads from starting work that will likely fail along the way.
      */
     void checkClosed() throws FetchException {
-        TransactionManager<Txn> txnMgr = localTxnManager();
+        TransactionScope<Txn> scope = localTxnScope();
 
         // Lock out shutdown task.
-        txnMgr.getLock().lock();
+        scope.getLock().lock();
         try {
             if (mPrimaryDatabase == null) {
                 // If shuting down, this will force us to block forever.
                 try {
-                    txnMgr.getTxn();
+                    scope.getTxn();
                 } catch (Exception e) {
                     // Don't care.
                 }
@@ -742,20 +742,20 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                 throw new FetchException("Repository closed");
             }
         } finally {
-            txnMgr.getLock().unlock();
+            scope.getLock().unlock();
         }
     }
 
     void close() throws Exception {
-        TransactionManager<Txn> txnMgr = mRepository.localTxnManager();
-        txnMgr.getLock().lock();
+        TransactionScope<Txn> scope = mRepository.localTxnScope();
+        scope.getLock().lock();
         try {
             if (mPrimaryDatabase != null) {
                 db_close(mPrimaryDatabase);
                 mPrimaryDatabase = null;
             }
         } finally {
-            txnMgr.getLock().unlock();
+            scope.getLock().unlock();
         }
     }
 
@@ -998,18 +998,18 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public byte[] tryLoad(byte[] key) throws FetchException {
-            TransactionManager<Txn> txnMgr = mStorage.localTxnManager();
+            TransactionScope<Txn> scope = mStorage.localTxnScope();
             byte[] result;
             // Lock out shutdown task.
-            txnMgr.getLock().lock();
+            scope.getLock().lock();
             try {
                 try {
-                    result = mStorage.db_get(txnMgr.getTxn(), key, txnMgr.isForUpdate());
+                    result = mStorage.db_get(scope.getTxn(), key, scope.isForUpdate());
                 } catch (Throwable e) {
                     throw mStorage.toFetchException(e);
                 }
             } finally {
-                txnMgr.getLock().unlock();
+                scope.getLock().unlock();
             }
             if (result == NOT_FOUND) {
                 return null;
@@ -1021,18 +1021,18 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public boolean tryInsert(S storable, byte[] key, byte[] value) throws PersistException {
-            TransactionManager<Txn> txnMgr = mStorage.localTxnManager();
+            TransactionScope<Txn> scope = mStorage.localTxnScope();
             Object result;
             // Lock out shutdown task.
-            txnMgr.getLock().lock();
+            scope.getLock().lock();
             try {
                 try {
-                    result = mStorage.db_putNoOverwrite(txnMgr.getTxn(), key, value);
+                    result = mStorage.db_putNoOverwrite(scope.getTxn(), key, value);
                 } catch (Throwable e) {
                     throw mStorage.toPersistException(e);
                 }
             } finally {
-                txnMgr.getLock().unlock();
+                scope.getLock().unlock();
             }
             if (result == KEY_EXIST) {
                 return false;
@@ -1044,34 +1044,34 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public void store(S storable, byte[] key, byte[] value) throws PersistException {
-            TransactionManager<Txn> txnMgr = mStorage.localTxnManager();
+            TransactionScope<Txn> scope = mStorage.localTxnScope();
             // Lock out shutdown task.
-            txnMgr.getLock().lock();
+            scope.getLock().lock();
             try {
                 try {
-                    if (!mStorage.db_put(txnMgr.getTxn(), key, value)) {
+                    if (!mStorage.db_put(scope.getTxn(), key, value)) {
                         throw new PersistException("Failed");
                     }
                 } catch (Throwable e) {
                     throw mStorage.toPersistException(e);
                 }
             } finally {
-                txnMgr.getLock().unlock();
+                scope.getLock().unlock();
             }
         }
 
         public boolean tryDelete(byte[] key) throws PersistException {
-            TransactionManager<Txn> txnMgr = mStorage.localTxnManager();
+            TransactionScope<Txn> scope = mStorage.localTxnScope();
             // Lock out shutdown task.
-            txnMgr.getLock().lock();
+            scope.getLock().lock();
             try {
                 try {
-                    return mStorage.db_delete(txnMgr.getTxn(), key);
+                    return mStorage.db_delete(scope.getTxn(), key);
                 } catch (Throwable e) {
                     throw mStorage.toPersistException(e);
                 }
             } finally {
-                txnMgr.getLock().unlock();
+                scope.getLock().unlock();
             }
         }
 

@@ -25,7 +25,7 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.raw.RawCursor;
 import com.amazon.carbonado.raw.RawUtil;
 
-import com.amazon.carbonado.spi.TransactionManager;
+import com.amazon.carbonado.spi.TransactionScope;
 
 /**
  *
@@ -35,10 +35,10 @@ import com.amazon.carbonado.spi.TransactionManager;
 abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
     private static final byte[] NO_DATA = new byte[0];
 
-    private final TransactionManager<Txn> mTxnMgr;
+    private final TransactionScope<Txn> mScope;
     private final BDBStorage<Txn, S> mStorage;
     /**
-     * @param txnMgr
+     * @param scope
      * @param startBound specify the starting key for the cursor, or null if first
      * @param inclusiveStart true if start bound is inclusive
      * @param endBound specify the ending key for the cursor, or null if last
@@ -50,7 +50,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
      * @throws ClassCastException if lock is not an object passed by
      * {@link BDBStorage#openCursor BDBStorage.openCursor}
      */
-    protected BDBCursor(TransactionManager<Txn> txnMgr,
+    protected BDBCursor(TransactionScope<Txn> scope,
                         byte[] startBound, boolean inclusiveStart,
                         byte[] endBound, boolean inclusiveEnd,
                         int maxPrefix,
@@ -58,19 +58,19 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
                         BDBStorage<Txn, S> storage)
         throws FetchException
     {
-        super(txnMgr.getLock(),
+        super(scope.getLock(),
               startBound, inclusiveStart,
               endBound, inclusiveEnd,
               maxPrefix, reverse);
 
-        mTxnMgr = txnMgr;
+        mScope = scope;
         mStorage = storage;
-        txnMgr.register(storage.getStorableType(), this);
+        scope.register(storage.getStorableType(), this);
     }
 
     void open() throws FetchException {
         try {
-            cursor_open(mTxnMgr.getTxn(), mTxnMgr.getIsolationLevel());
+            cursor_open(mScope.getTxn(), mScope.getIsolationLevel());
         } catch (Exception e) {
             throw mStorage.toFetchException(e);
         }
@@ -80,7 +80,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         try {
             super.close();
         } finally {
-            mTxnMgr.unregister(mStorage.getStorableType(), this);
+            mScope.unregister(mStorage.getStorableType(), this);
         }
     }
 

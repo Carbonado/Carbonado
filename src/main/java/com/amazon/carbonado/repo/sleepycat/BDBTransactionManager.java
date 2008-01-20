@@ -29,9 +29,7 @@ import com.amazon.carbonado.spi.ExceptionTransformer;
 import com.amazon.carbonado.spi.TransactionManager;
 
 /**
- * This class is used for tracking transactions and open cursors. Each
- * thread that uses the BDBRepository instance is assigned at most one
- * BDBTransactionManager instance.
+ * This class is used for tracking transactions and open cursors.
  *
  * @author Brian S O'Neill
  */
@@ -49,6 +47,10 @@ class BDBTransactionManager<Txn> extends TransactionManager<Txn> {
 
     protected IsolationLevel selectIsolationLevel(Transaction parent, IsolationLevel level) {
         return repository().selectIsolationLevel(parent, level);
+    }
+
+    protected boolean supportsForUpdate() {
+        return true;
     }
 
     protected Txn createTxn(Txn parent, IsolationLevel level) throws Exception {

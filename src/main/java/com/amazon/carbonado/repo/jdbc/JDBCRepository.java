@@ -55,7 +55,7 @@ import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.sequence.SequenceCapability;
 import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.spi.AbstractRepository;
-import com.amazon.carbonado.spi.TransactionManager;
+import com.amazon.carbonado.spi.TransactionScope;
 import com.amazon.carbonado.util.ThrowUnchecked;
 
 /**
@@ -324,7 +324,7 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
      */
     // Is called by auto-generated code and must be public.
     public boolean isTransactionForUpdate() {
-        return localTransactionManager().isForUpdate();
+        return localTransactionScope().isForUpdate();
     }
 
     /**
@@ -419,7 +419,7 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
                 throw new FetchException("Repository is closed");
             }
 
-            JDBCTransaction txn = localTransactionManager().getTxn();
+            JDBCTransaction txn = localTransactionScope().getTxn();
             if (txn != null) {
                 // Return the connection used by the current transaction.
                 return txn.getConnection();
@@ -656,10 +656,6 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
         return mLog;
     }
 
-    protected TransactionManager<JDBCTransaction> createTransactionManager() {
-        return new JDBCTransactionManager(this);
-    }
-
     protected <S extends Storable> Storage<S> createStorage(Class<S> type)
         throws RepositoryException
     {
@@ -701,11 +697,12 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
         return mSupportStrategy.createSequenceValueProducer(name);
     }
 
-    /**
-     * Returns the thread-local JDBCTransactionManager, creating it if needed.
-     */
-    // Provides access to transaction manager from other classes.
-    TransactionManager<JDBCTransaction> localTxnManager() {
-        return localTransactionManager();
+    protected JDBCTransactionManager createTransactionManager() {
+        return new JDBCTransactionManager(this);
+    }
+
+    // Provides access to transaction scope from other classes.
+    final TransactionScope<JDBCTransaction> localTxnScope() {
+        return localTransactionScope();
     }
 }

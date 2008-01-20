@@ -29,8 +29,7 @@ import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.spi.TransactionManager;
 
 /**
- * Manages transactions for JDBCRepository. Only one instance is allocated per
- * thread.
+ * Manages transactions for JDBCRepository.
  *
  * @author Brian S O'Neill
  */
@@ -46,17 +45,17 @@ class JDBCTransactionManager extends TransactionManager<JDBCTransaction> {
         mRepositoryRef = new WeakReference<JDBCRepository>(repository);
     }
 
-    @Override
-    public boolean isForUpdate() {
-        return super.isForUpdate() && mRepositoryRef.get().supportsSelectForUpdate();
-    }
-
     protected IsolationLevel selectIsolationLevel(Transaction parent, IsolationLevel level) {
         JDBCRepository repo = mRepositoryRef.get();
         if (repo == null) {
             throw new IllegalStateException("Repository closed");
         }
         return repo.selectIsolationLevel(parent, level);
+    }
+
+    protected boolean supportsForUpdate() {
+        JDBCRepository repo = mRepositoryRef.get();
+        return repo != null && repo.supportsSelectForUpdate();
     }
 
     protected JDBCTransaction createTxn(JDBCTransaction parent, IsolationLevel level)
