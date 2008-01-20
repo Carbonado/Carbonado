@@ -169,29 +169,6 @@ public class TransactionScope<Txn> {
     }
 
     /**
-     * Exits all transactions and closes all cursors. Should be called only
-     * when repository is closed.
-     */
-    public void close() throws RepositoryException {
-        mLock.lock();
-        try {
-            if (!mClosed) {
-                while (mActive != null) {
-                    mActive.exit();
-                }
-                if (mCursors != null) {
-                    for (CursorList<TransactionImpl<Txn>> cursorList : mCursors.values()) {
-                        cursorList.closeCursors();
-                    }
-                }
-            }
-        } finally {
-            mClosed = true;
-            mLock.unlock();
-        }
-    }
-
-    /**
      * Returns the implementation for the active transaction, or null if there
      * is no active transaction.
      *
@@ -228,6 +205,29 @@ public class TransactionScope<Txn> {
         try {
             return (mClosed || mActive == null) ? null : mActive.getIsolationLevel();
         } finally {
+            mLock.unlock();
+        }
+    }
+
+    /**
+     * Exits all transactions and closes all cursors. Should be called only
+     * when repository is closed.
+     */
+    void close() throws RepositoryException {
+        mLock.lock();
+        try {
+            if (!mClosed) {
+                while (mActive != null) {
+                    mActive.exit();
+                }
+                if (mCursors != null) {
+                    for (CursorList<TransactionImpl<Txn>> cursorList : mCursors.values()) {
+                        cursorList.closeCursors();
+                    }
+                }
+            }
+        } finally {
+            mClosed = true;
             mLock.unlock();
         }
     }
