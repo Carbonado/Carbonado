@@ -37,13 +37,13 @@ import com.amazon.carbonado.Transaction;
 public abstract class TransactionManager<Txn> {
     private static final int NOT_CLOSED = 0, CLOSED = 1, SUSPENDED = 2;
 
-    private final ThreadLocal<TransactionScope<Txn>> mCurrentScope;
+    private final ThreadLocal<TransactionScope<Txn>> mLocalScope;
     private final Map<TransactionScope<Txn>, ?> mAllScopes;
 
     private int mClosedState;
 
     public TransactionManager() {
-        mCurrentScope = new ThreadLocal<TransactionScope<Txn>>();
+        mLocalScope = new ThreadLocal<TransactionScope<Txn>>();
         mAllScopes = new WeakIdentityMap();
     }
 
@@ -51,7 +51,7 @@ public abstract class TransactionManager<Txn> {
      * Returns the thread-local TransactionScope, creating it if needed.
      */
     public TransactionScope<Txn> localTransactionScope() {
-        TransactionScope<Txn> scope = mCurrentScope.get();
+        TransactionScope<Txn> scope = mLocalScope.get();
         if (scope == null) {
             int closedState;
             synchronized (this) {
@@ -59,7 +59,7 @@ public abstract class TransactionManager<Txn> {
                 scope = new TransactionScope<Txn>(this, closedState != NOT_CLOSED);
                 mAllScopes.put(scope, null);
             }
-            mCurrentScope.set(scope);
+            mLocalScope.set(scope);
             if (closedState == SUSPENDED) {
                 // Immediately suspend new scope.
                 scope.getLock().lock();
