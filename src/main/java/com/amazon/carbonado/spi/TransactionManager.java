@@ -31,7 +31,7 @@ import com.amazon.carbonado.Transaction;
 /**
  * Generic transaction manager for repositories.
  *
- * @param <Txn> Transaction type
+ * @param <Txn> Transaction implementation
  * @author Brian S O'Neill
  */
 public abstract class TransactionManager<Txn> {

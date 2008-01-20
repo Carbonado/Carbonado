@@ -35,7 +35,7 @@ import com.amazon.carbonado.Transaction;
 /**
  * Container of thread local, scoped transactions.
  *
- * @param <Txn> Transaction type
+ * @param <Txn> Transaction implementation
  * @author Brian S O'Neill
  * @since 1.2
  * @see TransactionManager
@@ -44,7 +44,7 @@ public class TransactionScope<Txn> {
     final TransactionManager<Txn> mTxnMgr;
     final Lock mLock;
 
-    TransactionImpl<Txn> mCurrent;
+    TransactionImpl<Txn> mActive;
 
     // Tracks all registered cursors by storage type.
     private Map<Class<?>, CursorList<TransactionImpl<Txn>>> mCursors;
@@ -52,13 +52,13 @@ public class TransactionScope<Txn> {
     private boolean mClosed;
 
     TransactionScope(TransactionManager<Txn> txnMgr, boolean closed) {
-	mTxnMgr = txnMgr;
+        mTxnMgr = txnMgr;
         mLock = new ReentrantLock(true);
-	mClosed = closed;
+        mClosed = closed;
     }
 
     /**
-     * Enters a new transaction scope.
+     * Enters a new transaction scope which becomes the active transaction.
      *
      * @param level desired isolation level (may be null)
      * @throws UnsupportedOperationException if isolation level higher than
@@ -67,7 +67,7 @@ public class TransactionScope<Txn> {
     public Transaction enter(IsolationLevel level) {
         mLock.lock();
         try {
-            TransactionImpl<Txn> parent = mCurrent;
+            TransactionImpl<Txn> parent = mActive;
             IsolationLevel actualLevel = mTxnMgr.selectIsolationLevel(parent, level);
             if (actualLevel == null) {
                 if (parent == null) {
@@ -80,14 +80,15 @@ public class TransactionScope<Txn> {
                 }
             }
 
-            return mCurrent = new TransactionImpl<Txn>(this, parent, false, actualLevel);
+            return mActive = new TransactionImpl<Txn>(this, parent, false, actualLevel);
         } finally {
             mLock.unlock();
         }
     }
 
     /**
-     * Enters a new top-level transaction scope.
+     * Enters a new top-level transaction scope which becomes the active
+     * transaction.
      *
      * @param level desired isolation level (may be null)
      * @throws UnsupportedOperationException if isolation level higher than
@@ -102,17 +103,17 @@ public class TransactionScope<Txn> {
                     ("Desired isolation level not supported: " + level);
             }
 
-            return mCurrent = new TransactionImpl<Txn>(this, mCurrent, true, actualLevel);
+            return mActive = new TransactionImpl<Txn>(this, mActive, true, actualLevel);
         } finally {
             mLock.unlock();
         }
     }
 
     /**
-     * Registers the given cursor against the current transaction, allowing
-     * it to be closed on transaction exit or transaction manager close. If
-     * there is no current transaction scope, the cursor is registered as not
-     * part of a transaction. Cursors should register when created.
+     * Registers the given cursor against the active transaction, allowing it
+     * to be closed on transaction exit or transaction scope close. If there
+     * is no active transaction in scope, the cursor is registered as not part
+     * of a transaction. Cursors should register when created.
      */
     public <S extends Storable> void register(Class<S> type, Cursor<S> cursor) {
         mLock.lock();
@@ -128,10 +129,10 @@ public class TransactionScope<Txn> {
                 mCursors.put(type, cursorList);
             }
 
-            cursorList.register(cursor, mCurrent);
+            cursorList.register(cursor, mActive);
 
-            if (mCurrent != null) {
-                mCurrent.register(cursor);
+            if (mActive != null) {
+                mActive.register(cursor);
             }
         } finally {
             mLock.unlock();
@@ -175,8 +176,8 @@ public class TransactionScope<Txn> {
         mLock.lock();
         try {
             if (!mClosed) {
-                while (mCurrent != null) {
-                    mCurrent.exit();
+                while (mActive != null) {
+                    mActive.exit();
                 }
                 if (mCursors != null) {
                     for (CursorList<TransactionImpl<Txn>> cursorList : mCursors.values()) {
@@ -191,7 +192,8 @@ public class TransactionScope<Txn> {
     }
 
     /**
-     * Returns null if no transaction is in progress.
+     * Returns the implementation for the active transaction, or null if there
+     * is no active transaction.
      *
      * @throws Exception thrown by createTxn or reuseTxn
      */
@@ -199,32 +201,32 @@ public class TransactionScope<Txn> {
         mLock.lock();
         try {
             checkState();
-            return mCurrent == null ? null : mCurrent.getTxn();
+            return mActive == null ? null : mActive.getTxn();
         } finally {
             mLock.unlock();
         }
     }
 
     /**
-     * Returns true if a transaction is in progress and it is for update.
+     * Returns true if an active transaction exists and it is for update.
      */
     public boolean isForUpdate() {
         mLock.lock();
         try {
-            return (mClosed || mCurrent == null) ? false : mCurrent.isForUpdate();
+            return (mClosed || mActive == null) ? false : mActive.isForUpdate();
         } finally {
             mLock.unlock();
         }
     }
 
     /**
-     * Returns the isolation level of the current transaction, or null if there
-     * is no transaction in the current thread.
+     * Returns the isolation level of the active transaction, or null if there
+     * is no active transaction.
      */
     public IsolationLevel getIsolationLevel() {
         mLock.lock();
         try {
-            return (mClosed || mCurrent == null) ? null : mCurrent.getIsolationLevel();
+            return (mClosed || mActive == null) ? null : mActive.getIsolationLevel();
         } finally {
             mLock.unlock();
         }
@@ -328,7 +330,7 @@ public class TransactionScope<Txn> {
                         }
                     }
 
-                    scope.mCurrent = mParent;
+                    scope.mActive = mParent;
 
                     mExited = true;
                 }
@@ -404,7 +406,7 @@ public class TransactionScope<Txn> {
                     mTxn = scope.mTxnMgr.createTxn(parentTxn, mLevel);
                 } else {
                     mTxn = scope.mTxnMgr.createTxn(parentTxn, mLevel,
-						   mDesiredLockTimeout, mTimeoutUnit);
+                                                   mDesiredLockTimeout, mTimeoutUnit);
                 }
             }
             return mTxn;
