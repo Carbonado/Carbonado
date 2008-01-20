@@ -111,7 +111,7 @@ public class TransactionScope<Txn> {
 
     /**
      * Registers the given cursor against the active transaction, allowing it
-     * to be closed on transaction exit or transaction scope close. If there
+     * to be closed on transaction exit or transaction manager close. If there
      * is no active transaction in scope, the cursor is registered as not part
      * of a transaction. Cursors should register when created.
      */
