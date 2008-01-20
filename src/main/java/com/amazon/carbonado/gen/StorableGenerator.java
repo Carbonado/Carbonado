@@ -1618,9 +1618,10 @@ public final class StorableGenerator<S extends Storable> {
             b.returnValue(TypeDesc.BOOLEAN);
         }
 
-        // Define reflection-like method for manipulating property by name.
+        // Define reflection-like methods for manipulating properties by name.
         addGetPropertyValueMethod();
         addSetPropertyValueMethod();
+        addPropertyMapMethod();
 
         // Define standard object methods.
         addHashCodeMethod();
@@ -2690,6 +2691,27 @@ public final class StorableGenerator<S extends Storable> {
         CodeBuilder b = new CodeBuilder(mi);
 
         addPropertySwitch(b, SWITCH_FOR_SET);
+    }
+
+    private void addPropertyMapMethod() {
+        TypeDesc mapType = TypeDesc.forClass(Map.class);
+
+        MethodInfo mi = addMethodIfNotFinal(Modifiers.PUBLIC, PROPERTY_MAP, mapType, null);
+
+        if (mi == null) {
+            return;
+        }
+
+        CodeBuilder b = new CodeBuilder(mi);
+
+        TypeDesc propertyMapType = TypeDesc.forClass(StorablePropertyMap.class);
+
+        b.loadConstant(TypeDesc.forClass(mStorableType));
+        b.loadThis();
+        b.invokeStatic(propertyMapType, "createMap", propertyMapType,
+                       new TypeDesc[] {TypeDesc.forClass(Class.class),
+                                       TypeDesc.forClass(Storable.class)});
+        b.returnValue(mapType);
     }
 
     /**

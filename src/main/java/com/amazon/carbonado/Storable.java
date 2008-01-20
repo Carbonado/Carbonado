@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado;
 
+import java.util.Map;
+
 /**
  * A data access object in a {@link Repository}. User defined storables must
  * either extend or implement this interface via an interface or abstract
@@ -411,6 +413,17 @@ public interface Storable<S extends Storable<S>> {
      * @since 1.2
      */
     void setPropertyValue(String propertyName, Object value);
+
+    /**
+     * Returns a fixed-size map view of this Storable's properties. Properties
+     * which declare throwing any checked exceptions are excluded from the
+     * map. Removing and adding of map entries is unsupported.
+     *
+     * @return map of property name to property value; primitive property
+     * values are boxed
+     * @since 1.2
+     */
+    Map<String, Object> propertyMap();
 
     /**
      * Returns an exact shallow copy of this object, including the state.
