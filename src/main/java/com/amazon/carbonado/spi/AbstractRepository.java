@@ -112,19 +112,19 @@ public abstract class AbstractRepository<Txn>
     }
 
     public Transaction enterTransaction() {
-        return mTxnMgr.localTransactionScope().enter(null);
+        return mTxnMgr.localScope().enter(null);
     }
 
     public Transaction enterTransaction(IsolationLevel level) {
-        return mTxnMgr.localTransactionScope().enter(level);
+        return mTxnMgr.localScope().enter(level);
     }
 
     public Transaction enterTopTransaction(IsolationLevel level) {
-        return mTxnMgr.localTransactionScope().enterTop(level);
+        return mTxnMgr.localScope().enterTop(level);
     }
 
     public IsolationLevel getTransactionIsolationLevel() {
-        return mTxnMgr.localTransactionScope().getIsolationLevel();
+        return mTxnMgr.localScope().getIsolationLevel();
     }
 
     /**
@@ -217,7 +217,7 @@ public abstract class AbstractRepository<Txn>
      * Returns the thread-local TransactionScope, creating it if needed.
      */
     protected TransactionScope<Txn> localTransactionScope() {
-        return mTxnMgr.localTransactionScope();
+        return mTxnMgr.localScope();
     }
 
     /**

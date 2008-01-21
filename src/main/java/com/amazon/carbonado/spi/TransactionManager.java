@@ -35,12 +35,12 @@ import com.amazon.carbonado.Transaction;
  * @author Brian S O'Neill
  */
 public abstract class TransactionManager<Txn> {
-    private static final int NOT_CLOSED = 0, CLOSED = 1, SUSPENDED = 2;
+    private static final int OPEN = 0, CLOSED = 1, SUSPENDED = 2;
 
     private final ThreadLocal<TransactionScope<Txn>> mLocalScope;
     private final Map<TransactionScope<Txn>, ?> mAllScopes;
 
-    private int mClosedState;
+    private int mState;
 
     public TransactionManager() {
         mLocalScope = new ThreadLocal<TransactionScope<Txn>>();
@@ -50,23 +50,56 @@ public abstract class TransactionManager<Txn> {
     /**
      * Returns the thread-local TransactionScope, creating it if needed.
      */
-    public TransactionScope<Txn> localTransactionScope() {
+    public TransactionScope<Txn> localScope() {
         TransactionScope<Txn> scope = mLocalScope.get();
         if (scope == null) {
-            int closedState;
+            int state;
             synchronized (this) {
-                closedState = mClosedState;
-                scope = new TransactionScope<Txn>(this, closedState != NOT_CLOSED);
+                state = mState;
+                scope = new TransactionScope<Txn>(this, state != OPEN);
                 mAllScopes.put(scope, null);
             }
             mLocalScope.set(scope);
-            if (closedState == SUSPENDED) {
+            if (state == SUSPENDED) {
                 // Immediately suspend new scope.
                 scope.getLock().lock();
             }
         }
         return scope;
     }
+
+    /**
+     * Detaches the thread-local TransactionScope from the current thread. It
+     * can be {@link TransactionScope#attach attached} later, and to any thread
+     * which does not currently have a TransactionScope.
+     *
+     * @return detached thread-local TransactionScope or null if none
+     */
+    /*
+    public TransactionScope<Txn> detachLocalScope() {
+        TransactionScope<Txn> scope = mLocalScope.get();
+        if (scope != null) {
+            if (!scope.detach()) {
+                scope = null;
+            } else {
+                mLocalScope.remove();
+            }
+        }
+        return scope;
+    }
+    */
+
+    // Called by TransactionScope.
+    /*
+    void attach(TransactionScope<Txn> scope) {
+        TransactionScope<Txn> existing = mLocalScope.get();
+        if (existing == null || existing == scope) {
+            mLocalScope.set(scope);
+        } else {
+            throw new IllegalStateException("Current thread already has a transaction scope");
+        }
+    }
+    */
 
     /**
      * Closes all transaction scopes. Should be called only when repository is
@@ -76,7 +109,7 @@ public abstract class TransactionManager<Txn> {
      * with transactions
      */
     public synchronized void close(boolean suspend) throws RepositoryException {
-        if (mClosedState == SUSPENDED) {
+        if (mState == SUSPENDED) {
             // If suspended, attempting to close again will likely deadlock.
             return;
         }
@@ -90,7 +123,7 @@ public abstract class TransactionManager<Txn> {
             }
         }
 
-        mClosedState = suspend ? SUSPENDED : CLOSED;
+        mState = suspend ? SUSPENDED : CLOSED;
 
         for (TransactionScope<?> scope : mAllScopes.keySet()) {
             scope.close();
