@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.qe;
 
 import java.util.ArrayList;
 import java.util.Comparator;

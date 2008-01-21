@@ -57,9 +57,8 @@ import com.amazon.carbonado.cursor.SortBuffer;
 import com.amazon.carbonado.qe.BoundaryType;
 import com.amazon.carbonado.qe.QueryEngine;
 import com.amazon.carbonado.qe.QueryExecutorFactory;
+import com.amazon.carbonado.qe.StorableIndexSet;
 import com.amazon.carbonado.qe.StorageAccess;
-
-import com.amazon.carbonado.spi.StorableIndexSet;
 
 import com.amazon.carbonado.util.Throttle;
 

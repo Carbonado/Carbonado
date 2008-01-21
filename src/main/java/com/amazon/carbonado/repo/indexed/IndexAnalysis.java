@@ -35,8 +35,7 @@ import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.qe.FilteringScore;
-
-import com.amazon.carbonado.spi.StorableIndexSet;
+import com.amazon.carbonado.qe.StorableIndexSet;
 
 /**
  * Collection of static methods which perform index analysis.

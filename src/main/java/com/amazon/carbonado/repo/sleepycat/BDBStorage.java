@@ -66,6 +66,7 @@ import com.amazon.carbonado.lob.Clob;
 import com.amazon.carbonado.qe.BoundaryType;
 import com.amazon.carbonado.qe.QueryEngine;
 import com.amazon.carbonado.qe.QueryExecutorFactory;
+import com.amazon.carbonado.qe.StorableIndexSet;
 import com.amazon.carbonado.qe.StorageAccess;
 
 import com.amazon.carbonado.raw.StorableCodec;
@@ -77,7 +78,6 @@ import com.amazon.carbonado.sequence.SequenceValueProducer;
 
 import com.amazon.carbonado.spi.IndexInfoImpl;
 import com.amazon.carbonado.spi.LobEngine;
-import com.amazon.carbonado.spi.StorableIndexSet;
 import com.amazon.carbonado.spi.TransactionScope;
 import com.amazon.carbonado.spi.TriggerManager;
 
