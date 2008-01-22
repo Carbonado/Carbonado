@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.info;
 
+import java.io.Serializable;
 import java.lang.reflect.Method;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.util.Appender;
@@ -28,7 +29,7 @@ import com.amazon.carbonado.util.Appender;
  * @author Brian S O'Neill
  * @see StorableIntrospector
  */
-public interface StorableProperty<S extends Storable> extends Appender {
+public interface StorableProperty<S extends Storable> extends Serializable, Appender {
     /**
      * Returns the name of this property.
      */

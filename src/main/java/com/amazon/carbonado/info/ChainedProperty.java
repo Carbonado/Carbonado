@@ -19,6 +19,7 @@
 package com.amazon.carbonado.info;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,9 @@ import com.amazon.carbonado.util.Appender;
  *
  * @author Brian S O'Neill
  */
-public class ChainedProperty<S extends Storable> implements Appender {
+public class ChainedProperty<S extends Storable> implements Serializable, Appender {
+    private static final long serialVersionUID = 1L;
+
     static WeakCanonicalSet cCanonical = new WeakCanonicalSet();
 
     /**
@@ -577,5 +580,9 @@ public class ChainedProperty<S extends Storable> implements Appender {
         if (outer) {
             app.append(')');
         }
+    }
+
+    private Object readResolve() {
+        return cCanonical.put(this);
     }
 }

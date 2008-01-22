@@ -18,7 +18,11 @@
 
 package com.amazon.carbonado.filter;
 
+import java.io.Externalizable;
 import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.Serializable;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -31,7 +35,7 @@ import com.amazon.carbonado.util.Appender;
  *
  * @author Brian S O'Neill
  */
-public class FilterValues<S extends Storable> implements Appender {
+public class FilterValues<S extends Storable> implements Serializable, Appender {
     private static final Object[] NO_VALUES = new Object[0];
 
     static <S extends Storable> FilterValues<S>
@@ -55,10 +59,10 @@ public class FilterValues<S extends Storable> implements Appender {
         return fv;
     }
 
-    private final Filter<S> mFilter;
-    private final PropertyFilterList<S> mCurrentProperty;
-    private final FilterValues<S> mPrevValues;
-    private final Object mPrevValue;
+    private final transient Filter<S> mFilter;
+    private final transient PropertyFilterList<S> mCurrentProperty;
+    private final transient FilterValues<S> mPrevValues;
+    private final transient Object mPrevValue;
 
     private transient volatile Map<PropertyFilter<S>, Object> mValueMap;
 
@@ -720,5 +724,40 @@ public class FilterValues<S extends Storable> implements Appender {
         }
 
         b.append("th");
+    }
+
+    private Object writeReplace() {
+        return new FaV(mFilter, getSuppliedValues());
+    }
+
+    // Filter and Values
+    private static class FaV implements Externalizable {
+        private static final long serialVersionUID = 1L;
+
+        private Filter<?> mFilter;
+        private Object[] mValues;
+
+        // Required for Externalizable.
+        public FaV() {
+        }
+
+        FaV(Filter<?> filter, Object[] values) {
+            mFilter = filter;
+            mValues = values;
+        }
+
+        public void writeExternal(ObjectOutput out) throws IOException {
+            out.writeObject(mFilter);
+            out.writeObject(mValues);
+        }
+
+        public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+            mFilter = (Filter<?>) in.readObject();
+            mValues = (Object[]) in.readObject();
+        }
+
+        private Object readResolve() {
+            return mFilter.initialFilterValues().withValues(mValues);
+        }
     }
 }

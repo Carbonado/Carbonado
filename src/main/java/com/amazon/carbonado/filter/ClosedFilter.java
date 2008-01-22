@@ -32,7 +32,14 @@ import com.amazon.carbonado.info.ChainedProperty;
  * @author Brian S O'Neill
  */
 public class ClosedFilter<S extends Storable> extends Filter<S> {
-    ClosedFilter(Class<S> type) {
+    private static final long serialVersionUID = 1L;
+
+    @SuppressWarnings("unchecked")
+    static <S extends Storable> ClosedFilter<S> getCanonical(Class<S> type) {
+        return (ClosedFilter<S>) cCanonical.put(new ClosedFilter<S>(type));
+    }
+
+    private ClosedFilter(Class<S> type) {
         super(type);
     }
 

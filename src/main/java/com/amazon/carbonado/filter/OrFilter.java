@@ -30,6 +30,8 @@ import com.amazon.carbonado.info.ChainedProperty;
  * @author Brian S O'Neill
  */
 public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
+    private static final long serialVersionUID = 1L;
+
     /**
      * Returns a canonical instance.
      *

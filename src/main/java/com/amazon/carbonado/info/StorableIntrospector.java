@@ -18,7 +18,10 @@
 
 package com.amazon.carbonado.info;
 
+import java.io.Externalizable;
 import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.lang.annotation.Annotation;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
@@ -2079,6 +2082,42 @@ public class StorableIntrospector {
             }
 
             return derivedToSet.size() > originalSize;
+        }
+
+        // Package-private in order to be inherited by subclasses.
+        Object writeReplace() {
+            return new NaET(mName, mEnclosingType);
+        }
+
+        // Name and Enclosing Type
+        private static class NaET implements Externalizable {
+            private static final long serialVersionUID = 1L;
+
+            private String mName;
+            private Class<? extends Storable> mEnclosingType;
+
+            // Required for Externalizable.
+            public NaET() {
+            }
+
+            NaET(String name, Class<? extends Storable> enclosingType) {
+                mName = name;
+                mEnclosingType = enclosingType;
+            }
+
+            public void writeExternal(ObjectOutput out) throws IOException {
+                out.writeObject(mName);
+                out.writeObject(mEnclosingType);
+            }
+
+            public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+                mName = (String) in.readObject();
+                mEnclosingType = (Class<? extends Storable>) in.readObject();
+            }
+
+            private Object readResolve() {
+                return StorableIntrospector.examine(mEnclosingType).getAllProperties().get(mName);
+            }
         }
     }
 

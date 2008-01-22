@@ -19,6 +19,7 @@
 package com.amazon.carbonado.filter;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -65,7 +66,7 @@ import com.amazon.carbonado.util.Appender;
  *
  * @author Brian S O'Neill
  */
-public abstract class Filter<S extends Storable> implements Appender {
+public abstract class Filter<S extends Storable> implements Serializable, Appender {
 
     private static final Object OPEN_KEY = new Object();
     private static final Object CLOSED_KEY = new Object();
@@ -111,7 +112,7 @@ public abstract class Filter<S extends Storable> implements Appender {
         synchronized (filterCache) {
             Filter<S> filter = filterCache.get(OPEN_KEY);
             if (filter == null) {
-                filter = new OpenFilter<S>(type);
+                filter = OpenFilter.getCanonical(type);
                 filterCache.put(OPEN_KEY, filter);
             }
             return (OpenFilter<S>) filter;
@@ -131,7 +132,7 @@ public abstract class Filter<S extends Storable> implements Appender {
         synchronized (filterCache) {
             Filter<S> filter = filterCache.get(CLOSED_KEY);
             if (filter == null) {
-                filter = new ClosedFilter<S>(type);
+                filter = ClosedFilter.getCanonical(type);
                 filterCache.put(CLOSED_KEY, filter);
             }
             return (ClosedFilter<S>) filter;
@@ -792,6 +793,11 @@ public abstract class Filter<S extends Storable> implements Appender {
      */
     public abstract void appendTo(Appendable app, FilterValues<S> values)
         throws IOException;
+
+    // Package-private in order to be inherited by subclasses.
+    Object readResolve() {
+        return cCanonical.put(this);
+    }
 
     /**
      * Result from calling {@link Filter#notJoinedFrom}.

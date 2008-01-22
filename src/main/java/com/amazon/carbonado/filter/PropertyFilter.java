@@ -35,6 +35,8 @@ import com.amazon.carbonado.info.StorableProperty;
  * @author Brian S O'Neill
  */
 public class PropertyFilter<S extends Storable> extends Filter<S> {
+    private static final long serialVersionUID = 1L;
+
     // Indicates property has been bound to a constant value.
     private static int BOUND_CONSTANT = -1;
 

@@ -34,6 +34,8 @@ import com.amazon.carbonado.info.StorableProperty;
  * @since 1.2
  */
 public class ExistsFilter<S extends Storable> extends Filter<S> {
+    private static final long serialVersionUID = 1L;
+
     /**
      * Returns a canonical instance, creating a new one if there isn't one
      * already in the cache.
