@@ -18,7 +18,11 @@
 
 package com.amazon.carbonado.info;
 
+import java.io.Externalizable;
 import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.Serializable;
 
 import org.cojen.util.WeakCanonicalSet;
 
@@ -30,7 +34,9 @@ import com.amazon.carbonado.util.Appender;
  *
  * @author Brian S O'Neill
  */
-public class OrderedProperty<S extends Storable> implements Appender {
+public class OrderedProperty<S extends Storable> implements Serializable, Appender {
+    private static final long serialVersionUID = 1L;
+
     static WeakCanonicalSet cCanonical = new WeakCanonicalSet();
 
     /**
@@ -174,5 +180,9 @@ public class OrderedProperty<S extends Storable> implements Appender {
     public void appendTo(Appendable app) throws IOException {
         app.append(mDirection.toCharacter());
         mProperty.appendTo(app);
+    }
+
+    private Object readResolve() {
+        return get(mProperty, mDirection);
     }
 }

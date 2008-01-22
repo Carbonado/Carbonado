@@ -18,6 +18,12 @@
 
 package com.amazon.carbonado.qe;
 
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.Serializable;
+
 import java.util.AbstractList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,7 +46,9 @@ import com.amazon.carbonado.info.StorableIntrospector;
  *
  * @author Brian S O'Neill
  */
-public class OrderingList<S extends Storable> extends AbstractList<OrderedProperty<S>> {
+public class OrderingList<S extends Storable> extends AbstractList<OrderedProperty<S>>
+    implements Serializable
+{
     private static final OrderingList EMPTY_LIST = new OrderingList();
 
     private static final Map<Class, OrderingList> cCache;
@@ -346,5 +354,35 @@ public class OrderingList<S extends Storable> extends AbstractList<OrderedProper
         }
 
         return node;
+    }
+
+    private Object writeReplace() {
+        return new Orderings(asArray());
+    }
+
+    private static class Orderings implements Externalizable {
+        private static final long serialVersionUID = 1L;
+
+        private OrderedProperty<?>[] mOrderings;
+
+        // Required for Externalizable.
+        public Orderings() {
+        }
+
+        Orderings(OrderedProperty<?>[] orderings) {
+            mOrderings = orderings;
+        }
+
+        public void writeExternal(ObjectOutput out) throws IOException {
+            out.writeObject(mOrderings);
+        }
+
+        public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+            mOrderings = (OrderedProperty<?>[]) in.readObject();
+        }
+
+        private Object readResolve() {
+            return OrderingList.get(mOrderings);
+        }
     }
 }
