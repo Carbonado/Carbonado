@@ -86,4 +86,24 @@ public class TransactionPair implements Transaction {
         return mPrimaryTransaction.getIsolationLevel()
             .lowestCommon(mSecondaryTransaction.getIsolationLevel());
     }
+
+    public void detach() {
+        mPrimaryTransaction.detach();
+        try {
+            mSecondaryTransaction.detach();
+        } catch (IllegalStateException e) {
+            mPrimaryTransaction.attach();
+            throw e;
+        }
+    }
+
+    public void attach() {
+        mPrimaryTransaction.attach();
+        try {
+            mSecondaryTransaction.attach();
+        } catch (IllegalStateException e) {
+            mPrimaryTransaction.detach();
+            throw e;
+        }
+    }
 }

@@ -83,6 +83,20 @@ class LoggingTransaction implements Transaction {
         return mTxn.getIsolationLevel();
     }
 
+    public void detach() {
+        if (mLog.isEnabled()) {
+            mLog.write("Transaction.detach() on " + idChain());
+        }
+        mTxn.detach();
+    }
+
+    public void attach() {
+        if (mLog.isEnabled()) {
+            mLog.write("Transaction.attach() on " + idChain());
+        }
+        mTxn.attach();
+    }
+
     private String idChain() {
         if (mParent == null) {
             return String.valueOf(mID);

@@ -74,32 +74,36 @@ public abstract class TransactionManager<Txn> {
      * which does not currently have a TransactionScope.
      *
      * @return detached thread-local TransactionScope or null if none
+     * @since 1.2
      */
-    /*
     public TransactionScope<Txn> detachLocalScope() {
         TransactionScope<Txn> scope = mLocalScope.get();
         if (scope != null) {
-            if (!scope.detach()) {
-                scope = null;
-            } else {
-                mLocalScope.remove();
-            }
+            scope.markDetached();
+            mLocalScope.remove();
         }
         return scope;
     }
-    */
 
     // Called by TransactionScope.
-    /*
-    void attach(TransactionScope<Txn> scope) {
+    boolean removeLocalScope(TransactionScope<Txn> scope) {
+        TransactionScope<Txn> existing = mLocalScope.get();
+        if (existing == null || existing == scope) {
+            mLocalScope.remove();
+            return true;
+        }
+        return false;
+    }
+
+    // Called by TransactionScope.
+    boolean setLocalScope(TransactionScope<Txn> scope) {
         TransactionScope<Txn> existing = mLocalScope.get();
         if (existing == null || existing == scope) {
             mLocalScope.set(scope);
-        } else {
-            throw new IllegalStateException("Current thread already has a transaction scope");
+            return true;
         }
+        return false;
     }
-    */
 
     /**
      * Closes all transaction scopes. Should be called only when repository is

@@ -117,4 +117,30 @@ public interface Transaction {
      * Returns the isolation level of this transaction.
      */
     IsolationLevel getIsolationLevel();
+
+    /**
+     * Detaches this transaction from the current thread. It can be attached
+     * later, and to any thread which currently has no thread-local
+     * transaction.
+     *
+     * <p>Detaching a transaction also detaches any parent and nested child
+     * transactions. Attaching any of them achieves the same result as
+     * attaching this transaction.
+     *
+     * @throws IllegalStateException if transaction is attached to a different
+     * thread
+     * @since 1.2
+     */
+    void detach();
+
+    /**
+     * Attaches this transaction to the current thread, if it has been
+     * detached. Attaching a transaction also attaches any parent and nested
+     * child transactions.
+     *
+     * @throws IllegalStateException if current thread has a different
+     * transaction already attached
+     * @since 1.2
+     */
+    void attach();
 }

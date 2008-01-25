@@ -41,8 +41,6 @@ import com.amazon.carbonado.Transaction;
  * @see TransactionManager
  */
 public class TransactionScope<Txn> {
-    private static final int OPEN = 0, DETACHED = 1, CLOSED = 2;
-
     final TransactionManager<Txn> mTxnMgr;
     final Lock mLock;
 
@@ -51,12 +49,12 @@ public class TransactionScope<Txn> {
     // Tracks all registered cursors by storage type.
     private Map<Class<?>, CursorList<TransactionImpl<Txn>>> mCursors;
 
-    private int mState;
+    private boolean mClosed;
+    private boolean mDetached;
 
     TransactionScope(TransactionManager<Txn> txnMgr, boolean closed) {
         mTxnMgr = txnMgr;
         mLock = new ReentrantLock(true);
-        mState = closed ? CLOSED : OPEN;
     }
 
     /**
@@ -192,7 +190,7 @@ public class TransactionScope<Txn> {
     public boolean isForUpdate() {
         mLock.lock();
         try {
-            return (mState == CLOSED || mActive == null) ? false : mActive.isForUpdate();
+            return (mClosed || mActive == null) ? false : mActive.isForUpdate();
         } finally {
             mLock.unlock();
         }
@@ -205,7 +203,7 @@ public class TransactionScope<Txn> {
     public IsolationLevel getIsolationLevel() {
         mLock.lock();
         try {
-            return (mState == CLOSED || mActive == null) ? null : mActive.getIsolationLevel();
+            return (mClosed || mActive == null) ? null : mActive.getIsolationLevel();
         } finally {
             mLock.unlock();
         }
@@ -215,41 +213,46 @@ public class TransactionScope<Txn> {
      * Attach this scope to the current thread, if it has been {@link
      * TransactionManager#detachLocalScope detached}.
      *
-     * @throws IllegalStateException if scope is not detached or if current
-     * thread already has a transaction scope
+     * @throws IllegalStateException if current thread has a different
+     * transaction already attached
      */
-    /*
     public void attach() {
         mLock.lock();
         try {
-            if (mState != DETACHED) {
-                throw new IllegalStateException("Transaction scope is not detached");
+            if (mTxnMgr.setLocalScope(this)) {
+                mDetached = false;
+            } else {
+                throw new IllegalStateException
+                    ("Current thread has a different transaction already attached");
             }
-            mState = OPEN;
         } finally {
             mLock.unlock();
         }
-        mTxnMgr.attach(this);
     }
-    */
 
-    /**
-     * @return false if closed
-     */
-    /*
-    boolean detach() {
+    // Called by TransactionImpl.
+    void detach() {
         mLock.lock();
         try {
-            if (mState == CLOSED) {
-                return false;
+            if (mTxnMgr.removeLocalScope(this)) {
+                mDetached = true;
+            } else {
+                throw new IllegalStateException("Transaction is attached to a different thread");
             }
-            mState = DETACHED;
-            return true;
         } finally {
             mLock.unlock();
         }
     }
-    */
+
+    // Called by TransactionManager.
+    void markDetached() {
+        mLock.lock();
+        try {
+            mDetached = true;
+        } finally {
+            mLock.unlock();
+        }
+    }
 
     /**
      * Exits all transactions and closes all cursors. Should be called only
@@ -258,7 +261,7 @@ public class TransactionScope<Txn> {
     void close() throws RepositoryException {
         mLock.lock();
         try {
-            if (mState != CLOSED) {
+            if (!mClosed) {
                 while (mActive != null) {
                     mActive.exit();
                 }
@@ -269,7 +272,7 @@ public class TransactionScope<Txn> {
                 }
             }
         } finally {
-            mState = CLOSED;
+            mClosed = true;
             mLock.unlock();
         }
     }
@@ -278,7 +281,7 @@ public class TransactionScope<Txn> {
      * Caller must hold mLock.
      */
     private void checkClosed() {
-        if (mState == CLOSED) {
+        if (mClosed) {
             throw new IllegalStateException("Repository is closed");
         }
     }
@@ -407,6 +410,14 @@ public class TransactionScope<Txn> {
 
         public IsolationLevel getIsolationLevel() {
             return mLevel;
+        }
+
+        public void detach() {
+            mScope.detach();
+        }
+
+        public void attach() {
+            mScope.attach();
         }
 
         // Caller must hold mLock.
