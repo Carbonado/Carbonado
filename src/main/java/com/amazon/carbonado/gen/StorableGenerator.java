@@ -78,6 +78,7 @@ import static com.amazon.carbonado.gen.CommonMethodNames.*;
  * @author Brian S O'Neill
  * @author Don Schneider
  * @see MasterStorableGenerator
+ * @see DelegateStorableGenerator
  * @since 1.2
  */
 public final class StorableGenerator<S extends Storable> {
