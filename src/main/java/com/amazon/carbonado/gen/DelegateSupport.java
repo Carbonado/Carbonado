@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.gen;
 
+import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Storable;
 
 /**
@@ -27,12 +29,12 @@ import com.amazon.carbonado.Storable;
  * @since 1.2
  */
 public interface DelegateSupport<S extends Storable> extends MasterSupport<S> {
-    boolean doTryLoad(S storable);
+    boolean doTryLoad(S storable) throws FetchException;
 
-    boolean doTryInsert(S storable);
+    boolean doTryInsert(S storable) throws PersistException;
 
-    boolean doTryUpdate(S storable);
+    boolean doTryUpdate(S storable) throws PersistException;
 
-    boolean doTryDelete(S storable);
+    boolean doTryDelete(S storable) throws PersistException;
 }
 
