@@ -95,7 +95,7 @@ public interface Storage<S extends Storable> {
      *                 | InnerJoin "." ChainedProperty
      *                 | OuterJoin "." ChainedProperty
      * InnerJoin       = Identifier
-     * OuterJoin       = '(' Identifier ')'
+     * OuterJoin       = "(" Identifier ")"
      * </pre>
      *
      * @param filter query filter expression

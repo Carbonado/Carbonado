@@ -61,7 +61,7 @@ import com.amazon.carbonado.util.Appender;
  *                 | InnerJoin "." ChainedProperty
  *                 | OuterJoin "." ChainedProperty
  * InnerJoin       = Identifier
- * OuterJoin       = '(' Identifier ')'
+ * OuterJoin       = "(" Identifier ")"
  * </pre>
  *
  * @author Brian S O'Neill
