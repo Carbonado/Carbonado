@@ -203,7 +203,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             }
         }
 
-        TransactionScope<Txn> scope = localTxnScope();
+        TransactionScope<Txn> scope = localTransactionScope();
 
         // Lock out shutdown task.
         scope.getLock().lock();
@@ -317,7 +317,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                                  boolean reverseOrder)
         throws FetchException
     {
-        TransactionScope<Txn> scope = localTxnScope();
+        TransactionScope<Txn> scope = localTransactionScope();
 
         if (reverseRange) {
             {
@@ -447,7 +447,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         boolean isPrimaryEmpty;
 
         try {
-            TransactionScope<Txn> scope = mRepository.localTxnScope();
+            TransactionScope<Txn> scope = mRepository.localTransactionScope();
             // Lock out shutdown task.
             scope.getLock().lock();
             try {
@@ -572,7 +572,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         try {
-            Txn txn = mRepository.localTxnScope().getTxn();
+            Txn txn = mRepository.localTransactionScope().getTxn();
             return db_compact(txn, mPrimaryDatabase, start, end);
         } catch (Exception e) {
             throw mRepository.toRepositoryException(e);
@@ -667,8 +667,8 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         return mRepository.toRepositoryException(e);
     }
 
-    TransactionScope<Txn> localTxnScope() {
-        return mRepository.localTxnScope();
+    TransactionScope<Txn> localTransactionScope() {
+        return mRepository.localTransactionScope();
     }
 
     /**
@@ -726,7 +726,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
      * prevent threads from starting work that will likely fail along the way.
      */
     void checkClosed() throws FetchException {
-        TransactionScope<Txn> scope = localTxnScope();
+        TransactionScope<Txn> scope = localTransactionScope();
 
         // Lock out shutdown task.
         scope.getLock().lock();
@@ -747,7 +747,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     }
 
     void close() throws Exception {
-        TransactionScope<Txn> scope = mRepository.localTxnScope();
+        TransactionScope<Txn> scope = mRepository.localTransactionScope();
         scope.getLock().lock();
         try {
             if (mPrimaryDatabase != null) {
@@ -998,7 +998,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public byte[] tryLoad(byte[] key) throws FetchException {
-            TransactionScope<Txn> scope = mStorage.localTxnScope();
+            TransactionScope<Txn> scope = mStorage.localTransactionScope();
             byte[] result;
             // Lock out shutdown task.
             scope.getLock().lock();
@@ -1021,7 +1021,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public boolean tryInsert(S storable, byte[] key, byte[] value) throws PersistException {
-            TransactionScope<Txn> scope = mStorage.localTxnScope();
+            TransactionScope<Txn> scope = mStorage.localTransactionScope();
             Object result;
             // Lock out shutdown task.
             scope.getLock().lock();
@@ -1044,7 +1044,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public void store(S storable, byte[] key, byte[] value) throws PersistException {
-            TransactionScope<Txn> scope = mStorage.localTxnScope();
+            TransactionScope<Txn> scope = mStorage.localTransactionScope();
             // Lock out shutdown task.
             scope.getLock().lock();
             try {
@@ -1061,7 +1061,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         public boolean tryDelete(byte[] key) throws PersistException {
-            TransactionScope<Txn> scope = mStorage.localTxnScope();
+            TransactionScope<Txn> scope = mStorage.localTransactionScope();
             // Lock out shutdown task.
             scope.getLock().lock();
             try {

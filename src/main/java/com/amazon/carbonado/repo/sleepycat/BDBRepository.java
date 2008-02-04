@@ -63,6 +63,7 @@ import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.spi.AbstractRepository;
 import com.amazon.carbonado.spi.ExceptionTransformer;
 import com.amazon.carbonado.spi.LobEngine;
+import com.amazon.carbonado.spi.TransactionManager;
 import com.amazon.carbonado.spi.TransactionScope;
 
 /**
@@ -93,6 +94,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     private final AtomicReference<Repository> mRootRef;
     private final StorableCodecFactory mStorableCodecFactory;
     private final ExceptionTransformer mExTransformer;
+    private final BDBTransactionManager<Txn> mTxnMgr;
 
     Checkpointer mCheckpointer;
     DeadlockDetector mDeadlockDetector;
@@ -141,6 +143,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         mTriggerFactories = builder.getTriggerFactories();
         mRootRef = rootRef;
         mExTransformer = exTransformer;
+        mTxnMgr = new BDBTransactionManager<Txn>(mExTransformer, this);
 
         mRunCheckpointer = !builder.getReadOnly() && builder.getRunCheckpointer();
         mRunDeadlockDetector = builder.getRunDeadlockDetector();
@@ -342,10 +345,6 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         return new SequenceValueGenerator(BDBRepository.this, name);
     }
 
-    protected BDBTransactionManager<Txn> createTransactionManager() {
-        return new BDBTransactionManager<Txn>(mExTransformer, this);
-    }
-
     /**
      * @see com.amazon.carbonado.spi.RepositoryBuilder#isMaster
      */
@@ -489,9 +488,12 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         return mExTransformer.toRepositoryException(e);
     }
 
-    // Provides access to transaction scope from other classes.
-    final TransactionScope<Txn> localTxnScope() {
-        return localTransactionScope();
+    protected final TransactionManager<Txn> transactionManager() {
+        return mTxnMgr;
+    }
+
+    protected final TransactionScope<Txn> localTransactionScope() {
+        return mTxnMgr.localScope();
     }
 
     /**

@@ -54,7 +54,6 @@ public abstract class AbstractRepository<Txn>
     implements Repository, ShutdownCapability, SequenceCapability
 {
     private final String mName;
-    private final TransactionManager<Txn> mTxnMgr;
     private final ReadWriteLock mShutdownLock;
 
     private final StoragePool mStoragePool;
@@ -97,8 +96,6 @@ public abstract class AbstractRepository<Txn>
                 }
             }
         };
-
-        mTxnMgr = createTransactionManager();
     }
 
     public String getName() {
@@ -112,19 +109,19 @@ public abstract class AbstractRepository<Txn>
     }
 
     public Transaction enterTransaction() {
-        return mTxnMgr.localScope().enter(null);
+        return localTransactionScope().enter(null);
     }
 
     public Transaction enterTransaction(IsolationLevel level) {
-        return mTxnMgr.localScope().enter(level);
+        return localTransactionScope().enter(level);
     }
 
     public Transaction enterTopTransaction(IsolationLevel level) {
-        return mTxnMgr.localScope().enterTop(level);
+        return localTransactionScope().enterTop(level);
     }
 
     public IsolationLevel getTransactionIsolationLevel() {
-        return mTxnMgr.localScope().getIsolationLevel();
+        return localTransactionScope().getIsolationLevel();
     }
 
     /**
@@ -207,18 +204,14 @@ public abstract class AbstractRepository<Txn>
     }
 
     /**
-     * Returns the TransactionManager which was passed into the constructor.
+     * Returns the repository's TransactionManager.
      */
-    protected TransactionManager<Txn> transactionManager() {
-        return mTxnMgr;
-    }
+    protected abstract TransactionManager<Txn> transactionManager();
 
     /**
      * Returns the thread-local TransactionScope, creating it if needed.
      */
-    protected TransactionScope<Txn> localTransactionScope() {
-        return mTxnMgr.localScope();
-    }
+    protected abstract TransactionScope<Txn> localTransactionScope();
 
     /**
      * Call to prevent shutdown hook from running. Be sure to call
@@ -281,11 +274,6 @@ public abstract class AbstractRepository<Txn>
     protected abstract SequenceValueProducer createSequenceValueProducer(String name)
         throws RepositoryException;
 
-    /**
-     * Called upon to create a new TransactionManager instance.
-     */
-    protected abstract TransactionManager<Txn> createTransactionManager();
-
     void info(String message) {
         Log log = getLog();
         if (log != null) {
@@ -337,7 +325,7 @@ public abstract class AbstractRepository<Txn>
                 repository.mSequencePool.returnReservedValues(null);
 
                 try {
-                    repository.mTxnMgr.close(suspendThreads);
+                    repository.transactionManager().close(suspendThreads);
                 } catch (Throwable e) {
                     repository.error("Failed to close TransactionManager", e);
                 }

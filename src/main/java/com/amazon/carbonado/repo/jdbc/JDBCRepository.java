@@ -55,6 +55,7 @@ import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.sequence.SequenceCapability;
 import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.spi.AbstractRepository;
+import com.amazon.carbonado.spi.TransactionManager;
 import com.amazon.carbonado.spi.TransactionScope;
 import com.amazon.carbonado.util.ThrowUnchecked;
 
@@ -194,6 +195,8 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
     private final JDBCSupportStrategy mSupportStrategy;
     private JDBCExceptionTransformer mExceptionTransformer;
 
+    private final JDBCTransactionManager mTxnMgr;
+
     // Mappings from IsolationLevel to best matching supported level.
     final IsolationLevel mReadUncommittedLevel;
     final IsolationLevel mReadCommittedLevel;
@@ -245,6 +248,8 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
 
         // Temporarily set to generic one, in case there's a problem during initialization.
         mExceptionTransformer = new JDBCExceptionTransformer();
+
+        mTxnMgr = new JDBCTransactionManager(this);
 
         getLog().info("Opening repository \"" + getName() + '"');
 
@@ -697,12 +702,11 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
         return mSupportStrategy.createSequenceValueProducer(name);
     }
 
-    protected JDBCTransactionManager createTransactionManager() {
-        return new JDBCTransactionManager(this);
+    protected final TransactionManager<JDBCTransaction> transactionManager() {
+        return mTxnMgr;
     }
 
-    // Provides access to transaction scope from other classes.
-    final TransactionScope<JDBCTransaction> localTxnScope() {
-        return localTransactionScope();
+    protected final TransactionScope<JDBCTransaction> localTransactionScope() {
+        return mTxnMgr.localScope();
     }
 }
