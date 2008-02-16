@@ -43,8 +43,6 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 
-import com.amazon.carbonado.gen.StorableSerializer;
-
 import com.amazon.carbonado.spi.RAFInputStream;
 import com.amazon.carbonado.spi.RAFOutputStream;
 
@@ -130,7 +128,6 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
     private int mSize;
     private int mTotalSize;
 
-    private StorableSerializer<S> mSerializer;
     private WorkFilePool mWorkFilePool;
     private List<RandomAccessFile> mFilesInUse;
 
@@ -201,12 +198,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
 
             // Make sure everything is set up to use temp files.
             {
-                if (mSerializer == null) {
-                    try {
-                        mSerializer = StorableSerializer.forType(mStorage.getStorableType());
-                    } catch (SupportException e) {
-                        throw new UndeclaredThrowableException(e);
-                    }
+                if (mWorkFilePool == null) {
                     mWorkFilePool = WorkFilePool.getInstance(mTempDir);
                     mFilesInUse = new ArrayList<RandomAccessFile>();
                 }
@@ -220,15 +212,13 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
                 OutputStream out =
                     new BufferedOutputStream(new RAFOutputStream(raf), OUTPUT_BUFFER_SIZE);
 
-                StorableSerializer<S> serializer = mSerializer;
-
                 if (mFilesInUse.size() < (MAX_OPEN_FILE_COUNT - 1)) {
                     mFilesInUse.add(raf);
                     int count = 0;
                     for (S element : mElements) {
                         // Check every so often if interrupted.
                         interruptCheck(++count);
-                        serializer.write(element, out);
+                        element.writeTo(out);
                     }
                 } else {
                     // Merge files together.
@@ -273,7 +263,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
                         // Check every so often if interrupted.
                         interruptCheck(++count);
                         S element = it.next();
-                        serializer.write(element, out);
+                        element.writeTo(out);
                     }
 
                     mWorkFilePool.releaseWorkFiles(filesToMerge);
@@ -287,6 +277,8 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
                 raf.setLength(raf.getFilePointer());
                 // Reset to start of file in preparation for reading later.
                 raf.seek(0);
+            } catch (SupportException e) {
+                throw new UndeclaredThrowableException(e);
             } catch (IOException e) {
                 throw new UndeclaredThrowableException(e);
             }
@@ -310,7 +302,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
     private Iterator<S> iterator(List<RandomAccessFile> filesToMerge) {
         Comparator<S> comparator = comparator();
 
-        if (mSerializer == null) {
+        if (mWorkFilePool == null) {
             return new ObjectArrayIterator<S>(mElements, 0, mSize);
         }
 
@@ -328,7 +320,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
 
             InputStream in = new BufferedInputStream(new RAFInputStream(raf));
 
-            pq.add(new InputIter<S>(comparator, mSerializer, mStorage, in));
+            pq.add(new InputIter<S>(comparator, mStorage, in));
         }
 
         return new Merger<S>(pq);
@@ -451,17 +443,13 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
      * Iterator that reads from an input stream of serialized Storables.
      */
     private static class InputIter<S extends Storable> extends Iter<S> {
-        private StorableSerializer<S> mSerializer;
         private Storage<S> mStorage;
         private InputStream mIn;
 
         private S mNext;
 
-        InputIter(Comparator<S> comparator,
-                  StorableSerializer<S> serializer, Storage<S> storage, InputStream in)
-        {
+        InputIter(Comparator<S> comparator, Storage<S> storage, InputStream in) {
             super(comparator);
-            mSerializer = serializer;
             mStorage = storage;
             mIn = in;
         }
@@ -472,13 +460,13 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
             }
             if (mIn != null) {
                 try {
-                    mNext = mSerializer.read(mStorage, mIn);
-                    // TODO: Serializer is unable to determine state of
-                    // properties, and so they are lost. Since these storables
-                    // came directly from a cursor, we know they are clean.
-                    mNext.markAllPropertiesClean();
+                    S next = mStorage.prepare();
+                    next.readFrom(mIn);
+                    mNext = next;
                 } catch (EOFException e) {
                     mIn = null;
+                } catch (SupportException e) {
+                    throw new UndeclaredThrowableException(e);
                 } catch (IOException e) {
                     throw new UndeclaredThrowableException(e);
                 }
