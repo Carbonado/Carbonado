@@ -18,6 +18,9 @@
 
 package com.amazon.carbonado.raw;
 
+import java.io.IOException;
+import java.io.OutputStream;
+
 /**
  * A very low-level class that supports encoding of primitive data. For
  * encoding data into keys, see {@link KeyEncoder}.
@@ -356,7 +359,7 @@ public class DataEncoder {
         }
 
         // Write the value length first, in a variable amount of bytes.
-        int amt = writeLength(valueLength, dst, dstOffset);
+        int amt = encodeLength(valueLength, dst, dstOffset);
 
         // Now write the value.
         System.arraycopy(value, valueOffset, dst, dstOffset + amt, valueLength);
@@ -422,7 +425,7 @@ public class DataEncoder {
         int valueLength = value.length();
 
         // Write the value length first, in a variable amount of bytes.
-        dstOffset += writeLength(valueLength, dst, dstOffset);
+        dstOffset += encodeLength(valueLength, dst, dstOffset);
 
         for (int i = 0; i < valueLength; i++) {
             int c = value.charAt(i);
@@ -501,7 +504,7 @@ public class DataEncoder {
         return encodedLen;
     }
 
-    private static int writeLength(int valueLength, byte[] dst, int dstOffset) {
+    private static int encodeLength(int valueLength, byte[] dst, int dstOffset) {
         if (valueLength < 128) {
             dst[dstOffset] = (byte)valueLength;
             return 1;
@@ -526,6 +529,41 @@ public class DataEncoder {
             dst[dstOffset++] = (byte)(valueLength >> 16);
             dst[dstOffset++] = (byte)(valueLength >> 8);
             dst[dstOffset] = (byte)valueLength;
+            return 5;
+        }
+    }
+
+    /**
+     * Writes a positive length value in up to five bytes.
+     *
+     * @return number of bytes written
+     * @since 1.2
+     */
+    public static int writeLength(int valueLength, OutputStream out) throws IOException {
+        if (valueLength < 128) {
+            out.write(valueLength);
+            return 1;
+        } else if (valueLength < 16384) {
+            out.write((valueLength >> 8) | 0x80);
+            out.write(valueLength);
+            return 2;
+        } else if (valueLength < 2097152) {
+            out.write((valueLength >> 16) | 0xc0);
+            out.write(valueLength >> 8);
+            out.write(valueLength);
+            return 3;
+        } else if (valueLength < 268435456) {
+            out.write((valueLength >> 24) | 0xe0);
+            out.write(valueLength >> 16);
+            out.write(valueLength >> 8);
+            out.write(valueLength);
+            return 4;
+        } else {
+            out.write(0xf0);
+            out.write(valueLength >> 24);
+            out.write(valueLength >> 16);
+            out.write(valueLength >> 8);
+            out.write(valueLength);
             return 5;
         }
     }

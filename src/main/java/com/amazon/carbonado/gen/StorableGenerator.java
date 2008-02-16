@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.gen;
 
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.annotation.Annotation;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
@@ -51,6 +53,7 @@ import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
+import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.UniqueConstraintException;
@@ -66,6 +69,10 @@ import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.info.StorablePropertyAdapter;
 import com.amazon.carbonado.info.StorablePropertyAnnotation;
 import com.amazon.carbonado.info.StorablePropertyConstraint;
+
+import com.amazon.carbonado.raw.DataDecoder;
+import com.amazon.carbonado.raw.DataEncoder;
+import com.amazon.carbonado.raw.GenericEncodingStrategy;
 
 import static com.amazon.carbonado.gen.CommonMethodNames.*;
 
@@ -1624,6 +1631,10 @@ public final class StorableGenerator<S extends Storable> {
         addSetPropertyValueMethod();
         addPropertyMapMethod();
 
+        // Define serialization methods.
+        addWriteToMethod();
+        addReadFromMethod();
+
         // Define standard object methods.
         addHashCodeMethod();
         addEqualsMethod(EQUAL_FULL);
@@ -2713,6 +2724,79 @@ public final class StorableGenerator<S extends Storable> {
                        new TypeDesc[] {TypeDesc.forClass(Class.class),
                                        TypeDesc.forClass(Storable.class)});
         b.returnValue(mapType);
+    }
+
+    private void addWriteToMethod() {
+        TypeDesc streamType = TypeDesc.forClass(OutputStream.class);
+
+        MethodInfo mi = addMethodIfNotFinal(Modifiers.PUBLIC.toSynchronized(true), WRITE_TO, null,
+                                            new TypeDesc[] {streamType});
+
+        if (mi == null) {
+            return;
+        }
+
+        GenericEncodingStrategy<S> encoder = new GenericEncodingStrategy<S>(mStorableType, null);
+
+        CodeBuilder b = new CodeBuilder(mi);
+        
+        LocalVariable encodedVar;
+        try {
+            encodedVar = encoder.buildSerialEncoding(b, null);
+        } catch (SupportException e) {
+            CodeBuilderUtil.throwException(b, SupportException.class, e.getMessage());
+            return;
+        }
+
+        b.loadLocal(encodedVar);
+        b.arrayLength();
+        b.loadLocal(b.getParameter(0));
+        b.invokeStatic(TypeDesc.forClass(DataEncoder.class), "writeLength", TypeDesc.INT,
+                       new TypeDesc[] {TypeDesc.INT, streamType});
+        b.pop();
+
+        b.loadLocal(b.getParameter(0));
+        b.loadLocal(encodedVar);
+        b.invokeVirtual(streamType, "write", null, new TypeDesc[] {encodedVar.getType()});
+        b.returnVoid();
+    }
+
+    private void addReadFromMethod() {
+        TypeDesc streamType = TypeDesc.forClass(InputStream.class);
+
+        MethodInfo mi = addMethodIfNotFinal(Modifiers.PUBLIC.toSynchronized(true), READ_FROM, null,
+                                            new TypeDesc[] {streamType});
+
+        if (mi == null) {
+            return;
+        }
+
+        CodeBuilder b = new CodeBuilder(mi);
+
+        TypeDesc dataDecoderType = TypeDesc.forClass(DataDecoder.class);
+
+        b.loadLocal(b.getParameter(0));
+        b.invokeStatic(dataDecoderType, "readLength", TypeDesc.INT, new TypeDesc[] {streamType});
+
+        LocalVariable encodedVar = b.createLocalVariable(null, TypeDesc.forClass(byte[].class));
+        b.newObject(encodedVar.getType());
+        b.storeLocal(encodedVar);
+
+        b.loadLocal(b.getParameter(0));
+        b.loadLocal(encodedVar);
+        b.invokeStatic(dataDecoderType, "readFully", null,
+                       new TypeDesc[] {streamType, encodedVar.getType()});
+
+        GenericEncodingStrategy<S> encoder = new GenericEncodingStrategy<S>(mStorableType, null);
+
+        try {
+            encoder.buildSerialDecoding(b, null, encodedVar);
+        } catch (SupportException e) {
+            CodeBuilderUtil.throwException(b, SupportException.class, e.getMessage());
+            return;
+        }
+
+        b.returnVoid();
     }
 
     /**

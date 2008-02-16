@@ -18,6 +18,10 @@
 
 package com.amazon.carbonado.raw;
 
+import java.io.EOFException;
+import java.io.InputStream;
+import java.io.IOException;
+
 import com.amazon.carbonado.CorruptEncodingException;
 
 import static com.amazon.carbonado.raw.DataEncoder.*;
@@ -399,7 +403,8 @@ public class DataDecoder {
                 valueLength = ((b & 0x0f) << 24) | ((src[srcOffset++] & 0xff) << 16) |
                     ((src[srcOffset++] & 0xff) << 8) | (src[srcOffset++] & 0xff);
             } else {
-                valueLength = ((b & 0x07) << 24) | ((src[srcOffset++] & 0xff) << 16) |
+                valueLength = ((src[srcOffset++] & 0xff) << 24) |
+                    ((src[srcOffset++] & 0xff) << 16) |
                     ((src[srcOffset++] & 0xff) << 8) | (src[srcOffset++] & 0xff);
             }
 
@@ -501,6 +506,66 @@ public class DataDecoder {
             return srcOffset - originalOffset;
         } catch (IndexOutOfBoundsException e) {
             throw new CorruptEncodingException(null, e);
+        }
+    }
+
+    /**
+     * Decodes a length value which was encoded by {@link DataDecoder#encodeLength}.
+     *
+     * @return length value
+     * @since 1.2
+     */
+    public static int readLength(InputStream in) throws IOException, EOFException {
+        int b0 = in.read();
+        if (b0 < 0) {
+            throw new EOFException();
+        }
+        if (b0 <= 0x7f) {
+            return b0;
+        }
+        int b1 = in.read();
+        if (b1 < 0) {
+            throw new EOFException();
+        }
+        if (b0 <= 0xbf) {
+            return ((b0 & 0x3f) << 8) | b1;
+        }
+        int b2 = in.read();
+        if (b2 < 0) {
+            throw new EOFException();
+        }
+        if (b0 <= 0xdf) {
+            return ((b0 & 0x1f) << 16) | (b1 << 8) | b2;
+        }
+        int b3 = in.read();
+        if (b3 < 0) {
+            throw new EOFException();
+        }
+        if (b0 <= 0xef) {
+            return ((b0 & 0x0f) << 24) | (b1 << 16) | (b2 << 8) | b3;
+        }
+        int b4 = in.read();
+        if (b4 < 0) {
+            throw new EOFException();
+        }
+        return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
+    }
+
+    /**
+     * Reads as many bytes from the stream as is necessary to fill the given
+     * byte array. An EOFException is thrown if the stream end is encountered.
+     *
+     * @since 1.2
+     */
+    public static void readFully(InputStream in, byte[] b) throws IOException, EOFException {
+        final int length = b.length;
+        int total = 0;
+        while (total < length) {
+            int amt = in.read(b, total, length - total);
+            if (amt < 0) {
+                throw new EOFException();
+            }
+            total += amt;
         }
     }
 

@@ -18,6 +18,10 @@
 
 package com.amazon.carbonado;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
 import java.util.Map;
 
 /**
@@ -429,6 +433,33 @@ public interface Storable<S extends Storable<S>> {
      * Returns an exact shallow copy of this object, including the state.
      */
     S copy();
+
+    /**
+     * Serializes property values and states for temporary storage or for
+     * network transfer. Call {@link #readFrom} to restore. Derived and join
+     * properties are not serialized.
+     *
+     * <p>The encoding used by this method is much simpler than what is
+     * provided by standard object serialization. It does not encode class info
+     * or property names, which is why it is not suitable for long term
+     * storage.
+     *
+     * @throws IOException if exception from stream
+     * @throws SupportException if Storable cannot be serialized
+     * @since 1.2
+     */
+    void writeTo(OutputStream out) throws IOException, SupportException;
+
+    /**
+     * Restores property values and states as encoded by {@link #writeTo}.
+     * Derived properties are not directly modified, but all other properties
+     * not restored are reset to their initial state.
+     *
+     * @throws IOException if exception from stream
+     * @throws SupportException if Storable cannot be serialized
+     * @since 1.2
+     */
+    void readFrom(InputStream in) throws IOException, SupportException;
 
     int hashCode();
 

@@ -55,6 +55,8 @@ public class CommonMethodNames {
         GET_PROPERTY_VALUE             = "getPropertyValue",
         SET_PROPERTY_VALUE             = "setPropertyValue",
         PROPERTY_MAP                   = "propertyMap",
+        WRITE_TO                       = "writeTo",
+        READ_FROM                      = "readFrom",
         TO_STRING_KEY_ONLY_METHOD_NAME = "toStringKeyOnly",
         TO_STRING_METHOD_NAME          = "toString",
         HASHCODE_METHOD_NAME           = "hashCode",

@@ -29,6 +29,7 @@ import org.cojen.classfile.Label;
 import org.cojen.classfile.LocalVariable;
 import org.cojen.classfile.Opcode;
 import org.cojen.classfile.TypeDesc;
+import org.cojen.util.BeanComparator;
 import org.cojen.util.BeanIntrospector;
 import org.cojen.util.BeanProperty;
 
@@ -40,7 +41,7 @@ import com.amazon.carbonado.lob.Blob;
 import com.amazon.carbonado.lob.Clob;
 import com.amazon.carbonado.lob.Lob;
 
-import com.amazon.carbonado.gen.StorableGenerator;
+import static com.amazon.carbonado.gen.StorableGenerator.*;
 import com.amazon.carbonado.gen.TriggerSupport;
 
 import com.amazon.carbonado.info.ChainedProperty;
@@ -62,6 +63,8 @@ import com.amazon.carbonado.info.StorablePropertyAdapter;
  * @author Brian S O'Neill
  */
 public class GenericEncodingStrategy<S extends Storable> {
+    private static enum Mode { KEY, DATA, SERIAL }
+
     private final Class<S> mType;
     private final StorableIndex<S> mPkIndex;
 
@@ -165,7 +168,7 @@ public class GenericEncodingStrategy<S extends Storable> {
         throws SupportException
     {
         properties = ensureKeyProperties(properties);
-        return buildEncoding(true, assembler,
+        return buildEncoding(Mode.KEY, assembler,
                              extractProperties(properties), extractDirections(properties),
                              instanceVar, adapterInstanceClass,
                              useReadMethods,
@@ -205,7 +208,7 @@ public class GenericEncodingStrategy<S extends Storable> {
         throws SupportException
     {
         properties = ensureKeyProperties(properties);
-        buildDecoding(true, assembler,
+        buildDecoding(Mode.KEY, assembler,
                       extractProperties(properties), extractDirections(properties),
                       instanceVar, adapterInstanceClass, useWriteMethods,
                       -1, null, // no generation support
@@ -248,7 +251,7 @@ public class GenericEncodingStrategy<S extends Storable> {
         throws SupportException
     {
         properties = ensureDataProperties(properties);
-        return buildEncoding(false, assembler,
+        return buildEncoding(Mode.DATA, assembler,
                              properties, null,
                              instanceVar, adapterInstanceClass,
                              useReadMethods, generation, null, null);
@@ -296,9 +299,52 @@ public class GenericEncodingStrategy<S extends Storable> {
         throws SupportException
     {
         properties = ensureDataProperties(properties);
-        buildDecoding(false, assembler, properties, null,
+        buildDecoding(Mode.DATA, assembler, properties, null,
                       instanceVar, adapterInstanceClass, useWriteMethods,
                       generation, altGenerationHandler, encodedVar);
+    }
+
+    /**
+     * Generates bytecode instructions to encode properties and their
+     * states. This encoding is suitable for short-term serialization only.
+     *
+     * @param assembler code assembler to receive bytecode instructions
+     * @param properties specific properties to decode, defaults to all
+     * properties if null
+     * @return local variable referencing a byte array with encoded data
+     * @throws SupportException if any property type is not supported
+     * @since 1.2
+     */
+    public LocalVariable buildSerialEncoding(CodeAssembler assembler,
+                                             StorableProperty<S>[] properties)
+        throws SupportException
+    {
+        properties = ensureAllProperties(properties);
+        return buildEncoding
+            (Mode.SERIAL, assembler, properties, null, null, null, false, -1, null, null);
+    }
+
+    /**
+     * Generates bytecode instructions to decode properties and their states. A
+     * CorruptEncodingException may be thrown from generated code.
+     *
+     * @param assembler code assembler to receive bytecode instructions
+     * @param properties specific properties to decode, defaults to all
+     * properties if null
+     * @param encodedVar required variable, which must be a byte array. At
+     * runtime, it references encoded data.
+     * @throws SupportException if any property type is not supported
+     * @throws IllegalArgumentException if encodedVar is not a byte array
+     * @since 1.2
+     */
+    public void buildSerialDecoding(CodeAssembler assembler,
+                                    StorableProperty<S>[] properties,
+                                    LocalVariable encodedVar)
+        throws SupportException
+    {
+        properties = ensureAllProperties(properties);
+        buildDecoding
+            (Mode.SERIAL, assembler, properties, null, null, null, false, -1, null, encodedVar);
     }
 
     /**
@@ -392,7 +438,7 @@ public class GenericEncodingStrategy<S extends Storable> {
     }
 
     /**
-     * Returns all data properties for storable.
+     * Returns all non-derived data properties for storable.
      */
     @SuppressWarnings("unchecked")
     protected StorableProperty<S>[] gatherAllDataProperties() {
@@ -403,6 +449,25 @@ public class GenericEncodingStrategy<S extends Storable> {
 
         for (StorableProperty<S> property : map.values()) {
             if (!property.isDerived()) {
+                list.add(property);
+            }
+        }
+
+        return list.toArray(new StorableProperty[list.size()]);
+    }
+
+    /**
+     * Returns all non-join, non-derived properties for storable.
+     */
+    @SuppressWarnings("unchecked")
+    protected StorableProperty<S>[] gatherAllProperties() {
+        Map<String, ? extends StorableProperty<S>> map =
+            StorableIntrospector.examine(mType).getAllProperties();
+
+        List<StorableProperty<S>> list = new ArrayList<StorableProperty<S>>(map.size());
+
+        for (StorableProperty<S> property : map.values()) {
+            if (!property.isJoin() && !property.isDerived()) {
                 list.add(property);
             }
         }
@@ -514,11 +579,28 @@ public class GenericEncodingStrategy<S extends Storable> {
         return properties;
     }
 
+    private StorableProperty<S>[] ensureAllProperties(StorableProperty<S>[] properties) {
+        if (properties == null) {
+            properties = gatherAllProperties();
+        } else {
+            for (Object prop : properties) {
+                if (prop == null) {
+                    throw new IllegalArgumentException();
+                }
+            }
+            // Sort to generate more efficient code.
+            properties = properties.clone();
+            Arrays.sort(properties,
+                        BeanComparator.forClass(StorableProperty.class).orderBy("number"));
+        }
+        return properties;
+    }
+
     /////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////
 
-    private LocalVariable buildEncoding(boolean forKey,
+    private LocalVariable buildEncoding(Mode mode,
                                         CodeAssembler a,
                                         StorableProperty<S>[] properties,
                                         Direction[] directions,
@@ -543,11 +625,23 @@ public class GenericEncodingStrategy<S extends Storable> {
         // Encoding order is:
         //
         // 1. Prefix
-        // 2. Generation prefix
-        // 3. Properties
-        // 4. Suffix
+        // 2. Generation
+        // 3. Property states (if Mode.SERIAL)
+        // 4. Properties
+        // 5. Suffix
 
-        final int prefix = forKey ? mKeyPrefixPadding : mDataPrefixPadding;
+        final int prefix;
+        switch (mode) {
+        default: 
+            prefix = 0;
+            break;
+        case KEY:
+            prefix = mKeyPrefixPadding;
+            break;
+        case DATA:
+            prefix = mDataPrefixPadding;
+            break;
+        }
 
         final int generationPrefix;
         if (generation < 0) {
@@ -558,7 +652,18 @@ public class GenericEncodingStrategy<S extends Storable> {
             generationPrefix = 4;
         }
 
-        final int suffix = forKey ? mKeySuffixPadding : mDataSuffixPadding;
+        final int suffix;
+        switch (mode) {
+        default: 
+            suffix = 0;
+            break;
+        case KEY:
+            suffix = mKeySuffixPadding;
+            break;
+        case DATA:
+            suffix = mDataSuffixPadding;
+            break;
+        }
 
         final TypeDesc byteArrayType = TypeDesc.forClass(byte[].class);
         final LocalVariable encodedVar = a.createLocalVariable(null, byteArrayType);
@@ -574,7 +679,7 @@ public class GenericEncodingStrategy<S extends Storable> {
             StorableProperty<S> property = properties[0];
             StorablePropertyInfo info = infos[0];
 
-            if (info.getStorageType().toClass() == byte[].class) {
+            if (mode != Mode.SERIAL && info.getStorageType().toClass() == byte[].class) {
                 // Since there is only one property, and it is just a byte
                 // array, optimize by not doing any fancy encoding. If the
                 // property is optional, then a byte prefix is needed to
@@ -583,8 +688,8 @@ public class GenericEncodingStrategy<S extends Storable> {
                 loadPropertyValue(a, info, 0, useReadMethods,
                                   instanceVar, adapterInstanceClass, partialStartVar);
 
-                boolean descending =
-                    forKey && directions != null && directions[0] == Direction.DESCENDING;
+                boolean descending = mode == Mode.KEY
+                    && directions != null && directions[0] == Direction.DESCENDING;
 
                 TypeDesc[] params;
                 if (prefix > 0 || generationPrefix > 0 || suffix > 0) {
@@ -621,22 +726,29 @@ public class GenericEncodingStrategy<S extends Storable> {
             }
         }
 
-        boolean doPartial = forKey && (partialStartVar != null || partialEndVar != null);
+        boolean doPartial = mode == Mode.SERIAL
+            || mode == Mode.KEY && (partialStartVar != null || partialEndVar != null);
 
         // Calculate exactly how many bytes are needed to encode. The length
         // is composed of a static and a variable amount. The variable amount
         // is determined at runtime.
 
         int staticLength = 0;
-        if (!forKey || partialStartVar == null) {
+        if (mode != Mode.KEY || partialStartVar == null) {
             // Only include prefix as static if no runtime check is needed
             // against runtime partial start value.
             staticLength += prefix + generationPrefix;
         }
-        if (!forKey || partialEndVar == null) {
+        if (mode != Mode.KEY || partialEndVar == null) {
             // Only include suffix as static if no runtime check is needed
             // against runtime partial end value.
             staticLength += suffix;
+        }
+
+        if (mode == Mode.SERIAL) {
+            // Need room to encode property states. Two bits per property, so
+            // one byte can encode the state of four properties.
+            staticLength += (properties.length + 3) / 4;
         }
 
         boolean hasVariableLength;
@@ -685,41 +797,27 @@ public class GenericEncodingStrategy<S extends Storable> {
                 if (doPartial) {
                     // Initialize the stashed propery to null or zero to make
                     // the verifier happy.
-                    switch (propVar.getType().getTypeCode()) {
-                    case TypeDesc.OBJECT_CODE:
-                        a.loadNull();
-                        break;
-                    case TypeDesc.LONG_CODE:
-                        a.loadConstant(0L);
-                        break;
-                    case TypeDesc.FLOAT_CODE:
-                        a.loadConstant(0.0f);
-                        break;
-                    case TypeDesc.DOUBLE_CODE:
-                        a.loadConstant(0.0d);
-                        break;
-                    case TypeDesc.INT_CODE: default:
-                        a.loadConstant(0);
-                        break;
-                    }
-
+                    loadBlankValue(a, propVar.getType());
                     a.storeLocal(propVar);
                 }
             }
 
             Label[] entryPoints = null;
 
-            if (partialStartVar != null) {
+            if (mode == Mode.SERIAL || partialStartVar != null) {
                 // Will jump into an arbitrary location, so always have a stack
                 // variable available.
                 a.loadConstant(0);
                 hasStackVar = true;
+            }
 
+            if (partialStartVar != null) {
                 entryPoints = jumpToPartialEntryPoints(a, partialStartVar, properties.length);
             }
 
             Label exitPoint = a.createLabel();
 
+            LocalVariable stateFieldVar = null;
             for (int i=0; i<properties.length; i++) {
                 StorableProperty<S> property = properties[i];
                 StorablePropertyInfo info = infos[i];
@@ -736,6 +834,36 @@ public class GenericEncodingStrategy<S extends Storable> {
                     }
                 } else if (staticEncodingLength(info) >= 0) {
                     continue;
+                }
+
+                Label nextProperty = null;
+                if (mode == Mode.SERIAL) {
+                    // Skip uninitialized properties.
+                    nextProperty = a.createLabel();
+
+                    if (stateFieldVar != null) {
+                        a.loadLocal(stateFieldVar);
+                    } else {
+                        int fieldOrdinal = property.getNumber() >> 4;
+
+                        a.loadThis();
+                        a.loadField(PROPERTY_STATE_FIELD_NAME + fieldOrdinal, TypeDesc.INT);
+
+                        if (i + 1 < properties.length
+                            && properties[i + 1].getNumber() >> 4 == fieldOrdinal)
+                        {
+                            // Save for use by next property.
+                            stateFieldVar = a.createLocalVariable(null, TypeDesc.INT);
+                            a.storeLocal(stateFieldVar);
+                            a.loadLocal(stateFieldVar);
+                        } else {
+                            stateFieldVar = null;
+                        }
+                    }
+
+                    a.loadConstant(PROPERTY_STATE_MASK << ((property.getNumber() & 0xf) * 2));
+                    a.math(Opcode.IAND);
+                    a.ifZeroComparisonBranch(nextProperty, "==");
                 }
 
                 TypeDesc propType = info.getStorageType();
@@ -831,7 +959,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                                       instanceVar, adapterInstanceClass, partialStartVar);
 
                     String className =
-                        (forKey ? KeyEncoder.class : DataEncoder.class).getName();
+                        (mode == Mode.KEY ? KeyEncoder.class : DataEncoder.class).getName();
                     a.invokeStatic(className, "calculateEncodedStringLength",
                                    TypeDesc.INT, new TypeDesc[] {TypeDesc.STRING});
                     if (hasStackVar) {
@@ -845,7 +973,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                                       instanceVar, adapterInstanceClass, partialStartVar);
 
                     String className =
-                        (forKey ? KeyEncoder.class : DataEncoder.class).getName();
+                        (mode == Mode.KEY ? KeyEncoder.class : DataEncoder.class).getName();
                     a.invokeStatic(className, "calculateEncodedLength",
                                    TypeDesc.INT, new TypeDesc[] {byteArrayType});
                     if (hasStackVar) {
@@ -864,11 +992,17 @@ public class GenericEncodingStrategy<S extends Storable> {
                 } else {
                     throw notSupported(property);
                 }
+
+                if (nextProperty != null) {
+                    nextProperty.setLocation();
+                }
             }
 
             exitPoint.setLocation();
 
-            if (forKey && partialStartVar != null && (prefix > 0 || generationPrefix > 0)) {
+            if (mode == Mode.KEY
+                && partialStartVar != null && (prefix > 0 || generationPrefix > 0))
+            {
                 // Prefix must be allocated only if runtime value of
                 // partialStartVar is zero.
                 a.loadLocal(partialStartVar);
@@ -883,7 +1017,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                 noPrefix.setLocation();
             }
 
-            if (forKey && partialEndVar != null && suffix > 0) {
+            if (mode == Mode.KEY && partialEndVar != null && suffix > 0) {
                 // Suffix must be allocated only if runtime value of
                 // partialEndVar is equal to property count.
                 a.loadLocal(partialEndVar);
@@ -915,23 +1049,34 @@ public class GenericEncodingStrategy<S extends Storable> {
         // Now encode into the byte array.
 
         int constantOffset = 0;
-        LocalVariable offset = null;
+        LocalVariable offsetVar = null;
 
-        if (!forKey || partialStartVar == null) {
+        if (mode != Mode.KEY || partialStartVar == null) {
             // Only include prefix as constant offset if no runtime check is
             // needed against runtime partial start value.
-            constantOffset += prefix + generationPrefix;
-            encodeGeneration(a, encodedVar, prefix, generation);
+            constantOffset += prefix;
+            encodeGeneration(a, encodedVar, constantOffset, generation);
+            constantOffset += generationPrefix;
+        }
+
+        if (mode == Mode.SERIAL) {
+            encodePropertyStates(a, encodedVar, constantOffset, properties);
+            constantOffset += (properties.length + 3) / 4;
+
+            // Some properties are skipped at runtime, so offset variable is required.
+            offsetVar = a.createLocalVariable(null, TypeDesc.INT);
+            a.loadConstant(constantOffset);
+            a.storeLocal(offsetVar);
         }
 
         Label[] entryPoints = null;
 
-        if (forKey && partialStartVar != null) {
+        if (mode == Mode.KEY && partialStartVar != null) {
             // Will jump into an arbitrary location, so put an initial value
             // into offset variable.
 
-            offset = a.createLocalVariable(null, TypeDesc.INT);
-            a.loadConstant(0);
+            offsetVar = a.createLocalVariable(null, TypeDesc.INT);
+            a.loadConstant(constantOffset);
             if (prefix > 0) {
                 // Prefix is allocated only if partial start is zero. Check if
                 // offset should be adjusted to skip over it.
@@ -943,16 +1088,26 @@ public class GenericEncodingStrategy<S extends Storable> {
                 encodeGeneration(a, encodedVar, prefix, generation);
                 noPrefix.setLocation();
             }
-            a.storeLocal(offset);
+            a.storeLocal(offsetVar);
 
             entryPoints = jumpToPartialEntryPoints(a, partialStartVar, properties.length);
         }
 
         Label exitPoint = a.createLabel();
 
+        LocalVariable stateFieldVar;
+        if (mode != Mode.SERIAL) {
+            stateFieldVar = null;
+        } else {
+            stateFieldVar = a.createLocalVariable(null, TypeDesc.INT);
+        }
+        int lastFieldOrdinal = -1;
+
         for (int i=0; i<properties.length; i++) {
             StorableProperty<S> property = properties[i];
             StorablePropertyInfo info = infos[i];
+
+            Label nextProperty = a.createLabel();
 
             if (doPartial) {
                 if (entryPoints != null) {
@@ -964,6 +1119,26 @@ public class GenericEncodingStrategy<S extends Storable> {
                     a.loadLocal(partialEndVar);
                     a.ifComparisonBranch(exitPoint, ">=");
                 }
+            }
+
+            if (mode == Mode.SERIAL) {
+                // Skip uninitialized properties.
+
+                int fieldOrdinal = property.getNumber() >> 4;
+
+                if (fieldOrdinal == lastFieldOrdinal) {
+                    a.loadLocal(stateFieldVar);
+                } else {
+                    a.loadThis();
+                    a.loadField(PROPERTY_STATE_FIELD_NAME + fieldOrdinal, TypeDesc.INT);
+                    a.storeLocal(stateFieldVar);
+                    a.loadLocal(stateFieldVar);
+                    lastFieldOrdinal = fieldOrdinal;
+                }
+
+                a.loadConstant(PROPERTY_STATE_MASK << ((property.getNumber() & 0xf) * 2));
+                a.math(Opcode.IAND);
+                a.ifZeroComparisonBranch(nextProperty, "==");
             }
 
             if (info.isLob()) {
@@ -1015,28 +1190,28 @@ public class GenericEncodingStrategy<S extends Storable> {
             // Fill out remaining parameters before calling specific method
             // to encode property value.
             a.loadLocal(encodedVar);
-            if (offset == null) {
+            if (offsetVar == null) {
                 a.loadConstant(constantOffset);
             } else {
-                a.loadLocal(offset);
+                a.loadLocal(offsetVar);
             }
 
-            boolean descending =
-                forKey && directions != null && directions[i] == Direction.DESCENDING;
+            boolean descending = mode == Mode.KEY
+                && directions != null && directions[i] == Direction.DESCENDING;
 
-            int amt = encodeProperty(a, propType, forKey, descending);
+            int amt = encodeProperty(a, propType, mode, descending);
 
             if (amt > 0) {
                 if (i + 1 < properties.length) {
                     // Only adjust offset if there are more properties.
 
-                    if (offset == null) {
+                    if (offsetVar == null) {
                         constantOffset += amt;
                     } else {
                         a.loadConstant(amt);
-                        a.loadLocal(offset);
+                        a.loadLocal(offsetVar);
                         a.math(Opcode.IADD);
-                        a.storeLocal(offset);
+                        a.storeLocal(offsetVar);
                     }
                 }
             } else {
@@ -1045,19 +1220,21 @@ public class GenericEncodingStrategy<S extends Storable> {
                     a.pop();
                 } else {
                     // Only adjust offset if there are more properties.
-                    if (offset == null) {
+                    if (offsetVar == null) {
                         if (constantOffset > 0) {
                             a.loadConstant(constantOffset);
                             a.math(Opcode.IADD);
                         }
-                        offset = a.createLocalVariable(null, TypeDesc.INT);
+                        offsetVar = a.createLocalVariable(null, TypeDesc.INT);
                     } else {
-                        a.loadLocal(offset);
+                        a.loadLocal(offsetVar);
                         a.math(Opcode.IADD);
                     }
-                    a.storeLocal(offset);
+                    a.storeLocal(offsetVar);
                 }
             }
+
+            nextProperty.setLocation();
         }
 
         exitPoint.setLocation();
@@ -1156,8 +1333,7 @@ public class GenericEncodingStrategy<S extends Storable> {
 
         if (useAdapterInstance) {
             // Push adapter instance to stack to be used later.
-            String fieldName =
-                info.getPropertyName() + StorableGenerator.ADAPTER_FIELD_ELEMENT + 0;
+            String fieldName = info.getPropertyName() + ADAPTER_FIELD_ELEMENT + 0;
             TypeDesc adapterType = TypeDesc.forClass
                 (info.getToStorageAdapter().getDeclaringClass());
             a.loadStaticField
@@ -1216,6 +1392,29 @@ public class GenericEncodingStrategy<S extends Storable> {
         }
 
         return !isObjectArrayInstanceVar;
+    }
+
+    /**
+     * Generates code that loads zero, false, or null to the stack.
+     */
+    private void loadBlankValue(CodeAssembler a, TypeDesc type) {
+        switch (type.getTypeCode()) {
+        case TypeDesc.OBJECT_CODE:
+            a.loadNull();
+            break;
+        case TypeDesc.LONG_CODE:
+            a.loadConstant(0L);
+            break;
+        case TypeDesc.FLOAT_CODE:
+            a.loadConstant(0.0f);
+            break;
+        case TypeDesc.DOUBLE_CODE:
+            a.loadConstant(0.0d);
+            break;
+        case TypeDesc.INT_CODE: default:
+            a.loadConstant(0);
+            break;
+        }
     }
 
     /**
@@ -1312,14 +1511,13 @@ public class GenericEncodingStrategy<S extends Storable> {
      * @return 0 if an int amount is pushed onto the stack, or a positive value
      * if offset adjust amount is constant
      */
-    private int encodeProperty(CodeAssembler a, TypeDesc type,
-                               boolean forKey, boolean descending) {
+    private int encodeProperty(CodeAssembler a, TypeDesc type, Mode mode, boolean descending) {
         TypeDesc[] params = new TypeDesc[] {
             type, TypeDesc.forClass(byte[].class), TypeDesc.INT
         };
 
         if (type.isPrimitive()) {
-            if (forKey && descending) {
+            if (mode == Mode.KEY && descending) {
                 a.invokeStatic(KeyEncoder.class.getName(), "encodeDesc", null, params);
             } else {
                 a.invokeStatic(DataEncoder.class.getName(), "encode", null, params);
@@ -1364,7 +1562,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                 retType = TypeDesc.INT;
             }
 
-            if (forKey && descending) {
+            if (mode == Mode.KEY && descending) {
                 a.invokeStatic(KeyEncoder.class.getName(), "encodeDesc", retType, params);
             } else {
                 a.invokeStatic(DataEncoder.class.getName(), "encode", retType, params);
@@ -1373,7 +1571,7 @@ public class GenericEncodingStrategy<S extends Storable> {
             return adjust;
         } else {
             // Type is a String or byte array.
-            if (forKey) {
+            if (mode == Mode.KEY) {
                 if (descending) {
                     a.invokeStatic
                         (KeyEncoder.class.getName(), "encodeDesc", TypeDesc.INT, params);
@@ -1391,6 +1589,8 @@ public class GenericEncodingStrategy<S extends Storable> {
      * Generates code that stores a one or four byte generation value into a
      * byte array referenced by the local variable.
      *
+     * @param encodedVar references a byte array
+     * @param offset offset into byte array
      * @param generation if less than zero, no code is generated
      */
     private void encodeGeneration(CodeAssembler a, LocalVariable encodedVar,
@@ -1419,6 +1619,100 @@ public class GenericEncodingStrategy<S extends Storable> {
     }
 
     /**
+     * Generates code that encodes property states using
+     * ((properties.length + 3) / 4) bytes.
+     *
+     * @param encodedVar references a byte array
+     * @param offset offset into byte array
+     */
+    private void encodePropertyStates(CodeAssembler a, LocalVariable encodedVar,
+                                      int offset, StorableProperty<S>[] properties)
+    {
+        LocalVariable stateFieldVar = a.createLocalVariable(null, TypeDesc.INT);
+        int lastFieldOrdinal = -1;
+
+        LocalVariable accumVar = a.createLocalVariable(null, TypeDesc.INT);
+        int accumShift = 0;
+
+        for (int i=0; i<properties.length; i++) {
+            StorableProperty<S> property = properties[i];
+
+            int fieldOrdinal = property.getNumber() >> 4;
+
+            if (fieldOrdinal == lastFieldOrdinal) {
+                a.loadLocal(stateFieldVar);
+            } else {
+                a.loadThis();
+                a.loadField(PROPERTY_STATE_FIELD_NAME + fieldOrdinal, TypeDesc.INT);
+                a.storeLocal(stateFieldVar);
+                a.loadLocal(stateFieldVar);
+                lastFieldOrdinal = fieldOrdinal;
+            }
+
+            int stateShift = (property.getNumber() & 0xf) * 2;
+
+            int accumPack = 2;
+            int mask = PROPERTY_STATE_MASK << stateShift;
+
+            // Try to pack more state properties into one operation.
+            while ((accumShift + accumPack) < 8) {
+                if (i + 1 >= properties.length) {
+                    // No more properties to encode.
+                    break;
+                }
+                StorableProperty<S> nextProperty = properties[i + 1];
+                if (property.getNumber() + 1 != nextProperty.getNumber()) {
+                    // Properties are not consecutive.
+                    break;
+                }
+                if (fieldOrdinal != (nextProperty.getNumber() >> 4)) {
+                    // Property states are stored in different fields.
+                    break;
+                }
+                accumPack += 2;
+                mask |= PROPERTY_STATE_MASK << ((nextProperty.getNumber() & 0xf) * 2);
+                property = nextProperty;
+                i++;
+            }
+
+            a.loadConstant(mask);
+            a.math(Opcode.IAND);
+
+            if (stateShift < accumShift) {
+                a.loadConstant(accumShift - stateShift);
+                a.math(Opcode.ISHL);
+            } else if (stateShift > accumShift) {
+                a.loadConstant(stateShift - accumShift);
+                a.math(Opcode.IUSHR);
+            }
+
+            if (accumShift != 0) {
+                a.loadLocal(accumVar);
+                a.math(Opcode.IOR);
+            }
+
+            a.storeLocal(accumVar);
+
+            if ((accumShift += accumPack) >= 8) {
+                // Accumulator is full, so copy it to byte array.
+                a.loadLocal(encodedVar);
+                a.loadConstant(offset++);
+                a.loadLocal(accumVar);
+                a.storeToArray(TypeDesc.BYTE);
+                accumShift = 0;
+            }
+        }
+
+        if (accumShift > 0) {
+            // Copy remaining states.
+            a.loadLocal(encodedVar);
+            a.loadConstant(offset++);
+            a.loadLocal(accumVar);
+            a.storeToArray(TypeDesc.BYTE);
+        }
+    }
+
+    /**
      * Generates code to push RawSupport instance to the stack.  RawSupport is
      * available only in Storable instances. If instanceVar is an Object[], a
      * SupportException is thrown.
@@ -1442,8 +1736,7 @@ public class GenericEncodingStrategy<S extends Storable> {
             a.loadLocal(instanceVar);
         }
 
-        a.loadField(StorableGenerator.SUPPORT_FIELD_NAME,
-                    TypeDesc.forClass(TriggerSupport.class));
+        a.loadField(SUPPORT_FIELD_NAME, TypeDesc.forClass(TriggerSupport.class));
         a.checkCast(TypeDesc.forClass(RawSupport.class));
     }
 
@@ -1489,7 +1782,7 @@ public class GenericEncodingStrategy<S extends Storable> {
     /////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////
 
-    private void buildDecoding(boolean forKey,
+    private void buildDecoding(Mode mode,
                                CodeAssembler a,
                                StorableProperty<S>[] properties,
                                Direction[] directions,
@@ -1512,10 +1805,22 @@ public class GenericEncodingStrategy<S extends Storable> {
         //
         // 1. Prefix
         // 2. Generation prefix
-        // 3. Properties
-        // 4. Suffix
+        // 3. Property states (if Mode.SERIAL)
+        // 4. Properties
+        // 5. Suffix
 
-        final int prefix = forKey ? mKeyPrefixPadding : mDataPrefixPadding;
+        final int prefix;
+        switch (mode) {
+        default: 
+            prefix = 0;
+            break;
+        case KEY:
+            prefix = mKeyPrefixPadding;
+            break;
+        case DATA:
+            prefix = mDataPrefixPadding;
+            break;
+        }
 
         final int generationPrefix;
         if (generation < 0) {
@@ -1526,7 +1831,18 @@ public class GenericEncodingStrategy<S extends Storable> {
             generationPrefix = 4;
         }
 
-        final int suffix = forKey ? mKeySuffixPadding : mDataSuffixPadding;
+        final int suffix;
+        switch (mode) {
+        default: 
+            suffix = 0;
+            break;
+        case KEY:
+            suffix = mKeySuffixPadding;
+            break;
+        case DATA:
+            suffix = mDataSuffixPadding;
+            break;
+        }
 
         final TypeDesc byteArrayType = TypeDesc.forClass(byte[].class);
 
@@ -1538,7 +1854,7 @@ public class GenericEncodingStrategy<S extends Storable> {
             StorableProperty<S> property = properties[0];
             StorablePropertyInfo info = infos[0];
 
-            if (info.getStorageType().toClass() == byte[].class) {
+            if (mode != Mode.SERIAL && info.getStorageType().toClass() == byte[].class) {
                 // Since there is only one property, and it is just a byte
                 // array, it doesn't have any fancy encoding.
 
@@ -1547,8 +1863,8 @@ public class GenericEncodingStrategy<S extends Storable> {
 
                 a.loadLocal(encodedVar);
 
-                boolean descending =
-                    forKey && directions != null && directions[0] == Direction.DESCENDING;
+                boolean descending = mode == Mode.KEY
+                    && directions != null && directions[0] == Direction.DESCENDING;
 
                 TypeDesc[] params;
                 if (prefix > 0 || generationPrefix > 0 || suffix > 0) {
@@ -1582,20 +1898,101 @@ public class GenericEncodingStrategy<S extends Storable> {
             }
         }
 
-        // Now decode from the byte array.
+        // Now decode properties from the byte array.
 
         int constantOffset = prefix + generationPrefix;
-        LocalVariable offset = null;
+        LocalVariable offsetVar = null;
+
         // References to local variables which will hold references.
-        LocalVariable[] stringRef = new LocalVariable[1];
-        LocalVariable[] byteArrayRef = new LocalVariable[1];
+        LocalVariable[] stringRefRef = new LocalVariable[1];
+        LocalVariable[] byteArrayRefRef = new LocalVariable[1];
         LocalVariable[] valueRefRef = new LocalVariable[1];
 
-        for (int i=0; i<infos.length; i++) {
+        if (mode == Mode.SERIAL) {
+            decodePropertyStates(a, encodedVar, constantOffset, properties);
+            constantOffset += (properties.length + 3) / 4;
+
+            // Some properties are skipped at runtime, so offset variable is required.
+            offsetVar = a.createLocalVariable(null, TypeDesc.INT);
+            a.loadConstant(constantOffset);
+            a.storeLocal(offsetVar);
+
+            // References need to be initialized early because some properties
+            // are skipped at runtime.
+
+            for (int i=0; i<properties.length; i++) {
+                StorableProperty<S> property = properties[i];
+                if (String.class.isAssignableFrom(property.getType())) {
+                    if (stringRefRef[0] == null) {
+                        TypeDesc refType = TypeDesc.forClass(String[].class);
+                        stringRefRef[0] = a.createLocalVariable(null, refType);
+                        a.loadConstant(1);
+                        a.newObject(refType);
+                        a.storeLocal(stringRefRef[0]);
+                    }
+                } else if (byte[].class.isAssignableFrom(property.getType())) {
+                    if (byteArrayRefRef[0] == null) {
+                        TypeDesc refType = TypeDesc.forClass(byte[][].class);
+                        byteArrayRefRef[0] = a.createLocalVariable(null, refType);
+                        a.loadConstant(1);
+                        a.newObject(refType);
+                        a.storeLocal(byteArrayRefRef[0]);
+                    }
+                }
+            }
+        }
+
+        LocalVariable stateFieldVar;
+        if (mode != Mode.SERIAL) {
+            stateFieldVar = null;
+        } else {
+            stateFieldVar = a.createLocalVariable(null, TypeDesc.INT);
+        }
+        int lastFieldOrdinal = -1;
+
+        for (int i=0; i<properties.length; i++) {
+            StorableProperty<S> property = properties[i];
             StorablePropertyInfo info = infos[i];
+
+            Label storePropertyLocation = a.createLabel();
+            Label nextPropertyLocation = a.createLabel();
 
             // Push to stack in preparation for storing a property.
             pushDecodingInstanceVar(a, i, instanceVar);
+
+            if (mode == Mode.SERIAL) {
+                // Load property if initialized, else reset it.
+
+                int fieldOrdinal = property.getNumber() >> 4;
+
+                if (fieldOrdinal == lastFieldOrdinal) {
+                    a.loadLocal(stateFieldVar);
+                } else {
+                    a.loadThis();
+                    a.loadField(PROPERTY_STATE_FIELD_NAME + fieldOrdinal, TypeDesc.INT);
+                    a.storeLocal(stateFieldVar);
+                    a.loadLocal(stateFieldVar);
+                    lastFieldOrdinal = fieldOrdinal;
+                }
+
+                a.loadConstant(PROPERTY_STATE_MASK << ((property.getNumber() & 0xf) * 2));
+                a.math(Opcode.IAND);
+                Label isInitialized = a.createLabel();
+                a.ifZeroComparisonBranch(isInitialized, "!=");
+
+                // Reset property value to zero, false, or null.
+                loadBlankValue(a, TypeDesc.forClass(property.getType()));
+
+                if (info.getToStorageAdapter() != null) {
+                    // Bypass adapter.
+                    a.storeField(info.getPropertyName(), info.getPropertyType());
+                    a.branch(nextPropertyLocation);
+                } else {
+                    a.branch(storePropertyLocation);
+                }
+
+                isInitialized.setLocation();
+            }
 
             TypeDesc storageType = info.getStorageType();
 
@@ -1612,17 +2009,17 @@ public class GenericEncodingStrategy<S extends Storable> {
             }
 
             a.loadLocal(encodedVar);
-            if (offset == null) {
+            if (offsetVar == null) {
                 a.loadConstant(constantOffset);
             } else {
-                a.loadLocal(offset);
+                a.loadLocal(offsetVar);
             }
 
-            boolean descending =
-                forKey && directions != null && directions[i] == Direction.DESCENDING;
+            boolean descending = mode == Mode.KEY
+                && directions != null && directions[i] == Direction.DESCENDING;
 
-            int amt = decodeProperty(a, info, storageType, forKey, descending,
-                                     stringRef, byteArrayRef, valueRefRef);
+            int amt = decodeProperty(a, info, storageType, mode, descending,
+                                     stringRefRef, byteArrayRefRef, valueRefRef);
 
             if (info.isLob()) {
                 getLobFromLocator(a, info);
@@ -1633,33 +2030,33 @@ public class GenericEncodingStrategy<S extends Storable> {
                     // Only adjust offset if there are more properties.
 
                     if (amt > 0) {
-                        if (offset == null) {
+                        if (offsetVar == null) {
                             constantOffset += amt;
                         } else {
                             a.loadConstant(amt);
-                            a.loadLocal(offset);
+                            a.loadLocal(offsetVar);
                             a.math(Opcode.IADD);
-                            a.storeLocal(offset);
+                            a.storeLocal(offsetVar);
                         }
                     } else {
                         // Offset adjust is one if returned object is null.
                         a.dup();
                         Label notNull = a.createLabel();
                         a.ifNullBranch(notNull, false);
-                        a.loadConstant(1 + (offset == null ? constantOffset : 0));
+                        a.loadConstant(1 + (offsetVar == null ? constantOffset : 0));
                         Label cont = a.createLabel();
                         a.branch(cont);
                         notNull.setLocation();
-                        a.loadConstant(~amt + (offset == null ? constantOffset : 0));
+                        a.loadConstant(~amt + (offsetVar == null ? constantOffset : 0));
                         cont.setLocation();
 
-                        if (offset == null) {
-                            offset = a.createLocalVariable(null, TypeDesc.INT);
+                        if (offsetVar == null) {
+                            offsetVar = a.createLocalVariable(null, TypeDesc.INT);
                         } else {
-                            a.loadLocal(offset);
+                            a.loadLocal(offsetVar);
                             a.math(Opcode.IADD);
                         }
-                        a.storeLocal(offset);
+                        a.storeLocal(offsetVar);
                     }
                 }
             } else {
@@ -1668,17 +2065,17 @@ public class GenericEncodingStrategy<S extends Storable> {
                     a.pop();
                 } else {
                     // Only adjust offset if there are more properties.
-                    if (offset == null) {
+                    if (offsetVar == null) {
                         if (constantOffset > 0) {
                             a.loadConstant(constantOffset);
                             a.math(Opcode.IADD);
                         }
-                        offset = a.createLocalVariable(null, TypeDesc.INT);
+                        offsetVar = a.createLocalVariable(null, TypeDesc.INT);
                     } else {
-                        a.loadLocal(offset);
+                        a.loadLocal(offsetVar);
                         a.math(Opcode.IADD);
                     }
-                    a.storeLocal(offset);
+                    a.storeLocal(offsetVar);
                 }
 
                 // Get the value out of the ref array so that it can be stored.
@@ -1687,7 +2084,11 @@ public class GenericEncodingStrategy<S extends Storable> {
                 a.loadFromArray(valueRefRef[0].getType());
             }
 
+            storePropertyLocation.setLocation();
+
             storePropertyValue(a, info, useWriteMethods, instanceVar, adapterInstanceClass);
+
+            nextPropertyLocation.setLocation();
         }
     }
 
@@ -1701,7 +2102,7 @@ public class GenericEncodingStrategy<S extends Storable> {
      */
     private int decodeProperty(CodeAssembler a,
                                GenericPropertyInfo info, TypeDesc storageType,
-                               boolean forKey, boolean descending,
+                               Mode mode, boolean descending,
                                LocalVariable[] stringRefRef, LocalVariable[] byteArrayRefRef,
                                LocalVariable[] valueRefRef)
         throws SupportException
@@ -1794,7 +2195,7 @@ public class GenericEncodingStrategy<S extends Storable> {
             }
 
             TypeDesc[] params = {TypeDesc.forClass(byte[].class), TypeDesc.INT};
-            if (forKey && descending) {
+            if (mode == Mode.KEY && descending) {
                 a.invokeStatic
                     (KeyDecoder.class.getName(), methodName + "Desc", returnType, params);
             } else {
@@ -1811,12 +2212,13 @@ public class GenericEncodingStrategy<S extends Storable> {
 
             return adjust;
         } else {
-            String className = (forKey ? KeyDecoder.class : DataDecoder.class).getName();
+            String className = (mode == Mode.KEY ? KeyDecoder.class : DataDecoder.class).getName();
             String methodName;
             TypeDesc refType;
 
             if (storageType == TypeDesc.STRING) {
-                methodName = (forKey && descending) ? "decodeStringDesc" : "decodeString";
+                methodName = (mode == Mode.KEY && descending)
+                    ? "decodeStringDesc" : "decodeString";
                 refType = TypeDesc.forClass(String[].class);
                 if (stringRefRef[0] == null) {
                     stringRefRef[0] = a.createLocalVariable(null, refType);
@@ -1827,7 +2229,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                 a.loadLocal(stringRefRef[0]);
                 valueRefRef[0] = stringRefRef[0];
             } else if (storageType.toClass() == byte[].class) {
-                methodName = (forKey && descending) ? "decodeDesc" : "decode";
+                methodName = (mode == Mode.KEY && descending) ? "decodeDesc" : "decode";
                 refType = TypeDesc.forClass(byte[][].class);
                 if (byteArrayRefRef[0] == null) {
                     byteArrayRefRef[0] = a.createLocalVariable(null, refType);
@@ -1913,8 +2315,7 @@ public class GenericEncodingStrategy<S extends Storable> {
             LocalVariable temp = a.createLocalVariable(null, storageType);
             a.storeLocal(temp);
 
-            String fieldName =
-                info.getPropertyName() + StorableGenerator.ADAPTER_FIELD_ELEMENT + 0;
+            String fieldName = info.getPropertyName() + ADAPTER_FIELD_ELEMENT + 0;
             TypeDesc adapterType = TypeDesc.forClass
                 (info.getToStorageAdapter().getDeclaringClass());
             a.loadStaticField
@@ -1969,26 +2370,10 @@ public class GenericEncodingStrategy<S extends Storable> {
                                     // Might attempt to unbox null, which
                                     // throws NullPointerException. Instead,
                                     // convert null to zero or false.
-
                                     a.dup();
                                     a.ifNullBranch(convertLabel, false);
                                     a.pop(); // pop null off stack
-
-                                    switch (propType.getTypeCode()) {
-                                    default:
-                                        a.loadConstant(0);
-                                        break;
-                                    case TypeDesc.LONG_CODE:
-                                        a.loadConstant(0L);
-                                        break;
-                                    case TypeDesc.FLOAT_CODE:
-                                        a.loadConstant(0.0f);
-                                        break;
-                                    case TypeDesc.DOUBLE_CODE:
-                                        a.loadConstant(0.0d);
-                                        break;
-                                    }
-
+                                    loadBlankValue(a, propType);
                                     a.branch(convertedLabel);
                                 }
 
@@ -2108,5 +2493,105 @@ public class GenericEncodingStrategy<S extends Storable> {
         }
 
         generationMatches.setLocation();
+    }
+
+    /**
+     * Generates code that decodes property states from
+     * ((properties.length + 3) / 4) bytes.
+     *
+     * @param encodedVar references a byte array
+     * @param offset offset into byte array
+     */
+    private void decodePropertyStates(CodeAssembler a, LocalVariable encodedVar,
+                                      int offset, StorableProperty<S>[] properties)
+    {
+        LocalVariable stateFieldVar = a.createLocalVariable(null, TypeDesc.INT);
+        int lastFieldOrdinal = -1;
+
+        LocalVariable accumVar = a.createLocalVariable(null, TypeDesc.INT);
+        int accumShift = 8;
+
+        for (int i=0; i<properties.length; i++) {
+            StorableProperty<S> property = properties[i];
+
+            int fieldOrdinal = property.getNumber() >> 4;
+
+            if (fieldOrdinal != lastFieldOrdinal) {
+                if (lastFieldOrdinal >= 0) {
+                    // Copy states to field.
+                    a.loadThis();
+                    a.loadLocal(stateFieldVar);
+                    a.storeField(PROPERTY_STATE_FIELD_NAME + lastFieldOrdinal, TypeDesc.INT);
+                }
+                a.loadThis();
+                a.loadField(PROPERTY_STATE_FIELD_NAME + fieldOrdinal, TypeDesc.INT);
+                a.storeLocal(stateFieldVar);
+                lastFieldOrdinal = fieldOrdinal;
+            }
+
+            if (accumShift >= 8) {
+                // Load accumulator byte.
+                a.loadLocal(encodedVar);
+                a.loadConstant(offset++);
+                a.loadFromArray(TypeDesc.BYTE);
+                a.loadConstant(0xff);
+                a.math(Opcode.IAND);
+                a.storeLocal(accumVar);
+                accumShift = 0;
+            }
+
+            int stateShift = (property.getNumber() & 0xf) * 2;
+
+            int accumPack = 2;
+            int mask = PROPERTY_STATE_MASK << stateShift;
+
+            // Try to pack more state properties into one operation.
+            while ((accumShift + accumPack) < 8) {
+                if (i + 1 >= properties.length) {
+                    // No more properties to encode.
+                    break;
+                }
+                StorableProperty<S> nextProperty = properties[i + 1];
+                if (property.getNumber() + 1 != nextProperty.getNumber()) {
+                    // Properties are not consecutive.
+                    break;
+                }
+                if (fieldOrdinal != (nextProperty.getNumber() >> 4)) {
+                    // Property states are stored in different fields.
+                    break;
+                }
+                accumPack += 2;
+                mask |= PROPERTY_STATE_MASK << ((nextProperty.getNumber() & 0xf) * 2);
+                property = nextProperty;
+                i++;
+            }
+
+            a.loadLocal(accumVar);
+
+            if (stateShift < accumShift) {
+                a.loadConstant(accumShift - stateShift);
+                a.math(Opcode.IUSHR);
+            } else if (stateShift > accumShift) {
+                a.loadConstant(stateShift - accumShift);
+                a.math(Opcode.ISHL);
+            }
+
+            a.loadConstant(mask);
+            a.math(Opcode.IAND);
+            a.loadLocal(stateFieldVar);
+            a.loadConstant(~mask);
+            a.math(Opcode.IAND);
+            a.math(Opcode.IOR);
+            a.storeLocal(stateFieldVar);
+
+            accumShift += accumPack;
+        }
+
+        if (lastFieldOrdinal >= 0) {
+            // Copy remaining states to last state field.
+            a.loadThis();
+            a.loadLocal(stateFieldVar);
+            a.storeField(PROPERTY_STATE_FIELD_NAME + lastFieldOrdinal, TypeDesc.INT);
+        }
     }
 }
