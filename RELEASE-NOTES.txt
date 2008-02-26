@@ -50,6 +50,7 @@ Carbonado change history
   or update.
 - Fixed query plan bug which sometimes caused a correctly selected index to be
   fully scanned.
+- Index build skips records which are corrupt instead of giving up entirely.
 
 1.1 to 1.1.2
 -------------------------------
