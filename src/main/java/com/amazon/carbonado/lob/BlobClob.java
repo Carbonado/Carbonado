@@ -96,6 +96,10 @@ public class BlobClob extends AbstractClob {
         mBlob.setLength(length << 1);
     }
 
+    public Object getLocator() {
+        return mBlob.getLocator();
+    }
+
     protected Blob getWrappedBlob() {
         return mBlob;
     }

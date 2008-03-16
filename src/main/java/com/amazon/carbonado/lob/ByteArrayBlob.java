@@ -305,6 +305,13 @@ public class ByteArrayBlob extends AbstractBlob {
         }
     }
 
+    /**
+     * Always returns null.
+     */
+    public Object getLocator() {
+        return null;
+    }
+
     private static class Input extends InputStream {
         private final ByteArrayBlob mBlob;
         private long mPos;

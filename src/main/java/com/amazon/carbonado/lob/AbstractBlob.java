@@ -196,4 +196,31 @@ public abstract class AbstractBlob implements Blob {
             }
         }
     }
+
+    @Override
+    public int hashCode() {
+        Object locator = getLocator();
+        return locator == null ? super.hashCode() : locator.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj instanceof AbstractBlob) {
+            Object locator = getLocator();
+            if (locator != null) {
+                AbstractBlob other = (AbstractBlob) obj;
+                return locator == other.getLocator();
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public String toString() {
+        Object locator = getLocator();
+        return locator == null ? super.toString() : ("Blob@" + locator);
+    }
 }

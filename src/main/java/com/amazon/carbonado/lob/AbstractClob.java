@@ -165,4 +165,31 @@ public abstract class AbstractClob implements Clob {
             }
         }
     }
+
+    @Override
+    public int hashCode() {
+        Object locator = getLocator();
+        return locator == null ? super.hashCode() : locator.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj instanceof AbstractClob) {
+            Object locator = getLocator();
+            if (locator != null) {
+                AbstractClob other = (AbstractClob) obj;
+                return locator == other.getLocator();
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public String toString() {
+        Object locator = getLocator();
+        return locator == null ? super.toString() : ("Clob@" + locator);
+    }
 }

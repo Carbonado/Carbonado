@@ -87,6 +87,13 @@ public class StringClob extends AbstractClob {
         denied();
     }
 
+    /**
+     * Always returns null.
+     */
+    public Object getLocator() {
+        return null;
+    }
+
     private PersistException denied() {
         return new PersistDeniedException("Read-only");
     }

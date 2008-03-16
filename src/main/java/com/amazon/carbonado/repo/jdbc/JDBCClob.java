@@ -116,6 +116,11 @@ class JDBCClob extends AbstractClob implements JDBCLob {
         }
     }
 
+    public Object getLocator() {
+        // FIXME
+        return null;
+    }
+
     public void close() {
         mClob = null;
     }

@@ -310,6 +310,13 @@ public class CharArrayClob extends AbstractClob {
         }
     }
 
+    /**
+     * Always returns null.
+     */
+    public Object getLocator() {
+        return null;
+    }
+
     private static class Input extends Reader {
         private final CharArrayClob mClob;
         private long mPos;

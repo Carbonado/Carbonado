@@ -57,10 +57,22 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         mRepository = repository;
         mReplicaStorage = replicaStorage;
         mMasterStorage = masterStorage;
+
         // Use TriggerManager to locally disable trigger execution during
         // resync and repairs.
         mTriggerManager = new TriggerManager<S>();
         mTriggerManager.addTrigger(this);
+
+        BlobReplicationTrigger<S> blobTrigger = BlobReplicationTrigger.create(masterStorage);
+        if (blobTrigger != null) {
+            mTriggerManager.addTrigger(blobTrigger);
+        }
+
+        ClobReplicationTrigger<S> clobTrigger = ClobReplicationTrigger.create(masterStorage);
+        if (clobTrigger != null) {
+            mTriggerManager.addTrigger(clobTrigger);
+        }
+
         replicaStorage.addTrigger(mTriggerManager);
     }
 
@@ -377,6 +389,7 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         tm.locallyDisableInsert();
         tm.locallyDisableUpdate();
         tm.locallyDisableDelete();
+        tm.locallyDisableLoad();
     }
 
     void setReplicationEnabled() {
@@ -384,5 +397,6 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         tm.locallyEnableInsert();
         tm.locallyEnableUpdate();
         tm.locallyEnableDelete();
+        tm.locallyEnableLoad();
     }
 }

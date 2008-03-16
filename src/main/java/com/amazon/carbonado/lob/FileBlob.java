@@ -109,4 +109,11 @@ public class FileBlob extends AbstractBlob {
             throw new PersistException(e);
         }
     }
+
+    /**
+     * Always returns null.
+     */
+    public Object getLocator() {
+        return null;
+    }
 }

@@ -155,7 +155,8 @@ public class LobEngine {
         if (lob == null) {
             return 0;
         }
-        return ((LobImpl) lob).getLocator();
+        Long locator = (Long) lob.getLocator();
+        return locator == null ? 0 : locator;
     }
 
     /**
@@ -468,12 +469,8 @@ public class LobEngine {
         return trigger;
     }
 
-    private interface LobImpl extends Lob {
-        long getLocator();
-    }
-
-    private class BlobImpl extends AbstractBlob implements LobImpl {
-        final long mLocator;
+    private class BlobImpl extends AbstractBlob implements Lob {
+        final Long mLocator;
         final StoredLob mStoredLob;
 
         BlobImpl(long locator) {
@@ -648,9 +645,13 @@ public class LobEngine {
             }
         }
 
+        public Long getLocator() {
+            return mLocator;
+        }
+
         @Override
         public int hashCode() {
-            return ((int) (mLocator >> 32)) ^ ((int) mLocator);
+            return mLocator.hashCode();
         }
 
         @Override
@@ -660,7 +661,7 @@ public class LobEngine {
             }
             if (obj instanceof BlobImpl) {
                 BlobImpl other = (BlobImpl) obj;
-                return LobEngine.this == other.getEnclosing() && mLocator == other.mLocator;
+                return LobEngine.this == other.getEnclosing() && mLocator.equals(other.mLocator);
             }
             return false;
         }
@@ -670,22 +671,22 @@ public class LobEngine {
             return "Blob@" + getLocator();
         }
 
-        public long getLocator() {
-            return mLocator;
-        }
-
         LobEngine getEnclosing() {
             return LobEngine.this;
         }
     }
 
-    private class ClobImpl extends BlobClob implements LobImpl {
+    private class ClobImpl extends BlobClob implements Lob {
         ClobImpl(long locator) {
             super(new BlobImpl(locator));
         }
 
         ClobImpl(StoredLob lob) {
             super(new BlobImpl(lob));
+        }
+
+        public Long getLocator() {
+            return ((BlobImpl) super.getWrappedBlob()).getLocator();
         }
 
         @Override
@@ -707,10 +708,6 @@ public class LobEngine {
         @Override
         public String toString() {
             return "Clob@" + getLocator();
-        }
-
-        public long getLocator() {
-            return ((BlobImpl) super.getWrappedBlob()).getLocator();
         }
 
         // Override to gain permission.
