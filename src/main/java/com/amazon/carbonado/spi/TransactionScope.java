@@ -219,8 +219,10 @@ public class TransactionScope<Txn> {
     public void attach() {
         mLock.lock();
         try {
-            if (mTxnMgr.setLocalScope(this)) {
+            if (mTxnMgr.setLocalScope(this, mDetached)) {
                 mDetached = false;
+            } else if (!mDetached) {
+                throw new IllegalStateException("Transaction scope is not detached");
             } else {
                 throw new IllegalStateException
                     ("Current thread has a different transaction already attached");

@@ -96,9 +96,9 @@ public abstract class TransactionManager<Txn> {
     }
 
     // Called by TransactionScope.
-    boolean setLocalScope(TransactionScope<Txn> scope) {
+    boolean setLocalScope(TransactionScope<Txn> scope, boolean detached) {
         TransactionScope<Txn> existing = mLocalScope.get();
-        if (existing == null || existing == scope) {
+        if ((existing == null && detached) || existing == scope) {
             mLocalScope.set(scope);
             return true;
         }
