@@ -69,11 +69,11 @@ public abstract class BinaryOpFilter<S extends Storable> extends Filter<S> {
         return accept(new Binder<S>(), null);
     }
 
-    public boolean isBound() {
+    public synchronized boolean isBound() {
         return (mState & BOUND) != 0;
     }
 
-    void markBound() {
+    synchronized void markBound() {
         mState |= BOUND;
     }
 

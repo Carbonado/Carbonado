@@ -92,6 +92,11 @@ class DerivedIndexesTrigger<S extends Storable, D extends Storable> extends Trig
     }
 
     @Override
+    public int hashCode() {
+        return mFetcher.hashCode();
+    }
+
+    @Override
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;

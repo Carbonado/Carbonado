@@ -62,7 +62,7 @@ public abstract class AbstractRepositoryBuilder implements RepositoryBuilder {
 
     public Iterable<TriggerFactory> getTriggerFactories() {
         synchronized (mTriggerFactories) {
-            if (mTriggerFactories == null || mTriggerFactories.size() == 0) {
+            if (mTriggerFactories.size() == 0) {
                 return Collections.emptyList();
             } else {
                 return new ArrayList<TriggerFactory>(mTriggerFactories);

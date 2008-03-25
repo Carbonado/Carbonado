@@ -553,8 +553,12 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
                         break;
                     }
 
-                    if (mSuspendUntil != Long.MIN_VALUE) {
-                        if (System.currentTimeMillis() < mSuspendUntil) {
+                    long suspendUntil;
+                    synchronized (this) {
+                        suspendUntil = mSuspendUntil;
+                    }
+                    if (suspendUntil != Long.MIN_VALUE) {
+                        if (System.currentTimeMillis() < suspendUntil) {
                             continue;
                         }
                     }

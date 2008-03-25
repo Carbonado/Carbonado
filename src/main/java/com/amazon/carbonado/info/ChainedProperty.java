@@ -395,7 +395,7 @@ public class ChainedProperty<S extends Storable> implements Serializable, Append
                 System.arraycopy(mOuterJoin, 0, newOuterJoin, 0, mOuterJoin.length);
             }
             System.arraycopy(property.mOuterJoin, 0,
-                             newOuterJoin, mOuterJoin.length,
+                             newOuterJoin, getChainCount() + 1,
                              property.mOuterJoin.length);
         }
 

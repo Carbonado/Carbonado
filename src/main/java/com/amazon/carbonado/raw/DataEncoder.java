@@ -44,11 +44,6 @@ public class DataEncoder {
     /** Byte to use for not-null, high ordering */
     static final byte NOT_NULL_BYTE_LOW = (byte)~NOT_NULL_BYTE_HIGH;
 
-    static final byte[] NULL_BYTE_ARRAY_HIGH = {NULL_BYTE_HIGH};
-    static final byte[] NULL_BYTE_ARRAY_LOW = {NULL_BYTE_LOW};
-    static final byte[] NOT_NULL_BYTE_ARRAY_HIGH = {NOT_NULL_BYTE_HIGH};
-    static final byte[] NOT_NULL_BYTE_ARRAY_LOW = {NOT_NULL_BYTE_LOW};
-
     /**
      * Encodes the given signed integer into exactly 4 bytes.
      *
@@ -604,12 +599,12 @@ public class DataEncoder {
     public static byte[] encodeSingleNullable(byte[] value, int prefixPadding, int suffixPadding) {
         if (prefixPadding <= 0 && suffixPadding <= 0) {
             if (value == null) {
-                return NULL_BYTE_ARRAY_HIGH;
+                return new byte[] {NULL_BYTE_HIGH};
             }
 
             int length = value.length;
             if (length == 0) {
-                return NOT_NULL_BYTE_ARRAY_HIGH;
+                return new byte[] {NOT_NULL_BYTE_HIGH};
             }
 
             byte[] dst = new byte[1 + length];

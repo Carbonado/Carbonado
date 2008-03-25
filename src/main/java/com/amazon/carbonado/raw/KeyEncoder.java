@@ -708,12 +708,12 @@ public class KeyEncoder extends DataEncoder {
                                                   int prefixPadding, int suffixPadding) {
         if (prefixPadding <= 0 && suffixPadding <= 0) {
             if (value == null) {
-                return NULL_BYTE_ARRAY_LOW;
+                return new byte[] {NULL_BYTE_LOW};
             }
 
             int length = value.length;
             if (length == 0) {
-                return NOT_NULL_BYTE_ARRAY_LOW;
+                return new byte[] {NOT_NULL_BYTE_LOW};
             }
 
             byte[] dst = new byte[1 + length];

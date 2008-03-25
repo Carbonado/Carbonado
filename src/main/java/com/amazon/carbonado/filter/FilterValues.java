@@ -36,6 +36,8 @@ import com.amazon.carbonado.util.Appender;
  * @author Brian S O'Neill
  */
 public class FilterValues<S extends Storable> implements Serializable, Appender {
+    private static final long serialVersionUID = 1L;
+
     private static final Object[] NO_VALUES = new Object[0];
 
     static <S extends Storable> FilterValues<S>

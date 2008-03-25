@@ -472,7 +472,9 @@ public class StorableIndexSet<S extends Storable> extends TreeSet<StorableIndex<
      * Orders indexes such that they are grouped by property names. Within
      * those groups, indexes are ordered most qualified to least qualified.
      */
-    private static class StorableIndexComparator implements Comparator<StorableIndex<?>> {
+    private static class StorableIndexComparator
+        implements Comparator<StorableIndex<?>>, java.io.Serializable
+    {
         public int compare(StorableIndex<?> a, StorableIndex<?> b) {
             if (a == b) {
                 return 0;

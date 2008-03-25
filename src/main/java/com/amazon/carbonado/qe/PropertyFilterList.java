@@ -155,7 +155,7 @@ class PropertyFilterList<S extends Storable> extends AbstractList<PropertyFilter
     }
 
     private static class PFComparator<S extends Storable>
-        implements Comparator<PropertyFilter<S>>
+        implements Comparator<PropertyFilter<S>>, java.io.Serializable
     {
         public int compare(PropertyFilter<S> a, PropertyFilter<S> b) {
             if (a.getOperator() != b.getOperator()) {
