@@ -88,7 +88,7 @@ public abstract class TransactionManager<Txn> {
     // Called by TransactionScope.
     boolean removeLocalScope(TransactionScope<Txn> scope) {
         TransactionScope<Txn> existing = mLocalScope.get();
-        if (existing == null || existing == scope) {
+        if (existing == scope) {
             mLocalScope.remove();
             return true;
         }

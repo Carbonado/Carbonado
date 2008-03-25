@@ -236,7 +236,7 @@ public class TransactionScope<Txn> {
     void detach() {
         mLock.lock();
         try {
-            if (mTxnMgr.removeLocalScope(this)) {
+            if (mDetached || mTxnMgr.removeLocalScope(this)) {
                 mDetached = true;
             } else {
                 throw new IllegalStateException("Transaction is attached to a different thread");
