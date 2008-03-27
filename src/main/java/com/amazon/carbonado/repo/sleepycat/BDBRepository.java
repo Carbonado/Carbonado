@@ -112,6 +112,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     final File mDataHome;
     final File mEnvHome;
     final String mSingleFileName;
+    final Map<Class<?>, String> mFileNameMap;
 
     private LayoutFactory mLayoutFactory;
 
@@ -156,6 +157,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         mDataHome = builder.getDataHomeFile();
         mEnvHome = builder.getEnvironmentHomeFile();
         mSingleFileName = builder.getSingleFileName();
+        mFileNameMap = builder.getFileNameMap();
     }
 
     @SuppressWarnings("unchecked")
@@ -352,16 +354,40 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         return mIsMaster;
     }
 
-    String getDatabaseFileName(String dbName) {
-        if (mSingleFileName != null) {
-            dbName = mSingleFileName;
+    String getDatabaseFileName(final String dbName) {
+        String singleFileName = mSingleFileName;
+        if (singleFileName == null && mFileNameMap != null) {
+            singleFileName = mFileNameMap.get(dbName);
+            if (singleFileName == null && dbName != null) {
+                singleFileName = mFileNameMap.get(null);
+            }
+        }
+
+        String dbFileName = dbName;
+
+        if (singleFileName != null) {
+            dbFileName = singleFileName;
         }
 
         if (mDataHome != null && !mDataHome.equals(mEnvHome)) {
-            dbName = new File(mDataHome, dbName).getPath();
+            dbFileName = new File(mDataHome, dbFileName).getPath();
         }
 
-        return dbName;
+        return dbFileName;
+    }
+
+    /**
+     * Returns null if name should not be used.
+     */
+    String getDatabaseName(final String dbName) {
+        if (mFileNameMap == null) {
+            return null;
+        }
+        String name = mFileNameMap.get(dbName);
+        if (name == null && dbName != null) {
+            name = mFileNameMap.get(null);
+        }
+        return name == null ? null : dbName;
     }
 
     StorableCodecFactory getStorableCodecFactory() {

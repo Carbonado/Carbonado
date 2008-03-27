@@ -85,6 +85,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private File mEnvHome;
     private File mDataHome;
     private String mSingleFileName;
+    private Map<Class<?>, String> mFileNames;
     private boolean mIndexSupport = true;
     private boolean mIndexRepairEnabled = true;
     private double mIndexThrottle = 1.0;
@@ -290,10 +291,13 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      *
      * <p>Note: When setting this option, the storable codec factory must also
      * be changed, since the default storable codec factory is unable to
-     * distinguish storable types that reside in a single database file.
+     * distinguish storable types that reside in a single database file. Call
+     * setFileName instead to use built-in BDB feature for supporting multiple
+     * databases in one file.
      */
     public void setSingleFileName(String filename) {
         mSingleFileName = filename;
+        mFileNames = null;
     }
 
     /**
@@ -301,6 +305,31 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public String getSingleFileName() {
         return mSingleFileName;
+    }
+
+    /**
+     * Specify the file that a BDB database should reside in, except for log
+     * files and caches. The filename is relative to the environment home,
+     * unless data directories have been specified. For BDBRepositories that
+     * are log files only, this configuration is ignored.
+     *
+     * @param filename BDB database filename
+     * @param type type to store in file; if null, the file is used by default
+     * for all types
+     */
+    public void setFileName(String filename, Class<? extends Storable> type) {
+        mSingleFileName = null;
+        if (mFileNames == null) {
+            mFileNames = new HashMap<Class<?>, String>();
+        }
+        mFileNames.put(type, filename);
+    }
+
+    Map<Class<?>, String> getFileNameMap() {
+        if (mFileNames == null) {
+            return null;
+        }
+        return new HashMap<Class<?>, String>(mFileNames);
     }
 
     /**
