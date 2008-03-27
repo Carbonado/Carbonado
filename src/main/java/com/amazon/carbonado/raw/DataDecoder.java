@@ -510,7 +510,7 @@ public class DataDecoder {
     }
 
     /**
-     * Decodes a length value which was encoded by {@link DataDecoder#encodeLength}.
+     * Decodes a length value which was encoded by {@link DataEncoder#writeLength}.
      *
      * @return length value
      * @since 1.2
