@@ -41,7 +41,8 @@ import com.amazon.carbonado.info.StorableProperty;
  *
  * @author Brian S O'Neill
  */
-public class StorablePropertyMap<S extends Storable> extends AbstractMap<String, Object> {
+// Keep hidden until it is decided that this feature is useful.
+class StorablePropertyMap<S extends Storable> extends AbstractMap<String, Object> {
     private static final Map<Class, Set<String>> cPropertyNamesForType =
         new SoftValuedHashMap();
 

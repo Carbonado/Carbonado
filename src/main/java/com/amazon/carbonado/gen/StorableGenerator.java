@@ -1629,7 +1629,8 @@ public final class StorableGenerator<S extends Storable> {
         // Define reflection-like methods for manipulating properties by name.
         addGetPropertyValueMethod();
         addSetPropertyValueMethod();
-        addPropertyMapMethod();
+        // Keep hidden until it is decided that this feature is useful.
+        //addPropertyMapMethod();
 
         // Define serialization methods.
         addWriteToMethod();
