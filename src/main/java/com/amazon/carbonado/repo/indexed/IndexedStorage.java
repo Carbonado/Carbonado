@@ -517,7 +517,7 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         StoredIndexInfo info = mRepository.getWrappedRepository()
             .storageFor(StoredIndexInfo.class).prepare();
         info.setIndexName(indexName);
-        info.delete();
+        info.tryDelete();
     }
 
     @SuppressWarnings("unchecked")
