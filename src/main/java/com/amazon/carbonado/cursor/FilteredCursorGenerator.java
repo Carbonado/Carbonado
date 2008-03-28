@@ -24,6 +24,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
@@ -271,7 +272,10 @@ class FilteredCursorGenerator {
 
         private final Stack<Scope> mScopeStack;
 
+        private final Map<PropertyFilter, Object> mGeneratedPropertyFilters;
+
         private List<Filter> mSubFilters;
+        private Map<Filter, String> mGeneratedSubFilters;
         private CodeBuilder mSubFilterInitBuilder;
 
         CodeGen(Map<PropertyFilter, Integer> propertyOrdinalMap,
@@ -287,6 +291,7 @@ class FilteredCursorGenerator {
             mStorableVar = storableVar;
             mScopeStack = new Stack<Scope>();
             mScopeStack.push(new Scope(null, null));
+            mGeneratedPropertyFilters = new IdentityHashMap<PropertyFilter, Object>();
         }
 
         public List<Filter> finishSubFilterInit() {
@@ -322,29 +327,10 @@ class FilteredCursorGenerator {
         }
 
         public Object visit(PropertyFilter<S> filter, Object param) {
-            final int propertyOrdinal = mPropertyOrdinalMap.get(filter);
-            final TypeDesc type = TypeDesc.forClass(filter.getChainedProperty().getType());
-            final TypeDesc fieldType = actualFieldType(type);
-            final String fieldName = FIELD_PREFIX + propertyOrdinal;
-
-            // Define storage field.
-            mClassFile.addField(Modifiers.PRIVATE.toFinal(true), fieldName, fieldType);
-
-            // Add code to constructor to store value into field.
-            {
-                CodeBuilder b = mCtorBuilder;
-                b.loadThis();
-                b.loadLocal(b.getParameter(1));
-                b.loadConstant(propertyOrdinal);
-                b.loadFromArray(OBJECT);
-                b.checkCast(type.toObjectType());
-                convertProperty(b, type.toObjectType(), fieldType);
-                b.storeField(fieldName, fieldType);
-            }
-
+            TypeDesc type = TypeDesc.forClass(filter.getChainedProperty().getType());
+            String fieldName = addFilterField(filter, type);
             loadChainedProperty(mIsAllowedBuilder, filter.getChainedProperty());
-            addPropertyFilter(mIsAllowedBuilder, propertyOrdinal, type, filter.getOperator());
-
+            addPropertyFilter(mIsAllowedBuilder, fieldName, type, filter.getOperator());
             return null;
         }
 
@@ -387,20 +373,7 @@ class FilteredCursorGenerator {
                 b.invokeInterface(queryType, "and", queryType, new TypeDesc[] {filterType});
 
                 for (PropertyFilter subPropFilter : subPropFilters) {
-                    final int propertyOrdinal = mPropertyOrdinalMap.get(subPropFilter);
-                    final ChainedProperty<S> chained = subPropFilter.getChainedProperty();
-                    final String fieldName = FIELD_PREFIX + propertyOrdinal;
-
-                    // Define storage for sub-filter.
-                    mClassFile.addField(Modifiers.PRIVATE.toFinal(true), fieldName, OBJECT);
-
-                    // Assign value passed from constructor.
-                    mCtorBuilder.loadThis();
-                    mCtorBuilder.loadLocal(mCtorBuilder.getParameter(1));
-                    mCtorBuilder.loadConstant(propertyOrdinal);
-                    mCtorBuilder.loadFromArray(OBJECT);
-                    mCtorBuilder.storeField(fieldName, OBJECT);
-
+                    String fieldName = addFilterField(subPropFilter, OBJECT);
                     // Pass value to Query.
                     b.loadThis();
                     b.loadField(fieldName, OBJECT);
@@ -418,9 +391,44 @@ class FilteredCursorGenerator {
             return null;
         }
 
+        private String addFilterField(PropertyFilter filter, TypeDesc type) {
+            final int propertyOrdinal = mPropertyOrdinalMap.get(filter);
+            final String fieldName = FIELD_PREFIX + propertyOrdinal;
+
+            if (mGeneratedPropertyFilters.containsKey(filter)) {
+                return fieldName;
+            }
+
+            final TypeDesc fieldType = actualFieldType(type);
+
+            mClassFile.addField(Modifiers.PRIVATE.toFinal(true), fieldName, fieldType);
+
+            // Add code to constructor to store value into field.
+            {
+                CodeBuilder b = mCtorBuilder;
+                b.loadThis();
+                b.loadLocal(b.getParameter(1));
+                b.loadConstant(propertyOrdinal);
+                b.loadFromArray(OBJECT);
+                if (type != OBJECT) {
+                    b.checkCast(type.toObjectType());
+                    convertProperty(b, type.toObjectType(), fieldType);
+                }
+                b.storeField(fieldName, fieldType);
+            }
+
+            mGeneratedPropertyFilters.put(filter, filter);
+            return fieldName;
+        }
+
         private String addStaticFilterField(Filter filter) {
             if (mSubFilters == null) {
                 mSubFilters = new ArrayList<Filter>();
+                mGeneratedSubFilters = new IdentityHashMap<Filter, String>();
+            }
+
+            if (mGeneratedSubFilters.containsKey(filter)) {
+                return mGeneratedSubFilters.get(filter);
             }
 
             final int filterOrdinal = mSubFilters.size();
@@ -454,6 +462,8 @@ class FilteredCursorGenerator {
             mSubFilterInitBuilder.loadConstant(filterOrdinal);
             mSubFilterInitBuilder.loadFromArray(filterType);
             mSubFilterInitBuilder.storeStaticField(fieldName, filterType);
+
+            mGeneratedSubFilters.put(filter, fieldName);
 
             return fieldName;
         }
@@ -504,9 +514,10 @@ class FilteredCursorGenerator {
             b.invoke(readMethod);
         }
 
-        private void addPropertyFilter(CodeBuilder b, int ordinal, TypeDesc type, RelOp relOp) {
+        private void addPropertyFilter(CodeBuilder b,
+                                       String fieldName, TypeDesc type, RelOp relOp)
+        {
             TypeDesc fieldType = actualFieldType(type);
-            String fieldName = FIELD_PREFIX + ordinal;
 
             if (type.getTypeCode() == OBJECT_CODE) {
                 // Check if actual property being examined is null.
