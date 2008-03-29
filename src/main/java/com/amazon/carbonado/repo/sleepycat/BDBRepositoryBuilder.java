@@ -85,7 +85,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private File mEnvHome;
     private File mDataHome;
     private String mSingleFileName;
-    private Map<Class<?>, String> mFileNames;
+    private Map<String, String> mFileNames;
     private boolean mIndexSupport = true;
     private boolean mIndexRepairEnabled = true;
     private double mIndexThrottle = 1.0;
@@ -314,22 +314,22 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      * are log files only, this configuration is ignored.
      *
      * @param filename BDB database filename
-     * @param type type to store in file; if null, the file is used by default
+     * @param typeName type to store in file; if null, the file is used by default
      * for all types
      */
-    public void setFileName(String filename, Class<? extends Storable> type) {
+    public void setFileName(String filename, String typeName) {
         mSingleFileName = null;
         if (mFileNames == null) {
-            mFileNames = new HashMap<Class<?>, String>();
+            mFileNames = new HashMap<String, String>();
         }
-        mFileNames.put(type, filename);
+        mFileNames.put(typeName, filename);
     }
 
-    Map<Class<?>, String> getFileNameMap() {
+    Map<String, String> getFileNameMap() {
         if (mFileNames == null) {
             return null;
         }
-        return new HashMap<Class<?>, String>(mFileNames);
+        return new HashMap<String, String>(mFileNames);
     }
 
     /**

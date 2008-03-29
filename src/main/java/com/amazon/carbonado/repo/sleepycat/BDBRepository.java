@@ -112,7 +112,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     final File mDataHome;
     final File mEnvHome;
     final String mSingleFileName;
-    final Map<Class<?>, String> mFileNameMap;
+    final Map<String, String> mFileNameMap;
 
     private LayoutFactory mLayoutFactory;
 
