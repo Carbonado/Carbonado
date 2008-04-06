@@ -43,26 +43,27 @@ public class QueryEngine<S extends Storable> extends StandardQueryFactory<S>
         mExecutorFactory = new QueryExecutorCache<S>(new UnionQueryAnalyzer<S>(type, access));
     }
 
-    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
         throws RepositoryException
     {
-        return mExecutorFactory.executor(filter, ordering);
+        return mExecutorFactory.executor(filter, ordering, hints);
     }
 
     protected StandardQuery<S> createQuery(Filter<S> filter,
                                            FilterValues<S> values,
-                                           OrderingList<S> ordering)
+                                           OrderingList<S> ordering,
+                                           QueryHints hints)
     {
-        return new Query(filter, values, ordering, null);
+        return new Query(filter, values, ordering, hints);
     }
 
     private class Query extends StandardQuery<S> {
         Query(Filter<S> filter,
               FilterValues<S> values,
               OrderingList<S> ordering,
-              QueryExecutor<S> executor)
+              QueryHints hints)
         {
-            super(filter, values, ordering, executor);
+            super(filter, values, ordering, hints);
         }
 
         protected Transaction enterTransaction(IsolationLevel level) {
@@ -79,9 +80,9 @@ public class QueryEngine<S extends Storable> extends StandardQueryFactory<S>
 
         protected StandardQuery<S> newInstance(FilterValues<S> values,
                                                OrderingList<S> ordering,
-                                               QueryExecutor<S> executor)
+                                               QueryHints hints)
         {
-            return new Query(values.getFilter(), values, ordering, executor);
+            return new Query(values.getFilter(), values, ordering, hints);
         }
     }
 }

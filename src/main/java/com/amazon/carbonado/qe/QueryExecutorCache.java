@@ -37,8 +37,8 @@ import com.amazon.carbonado.filter.Filter;
 public class QueryExecutorCache<S extends Storable> implements QueryExecutorFactory<S> {
     private final QueryExecutorFactory<S> mFactory;
 
-    // Maps filters to maps which map ordering lists to executors.
-    private final Map<Filter<S>, Map<OrderingList<S>, QueryExecutor<S>>> mFilterToExecutor;
+    // Maps filters to maps which map ordering lists (possibly with hints) to executors.
+    private final Map<Filter<S>, Map<Object, QueryExecutor<S>>> mFilterToExecutor;
 
     public QueryExecutorCache(QueryExecutorFactory<S> factory) {
         if (factory == null) {
@@ -57,11 +57,12 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
      *
      * @param filter optional filter
      * @param ordering optional order-by properties
+     * @param hints optional query hints
      */
-    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
         throws RepositoryException
     {
-        Map<OrderingList<S>, QueryExecutor<S>> map;
+        Map<Object, QueryExecutor<S>> map;
         synchronized (mFilterToExecutor) {
             map = mFilterToExecutor.get(filter);
             if (map == null) {
@@ -70,15 +71,51 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
             }
         }
 
+        Object key;
+        if (hints == null || hints.isEmpty()) {
+            key = ordering;
+        } else {
+            key = new WithHintsKey(ordering, hints);
+        }
+
         QueryExecutor<S> executor;
         synchronized (map) {
-            executor = map.get(ordering);
+            executor = map.get(key);
             if (executor == null) {
-                executor = mFactory.executor(filter, ordering);
-                map.put(ordering, executor);
+                executor = mFactory.executor(filter, ordering, hints);
+                map.put(key, executor);
             }
         }
 
         return executor;
+    }
+
+    private static class WithHintsKey {
+        private final OrderingList mOrdering;
+        private final QueryHints mHints;
+
+        WithHintsKey(OrderingList ordering, QueryHints hints) {
+            mOrdering = ordering;
+            mHints = hints;
+        }
+
+        @Override
+        public int hashCode() {
+            return mOrdering == null ? 0 : (mOrdering.hashCode() * 31) + mHints.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj instanceof WithHintsKey) {
+                WithHintsKey other = (WithHintsKey) obj;
+                return (mOrdering == null ? other.mOrdering == null :
+                        mOrdering.equals(other.mOrdering)) &&
+                    mHints.equals(other.mHints);
+            }
+            return false;
+        }
     }
 }

@@ -53,6 +53,8 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     private final FilterValues<S> mValues;
     // Properties that this query is ordered by.
     private final OrderingList<S> mOrdering;
+    // Optional query hints.
+    private final QueryHints mHints;
 
     private volatile QueryExecutor<S> mExecutor;
 
@@ -60,12 +62,12 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      * @param filter optional filter object, defaults to open filter if null
      * @param values optional values object, defaults to filter initial values
      * @param ordering optional order-by properties
-     * @param executor optional executor to use (by default lazily obtains and caches executor)
+     * @param hints optional query hints
      */
     protected StandardQuery(Filter<S> filter,
                             FilterValues<S> values,
                             OrderingList<S> ordering,
-                            QueryExecutor<S> executor)
+                            QueryHints hints)
     {
         if (filter != null && filter.isOpen()) {
             filter = null;
@@ -84,7 +86,8 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             ordering = OrderingList.emptyList();
         }
         mOrdering = ordering;
-        mExecutor = executor;
+
+        mHints = hints;
     }
 
     public Class<S> getStorableType() {
@@ -166,7 +169,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
                 newValues = newValues.withValues(mValues.getSuppliedValues());
             }
         }
-        return createQuery(newFilter, newValues, mOrdering);
+        return createQuery(newFilter, newValues, mOrdering, mHints);
     }
 
     public Query<S> or(Filter<S> filter) throws FetchException {
@@ -181,7 +184,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         if (mValues != null) {
             newValues = newValues.withValues(mValues.getSuppliedValues());
         }
-        return createQuery(newFilter, newValues, mOrdering);
+        return createQuery(newFilter, newValues, mOrdering, mHints);
     }
 
     public Query<S> not() throws FetchException {
@@ -193,15 +196,17 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         if (mValues != null) {
             newValues = newValues.withValues(mValues.getSuppliedValues());
         }
-        return createQuery(newFilter, newValues, mOrdering);
+        return createQuery(newFilter, newValues, mOrdering, mHints);
     }
 
     public Query<S> orderBy(String property) throws FetchException {
-        return createQuery(mFilter, mValues, OrderingList.get(getStorableType(), property));
+        return createQuery(mFilter, mValues,
+                           OrderingList.get(getStorableType(), property), mHints);
     }
 
     public Query<S> orderBy(String... properties) throws FetchException {
-        return createQuery(mFilter, mValues, OrderingList.get(getStorableType(), properties));
+        return createQuery(mFilter, mValues,
+                           OrderingList.get(getStorableType(), properties), mHints);
     }
 
     public Cursor<S> fetch() throws FetchException {
@@ -217,7 +222,10 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         if (start == null || (orderings = mOrdering).size() == 0) {
             return fetch();
         }
+        return buildAfter(start, orderings).fetch();
+    }
 
+    private Query<S> buildAfter(S start, OrderingList<S> orderings) throws FetchException {
         Class<S> storableType = getStorableType();
         Filter<S> orderFilter = Filter.getClosedFilter(storableType);
         Filter<S> lastSubFilter = Filter.getOpenFilter(storableType);
@@ -251,7 +259,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             }
         }
 
-        return query.fetch();
+        return query;
     }
 
     public boolean tryDeleteOne() throws PersistException {
@@ -406,13 +414,17 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return values;
     }
 
+    protected OrderingList<S> getOrdering() {
+        return mOrdering;
+    }
+
     /**
      * Returns the executor in use by this query.
      */
     protected QueryExecutor<S> executor() throws RepositoryException {
         QueryExecutor<S> executor = mExecutor;
         if (executor == null) {
-            mExecutor = executor = executorFactory().executor(mFilter, mOrdering);
+            mExecutor = executor = executorFactory().executor(mFilter, mOrdering, null);
         }
         return executor;
     }
@@ -431,7 +443,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      */
     protected void resetExecutor() throws RepositoryException {
         if (mExecutor != null) {
-            mExecutor = executorFactory().executor(mFilter, mOrdering);
+            mExecutor = executorFactory().executor(mFilter, mOrdering, null);
         }
     }
 
@@ -472,17 +484,20 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
      */
     protected abstract StandardQuery<S> newInstance(FilterValues<S> values,
                                                     OrderingList<S> ordering,
-                                                    QueryExecutor<S> executor);
+                                                    QueryHints hints);
 
     private StandardQuery<S> newInstance(FilterValues<S> values) {
-        return newInstance(values, mOrdering, mExecutor);
+        StandardQuery<S> query = newInstance(values, mOrdering, mHints);
+        query.mExecutor = this.mExecutor;
+        return query;
     }
 
     private Query<S> createQuery(Filter<S> filter,
                                  FilterValues<S> values,
-                                 OrderingList<S> ordering)
+                                 OrderingList<S> ordering,
+                                 QueryHints hints)
         throws FetchException
     {
-        return queryFactory().query(filter, values, ordering);
+        return queryFactory().query(filter, values, ordering, hints);
     }
 }

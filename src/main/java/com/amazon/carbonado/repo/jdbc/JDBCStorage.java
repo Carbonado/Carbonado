@@ -62,6 +62,7 @@ import com.amazon.carbonado.qe.QueryExecutor;
 import com.amazon.carbonado.qe.QueryExecutorCache;
 import com.amazon.carbonado.qe.QueryExecutorFactory;
 import com.amazon.carbonado.qe.QueryFactory;
+import com.amazon.carbonado.qe.QueryHints;
 import com.amazon.carbonado.qe.SortedQueryExecutor;
 import com.amazon.carbonado.qe.StandardQuery;
 import com.amazon.carbonado.qe.StandardQueryFactory;
@@ -291,9 +292,10 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
     protected StandardQuery<S> createQuery(Filter<S> filter,
                                            FilterValues<S> values,
-                                           OrderingList<S> ordering)
+                                           OrderingList<S> ordering,
+                                           QueryHints hints)
     {
-        return new JDBCQuery(filter, values, ordering, null);
+        return new JDBCQuery(filter, values, ordering, hints);
     }
 
     public S instantiate(ResultSet rs) throws SQLException {
@@ -307,11 +309,15 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     }
 
     private class ExecutorFactory implements QueryExecutorFactory<S> {
+        ExecutorFactory() {
+        }
+
         public Class<S> getStorableType() {
             return JDBCStorage.this.getStorableType();
         }
 
-        public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+        public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering,
+                                         QueryHints hints)
             throws RepositoryException
         {
             TableAliasGenerator aliasGenerator = new TableAliasGenerator();
@@ -594,9 +600,11 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     // Special case for converting character to String.
                     if (mAdapterMethods[i] == null) {
                         if (toType == String.class) {
-                            mAdapterMethods[i] = adapter.findAdaptMethod(jProperty.getType(), Character.class);
+                            mAdapterMethods[i] = adapter
+                                .findAdaptMethod(jProperty.getType(), Character.class);
                             if (mAdapterMethods[i] == null) {
-                                mAdapterMethods[i] = adapter.findAdaptMethod(jProperty.getType(), char.class);
+                                mAdapterMethods[i] = adapter
+                                    .findAdaptMethod(jProperty.getType(), char.class);
                             }
                         }
                     }
@@ -798,9 +806,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         JDBCQuery(Filter<S> filter,
                   FilterValues<S> values,
                   OrderingList<S> ordering,
-                  QueryExecutor<S> executor)
+                  QueryHints hints)
         {
-            super(filter, values, ordering, executor);
+            super(filter, values, ordering, hints);
         }
 
         @Override
@@ -830,11 +838,10 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return JDBCStorage.this.mExecutorFactory;
         }
 
-        protected StandardQuery<S> newInstance(FilterValues<S> values,
-                                               OrderingList<S> ordering,
-                                               QueryExecutor<S> executor)
+        protected StandardQuery<S> newInstance(FilterValues<S> values, OrderingList<S> ordering,
+                                               QueryHints hints)
         {
-            return new JDBCQuery(values.getFilter(), values, ordering, executor);
+            return new JDBCQuery(values.getFilter(), values, ordering, hints);
         }
     }
 }

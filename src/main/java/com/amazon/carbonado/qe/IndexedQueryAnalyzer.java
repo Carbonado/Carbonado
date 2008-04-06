@@ -81,9 +81,10 @@ public class IndexedQueryAnalyzer<S extends Storable> {
      * @param filter optional filter which which must be {@link Filter#isBound
      * bound} and cannot contain any logical 'or' operations.
      * @param ordering optional properties which define desired ordering
+     * @param hints optional query hints
      * @throws IllegalArgumentException if filter is not supported
      */
-    public Result analyze(Filter<S> filter, OrderingList<S> ordering)
+    public Result analyze(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
         throws SupportException, RepositoryException
     {
         if (filter != null && !filter.isBound()) {
@@ -94,7 +95,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         CompositeScore<S> bestLocalScore = null;
         StorableIndex<S> bestLocalIndex = null;
 
-        final Comparator<CompositeScore<?>> fullComparator = CompositeScore.fullComparator();
+        final Comparator<CompositeScore<?>> fullComparator = CompositeScore.fullComparator(hints);
 
         Collection<StorableIndex<S>> localIndexes = indexesFor(getStorableType());
         if (localIndexes != null) {
@@ -115,7 +116,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
 
         if (bestLocalScore != null && bestLocalScore.getFilteringScore().isKeyMatch()) {
             // Don't bother checking foreign indexes. The local one is perfect.
-            return new Result(filter, bestLocalScore, bestLocalIndex, null, null);
+            return new Result(filter, bestLocalScore, bestLocalIndex, null, null, hints);
         }
 
         CompositeScore<?> bestForeignScore = null;
@@ -183,7 +184,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         }
 
         return new Result
-            (filter, bestScore, bestLocalIndex, bestForeignIndex, bestForeignProperty);
+            (filter, bestScore, bestLocalIndex, bestForeignIndex, bestForeignProperty, hints);
     }
 
     /**
@@ -290,18 +291,21 @@ public class IndexedQueryAnalyzer<S extends Storable> {
         private final StorableIndex<S> mLocalIndex;
         private final StorableIndex<?> mForeignIndex;
         private final ChainedProperty<S> mForeignProperty;
+        private final QueryHints mHints;
 
         Result(Filter<S> filter,
                CompositeScore<S> score,
                StorableIndex<S> localIndex,
                StorableIndex<?> foreignIndex,
-               ChainedProperty<S> foreignProperty)
+               ChainedProperty<S> foreignProperty,
+               QueryHints hints)
         {
             mFilter = filter;
             mScore = score;
             mLocalIndex = localIndex;
             mForeignIndex = foreignIndex;
             mForeignProperty = foreignProperty;
+            mHints = hints;
         }
 
         /**
@@ -434,7 +438,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
                 .withRemainderFilter(remainderFilter)
                 .withRemainderOrdering(remainderOrdering);
 
-            return new Result(filter, score, mLocalIndex, mForeignIndex, mForeignProperty);
+            return new Result(filter, score, mLocalIndex, mForeignIndex, mForeignProperty, mHints);
         }
 
         /**
@@ -471,7 +475,8 @@ public class IndexedQueryAnalyzer<S extends Storable> {
          */
         public Result withRemainderFilter(Filter<S> remainderFilter) {
             CompositeScore<S> score = mScore.withRemainderFilter(remainderFilter);
-            return new Result(mFilter, score, mLocalIndex, mForeignIndex, mForeignProperty);
+            return new Result(mFilter, score, mLocalIndex,
+                              mForeignIndex, mForeignProperty, mHints);
         }
 
         /**
@@ -479,7 +484,8 @@ public class IndexedQueryAnalyzer<S extends Storable> {
          */
         public Result withRemainderOrdering(OrderingList<S> remainderOrdering) {
             CompositeScore<S> score = mScore.withRemainderOrdering(remainderOrdering);
-            return new Result(mFilter, score, mLocalIndex, mForeignIndex, mForeignProperty);
+            return new Result(mFilter, score, mLocalIndex,
+                              mForeignIndex, mForeignProperty, mHints);
         }
 
         /**
@@ -506,7 +512,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             } else if (localIndex == null) {
                 // Use foreign executor.
                 return JoinedQueryExecutor.build
-                    (mRepoAccess, getForeignProperty(), getFilter(), getOrdering());
+                    (mRepoAccess, getForeignProperty(), getFilter(), getOrdering(), mHints);
             } else {
                 CompositeScore<S> score = getCompositeScore();
                 FilteringScore<S> fScore = score.getFilteringScore();

@@ -39,7 +39,9 @@ public interface QueryFactory<S extends Storable> {
      * @param filter optional filter object, defaults to open filter if null
      * @param values optional values object, defaults to filter initial values
      * @param ordering optional order-by properties
+     * @param hints optional hints
      */
-    Query<S> query(Filter<S> filter, FilterValues<S> values, OrderingList<S> ordering)
+    Query<S> query(Filter<S> filter, FilterValues<S> values, OrderingList<S> ordering,
+                   QueryHints hints)
         throws FetchException;
 }

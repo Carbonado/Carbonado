@@ -43,7 +43,7 @@ public class DelegatedQueryExecutorFactory<S extends Storable> implements QueryE
         return mStorage.getStorableType();
     }
 
-    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
         throws FetchException
     {
         return new DelegatedQueryExecutor<S>(mStorage, filter, ordering);

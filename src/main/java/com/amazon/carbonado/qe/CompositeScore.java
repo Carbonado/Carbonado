@@ -97,6 +97,23 @@ public class CompositeScore<S extends Storable> {
      * {@code 0} if equal, or {@code >0} if second is better.
      */
     public static Comparator<CompositeScore<?>> localForeignComparator() {
+        return localForeignComparator(null);
+    }
+
+    /**
+     * Returns a partial comparator suited for comparing local indexes to
+     * foreign indexes. It determines which CompositeScores are better by
+     * examining identity matches, range matches and ordering. It does not
+     * matter if the scores were evaluated for different indexes or storable
+     * types. The comparator returns {@code <0} if first score is better,
+     * {@code 0} if equal, or {@code >0} if second is better.
+     *
+     * @param hints optional hints
+     */
+    public static Comparator<CompositeScore<?>> localForeignComparator(QueryHints hints) {
+        if (hints != null && hints.contains(QueryHint.CONSUME_SLICE)) {
+            return Comp.LOCAL_FOREIGN_SLICE;
+        }
         return Comp.LOCAL_FOREIGN;
     }
 
@@ -109,6 +126,23 @@ public class CompositeScore<S extends Storable> {
      * {@code 0} if equal, or {@code >0} if second is better.
      */
     public static Comparator<CompositeScore<?>> fullComparator() {
+        return fullComparator(null);
+    }
+
+    /**
+     * Returns a comparator which determines which CompositeScores are
+     * better. It compares identity matches, range matches, ordering, open
+     * range matches, property arrangement and index cost estimate. It does not
+     * matter if the scores were evaluated for different indexes or storable
+     * types. The comparator returns {@code <0} if first score is better,
+     * {@code 0} if equal, or {@code >0} if second is better.
+     *
+     * @param hints optional hints
+     */
+    public static Comparator<CompositeScore<?>> fullComparator(QueryHints hints) {
+        if (hints != null && hints.contains(QueryHint.CONSUME_SLICE)) {
+            return Comp.SLICE;
+        }
         return Comp.FULL;
     }
 
@@ -189,13 +223,17 @@ public class CompositeScore<S extends Storable> {
     }
 
     private static class Comp implements Comparator<CompositeScore<?>> {
-        static final Comparator<CompositeScore<?>> LOCAL_FOREIGN = new Comp(false);
-        static final Comparator<CompositeScore<?>> FULL = new Comp(true);
+        static final Comparator<CompositeScore<?>> LOCAL_FOREIGN = new Comp(false, false);
+        static final Comparator<CompositeScore<?>> SLICE = new Comp(true, true);
+        static final Comparator<CompositeScore<?>> LOCAL_FOREIGN_SLICE = new Comp(false, true);
+        static final Comparator<CompositeScore<?>> FULL = new Comp(true, false);
 
         private final boolean mFull;
+        private final boolean mSlice;
 
-        private Comp(boolean full) {
+        private Comp(boolean full, boolean slice) {
             mFull = full;
+            mSlice = slice;
         }
 
         public int compare(CompositeScore<?> first, CompositeScore<?> second) {
@@ -266,10 +304,11 @@ public class CompositeScore<S extends Storable> {
 
             boolean comparedOrdering = false;
             if (considerOrdering(firstScore) && considerOrdering(secondScore)) {
-                // Only consider ordering if index is fast (clustered) or if
-                // index is used for any significant filtering. A full scan of
-                // an index just to get desired ordering can be very expensive
-                // due to random access I/O. A sort operation is often faster.
+                // Only consider ordering if slice mode, or if index is fast
+                // (clustered) or if index is used for any significant
+                // filtering. A full scan of an index just to get desired
+                // ordering can be very expensive due to random access I/O. A
+                // sort operation is often faster.
 
                 result = OrderingScore.fullComparator()
                     .compare(first.getOrderingScore(), second.getOrderingScore());
@@ -326,7 +365,8 @@ public class CompositeScore<S extends Storable> {
         }
 
         private boolean considerOrdering(FilteringScore<?> score) {
-            return score.isIndexClustered()
+            return mSlice
+                || score.isIndexClustered()
                 || score.getIdentityCount() > 0
                 || score.hasRangeMatch();
         }

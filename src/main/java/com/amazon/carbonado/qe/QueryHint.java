@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2008 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -18,26 +18,23 @@
 
 package com.amazon.carbonado.qe;
 
-import com.amazon.carbonado.RepositoryException;
-import com.amazon.carbonado.Storable;
-
-import com.amazon.carbonado.filter.Filter;
-
 /**
- * Produces {@link QueryExecutor} instances from a query specification.
+ * Defines a hint key.
  *
  * @author Brian S O'Neill
+ * @see QueryHints
+ * @since 1.2
  */
-public interface QueryExecutorFactory<S extends Storable> {
-    Class<S> getStorableType();
+public enum QueryHint {
+    /** Intention to consume all matched records */
+    //CONSUME_ALL,
 
-    /**
-     * Returns an executor that handles the given query specification.
-     *
-     * @param filter optional filter
-     * @param ordering optional order-by properties
-     * @param hints optional query hints
-     */
-    QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
-        throws RepositoryException;
+    /** Intention to consume a slice of matched records */
+    CONSUME_SLICE,
+
+    /** Favor low latency for query results */
+    //FAVOR_LATENCY,
+
+    /** Favor high throughput for query results */
+    //FAVOR_THROUGHPUT,
 }

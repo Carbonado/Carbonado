@@ -78,6 +78,7 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
      * to instances of <i>source</i> type
      * @param targetFilter optional filter for fetching <i>target</i> instances
      * @param targetOrdering optional ordering to apply to <i>target</i> executor
+     & @param hints optional hints
      * @throws IllegalArgumentException if any parameter is null or if join
      * property is not a Storable type
      * @throws RepositoryException from RepositoryAccess
@@ -86,7 +87,8 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
         build(RepositoryAccess repoAccess,
               ChainedProperty<T> targetToSourceProperty,
               Filter<T> targetFilter,
-              OrderingList<T> targetOrdering)
+              OrderingList<T> targetOrdering,
+              QueryHints hints)
         throws RepositoryException
     {
         if (targetOrdering == null) {
@@ -94,7 +96,7 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
         }
 
         QueryExecutor<T> executor =
-            buildJoin(repoAccess, targetToSourceProperty, targetFilter, targetOrdering);
+            buildJoin(repoAccess, targetToSourceProperty, targetFilter, targetOrdering, hints);
 
         OrderingList<T> handledOrdering = executor.getOrdering();
 
@@ -118,7 +120,8 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
         buildJoin(RepositoryAccess repoAccess,
                   ChainedProperty<T> targetToSourceProperty,
                   Filter<T> targetFilter,
-                  OrderingList<T> targetOrdering)
+                  OrderingList<T> targetOrdering,
+                  QueryHints hints)
         throws RepositoryException
     {
         StorableProperty<T> primeTarget = targetToSourceProperty.getPrimeProperty();
@@ -140,7 +143,8 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
         QueryExecutor outerLoopExecutor;
         if (targetToSourceProperty.getChainCount() > 0) {
             ChainedProperty tailProperty = targetToSourceProperty.tail();
-            outerLoopExecutor = buildJoin(repoAccess, tailProperty, tailFilter, outerLoopOrdering);
+            outerLoopExecutor = buildJoin
+                (repoAccess, tailProperty, tailFilter, outerLoopOrdering, hints);
         } else {
             Class sourceType = targetToSourceProperty.getType();
 
@@ -156,7 +160,8 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
 
             QueryExecutorFactory outerLoopExecutorFactory = sourceAccess.getQueryExecutorFactory();
 
-            outerLoopExecutor = outerLoopExecutorFactory.executor(tailFilter, expectedOrdering);
+            outerLoopExecutor = outerLoopExecutorFactory
+                .executor(tailFilter, expectedOrdering, hints);
         }
 
         if (targetOrdering.size() > 0) {
@@ -532,7 +537,7 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
         }
 
         mInnerLoopExecutor = innerLoopExecutorFactory
-            .executor(innerLoopExecutorFilter, targetOrdering);
+            .executor(innerLoopExecutorFilter, targetOrdering, null);
 
         Filter<T> filter = outerLoopExecutor.getFilter()
             .asJoinedFrom(ChainedProperty.get(targetToSourceProperty));

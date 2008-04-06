@@ -107,13 +107,6 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     }
 
     /**
-     * Always returns false.
-     */
-    public boolean exists() {
-        return false;
-    }
-
-    /**
      * Always throws an IllegalStateException.
      */
     public Query<S> with(int value) {
@@ -194,14 +187,14 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     }
 
     public Query<S> or(Filter<S> filter) throws FetchException {
-        return mFactory.query(filter, null, mOrdering);
+        return mFactory.query(filter, null, mOrdering, null);
     }
 
     /**
      * Returns a query that fetches everything, possibly in a specified order.
      */
     public Query<S> not() throws FetchException {
-        return mFactory.query(null, null, mOrdering);
+        return mFactory.query(null, null, mOrdering, null);
     }
 
     public Query<S> orderBy(String property) throws FetchException {
@@ -251,6 +244,13 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
      */
     public long count() {
         return 0;
+    }
+
+    /**
+     * Always returns false.
+     */
+    public boolean exists() {
+        return false;
     }
 
     public void appendTo(Appendable app) throws IOException {

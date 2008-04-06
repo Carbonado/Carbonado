@@ -108,6 +108,17 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
      * @throws IllegalArgumentException if filter is null
      */
     public Query<S> query(Filter<S> filter, OrderingList<S> ordering) throws FetchException {
+        return query(filter, ordering, null);
+    }
+
+    /**
+     * Returns a new or cached query for the given query specification.
+     *
+     * @throws IllegalArgumentException if filter is null
+     */
+    public Query<S> query(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
+        throws FetchException
+    {
         filter = filter.bind();
 
         Map<OrderingList<S>, Query<S>> map;
@@ -130,7 +141,7 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
                 if (values == null && filter.isClosed()) {
                     query = new EmptyQuery<S>(this, ordering);
                 } else {
-                    StandardQuery<S> standardQuery = createQuery(filter, values, ordering);
+                    StandardQuery<S> standardQuery = createQuery(filter, values, ordering, hints);
                     if (!mLazySetExecutor) {
                         try {
                             standardQuery.setExecutor();
@@ -157,7 +168,23 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
     public Query<S> query(Filter<S> filter, FilterValues<S> values, OrderingList<S> ordering)
         throws FetchException
     {
-        Query<S> query = query(filter != null ? filter : Filter.getOpenFilter(mType), ordering);
+        return query(filter, values, ordering, null);
+    }
+
+    /**
+     * Returns a new or cached query for the given query specification.
+     *
+     * @param filter optional filter object, defaults to open filter if null
+     * @param values optional values object, defaults to filter initial values
+     * @param ordering optional order-by properties
+     * @param hints optional hints
+     */
+    public Query<S> query(Filter<S> filter, FilterValues<S> values, OrderingList<S> ordering,
+                          QueryHints hints)
+        throws FetchException
+    {
+        Query<S> query = query(filter != null ? filter : Filter.getOpenFilter(mType),
+                               ordering, hints);
 
         if (values != null) {
             query = query.withValues(values.getSuppliedValues());
@@ -203,10 +230,12 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
      * @param filter optional filter object, defaults to open filter if null
      * @param values optional values object, defaults to filter initial values
      * @param ordering optional order-by properties
+     * @param hints optional hints
      */
     protected abstract StandardQuery<S> createQuery(Filter<S> filter,
                                                     FilterValues<S> values,
-                                                    OrderingList<S> ordering)
+                                                    OrderingList<S> ordering,
+                                                    QueryHints hints)
         throws FetchException;
 
     private ArrayList<StandardQuery<S>> gatherQueries() {

@@ -80,8 +80,9 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
     /**
      * @param filter optional filter which must be {@link Filter#isBound bound}
      * @param ordering optional properties which define desired ordering
+     * @param hints optional query hints
      */
-    public Result analyze(Filter<S> filter, OrderingList<S> ordering)
+    public Result analyze(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
         throws SupportException, RepositoryException
     {
         if (filter != null && !filter.isBound()) {
@@ -92,7 +93,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
             ordering = OrderingList.emptyList();
         }
 
-        return buildResult(filter, ordering);
+        return buildResult(filter, ordering, hints);
     }
 
     /**
@@ -100,25 +101,27 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
      *
      * @param filter optional filter which must be {@link Filter#isBound bound}
      * @param ordering optional properties which define desired ordering
+     * @param hints optional query hints
      */
-    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering)
+    public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
         throws RepositoryException
     {
-        return analyze(filter, ordering).createExecutor();
+        return analyze(filter, ordering, hints).createExecutor();
     }
 
     /**
      * Splits the filter into sub-results, merges sub-results, and possibly
      * imposes a total ordering.
      */
-    private Result buildResult(Filter<S> filter, OrderingList<S> ordering)
+    private Result buildResult(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
         throws SupportException, RepositoryException
     {
         List<IndexedQueryAnalyzer<S>.Result> subResults;
         if (filter == null) {
-            subResults = Collections.singletonList(mIndexAnalyzer.analyze(filter, ordering));
+            subResults = Collections
+                .singletonList(mIndexAnalyzer.analyze(filter, ordering, hints));
         } else {
-            subResults = splitIntoSubResults(filter, ordering);
+            subResults = splitIntoSubResults(filter, ordering, hints);
         }
 
         if (subResults.size() <= 1) {
@@ -145,7 +148,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
 
             // Re-calc with specified direction. Only do one property at a time
             // since one simple change might alter the query plan.
-            subResults = splitIntoSubResults(filter, ordering);
+            subResults = splitIntoSubResults(filter, ordering, hints);
 
             if (subResults.size() <= 1) {
                 // Total ordering no longer required.
@@ -225,7 +228,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
 
             // Now augment the orderings and create new sub-results.
             ordering = ordering.concat(OrderedProperty.get(bestProperty, best.getBestDirection()));
-            subResults = splitIntoSubResults(filter, ordering);
+            subResults = splitIntoSubResults(filter, ordering, hints);
 
             if (subResults.size() <= 1) {
                 // Total ordering no longer required.
@@ -342,13 +345,13 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
      * Splits the filter into sub-results and possibly merges them.
      */
     private List<IndexedQueryAnalyzer<S>.Result>
-        splitIntoSubResults(Filter<S> filter, OrderingList<S> ordering)
+        splitIntoSubResults(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
         throws SupportException, RepositoryException
     {
         // Required for split to work.
         Filter<S> dnfFilter = filter.disjunctiveNormalForm();
 
-        Splitter splitter = new Splitter(ordering);
+        Splitter splitter = new Splitter(ordering, hints);
         RepositoryException e = dnfFilter.accept(splitter, null);
         if (e != null) {
             throw e;
@@ -569,11 +572,13 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
      */
     private class Splitter extends Visitor<S, RepositoryException, Object> {
         private final OrderingList<S> mOrdering;
+        private final QueryHints mHints;
 
         final List<IndexedQueryAnalyzer<S>.Result> mSubResults;
 
-        Splitter(OrderingList<S> ordering) {
+        Splitter(OrderingList<S> ordering, QueryHints hints) {
             mOrdering = ordering;
+            mHints = hints;
             mSubResults = new ArrayList<IndexedQueryAnalyzer<S>.Result>();
         }
 
@@ -639,7 +644,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
 
         private void subAnalyze(Filter<S> subFilter) throws SupportException, RepositoryException {
             IndexedQueryAnalyzer<S>.Result subResult =
-                mIndexAnalyzer.analyze(subFilter, mOrdering);
+                mIndexAnalyzer.analyze(subFilter, mOrdering, mHints);
 
             // Rather than blindly add to mSubResults, try to merge with
             // another result. This in turn reduces the number of cursors
