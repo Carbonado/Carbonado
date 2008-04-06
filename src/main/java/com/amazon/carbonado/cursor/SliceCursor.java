@@ -33,52 +33,38 @@ import com.amazon.carbonado.FetchException;
 public abstract class SliceCursor<S> extends AbstractCursor<S> {
     /**
      * @param from zero-based element to start from, inclusive
+     * @throws IllegalArgumentException if source is null or from is negative
+     */
+    public static <S> Cursor<S> slice(Cursor<S> source, long from) {
+        if (source == null) {
+            throw new IllegalArgumentException("Source is null");
+        }
+        if (from >= 0) {
+            return from == 0 ? source : new Skip<S>(source, from);
+        } else {
+            throw new IllegalArgumentException("Slice from is negative: " + from);
+        }
+    }
+
+    /**
+     * @param from zero-based element to start from, inclusive
      * @param to zero-based element to end at, exclusive
      * @throws IllegalArgumentException if source is null, from is negative or
      * if from is more than to
      */
     public static <S> Cursor<S> slice(Cursor<S> source, long from, long to) {
-	return slice(source, (Long) from, (Long) to);
-    }
-
-    /**
-     * @param from optional zero-based element to start from, inclusive
-     * @param to optional zero-based element to end at, exclusive
-     * @throws IllegalArgumentException if source is null, from is negative or
-     * if from is more than to
-     */
-    public static <S> Cursor<S> slice(Cursor<S> source, Long from, Long to) {
-        if (source == null) {
-            throw new IllegalArgumentException("Source is null");
+        source = slice(source, from);
+        long remaining = to - from;
+        if (remaining < 0) {
+            throw new IllegalArgumentException("Slice from is more than to: " + from + " > " + to);
         }
-
-	long actualFrom;
-
-	if (from == null) {
-	    actualFrom = 0;
-	} else if (from >= 0) {
-	    if ((actualFrom = from) > 0) {
-		source = new Skip<S>(source, actualFrom);
-	    }
-	} else {
-            throw new IllegalArgumentException("Slice from is negative: " + from);
-	}
-
-	long remaining;
-
-	if (to == null) {
-	    return source;
-	} else if ((remaining = to - actualFrom) < 0) {
-	    throw new IllegalArgumentException("Slice from is more than to: " + from + " > " + to);
-	}
-
-	return new Limit<S>(source, remaining);
+        return new Limit<S>(source, remaining);
     }
 
     final Cursor<S> mSource;
 
     SliceCursor(Cursor<S> source) {
-	mSource = source;
+        mSource = source;
     }
 
     public void close() throws FetchException {
@@ -86,82 +72,82 @@ public abstract class SliceCursor<S> extends AbstractCursor<S> {
     }
 
     private static class Skip<S> extends SliceCursor<S> {
-	private volatile long mSkip;
+        private volatile long mSkip;
 
-	Skip(Cursor<S> source, long skip) {
-	    super(source);
-	    mSkip = skip;
-	}
+        Skip(Cursor<S> source, long skip) {
+            super(source);
+            mSkip = skip;
+        }
 
-	public boolean hasNext() throws FetchException {
-	    doSkip();
-	    return mSource.hasNext();
-	}
+        public boolean hasNext() throws FetchException {
+            doSkip();
+            return mSource.hasNext();
+        }
 
-	public S next() throws FetchException {
-	    doSkip();
-	    return mSource.next();
-	}
+        public S next() throws FetchException {
+            doSkip();
+            return mSource.next();
+        }
 
-	@Override
-	public int skipNext(int amount) throws FetchException {
-	    doSkip();
-	    return mSource.skipNext(amount);
-	}
+        @Override
+        public int skipNext(int amount) throws FetchException {
+            doSkip();
+            return mSource.skipNext(amount);
+        }
 
-	private void doSkip() throws FetchException {
-	    if (mSkip > 0) {
-		while (mSkip > Integer.MAX_VALUE) {
-		    mSkip -= mSource.skipNext(Integer.MAX_VALUE);
-		}
-		mSource.skipNext((int) mSkip);
-		mSkip = 0;
-	    }
-	}
+        private void doSkip() throws FetchException {
+            if (mSkip > 0) {
+                while (mSkip > Integer.MAX_VALUE) {
+                    mSkip -= mSource.skipNext(Integer.MAX_VALUE);
+                }
+                mSource.skipNext((int) mSkip);
+                mSkip = 0;
+            }
+        }
     }
 
     private static class Limit<S> extends SliceCursor<S> {
-	private volatile long mRemaining;
+        private volatile long mRemaining;
 
-	Limit(Cursor<S> source, long remaining) {
-	    super(source);
-	    mRemaining = remaining;
-	}
+        Limit(Cursor<S> source, long remaining) {
+            super(source);
+            mRemaining = remaining;
+        }
 
-	public boolean hasNext() throws FetchException {
-	    if (mSource.hasNext()) {
-		if (mRemaining > 0) {
-		    return true;
-		}
-		mSource.close();
-	    }
-	    return false;
-	}
+        public boolean hasNext() throws FetchException {
+            if (mSource.hasNext()) {
+                if (mRemaining > 0) {
+                    return true;
+                }
+                mSource.close();
+            }
+            return false;
+        }
 
-	public S next() throws FetchException {
-	    if (mRemaining <= 0) {
-		throw new NoSuchElementException();
-	    }
-	    S next = mSource.next();
-	    if (--mRemaining <= 0) {
-		mSource.close();
-	    }
-	    return next;
-	}
+        public S next() throws FetchException {
+            if (mRemaining <= 0) {
+                throw new NoSuchElementException();
+            }
+            S next = mSource.next();
+            if (--mRemaining <= 0) {
+                mSource.close();
+            }
+            return next;
+        }
 
-	@Override
-	public int skipNext(int amount) throws FetchException {
-	    if (mRemaining <= 0) {
-		return 0;
-	    }
-	    if (amount > mRemaining) {
-		amount = (int) mRemaining;
-	    }
-	    amount = mSource.skipNext(amount);
-	    if ((mRemaining -= amount) <= 0) {
-		mSource.close();
-	    }
-	    return amount;
-	}
+        @Override
+        public int skipNext(int amount) throws FetchException {
+            if (mRemaining <= 0) {
+                return 0;
+            }
+            if (amount > mRemaining) {
+                amount = (int) mRemaining;
+            }
+            amount = mSource.skipNext(amount);
+            if ((mRemaining -= amount) <= 0) {
+                mSource.close();
+            }
+            return amount;
+        }
     }
 }
