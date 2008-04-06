@@ -37,24 +37,69 @@ public class SimpleDataSource implements DataSource {
 
     private PrintWriter mLogWriter;
 
+    /**
+     * @param driverClass JDBC driver to load; can pass null if already loaded
+     * @param driverURL JDBC driver URL
+     * @param properties optional connection properties
+     * @since 1.2
+     */
+    public SimpleDataSource(String driverClass, String driverURL, Properties properties)
+        throws SQLException
+    {
+        this(driverClass, driverURL, null, null, properties);
+    }
+
+    /**
+     * @param driverClass JDBC driver to load; can pass null if already loaded
+     * @param driverURL JDBC driver URL
+     * @param username optional username to connect with
+     * @param password optional password to connect with
+     */
     public SimpleDataSource(String driverClass, String driverURL, String username, String password)
         throws SQLException
     {
-        try {
-            Class.forName(driverClass);
-        } catch (ClassNotFoundException e) {
-            SQLException e2 = new SQLException();
-            e2.initCause(e);
-            throw e2;
+        this(driverClass, driverURL, username, password, null);
+    }
+
+    /**
+     * @param driverClass JDBC driver to load; can pass null if already loaded
+     * @param driverURL JDBC driver URL
+     * @param username optional username to connect with
+     * @param password optional password to connect with
+     * @param properties optional connection properties
+     * @since 1.2
+     */
+    public SimpleDataSource(String driverClass, String driverURL, String username, String password,
+                            Properties properties)
+        throws SQLException
+    {
+        if (driverURL == null) {
+            throw new IllegalArgumentException("Must supply JDBC URL");
         }
-        mURL = driverURL;
-        mProperties = new Properties();
+
+        if (driverClass != null) {
+            try {
+                Class.forName(driverClass);
+            } catch (ClassNotFoundException e) {
+                SQLException e2 = new SQLException();
+                e2.initCause(e);
+                throw e2;
+            }
+        }
+
+        if (properties == null) {
+            properties = new Properties();
+        }
+
         if (username != null) {
-            mProperties.put("user", username);
+            properties.put("user", username);
         }
         if (password != null) {
-            mProperties.put("password", password);
+            properties.put("password", password);
         }
+
+        mURL = driverURL;
+        mProperties = properties;
     }
 
     public Connection getConnection() throws SQLException {
@@ -62,14 +107,14 @@ public class SimpleDataSource implements DataSource {
     }
 
     public Connection getConnection(String username, String password) throws SQLException {
-        Properties props = new Properties();
+        Properties properties = new Properties(mProperties);
         if (username != null) {
-            props.put("user", username);
+            properties.put("user", username);
         }
         if (password != null) {
-            props.put("password", password);
+            properties.put("password", password);
         }
-        return DriverManager.getConnection(mURL, props);
+        return DriverManager.getConnection(mURL, properties);
     }
 
     public PrintWriter getLogWriter() throws SQLException {
