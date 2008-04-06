@@ -20,8 +20,6 @@ package com.amazon.carbonado.qe;
 
 import java.io.IOException;
 
-import org.cojen.util.BeanPropertyAccessor;
-
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
@@ -223,7 +221,6 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         Class<S> storableType = getStorableType();
         Filter<S> orderFilter = Filter.getClosedFilter(storableType);
         Filter<S> lastSubFilter = Filter.getOpenFilter(storableType);
-        BeanPropertyAccessor accessor = BeanPropertyAccessor.forClass(storableType);
 
         Object[] values = new Object[orderings.size()];
 
@@ -235,7 +232,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             }
             String propertyName = property.getChainedProperty().toString();
 
-            values[i] = accessor.getPropertyValue(start, propertyName);
+            values[i] = start.getPropertyValue(propertyName);
 
             orderFilter = orderFilter.or(lastSubFilter.and(propertyName, operator));
 
