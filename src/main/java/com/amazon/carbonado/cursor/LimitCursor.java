@@ -27,6 +27,7 @@ import com.amazon.carbonado.FetchException;
  * Wraps another cursor to limit the amount of elements.
  *
  * @author Brian S O'Neill
+ * @see SkipCursor
  */
 public class LimitCursor<S> extends AbstractCursor<S> {
     private final Cursor<S> mSource;

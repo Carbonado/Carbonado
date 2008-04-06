@@ -25,6 +25,7 @@ import com.amazon.carbonado.FetchException;
  * Wraps another cursor to skip an initial amount of elements.
  *
  * @author Brian S O'Neill
+ * @see LimitCursor
  */
 public class SkipCursor<S> extends AbstractCursor<S> {
     private final Cursor<S> mSource;
