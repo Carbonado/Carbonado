@@ -26,6 +26,7 @@ import com.amazon.carbonado.FetchException;
  *
  * @author Brian S O'Neill
  * @see LimitCursor
+ * @since 1.2
  */
 public class SkipCursor<S> extends AbstractCursor<S> {
     private final Cursor<S> mSource;
