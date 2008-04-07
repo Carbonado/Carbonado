@@ -182,6 +182,8 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             b.returnVoid();
         }
 
+        CodeBuilderUtil.definePrepareMethod(cf, storableClass, rawSupportType);
+
         // Implement protected abstract methods inherited from parent class.
 
         // byte[] encodeKey()

@@ -113,6 +113,8 @@ public class DelegateStorableGenerator<S extends Storable> {
             b.returnVoid();
         }
 
+        CodeBuilderUtil.definePrepareMethod(mClassFile, mStorableType, delegateSupportType);
+
         // Implement abstract methods which all delegate to DelegateSupport instance.
 
         generateDelegatedMethod

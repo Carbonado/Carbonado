@@ -435,6 +435,14 @@ public interface Storable<S extends Storable<S>> {
     S copy();
 
     /**
+     * Prepares a new object for loading, inserting, updating, or deleting.
+     *
+     * @see Storage#prepare
+     * @since 1.2
+     */
+    S prepare();
+
+    /**
      * Serializes property values and states for temporary storage or for
      * network transfer. Call {@link #readFrom} to restore. Derived and join
      * properties are not serialized.

@@ -248,6 +248,8 @@ class JDBCStorableGenerator<S extends Storable> {
             b.returnVoid();
         }
 
+        CodeBuilderUtil.definePrepareMethod(mClassFile, mStorableType, jdbcSupportType);
+
         // Add private method to extract all properties from a ResultSet row.
         defineExtractAllMethod(lobLoaderMap);
         // Add private method to extract non-pk properties from a ResultSet row.

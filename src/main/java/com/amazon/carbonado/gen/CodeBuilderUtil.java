@@ -125,8 +125,8 @@ public class CodeBuilderUtil {
     }
 
     /**
-     * Add copy bridge methods for all classes/interfaces between the leaf (genericised class)
-     * and the root (genericised baseclass).
+     * Add copy bridge methods for all classes/interfaces between the leaf
+     * (genericised class) and the root (genericised baseclass).
      *
      * @param cf file to which to add the copy bridge
      * @param leaf leaf class
@@ -140,9 +140,9 @@ public class CodeBuilderUtil {
     }
 
     /**
-     * Add a copy bridge method to the classfile for the given type.  This is needed to allow
-     * the genericised class make a copy itself -- which will be erased to the base type -- and
-     * return it as the correct type.
+     * Add a copy bridge method to the classfile for the given type.  This is
+     * needed to allow the genericised class make a copy itself -- which will
+     * be erased to the base type -- and return it as the correct type.
      *
      * @param cf file to which to add the copy bridge
      * @param leaf leaf class
@@ -161,6 +161,98 @@ public class CodeBuilderUtil {
         CodeBuilder b = new CodeBuilder(mi);
         b.loadThis();
         b.invokeVirtual(COPY_METHOD_NAME, cf.getType(), null);
+        b.returnValue(returnType);
+    }
+
+    /**
+     * Defines a Storable prepare method, which assumes that a support field
+     * exists and a single-argument constructor exists which accepts a support
+     * instance.
+     *
+     * @param cf file to which to add the prepare method
+     * @since 1.2
+     */
+    public static void definePrepareMethod(ClassFile cf,
+                                           Class storableClass,
+                                           TypeDesc supportCtorType)
+    {
+        definePrepareMethod(cf, storableClass, supportCtorType,
+                            StorableGenerator.SUPPORT_FIELD_NAME,
+                            TypeDesc.forClass(TriggerSupport.class));
+    }
+
+    /**
+     * Defines a Storable prepare method, which assumes that a support field
+     * exists and a single-argument constructor exists which accepts a support
+     * instance.
+     *
+     * @param cf file to which to add the prepare method
+     * @since 1.2
+     */
+    public static void definePrepareMethod(ClassFile cf,
+                                           Class storableClass,
+                                           TypeDesc supportCtorType,
+                                           String supportFieldName,
+                                           TypeDesc supportFieldType)
+    {
+        TypeDesc storableType = TypeDesc.forClass(storableClass);
+
+        if (!isPublicMethodFinal(storableClass, PREPARE_METHOD_NAME, storableType, null)) {
+            MethodInfo mi = cf.addMethod
+                (Modifiers.PUBLIC, PREPARE_METHOD_NAME, cf.getType(), null);
+
+            CodeBuilder b = new CodeBuilder(mi);
+            b.newObject(cf.getType());
+            b.dup();
+            b.loadThis();
+            b.loadField(supportFieldName, supportFieldType);
+            if (supportFieldType != supportCtorType) {
+                b.checkCast(supportCtorType);
+            }
+            b.invokeConstructor(new TypeDesc[] {supportCtorType});
+            b.returnValue(cf.getType());
+        }
+
+        definePrepareBridges(cf, storableClass);
+    }
+
+    /**
+     * Add prepare bridge methods for all classes/interfaces between the leaf
+     * (genericised class) and the root (genericised baseclass).
+     *
+     * @param cf file to which to add the prepare bridge
+     * @param leaf leaf class
+     * @since 1.2
+     */
+    public static void definePrepareBridges(ClassFile cf, Class leaf) {
+        for (Class c : gatherAllBridgeTypes(new HashSet<Class>(), leaf)) {
+            if (c != Object.class) {
+                definePrepareBridge(cf, leaf, c);
+            }
+        }
+    }
+
+    /**
+     * Add a prepare bridge method to the classfile for the given type.
+     *
+     * @param cf file to which to add the prepare bridge
+     * @param leaf leaf class
+     * @param returnClass type returned from generated bridge method
+     * @since 1.2
+     */
+    private static void definePrepareBridge(ClassFile cf, Class leaf, Class returnClass) {
+        TypeDesc returnType = TypeDesc.forClass(returnClass);
+
+        if (isPublicMethodFinal(leaf, PREPARE_METHOD_NAME, returnType, null)) {
+            // Cannot override.
+            return;
+        }
+
+        MethodInfo mi = cf.addMethod(Modifiers.PUBLIC.toBridge(true),
+                                     PREPARE_METHOD_NAME, returnType, null);
+        CodeBuilder b = new CodeBuilder(mi);
+        b.loadThis();
+        b.invokeVirtual(PREPARE_METHOD_NAME, cf.getType(), null);
         b.returnValue(returnType);
     }
 
