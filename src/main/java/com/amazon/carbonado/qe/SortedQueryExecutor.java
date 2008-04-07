@@ -27,6 +27,7 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.cursor.ArraySortBuffer;
+import com.amazon.carbonado.cursor.MergeSortBuffer;
 import com.amazon.carbonado.cursor.SortBuffer;
 import com.amazon.carbonado.cursor.SortedCursor;
 
@@ -62,8 +63,12 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
                                OrderingList<S> handledOrdering,
                                OrderingList<S> remainderOrdering)
     {
-        if (support == null && this instanceof Support) {
-            support = (Support<S>) this;
+        if (support == null) {
+            if (this instanceof Support) {
+                support = (Support<S>) this;
+            } else {
+                support = new ArraySortSupport<S>();
+            }
         }
         if (executor == null) {
             throw new IllegalArgumentException();
@@ -97,8 +102,7 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
         Cursor<S> cursor = mExecutor.fetch(values);
-        SortBuffer<S> buffer =
-            mSupport == null ? new ArraySortBuffer<S>() : mSupport.createSortBuffer();
+        SortBuffer<S> buffer = mSupport.createSortBuffer();
         return new SortedCursor<S>(cursor, buffer, mHandledComparator, mFinisherComparator);
     }
 
@@ -148,5 +152,29 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
          * Implementation must return an empty buffer for sorting.
          */
         SortBuffer<S> createSortBuffer();
+    }
+
+    /**
+     * @since 1.2
+     */
+    public static class ArraySortSupport<S extends Storable> implements Support<S> {
+        /**
+         * Returns a new ArraySortBuffer.
+         */
+        public SortBuffer<S> createSortBuffer() {
+            return new ArraySortBuffer<S>();
+        }
+    }
+
+    /**
+     * @since 1.2
+     */
+    public static class MergeSortSupport<S extends Storable> implements Support<S> {
+        /**
+         * Returns a new MergeSortBuffer.
+         */
+        public SortBuffer<S> createSortBuffer() {
+            return new MergeSortBuffer<S>();
+        }
     }
 }

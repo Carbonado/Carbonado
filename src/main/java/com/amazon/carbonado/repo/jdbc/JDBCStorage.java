@@ -472,9 +472,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             }
 
             if (remainderOrdering != null && remainderOrdering.size() > 0) {
-                // FIXME: use MergeSortBuffer
                 executor = new SortedQueryExecutor<S>
-                    (null, executor, sqlOrdering, remainderOrdering);
+                    (new SortedQueryExecutor.MergeSortSupport(),
+                     executor, sqlOrdering, remainderOrdering);
             }
 
             return executor;

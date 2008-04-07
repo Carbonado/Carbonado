@@ -42,7 +42,6 @@ import com.amazon.carbonado.UniqueConstraintException;
 
 import com.amazon.carbonado.capability.IndexInfo;
 
-import com.amazon.carbonado.cursor.ArraySortBuffer;
 import com.amazon.carbonado.cursor.EmptyCursor;
 import com.amazon.carbonado.cursor.MergeSortBuffer;
 import com.amazon.carbonado.cursor.SingletonCursor;
@@ -118,8 +117,6 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
     /** Reference to query engine, defined later in this class */
     private QueryEngine<S> mQueryEngine;
-
-    private Storage<S> mRootStorage;
 
     final TriggerManager<S> mTriggerManager;
 
@@ -260,18 +257,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     }
 
     public SortBuffer<S> createSortBuffer() {
-        // FIXME: This is messy. If Storables had built-in serialization
-        // support, then MergeSortBuffer would not need a root storage.
-        if (mRootStorage == null) {
-            try {
-                mRootStorage = mRepository.getRootRepository().storageFor(getStorableType());
-            } catch (RepositoryException e) {
-                LogFactory.getLog(BDBStorage.class).warn(null, e);
-                return new ArraySortBuffer<S>();
-            }
-        }
-
-        return new MergeSortBuffer<S>(mRootStorage);
+        return new MergeSortBuffer<S>();
     }
 
     public long countAll() throws FetchException {

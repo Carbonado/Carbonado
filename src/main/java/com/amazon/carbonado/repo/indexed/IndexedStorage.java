@@ -41,7 +41,6 @@ import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.capability.IndexInfo;
 import com.amazon.carbonado.capability.IndexInfoCapability;
 
-import com.amazon.carbonado.cursor.ArraySortBuffer;
 import com.amazon.carbonado.cursor.MergeSortBuffer;
 
 import com.amazon.carbonado.filter.Filter;
@@ -80,8 +79,6 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
     private final StorableIndexSet<S> mQueryableIndexSet;
 
     private final QueryEngine<S> mQueryEngine;
-
-    private Storage<S> mRootStorage;
 
     @SuppressWarnings("unchecked")
     IndexedStorage(IndexedRepository repository, Storage<S> masterStorage)
@@ -404,18 +401,7 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
     }
 
     public SortBuffer<S> createSortBuffer() {
-        // FIXME: This is messy. If Storables had built-in serialization
-        // support, then MergeSortBuffer would not need a root storage.
-        if (mRootStorage == null) {
-            try {
-                mRootStorage = mRepository.getRootRepository().storageFor(getStorableType());
-            } catch (RepositoryException e) {
-                LogFactory.getLog(IndexedStorage.class).warn(null, e);
-                return new ArraySortBuffer<S>();
-            }
-        }
-
-        return new MergeSortBuffer<S>(mRootStorage);
+        return new MergeSortBuffer<S>();
     }
 
     public long countAll() throws FetchException {
