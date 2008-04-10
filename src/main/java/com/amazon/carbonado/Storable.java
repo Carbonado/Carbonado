@@ -427,7 +427,7 @@ public interface Storable<S extends Storable<S>> {
      * values are boxed
      * @since 1.2
      */
-    //Map<String, Object> propertyMap();
+    Map<String, Object> propertyMap();
 
     /**
      * Returns an exact shallow copy of this object, including the state.
