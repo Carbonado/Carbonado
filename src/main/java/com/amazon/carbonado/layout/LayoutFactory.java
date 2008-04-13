@@ -19,6 +19,11 @@
 package com.amazon.carbonado.layout;
 
 import java.lang.annotation.Annotation;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+import java.util.Arrays;
 import java.util.Map;
 
 import org.cojen.util.SoftValuedHashMap;
@@ -262,14 +267,7 @@ public class LayoutFactory implements LayoutCapability {
             // value is stored. So mix that in too.
             Annotation ann = annotation.getAnnotation();
             if (ann != null) {
-                // Okay to mix in annotation hash code since Annotation
-                // documentation defines the implementation. It should remain
-                // stable between releases, but it is not critical that the
-                // hash code always comes out the same. The result would be a
-                // duplicate stored layout, but with a different generation.
-                // Stored entries will be converted from the "different"
-                // generation, causing a very slight performance degradation.
-                hash = hash * multiplier + ann.hashCode();
+                hash = hash * multiplier + annHashCode(ann);
             }
         }
 
@@ -281,5 +279,83 @@ public class LayoutFactory implements LayoutCapability {
             hash = hash * multiplier + value.charAt(i);
         }
         return hash;
+    }
+
+    /**
+     * Returns an annotation hash code using a algorithm similar to the
+     * default. The difference is in the handling of class and enum values. The
+     * name is chosen for the hash code component instead of the instance
+     * because it is stable between invocations of the JVM.
+     */
+    private static int annHashCode(Annotation ann) {
+        int hash = 0;
+
+        Method[] methods = ann.getClass().getDeclaredMethods();
+        for (Method m : methods) {
+            if (m.getReturnType() == null || m.getReturnType() == void.class) {
+                continue;
+            }
+            if (m.getParameterTypes().length != 0) {
+                continue;
+            }
+
+            String name = m.getName();
+            if (name.equals("hashCode") ||
+                name.equals("toString") ||
+                name.equals("annotationType"))
+            {
+                continue;
+            }
+
+            Object value;
+            try {
+                value = m.invoke(ann);
+            } catch (InvocationTargetException e) {
+                continue;
+            } catch (IllegalAccessException e) {
+                continue;
+            }
+
+            hash += (127 * name.hashCode()) ^ annValueHashCode(value);
+        }
+
+        return hash;
+    }
+
+    private static int annValueHashCode(Object value) {
+        Class type = value.getClass();
+        if (!type.isArray()) {
+            if (value instanceof String || type.isPrimitive()) {
+                return value.hashCode();
+            } else if (value instanceof Class) {
+                // Use name for stable hash code.
+                return ((Class) value).getName().hashCode();
+            } else if (value instanceof Enum) {
+                // Use name for stable hash code.
+                return ((Enum) value).name().hashCode();
+            } else if (value instanceof Annotation) {
+                return annHashCode((Annotation) value);
+            } else {
+                return value.hashCode();
+            }
+        } else if (type == byte[].class) {
+            return Arrays.hashCode((byte[]) value);
+        } else if (type == char[].class) {
+            return Arrays.hashCode((char[]) value);
+        } else if (type == double[].class) {
+            return Arrays.hashCode((double[]) value);
+        } else if (type == float[].class) {
+            return Arrays.hashCode((float[]) value);
+        } else if (type == int[].class) {
+            return Arrays.hashCode((int[]) value);
+        } else if (type == long[].class) {
+            return Arrays.hashCode((long[]) value);
+        } else if (type == short[].class) {
+            return Arrays.hashCode((short[]) value);
+        } else if (type == boolean[].class) {
+            return Arrays.hashCode((boolean[]) value);
+        } else {
+            return Arrays.hashCode((Object[]) value);
+        }
     }
 }
