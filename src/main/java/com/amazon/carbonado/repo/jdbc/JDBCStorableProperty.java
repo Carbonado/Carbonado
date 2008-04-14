@@ -75,6 +75,12 @@ public interface JDBCStorableProperty<S extends Storable> extends StorableProper
     String getDataTypeName();
 
     /**
+     * @return true if column is nullable
+     * @since 1.2
+     */
+    boolean isColumnNullable();
+
+    /**
      * Returns the method to use to access this property (by index) from a
      * ResultSet.
      *

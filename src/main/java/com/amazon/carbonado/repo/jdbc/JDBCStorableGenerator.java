@@ -1898,7 +1898,7 @@ class JDBCStorableGenerator<S extends Storable> {
             TypeDesc resultSetType = TypeDesc.forClass(resultSetGetMethod.getReturnType());
 
             Label wasNull = b.createLabel();
-            if (resultSetType.isPrimitive() && property.isNullable()) {
+            if (resultSetType.isPrimitive() && property.isColumnNullable()) {
                 b.loadLocal(rsVar);
                 b.invokeInterface
                     (TypeDesc.forClass(ResultSet.class), "wasNull", TypeDesc.BOOLEAN, null);

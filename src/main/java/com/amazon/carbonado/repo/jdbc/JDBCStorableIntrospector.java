@@ -1125,6 +1125,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         private final String mColumnName;
         private final Integer mDataType;
         private final String mDataTypeName;
+        private final boolean mColumnNullable;
         private final Method mResultSetGet;
         private final Method mPreparedStatementSet;
         private final StorablePropertyAdapter mAdapter;
@@ -1151,6 +1152,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             mColumnName = columnInfo.columnName;
             mDataType = columnInfo.dataType;
             mDataTypeName = columnInfo.dataTypeName;
+            mColumnNullable = columnInfo.nullable;
             mResultSetGet = resultSetGet;
             mPreparedStatementSet = preparedStatementSet;
             mAdapter = adapter;
@@ -1166,6 +1168,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             mColumnName = null;
             mDataType = null;
             mDataTypeName = null;
+            mColumnNullable = false;
             mResultSetGet = null;
             mPreparedStatementSet = null;
             mAdapter = null;
@@ -1323,6 +1326,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         public String getDataTypeName() {
             return mDataTypeName;
+        }
+
+        public boolean isColumnNullable() {
+            return mColumnNullable;
         }
 
         public Method getResultSetGetMethod() {
