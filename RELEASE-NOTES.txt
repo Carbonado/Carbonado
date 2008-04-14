@@ -44,6 +44,7 @@ Carbonado change history
 - Added support for outer joins via new syntax.
 - Transactions can be detached and attached from/to the current thread.
 - Storables can be serialized for temporary persistence or remote calls.
+- Support fetching slices of queries, which translates to a SQL offset and limit.
 
 1.1.2 to 1.1.3
 -------------------------------
