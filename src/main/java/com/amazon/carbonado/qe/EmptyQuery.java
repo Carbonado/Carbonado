@@ -205,6 +205,10 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
         return new EmptyQuery<S>(mFactory, properties);
     }
 
+    public Query<S> after(S start) {
+        return this;
+    }
+
     /**
      * Always returns an {@link EmptyCursor}.
      */
@@ -224,14 +228,6 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
      * Always returns an {@link EmptyCursor}.
      */
     public Cursor<S> fetchAfter(S start) {
-        return EmptyCursor.the();
-    }
-
-    /**
-     * Always returns an {@link EmptyCursor}.
-     */
-    public Cursor<S> fetchAfter(S start, long from, Long to) {
-        checkSliceArguments(from, to);
         return EmptyCursor.the();
     }
 

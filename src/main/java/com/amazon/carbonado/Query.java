@@ -255,6 +255,25 @@ public interface Query<S extends Storable> {
     Query<S> orderBy(String... properties) throws FetchException;
 
     /**
+     * Returns a query which fetches results for this query after a given
+     * starting point, which is useful for re-opening a cursor. This is only
+     * effective when query has been given an explicit {@link #orderBy
+     * ordering}. If not a total ordering, then query may start at an earlier
+     * position.
+     *
+     * <p>Note: The returned query can be very expensive to fetch from
+     * repeatedly, if the query needs to perform a sort operation. Ideally, the
+     * query ordering should match the natural ordering of an index or key.
+     *
+     * @param start storable to attempt to start after; if null, this query is
+     * returned
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws FetchException if storage layer throws an exception
+     * @since 1.2
+     */
+    Query<S> after(S start) throws FetchException;
+
+    /**
      * Fetches results for this query. If any updates or deletes might be
      * performed on the results, consider enclosing the fetch in a
      * transaction. This allows the isolation level and "for update" mode to be
@@ -288,7 +307,7 @@ public interface Query<S extends Storable> {
      * Fetches results for this query after a given starting point, which is
      * useful for re-opening a cursor. This is only effective when query has
      * been given an explicit {@link #orderBy ordering}. If not a total
-     * ordering, then returned cursor may start at an earlier position.
+     * ordering, then cursor may start at an earlier position.
      *
      * <p>Note: This method can be very expensive to call repeatedly, if the
      * query needs to perform a sort operation. Ideally, the query ordering
@@ -299,33 +318,9 @@ public interface Query<S extends Storable> {
      * @throws IllegalStateException if any blank parameters in this query
      * @throws FetchException if storage layer throws an exception
      * @see Repository#enterTransaction(IsolationLevel)
+     * @see #after
      */
     Cursor<S> fetchAfter(S start) throws FetchException;
-
-    /**
-     * Fetches a slice of results for this query after a given starting point,
-     * which is useful for re-opening a cursor. This is only effective when
-     * query has been given an explicit {@link #orderBy ordering}. If not a
-     * total ordering, then returned cursor may start at an earlier position.
-     * It is strongly recommended that the query be given a total ordering in
-     * order for the slice results to be deterministic.
-     *
-     * <p>Note: This method can be very expensive to call repeatedly, if the
-     * query needs to perform a sort operation. Ideally, the query ordering
-     * should match the natural ordering of an index or key.
-     *
-     * @param start storable to attempt to start after; if null, fetch all results
-     * @param from zero-based {@code from} record number, inclusive
-     * @param to optional zero-based {@code to} record number, exclusive
-     * @return fetch results
-     * @throws IllegalStateException if any blank parameters in this query
-     * @throws IllegalArgumentException if {@code from} is negative or if
-     * {@code from} is more than {@code to}
-     * @throws FetchException if storage layer throws an exception
-     * @see Repository#enterTransaction(IsolationLevel)
-     * @since 1.2
-     */
-    Cursor<S> fetchAfter(S start, long from, Long to) throws FetchException;
 
     /**
      * Attempts to load exactly one matching object. If the number of matching

@@ -129,6 +129,10 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         return newInstance(mQuery.orderBy(strings));
     }
 
+    public Query<S> after(S start) throws FetchException {
+        return newInstance(mQuery.after(start));
+    }
+
     public Cursor<S> fetch() throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -150,15 +154,6 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.fetchAfter(start) on " + this + ", start: " + start);
-        }
-        return mQuery.fetchAfter(start);
-    }
-
-    public Cursor<S> fetchAfter(S start, long from, Long to) throws FetchException {
-        Log log = mStorage.mLog;
-        if (log.isEnabled()) {
-            log.write("Query.fetchAfter(start, from, to) on " + this + ", start: " + start +
-                      ", from: " + from + ", to: " + to);
         }
         return mQuery.fetchAfter(start);
     }
