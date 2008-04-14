@@ -129,4 +129,26 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
 
     @Override
     public abstract boolean equals(Object obj);
+
+    /**
+     * Called by sliced fetch to ensure that arguments are valid.
+     *
+     * @return false if from is 0 and to is null
+     * @throws IllegalArgumentException if arguments are invalid
+     * @since 1.2
+     */
+    protected boolean checkSliceArguments(long from, Long to) {
+        if (from < 0) {
+            throw new IllegalArgumentException("Slice from is negative: " + from);
+        }
+        if (to == null) {
+            if (from == 0) {
+                return false;
+            }
+        } else if (from > to) {
+            throw new IllegalArgumentException
+                ("Slice from is more than to: " + from + " > " + to);
+        }
+        return true;
+    }
 }

@@ -287,4 +287,39 @@ class JDBCSupportStrategy {
     void setTruncateTableStatement(String truncateTableStatement) {
         mTruncateTableStatement = truncateTableStatement;
     }
+
+    /**
+     * @since 1.2
+     */
+    enum SliceOption {
+        // Slice is always emulated
+        NOT_SUPPORTED,
+        // Slice is emulated if from is not zero
+        LIMIT_ONLY,
+        // Slice is emulated if to is not null
+        OFFSET_ONLY,
+        // Slice is fully supported with limit parameter first
+        LIMIT_AND_OFFSET,
+        // Slice is fully supported with offset parameter first
+        OFFSET_AND_LIMIT,
+    }
+
+    /**
+     * @since 1.2
+     */
+    SliceOption getSliceOption() {
+        return SliceOption.NOT_SUPPORTED;
+    }
+
+    /**
+     * @param select base select statement
+     * @param limit when true, select must support limit parameter
+     * @param offset when true, select must support offset parameter
+     * @return revised select statement
+     * @throws UnsupportedOperationException
+     * @since 1.2
+     */
+    String buildSelectWithSlice(String select, boolean limit, boolean offset) {
+        throw new UnsupportedOperationException();
+    }
 }

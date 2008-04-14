@@ -220,6 +220,28 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
         }
     }
 
+    @Override
+    SliceOption getSliceOption() {
+        return SliceOption.OFFSET_AND_LIMIT;
+    }
+
+    @Override
+    String buildSelectWithSlice(String select, boolean limit, boolean offset) {
+        if (limit) {
+            if (offset) {
+                return "SELECT * FROM (SELECT ROW_.*, ROWNUM ROWNUM_ FROM(" +
+                    select + ") ROW_) WHERE ROWNUM_ > ? AND ROWNUM_ <= ?";
+            } else {
+                return "SELECT * FROM (" + select + ") WHERE ROWNUM <= ?";
+            }
+        } else if (offset) {
+            return "SELECT * FROM (SELECT ROW_.*, ROWNUM ROWNUM_ FROM(" +
+                select + ") ROW_) WHERE ROWNUM_ > ?";
+        } else {
+            return select;
+        }
+    }
+
     /* FIXME
     @Override
     boolean printPlan(Appendable app, int indentLevel, String statement)

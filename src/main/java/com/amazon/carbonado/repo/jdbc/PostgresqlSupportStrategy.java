@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2008 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -19,39 +19,35 @@
 package com.amazon.carbonado.repo.jdbc;
 
 /**
- *
+ * 
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
-class MysqlSupportStrategy extends JDBCSupportStrategy {
+class PostgresqlSupportStrategy extends JDBCSupportStrategy {
     private static final String TRUNCATE_STATEMENT = "TRUNCATE TABLE %s";
 
-    protected MysqlSupportStrategy(JDBCRepository repo) {
+    protected PostgresqlSupportStrategy(JDBCRepository repo) {
         super(repo);
 
         setTruncateTableStatement(TRUNCATE_STATEMENT);
     }
 
     @Override
-    JDBCExceptionTransformer createExceptionTransformer() {
-        return new MysqlExceptionTransformer();
-    }
-
-    @Override
     SliceOption getSliceOption() {
-        return SliceOption.OFFSET_AND_LIMIT;
+        return SliceOption.LIMIT_AND_OFFSET;
     }
 
     @Override
     String buildSelectWithSlice(String select, boolean limit, boolean offset) {
         if (limit) {
             if (offset) {
-                return select.concat(" LIMIT ?,?");
+                return select.concat(" LIMIT ? OFFSET ?");
             } else {
                 return select.concat(" LIMIT ?");
             }
         } else if (offset) {
-            return select.concat(" LIMIT ?,18446744073709551615");
+            return select.concat(" LIMIT ALL OFFSET ?");
         } else {
             return select;
         }

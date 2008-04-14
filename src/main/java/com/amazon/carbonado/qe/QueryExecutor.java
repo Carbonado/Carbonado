@@ -46,6 +46,13 @@ public interface QueryExecutor<S extends Storable> {
     Cursor<S> fetch(FilterValues<S> values) throws FetchException;
 
     /**
+     * Returns a new cursor using the given filter values and slice.
+     *
+     * @since 1.2
+     */
+    Cursor<S> fetch(FilterValues<S> values, long from, Long to) throws FetchException;
+
+    /**
      * Counts the query results using the given filter values.
      */
     long count(FilterValues<S> values) throws FetchException;

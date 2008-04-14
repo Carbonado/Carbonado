@@ -24,6 +24,9 @@ import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 
+import com.amazon.carbonado.cursor.LimitCursor;
+import com.amazon.carbonado.cursor.SkipCursor;
+
 import com.amazon.carbonado.filter.FilterValues;
 
 /**
@@ -37,7 +40,25 @@ public abstract class AbstractQueryExecutor<S extends Storable> implements Query
     }
 
     /**
-     * Counts results by opening a cursor and skipping entries.
+     * Produces a slice via skip and limit cursors. Subclasses are encouraged
+     * to override with a more efficient implementation.
+     *
+     * @since 1.2
+     */
+    public Cursor<S> fetch(FilterValues<S> values, long from, Long to) throws FetchException {
+        Cursor<S> cursor = fetch(values);
+        if (from > 0) {
+            cursor = new SkipCursor<S>(cursor, from);
+        }
+        if (to != null) {
+            cursor = new LimitCursor<S>(cursor, to - from);
+        }
+        return cursor;
+    }
+
+    /**
+     * Counts results by opening a cursor and skipping entries. Subclasses are
+     * encouraged to override with a more efficient implementation.
      */
     public long count(FilterValues<S> values) throws FetchException {
         Cursor<S> cursor = fetch(values);

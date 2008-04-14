@@ -217,12 +217,35 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
+    public Cursor<S> fetch(long from, Long to) throws FetchException {
+        if (!checkSliceArguments(from, to)) {
+            return fetch();
+        }
+        try {
+            QueryHints hints = QueryHints.emptyHints().with(QueryHint.CONSUME_SLICE);
+            return executorFactory().executor(mFilter, mOrdering, hints).fetch(mValues, from, to);
+        } catch (RepositoryException e) {
+            throw e.toFetchException();
+        }
+    }
+
     public Cursor<S> fetchAfter(S start) throws FetchException {
         OrderingList<S> orderings;
         if (start == null || (orderings = mOrdering).size() == 0) {
             return fetch();
         }
         return buildAfter(start, orderings).fetch();
+    }
+
+    public Cursor<S> fetchAfter(S start, long from, Long to) throws FetchException {
+        if (!checkSliceArguments(from, to)) {
+            return fetchAfter(start);
+        }
+        OrderingList<S> orderings;
+        if (start == null || (orderings = mOrdering).size() == 0) {
+            return fetch(from, to);
+        }
+        return buildAfter(start, orderings).fetch(from, to);
     }
 
     private Query<S> buildAfter(S start, OrderingList<S> orderings) throws FetchException {

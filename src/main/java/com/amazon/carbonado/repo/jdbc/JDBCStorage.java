@@ -44,6 +44,8 @@ import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.capability.IndexInfo;
+import com.amazon.carbonado.cursor.EmptyCursor;
+import com.amazon.carbonado.cursor.LimitCursor;
 import com.amazon.carbonado.filter.AndFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
@@ -647,6 +649,98 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         }
 
         @Override
+        public Cursor<S> fetch(FilterValues<S> values, long from, Long to) throws FetchException {
+            if (to != null && (to - from) <= 0) {
+                return EmptyCursor.the();
+            }
+
+            JDBCSupportStrategy.SliceOption option = mSupportStrategy.getSliceOption();
+
+            String select;
+
+            switch (option) {
+            case NOT_SUPPORTED: default:
+                return super.fetch(values, from, to);
+            case LIMIT_ONLY:
+                if (from > 0 || to == null) {
+                    return super.fetch(values, from, to);
+                }
+                select = prepareSelect(values, false);
+                select = mSupportStrategy.buildSelectWithSlice(select, true, false);
+                break;
+            case OFFSET_ONLY:
+                if (from <= 0) {
+                    return super.fetch(values, from, to);
+                }
+                select = prepareSelect(values, false);
+                select = mSupportStrategy.buildSelectWithSlice(select, false, true);
+                break;
+            case LIMIT_AND_OFFSET:
+            case OFFSET_AND_LIMIT:
+                select = prepareSelect(values, false);
+                select = mSupportStrategy.buildSelectWithSlice(select, to != null, from > 0);
+                break;
+            }
+
+            if (mRepository.localTransactionScope().isForUpdate()) {
+                select = select.concat(" FOR UPDATE");
+            }
+
+            Connection con = mRepository.getConnection();
+            try {
+                PreparedStatement ps = con.prepareStatement(select);
+                Integer fetchSize = mRepository.getFetchSize();
+                if (fetchSize != null) {
+                    ps.setFetchSize(fetchSize);
+                }
+
+                try {
+                    int psOrdinal = setParameters(ps, values);
+
+                    if (from > 0) {
+                        if (to != null) {
+                            switch (option) {
+                            case OFFSET_ONLY:
+                                ps.setLong(psOrdinal, from);
+                                Cursor<S> c = new JDBCCursor<S>(JDBCStorage.this, con, ps);
+                                return new LimitCursor<S>(c, to - from);
+                            case LIMIT_AND_OFFSET:
+                                ps.setLong(psOrdinal, to - from);
+                                ps.setLong(psOrdinal + 1, from);
+                                break;
+                            case OFFSET_AND_LIMIT:
+                                ps.setLong(psOrdinal, from);
+                                ps.setLong(psOrdinal + 1, to - from);
+                            }
+                        } else {
+                            ps.setLong(psOrdinal, from);
+                        }
+                    } else if (to != null) {
+                        ps.setLong(psOrdinal, to);
+                    }
+
+                    return new JDBCCursor<S>(JDBCStorage.this, con, ps);
+                } catch (Exception e) {
+                    // in case of exception, close statement
+                    try {
+                        ps.close();
+                    } catch (SQLException e2) {
+                        // ignore and allow triggering exception to propagate
+                    }
+                    throw e;
+                }
+            } catch (Exception e) {
+                // in case of exception, yield connection
+                try {
+                    mRepository.yieldConnection(con);
+                } catch (FetchException e2) {
+                   // ignore and allow triggering exception to propagate
+                }
+                throw mRepository.toFetchException(e);
+            }
+        }
+
+        @Override
         public long count(FilterValues<S> values) throws FetchException {
             Connection con = mRepository.getConnection();
             try {
@@ -758,13 +852,16 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return b.toString();
         }
 
-        private void setParameters(PreparedStatement ps, FilterValues<S> filterValues)
+        /**
+         * @return next value ordinal
+         */
+        private int setParameters(PreparedStatement ps, FilterValues<S> filterValues)
             throws Exception
         {
             PropertyFilter<S>[] propertyFilters = mPropertyFilters;
 
             if (propertyFilters == null) {
-                return;
+                return 1;
             }
 
             boolean[] propertyFilterNullable = mPropertyFilterNullable;
@@ -799,6 +896,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
                 ordinal++;
             }
+
+            return psOrdinal;
         }
     }
 

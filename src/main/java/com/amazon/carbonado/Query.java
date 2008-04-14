@@ -268,6 +268,23 @@ public interface Query<S extends Storable> {
     Cursor<S> fetch() throws FetchException;
 
     /**
+     * Fetches a slice of results for this query, as defined by a numerical
+     * range. A slice can be used to limit the number of results from a
+     * query. It is strongly recommended that the query be given a total {@link
+     * #orderBy ordering} in order for the slice results to be deterministic.
+     *
+     * @param from zero-based {@code from} record number, inclusive
+     * @param to optional zero-based {@code to} record number, exclusive
+     * @return fetch results
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws IllegalArgumentException if {@code from} is negative or if
+     * {@code from} is more than {@code to}
+     * @throws FetchException if storage layer throws an exception
+     * @since 1.2
+     */
+    Cursor<S> fetch(long from, Long to) throws FetchException;
+
+    /**
      * Fetches results for this query after a given starting point, which is
      * useful for re-opening a cursor. This is only effective when query has
      * been given an explicit {@link #orderBy ordering}. If not a total
@@ -284,6 +301,31 @@ public interface Query<S extends Storable> {
      * @see Repository#enterTransaction(IsolationLevel)
      */
     Cursor<S> fetchAfter(S start) throws FetchException;
+
+    /**
+     * Fetches a slice of results for this query after a given starting point,
+     * which is useful for re-opening a cursor. This is only effective when
+     * query has been given an explicit {@link #orderBy ordering}. If not a
+     * total ordering, then returned cursor may start at an earlier position.
+     * It is strongly recommended that the query be given a total ordering in
+     * order for the slice results to be deterministic.
+     *
+     * <p>Note: This method can be very expensive to call repeatedly, if the
+     * query needs to perform a sort operation. Ideally, the query ordering
+     * should match the natural ordering of an index or key.
+     *
+     * @param start storable to attempt to start after; if null, fetch all results
+     * @param from zero-based {@code from} record number, inclusive
+     * @param to optional zero-based {@code to} record number, exclusive
+     * @return fetch results
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws IllegalArgumentException if {@code from} is negative or if
+     * {@code from} is more than {@code to}
+     * @throws FetchException if storage layer throws an exception
+     * @see Repository#enterTransaction(IsolationLevel)
+     * @since 1.2
+     */
+    Cursor<S> fetchAfter(S start, long from, Long to) throws FetchException;
 
     /**
      * Attempts to load exactly one matching object. If the number of matching

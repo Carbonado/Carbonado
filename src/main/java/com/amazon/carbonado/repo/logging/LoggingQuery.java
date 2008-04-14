@@ -137,10 +137,28 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         return mQuery.fetch();
     }
 
+    public Cursor<S> fetch(long from, Long to) throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.fetch(start, to) on " + this +
+                      ", from: " + from + ", to: " + to);
+        }
+        return mQuery.fetch(from, to);
+    }
+
     public Cursor<S> fetchAfter(S start) throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.fetchAfter(start) on " + this + ", start: " + start);
+        }
+        return mQuery.fetchAfter(start);
+    }
+
+    public Cursor<S> fetchAfter(S start, long from, Long to) throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.fetchAfter(start, from, to) on " + this + ", start: " + start +
+                      ", from: " + from + ", to: " + to);
         }
         return mQuery.fetchAfter(start);
     }
