@@ -253,8 +253,6 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         Filter<S> orderFilter = Filter.getClosedFilter(storableType);
         Filter<S> lastSubFilter = Filter.getOpenFilter(storableType);
 
-        Object[] values = new Object[orderings.size()];
-
         for (int i=0;;) {
             OrderedProperty<S> property = orderings.get(i);
             RelOp operator = RelOp.GT;
@@ -262,27 +260,15 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
                 operator = RelOp.LT;
             }
             String propertyName = property.getChainedProperty().toString();
-
-            values[i] = start.getPropertyValue(propertyName);
-
-            orderFilter = orderFilter.or(lastSubFilter.and(propertyName, operator));
-
+            Object value = start.getPropertyValue(propertyName);
+            orderFilter = orderFilter.or(lastSubFilter.and(propertyName, operator, value));
             if (++i >= orderings.size()) {
                 break;
             }
-
-            lastSubFilter = lastSubFilter.and(propertyName, RelOp.EQ);
+            lastSubFilter = lastSubFilter.and(propertyName, RelOp.EQ, value);
         }
 
-        Query<S> query = this.and(orderFilter);
-
-        for (int i=0; i<values.length; i++) {
-            for (int j=0; j<=i; j++) {
-                query = query.with(values[j]);
-            }
-        }
-
-        return query;
+        return and(orderFilter);
     }
 
     public boolean tryDeleteOne() throws PersistException {
