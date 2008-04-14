@@ -222,21 +222,23 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
 
     @Override
     SliceOption getSliceOption() {
-        return SliceOption.OFFSET_AND_LIMIT;
+        return SliceOption.FROM_AND_TO;
     }
 
     @Override
-    String buildSelectWithSlice(String select, boolean limit, boolean offset) {
-        if (limit) {
-            if (offset) {
-                return "SELECT * FROM (SELECT ROW_.*, ROWNUM ROWNUM_ FROM(" +
-                    select + ") ROW_) WHERE ROWNUM_ > ? AND ROWNUM_ <= ?";
+    String buildSelectWithSlice(String select, boolean from, boolean to) {
+        if (to) {
+            if (from) {
+                // Use quoted identifier with space to prevent clash with
+                // Storable property name.
+                return "SELECT * FROM (SELECT \"A ROW\".*, ROWNUM \"A ROWNUM\" FROM (" +
+                    select + ") \"A ROW\") WHERE \"A ROWNUM\" > ? AND \"A ROWNUM\" <= ?";
             } else {
                 return "SELECT * FROM (" + select + ") WHERE ROWNUM <= ?";
             }
-        } else if (offset) {
-            return "SELECT * FROM (SELECT ROW_.*, ROWNUM ROWNUM_ FROM(" +
-                select + ") ROW_) WHERE ROWNUM_ > ?";
+        } else if (from) {
+            return "SELECT * FROM (SELECT \"A ROW\".*, ROWNUM \"A ROWNUM\" FROM (" +
+                select + ") \"A ROW\") WHERE \"A ROWNUM\" > ?";
         } else {
             return select;
         }

@@ -666,19 +666,20 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     return super.fetch(values, from, to);
                 }
                 select = prepareSelect(values, false);
-                select = mSupportStrategy.buildSelectWithSlice(select, true, false);
+                select = mSupportStrategy.buildSelectWithSlice(select, false, true);
                 break;
             case OFFSET_ONLY:
                 if (from <= 0) {
                     return super.fetch(values, from, to);
                 }
                 select = prepareSelect(values, false);
-                select = mSupportStrategy.buildSelectWithSlice(select, false, true);
+                select = mSupportStrategy.buildSelectWithSlice(select, true, false);
                 break;
             case LIMIT_AND_OFFSET:
             case OFFSET_AND_LIMIT:
+            case FROM_AND_TO:
                 select = prepareSelect(values, false);
-                select = mSupportStrategy.buildSelectWithSlice(select, to != null, from > 0);
+                select = mSupportStrategy.buildSelectWithSlice(select, from > 0, to != null);
                 break;
             }
 
@@ -711,6 +712,11 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                             case OFFSET_AND_LIMIT:
                                 ps.setLong(psOrdinal, from);
                                 ps.setLong(psOrdinal + 1, to - from);
+                                break;
+                            case FROM_AND_TO:
+                                ps.setLong(psOrdinal, from);
+                                ps.setLong(psOrdinal + 1, to);
+                                break;
                             }
                         } else {
                             ps.setLong(psOrdinal, from);

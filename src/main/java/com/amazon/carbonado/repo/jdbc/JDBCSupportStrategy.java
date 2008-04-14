@@ -302,6 +302,8 @@ class JDBCSupportStrategy {
         LIMIT_AND_OFFSET,
         // Slice is fully supported with offset parameter first
         OFFSET_AND_LIMIT,
+        // Slice is fully supported with from parameter first
+        FROM_AND_TO,
     }
 
     /**
@@ -313,13 +315,13 @@ class JDBCSupportStrategy {
 
     /**
      * @param select base select statement
-     * @param limit when true, select must support limit parameter
-     * @param offset when true, select must support offset parameter
+     * @param from when true, select must support slice from bound
+     * @param to when true, select must support slice to bound
      * @return revised select statement
      * @throws UnsupportedOperationException
      * @since 1.2
      */
-    String buildSelectWithSlice(String select, boolean limit, boolean offset) {
+    String buildSelectWithSlice(String select, boolean from, boolean to) {
         throw new UnsupportedOperationException();
     }
 }

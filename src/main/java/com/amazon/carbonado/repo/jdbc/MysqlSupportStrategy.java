@@ -43,14 +43,14 @@ class MysqlSupportStrategy extends JDBCSupportStrategy {
     }
 
     @Override
-    String buildSelectWithSlice(String select, boolean limit, boolean offset) {
-        if (limit) {
-            if (offset) {
+    String buildSelectWithSlice(String select, boolean from, boolean to) {
+        if (to) {
+            if (from) {
                 return select.concat(" LIMIT ?,?");
             } else {
                 return select.concat(" LIMIT ?");
             }
-        } else if (offset) {
+        } else if (from) {
             return select.concat(" LIMIT ?,18446744073709551615");
         } else {
             return select;
