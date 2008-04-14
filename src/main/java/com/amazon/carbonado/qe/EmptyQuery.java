@@ -219,7 +219,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always returns an {@link EmptyCursor}.
      */
-    public Cursor<S> fetch(long from, Long to) {
+    public Cursor<S> fetchSlice(long from, Long to) {
         checkSliceArguments(from, to);
         return EmptyCursor.the();
     }

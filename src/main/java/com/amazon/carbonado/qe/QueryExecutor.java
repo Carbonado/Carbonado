@@ -50,7 +50,7 @@ public interface QueryExecutor<S extends Storable> {
      *
      * @since 1.2
      */
-    Cursor<S> fetch(FilterValues<S> values, long from, Long to) throws FetchException;
+    Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to) throws FetchException;
 
     /**
      * Counts the query results using the given filter values.

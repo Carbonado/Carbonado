@@ -649,7 +649,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         }
 
         @Override
-        public Cursor<S> fetch(FilterValues<S> values, long from, Long to) throws FetchException {
+        public Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to)
+            throws FetchException
+        {
             if (to != null && (to - from) <= 0) {
                 return EmptyCursor.the();
             }
@@ -660,17 +662,17 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
             switch (option) {
             case NOT_SUPPORTED: default:
-                return super.fetch(values, from, to);
+                return super.fetchSlice(values, from, to);
             case LIMIT_ONLY:
                 if (from > 0 || to == null) {
-                    return super.fetch(values, from, to);
+                    return super.fetchSlice(values, from, to);
                 }
                 select = prepareSelect(values, false);
                 select = mSupportStrategy.buildSelectWithSlice(select, false, true);
                 break;
             case OFFSET_ONLY:
                 if (from <= 0) {
-                    return super.fetch(values, from, to);
+                    return super.fetchSlice(values, from, to);
                 }
                 select = prepareSelect(values, false);
                 select = mSupportStrategy.buildSelectWithSlice(select, true, false);

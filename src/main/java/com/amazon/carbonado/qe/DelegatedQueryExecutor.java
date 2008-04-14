@@ -95,8 +95,8 @@ public class DelegatedQueryExecutor<S extends Storable> implements QueryExecutor
         return applyFilterValues(values).fetch();
     }
 
-    public Cursor<S> fetch(FilterValues<S> values, long from, Long to) throws FetchException {
-        return applyFilterValues(values).fetch(from, to);
+    public Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to) throws FetchException {
+        return applyFilterValues(values).fetchSlice(from, to);
     }
 
     public long count(FilterValues<S> values) throws FetchException {

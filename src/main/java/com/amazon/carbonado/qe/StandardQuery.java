@@ -248,13 +248,14 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
-    public Cursor<S> fetch(long from, Long to) throws FetchException {
+    public Cursor<S> fetchSlice(long from, Long to) throws FetchException {
         if (!checkSliceArguments(from, to)) {
             return fetch();
         }
         try {
             QueryHints hints = QueryHints.emptyHints().with(QueryHint.CONSUME_SLICE);
-            return executorFactory().executor(mFilter, mOrdering, hints).fetch(mValues, from, to);
+            return executorFactory().executor(mFilter, mOrdering, hints)
+                .fetchSlice(mValues, from, to);
         } catch (RepositoryException e) {
             throw e.toFetchException();
         }

@@ -45,7 +45,7 @@ public abstract class AbstractQueryExecutor<S extends Storable> implements Query
      *
      * @since 1.2
      */
-    public Cursor<S> fetch(FilterValues<S> values, long from, Long to) throws FetchException {
+    public Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to) throws FetchException {
         Cursor<S> cursor = fetch(values);
         if (from > 0) {
             cursor = new SkipCursor<S>(cursor, from);

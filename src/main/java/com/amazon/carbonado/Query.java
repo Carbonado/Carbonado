@@ -301,7 +301,7 @@ public interface Query<S extends Storable> {
      * @throws FetchException if storage layer throws an exception
      * @since 1.2
      */
-    Cursor<S> fetch(long from, Long to) throws FetchException;
+    Cursor<S> fetchSlice(long from, Long to) throws FetchException;
 
     /**
      * Fetches results for this query after a given starting point, which is
