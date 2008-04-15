@@ -222,6 +222,8 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         Filter<S> orderFilter = Filter.getClosedFilter(storableType);
         Filter<S> lastSubFilter = Filter.getOpenFilter(storableType);
 
+        Object[] values = new Object[orderings.size()];
+
         for (int i=0;;) {
             OrderedProperty<S> property = orderings.get(i);
             RelOp operator = RelOp.GT;
@@ -229,15 +231,27 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
                 operator = RelOp.LT;
             }
             String propertyName = property.getChainedProperty().toString();
-            Object value = start.getPropertyValue(propertyName);
-            orderFilter = orderFilter.or(lastSubFilter.and(propertyName, operator, value));
+
+            values[i] = start.getPropertyValue(propertyName);
+
+            orderFilter = orderFilter.or(lastSubFilter.and(propertyName, operator));
+
             if (++i >= orderings.size()) {
                 break;
             }
-            lastSubFilter = lastSubFilter.and(propertyName, RelOp.EQ, value);
+
+            lastSubFilter = lastSubFilter.and(propertyName, RelOp.EQ).bind();
         }
 
-        return and(orderFilter);
+        Query<S> query = this.and(orderFilter);
+
+        for (int i=0; i<values.length; i++) {
+            for (int j=0; j<=i; j++) {
+                query = query.with(values[j]);
+            }
+        }
+
+        return query;
     }
 
     public Cursor<S> fetch() throws FetchException {
