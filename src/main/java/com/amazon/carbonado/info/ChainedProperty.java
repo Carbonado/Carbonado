@@ -562,11 +562,8 @@ public class ChainedProperty<S extends Storable> implements Serializable, Append
         appendPropTo(app, mPrime.getName(), isOuterJoin(0));
         StorableProperty<?>[] chain = mChain;
         if (chain != null) {
-            app.append('.');
             for (int i=0; i<chain.length; i++) {
-                if (i > 0) {
-                    app.append('.');
-                }
+                app.append('.');
                 appendPropTo(app, chain[i].getName(), isOuterJoin(i + 1));
             }
         }

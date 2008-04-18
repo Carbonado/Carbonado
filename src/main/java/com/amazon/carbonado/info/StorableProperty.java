@@ -31,9 +31,18 @@ import com.amazon.carbonado.util.Appender;
  */
 public interface StorableProperty<S extends Storable> extends Serializable, Appender {
     /**
-     * Returns the name of this property.
+     * Returns the name of this property, which is the same as the bean name
+     * unless it has been {@link com.amazon.carbonado.Name renamed}.
      */
     String getName();
+
+    /**
+     * Returns the bean name of this property, which is derived from the read
+     * and write method names.
+     *
+     * @since 1.2
+     */
+    String getBeanName();
 
     /**
      * Returns the type of this property.

@@ -624,7 +624,7 @@ public class StorableIntrospector {
                 String sig = createSig(readMethod);
                 if (storableProp.isDerived() || methods.containsKey(sig)) {
                     methods.remove(sig);
-                    properties.put(property.getName(), storableProp);
+                    properties.put(storableProp.getName(), storableProp);
                 } else {
                     continue;
                 }
@@ -634,7 +634,7 @@ public class StorableIntrospector {
                 String sig = createSig(writeMethod);
                 if (storableProp.isDerived() || methods.containsKey(sig)) {
                     methods.remove(sig);
-                    properties.put(property.getName(), storableProp);
+                    properties.put(storableProp.getName(), storableProp);
                 } else {
                     continue;
                 }
@@ -1594,6 +1594,7 @@ public class StorableIntrospector {
         private final boolean mAutomatic;
         private final boolean mIsDerived;
         private final String mName;
+        private final String mBeanName;
 
         // Temporary reference until derived from is resolved.
         private Derived mDerived;
@@ -1635,11 +1636,16 @@ public class StorableIntrospector {
             mAutomatic = automatic;
             mIsDerived = derived != null;
             mDerived = derived;
-            mName = name == null ? mBeanProperty.getName() : name;
+            mBeanName = mBeanProperty.getName();
+            mName = name == null ? mBeanName : name;
         }
 
         public final String getName() {
             return mName;
+        }
+
+        public final String getBeanName() {
+            return mBeanName;
         }
 
         public final Class<?> getType() {

@@ -34,6 +34,7 @@ import com.amazon.carbonado.AlternateKeys;
 import com.amazon.carbonado.Index;
 import com.amazon.carbonado.Indexes;
 import com.amazon.carbonado.Key;
+import com.amazon.carbonado.Name;
 import com.amazon.carbonado.Nullable;
 import com.amazon.carbonado.PrimaryKey;
 import com.amazon.carbonado.Storable;
@@ -455,6 +456,13 @@ public class SyntheticStorableBuilder
                                            property.getReadMethodName(),
                                            propertyType,
                                            null);
+
+        if (property.getName() != null) {
+            // Define @Name
+            Annotation ann = mi.addRuntimeVisibleAnnotation(TypeDesc.forClass(Name.class));
+            ann.putMemberValue("value", property.getName());
+        }
+
         if (property.isNullable()) {
             mi.addRuntimeVisibleAnnotation(TypeDesc.forClass(Nullable.class));
         }

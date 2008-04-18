@@ -36,8 +36,11 @@ import com.amazon.carbonado.FetchInterruptedException;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.Storable;
 
+import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.OrderedProperty;
+import com.amazon.carbonado.info.StorableInfo;
+import com.amazon.carbonado.info.StorableIntrospector;
 
 /**
  * Wraps another Cursor and ensures the results are sorted. If the elements in
@@ -62,17 +65,26 @@ public class SortedCursor<S> extends AbstractCursor<S> {
      */
     public static <S> Comparator<S> createComparator(Class<S> type, String... orderProperties) {
         BeanComparator bc = BeanComparator.forClass(type);
-        for (String property : orderProperties) {
-            Class propertyType;
-            {
-                String name = property;
-                if (name.startsWith("+") || name.startsWith("-")) {
-                    name = name.substring(1);
-                }
-                propertyType = propertyType(type, name);
+
+        if (Storable.class.isAssignableFrom(type)) {
+            StorableInfo info = StorableIntrospector.examine((Class) type);
+            for (String property : orderProperties) {
+                bc = orderBy(bc, OrderedProperty.parse(info, property));
             }
-            bc = orderBy(bc, property, propertyType, Direction.ASCENDING);
+        } else {
+            for (String property : orderProperties) {
+                Class propertyType;
+                {
+                    String name = property;
+                    if (name.startsWith("+") || name.startsWith("-")) {
+                        name = name.substring(1);
+                    }
+                    propertyType = propertyType(type, name);
+                }
+                bc = orderBy(bc, property, propertyType, Direction.ASCENDING);
+            }
         }
+
         return bc;
     }
 
@@ -117,8 +129,7 @@ public class SortedCursor<S> extends AbstractCursor<S> {
             if (property == null) {
                 throw new IllegalArgumentException();
             }
-            bc = orderBy(bc, property.getChainedProperty().toString(),
-                         property.getChainedProperty().getType(), property.getDirection());
+            bc = orderBy(bc, property);
         }
 
         return bc;
@@ -148,15 +159,21 @@ public class SortedCursor<S> extends AbstractCursor<S> {
             if (property == null) {
                 throw new IllegalArgumentException();
             }
-            bc = orderBy(bc, property.getChainedProperty().toString(),
-                         property.getChainedProperty().getType(), property.getDirection());
+            bc = orderBy(bc, property);
         }
 
         return bc;
     }
 
-    private static BeanComparator orderBy(BeanComparator bc, String property,
-                                          Class type, Direction direction)
+    private static BeanComparator orderBy(BeanComparator bc, OrderedProperty property) {
+        ChainedProperty chained = property.getChainedProperty();
+        return orderBy(bc, chainToBeanString(chained), chained.getType(), property.getDirection());
+    }
+
+    private static BeanComparator orderBy(BeanComparator bc,
+                                          String property,
+                                          Class type,
+                                          Direction direction)
     {
         bc = bc.orderBy(property);
 
@@ -165,11 +182,12 @@ public class SortedCursor<S> extends AbstractCursor<S> {
             if (td.getRootComponentType() == TypeDesc.BYTE) {
                 bc = bc.using(Comparators.arrayComparator(type, true));
             } else {
-                bc = bc.using(Comparators.arrayComparator(type, false));
-                if (bc == null) {
+                Comparator c = Comparators.arrayComparator(type, false);
+                if (c == null) {
                     throw new IllegalArgumentException("Cannot sort by property type of " +
                                                        type.getName() + " for " + property);
                 }
+                bc = bc.using(c);
             }
         } else {
             bc = bc.caseSensitive();
@@ -180,6 +198,25 @@ public class SortedCursor<S> extends AbstractCursor<S> {
         }
 
         return bc;
+    }
+
+    /**
+     * Creates a dotted name string using the bean property names.
+     */
+    private static String chainToBeanString(ChainedProperty property) {
+        int count = property.getChainCount();
+        if (count <= 0) {
+            return property.getPrimeProperty().getBeanName();
+        }
+
+        StringBuilder b = new StringBuilder();
+        b.append(property.getPrimeProperty().getBeanName());
+        for (int i=0; i<count; i++) {
+            b.append('.');
+            b.append(property.getChainedProperty(i).getBeanName());
+        }
+
+        return b.toString();
     }
 
     /** Wrapped cursor */

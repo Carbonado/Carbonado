@@ -1183,6 +1183,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mMainProperty.getName();
         }
 
+        public String getBeanName() {
+            return mMainProperty.getBeanName();
+        }
+
         public Class<?> getType() {
             return mMainProperty.getType();
         }
