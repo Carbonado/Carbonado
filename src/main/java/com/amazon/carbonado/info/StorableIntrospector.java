@@ -609,14 +609,16 @@ public class StorableIntrospector {
                 continue;
             }
 
-            boolean pk = pkPropertyNames.contains(property.getName());
-            boolean altKey = altKeyPropertyNames.contains(property.getName());
-
             StorableProperty<S> storableProp = makeStorableProperty
-                (errorMessages, property, type, pk, altKey);
+                (errorMessages, property, type, pkPropertyNames, altKeyPropertyNames);
 
             if (storableProp == null) {
                 // Errors.
+                continue;
+            }
+
+            if (properties.containsKey(storableProp.getName())) {
+                errorMessages.add("Duplicate property defined: " + storableProp.getName());
                 continue;
             }
 
@@ -771,7 +773,8 @@ public class StorableIntrospector {
                               (List<String> errorMessages,
                                BeanProperty property,
                                Class<S> enclosing,
-                               boolean pk, boolean altKey)
+                               Set<String> pkPropertyNames,
+                               Set<String> altKeyPropertyNames)
     {
         Nullable nullable = null;
         Alias alias = null;
@@ -805,6 +808,34 @@ public class StorableIntrospector {
             name = readMethod.getAnnotation(Name.class);
         }
 
+        String propertyName;
+        if (name == null) {
+            propertyName = property.getName();
+        } else {
+            propertyName = name.value();
+            // Ensure that only valid characters are used.
+            int length = propertyName.length();
+            if (length == 0) {
+                errorMessages.add("Property name for method cannot be blank: " + readMethod);
+            } else {
+                if (!Character.isUnicodeIdentifierStart(propertyName.charAt(0))) {
+                    errorMessages.add("First character of property name must be a " +
+                                      "unicode identifier start: " + propertyName);
+                } else {
+                    for (int i=1; i<length; i++) {
+                        if (!Character.isUnicodeIdentifierPart(propertyName.charAt(i))) {
+                            errorMessages.add("Characters of property name must be a " +
+                                              "unicode identifier part: " + propertyName);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        boolean pk = pkPropertyNames.contains(propertyName);
+        boolean altKey = altKeyPropertyNames.contains(propertyName);
+
         if (writeMethod == null) {
             if (readMethod == null || Modifier.isAbstract(readMethod.getModifiers())) {
                 // Set method is always required for non-join properties. More
@@ -813,7 +844,7 @@ public class StorableIntrospector {
                 // set method.
                 if (join == null && derived == null) {
                     errorMessages.add("Must define proper 'set' method for property: " +
-                                      property.getName());
+                                      propertyName);
                 }
             }
         } else {
@@ -849,6 +880,10 @@ public class StorableIntrospector {
                 errorMessages.add
                     ("Derived annotation not allowed on mutator: " + writeMethod);
             }
+            if (writeMethod.getAnnotation(Name.class) != null) {
+                errorMessages.add
+                    ("Name annotation not allowed on mutator: " + writeMethod);
+            }
         }
 
         if (derived != null) {
@@ -856,30 +891,30 @@ public class StorableIntrospector {
                 writeMethod != null && Modifier.isAbstract(writeMethod.getModifiers()))
             {
                 errorMessages.add("Derived properties cannot be abstract: " +
-                                  property.getName());
+                                  propertyName);
             }
             if (pk) {
                 errorMessages.add("Derived properties cannot be a member of primary key: " +
-                                  property.getName());
+                                  propertyName);
             }
             if (sequence != null) {
                 errorMessages.add("Derived properties cannot have a Sequence annotation: " +
-                                  property.getName());
+                                  propertyName);
             }
             if (automatic != null) {
                 errorMessages.add("Derived properties cannot have an Automatic annotation: " +
-                                  property.getName());
+                                  propertyName);
             }
             if (join != null) {
                 errorMessages.add("Derived properties cannot have a Join annotation: " +
-                                  property.getName());
+                                  propertyName);
             }
         }
 
         if (nullable != null && property.getType().isPrimitive()) {
             errorMessages.add
                 ("Properties which have a primitive type cannot be declared nullable: " +
-                 "Property \"" + property.getName() + "\" has type \"" +
+                 "Property \"" + propertyName + "\" has type \"" +
                  property.getType() + '"');
         }
 
@@ -887,8 +922,7 @@ public class StorableIntrospector {
         if (alias != null) {
             aliases = alias.value();
             if (aliases.length == 0) {
-                errorMessages.add
-                    ("Alias list is empty for property: " + property.getName());
+                errorMessages.add("Alias list is empty for property: " + propertyName);
             }
         }
 
@@ -908,11 +942,11 @@ public class StorableIntrospector {
             if (adapters != null && adapters.length > 0) {
                 if (join != null) {
                     errorMessages.add
-                        ("Join properties cannot have adapters: " + property.getName());
+                        ("Join properties cannot have adapters: " + propertyName);
                 }
                 if (adapters.length > 1) {
                     errorMessages.add
-                        ("Only one adpater allowed per property: " + property.getName());
+                        ("Only one adpater allowed per property: " + propertyName);
                 }
             }
             if (adapters == null || adapters.length == 0) {
@@ -976,11 +1010,6 @@ public class StorableIntrospector {
             sequenceName = sequence.value();
         }
         
-        String preferedName = null;
-        if (name != null) {
-            preferedName = name.value();
-        }
-
         if (join == null) {
             if (errorMessages.size() > 0) {
                 return null;
@@ -989,7 +1018,7 @@ public class StorableIntrospector {
                 (property, enclosing, nullable != null, pk, altKey,
                  aliases, constraints, adapters == null ? null : adapters[0],
                  version != null, sequenceName,
-                 independent != null, automatic != null, derived, preferedName );
+                 independent != null, automatic != null, derived, propertyName);
         }
 
         // Do additional work for join properties.
@@ -1006,7 +1035,7 @@ public class StorableIntrospector {
 
         if (internal.length != external.length) {
             errorMessages.add
-                ("Internal/external lists on Join property \"" + property.getName() +
+                ("Internal/external lists on Join property \"" + propertyName +
                  "\" differ in length: " + internal.length + " != " + external.length);
         }
 
@@ -1014,7 +1043,7 @@ public class StorableIntrospector {
         if (Query.class == joinedType) {
             if (nullable != null) {
                 errorMessages.add
-                    ("Join property \"" + property.getName() +
+                    ("Join property \"" + propertyName +
                      "\" cannot be declared as nullable because the type is Query");
             }
 
@@ -1023,7 +1052,7 @@ public class StorableIntrospector {
 
             if (property.getWriteMethod() != null) {
                 errorMessages.add
-                    ("Join property \"" + property.getName() +
+                    ("Join property \"" + propertyName +
                      "\" cannot have a mutator because the type is Query: " +
                      property.getWriteMethod());
             }
@@ -1058,7 +1087,7 @@ public class StorableIntrospector {
 
         if (!Storable.class.isAssignableFrom(joinedType)) {
             errorMessages.add
-                ("Type of join property \"" + property.getName() +
+                ("Type of join property \"" + propertyName +
                  "\" is not a Storable: " + joinedType);
         }
 
@@ -1087,7 +1116,7 @@ public class StorableIntrospector {
 
         if (version != null) {
             errorMessages.add
-                ("Join property cannot be declared as a version property: " + property.getName());
+                ("Join property cannot be declared as a version property: " + propertyName);
         }
 
         if (errorMessages.size() > 0) {
@@ -1098,7 +1127,7 @@ public class StorableIntrospector {
             (property, enclosing, nullable != null, aliases,
              constraints, adapters == null ? null : adapters[0],
              sequenceName, independent != null, automatic != null, derived,
-             joinedType, internal, external, preferedName);
+             joinedType, internal, external, propertyName);
     }
 
     private static StorablePropertyConstraint[] gatherConstraints

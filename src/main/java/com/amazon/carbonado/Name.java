@@ -40,6 +40,11 @@ import java.lang.annotation.Target;
  * }
  * </pre>
  *
+ * The first character of a name must be a {@link
+ * Character#isUnicodeIdentifierStart unicode identifier start}, and all
+ * subsequent characters must be a {@link Character#isUnicodeIdentifierPart
+ * unicode identifier part}.
+ *
  * @since 1.2
  * @author Fang Chen
  * @author Brian S O'Neill
