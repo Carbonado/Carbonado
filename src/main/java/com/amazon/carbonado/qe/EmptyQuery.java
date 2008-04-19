@@ -225,13 +225,6 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     }
 
     /**
-     * Always returns an {@link EmptyCursor}.
-     */
-    public Cursor<S> fetchAfter(S start) {
-        return EmptyCursor.the();
-    }
-
-    /**
      * Always throws {@link PersistNoneException}.
      */
     public void deleteOne() throws PersistNoneException {

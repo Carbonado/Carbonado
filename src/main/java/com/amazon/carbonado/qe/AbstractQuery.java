@@ -53,6 +53,10 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
         return or(Filter.filterFor(getStorableType(), filter));
     }
 
+    public Cursor<S> fetchAfter(S start) throws FetchException {
+        return after(start).fetch();
+    }
+
     public S loadOne() throws FetchException {
         S obj = tryLoadOne();
         if (obj == null) {

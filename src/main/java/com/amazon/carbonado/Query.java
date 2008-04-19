@@ -313,6 +313,9 @@ public interface Query<S extends Storable> {
      * query needs to perform a sort operation. Ideally, the query ordering
      * should match the natural ordering of an index or key.
      *
+     * <p>Calling {@code fetchAfter(s)} is equivalent to calling {@code
+     * after(s).fetch()}.
+     *
      * @param start storable to attempt to start after; if null, fetch all results
      * @return fetch results
      * @throws IllegalStateException if any blank parameters in this query

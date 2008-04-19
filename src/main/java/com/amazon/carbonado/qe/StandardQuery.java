@@ -275,10 +275,6 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
-    public Cursor<S> fetchAfter(S start) throws FetchException {
-        return after(start).fetch();
-    }
-
     public boolean tryDeleteOne() throws PersistException {
         Transaction txn = enterTransaction(IsolationLevel.READ_COMMITTED);
         try {
