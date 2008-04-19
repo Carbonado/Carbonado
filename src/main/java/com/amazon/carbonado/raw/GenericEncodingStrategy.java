@@ -48,6 +48,7 @@ import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIndex;
+import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.info.StorablePropertyAdapter;
@@ -2347,18 +2348,31 @@ public class GenericEncodingStrategy<S extends Storable> {
             doDrop: {
                 Class instanceVarClass = instanceVarType.toClass();
                 if (instanceVarClass != null) {
-                    Map<String, BeanProperty> props =
-                        BeanIntrospector.getAllProperties(instanceVarClass);
-                    BeanProperty prop = props.get(info.getPropertyName());
-                    if (prop != null) {
-                        if (prop.getType() == type.toClass()) {
+                    Class propertyClass;
+                    {
+                        Class inferredType = StorableIntrospector.inferType(instanceVarClass);
+                        if (inferredType != null) {
+                            StorableInfo propInfo = StorableIntrospector.examine(inferredType);
+                            Map<String, StorableProperty> props = propInfo.getAllProperties();
+                            StorableProperty prop = props.get(info.getPropertyName());
+                            propertyClass = prop == null ? null : prop.getType();
+                        } else {
+                            Map<String, BeanProperty> props =
+                                BeanIntrospector.getAllProperties(instanceVarClass);
+                            BeanProperty prop = props.get(info.getPropertyName());
+                            propertyClass = prop == null ? null : prop.getType();
+                        }
+                    }
+
+                    if (propertyClass != null) {
+                        if (propertyClass == type.toClass()) {
                             break doDrop;
                         }
 
                         // Types differ, but if primitive types, perform conversion.
                         TypeDesc primType = type.toPrimitiveType();
                         if (primType != null) {
-                            TypeDesc propType = TypeDesc.forClass(prop.getType());
+                            TypeDesc propType = TypeDesc.forClass(propertyClass);
                             TypeDesc primPropType = propType.toPrimitiveType();
                             if (primPropType != null) {
                                 // Apply conversion and store property.

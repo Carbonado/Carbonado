@@ -90,10 +90,10 @@ public class StorableIntrospector {
     /**
      * Examines the given class and returns a StorableInfo describing it. A
      * MalformedTypeException is thrown for a variety of reasons if the given
-     * class is not a well-defined Storable type.
+     * class is an invalid Storable type.
      *
      * @param type Storable type to examine
-     * @throws MalformedTypeException if Storable type is not well-formed
+     * @throws MalformedTypeException if Storable type is invalid
      * @throws IllegalArgumentException if type is null
      */
     @SuppressWarnings("unchecked")
@@ -309,6 +309,40 @@ public class StorableIntrospector {
         }
     }
 
+    /**
+     * Examines a class and determines what Storable type it implements. If it
+     * cannot be unambiguously inferred, null is returned. A non-null return
+     * value does not imply that the Storable type is valid, however. It must
+     * be {@link #examine examined} to check validity.
+     *
+     * @since 1.2
+     */
+    public static Class<? extends Storable> inferType(Class clazz) {
+        if (clazz == null || !Storable.class.isAssignableFrom(clazz)) {
+            return null;
+        }
+
+        if (clazz.isAnnotationPresent(PrimaryKey.class)) {
+            return clazz;
+        }
+
+        Class candidate = inferType(clazz.getSuperclass());
+
+        for (Class iface : clazz.getInterfaces()) {
+            Class inferred = inferType(iface);
+            if (inferred != null) {
+                if (candidate == null) {
+                    candidate = inferred;
+                } else {
+                    // Inference is ambiguous.
+                    return null;
+                }
+            }
+        }
+            
+        return candidate;
+    }
+
     private static class NameAndDirection {
         final String name;
         final Direction direction;
@@ -487,8 +521,7 @@ public class StorableIntrospector {
                 throw new MalformedTypeException(type, "Storable interface must be extended");
             }
         } else {
-            throw new MalformedTypeException
-                (type, "Does not implement Storable interface");
+            throw new MalformedTypeException(type, "Does not implement Storable interface");
         }
         int modifiers = type.getModifiers();
         if (Modifier.isFinal(modifiers)) {

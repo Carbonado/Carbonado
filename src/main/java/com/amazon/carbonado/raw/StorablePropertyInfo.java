@@ -129,4 +129,9 @@ public class StorablePropertyInfo implements GenericPropertyInfo {
                             getWriteMethodName(), null, new TypeDesc[] {getPropertyType()});
         }
     }
+
+    @Override
+    public String toString() {
+        return mProp.toString();
+    }
 }
