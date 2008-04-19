@@ -84,8 +84,8 @@ class ConversionComparator implements Comparator<Class> {
 
     /**
      * Evaluates two types, to see which one is nearest to the from type.
-     * Return &lt;0 if "a" is nearest, 0 if both are equally good, &gt;0 if "b" is
-     * nearest.
+     * Return {@literal <0} if "a" is nearest, 0 if both are equally good,
+     * {@literal >0} if "b" is nearest.
      */
     public int compare(Class toType_a, Class toType_b) {
         TypeDesc from = mFrom;

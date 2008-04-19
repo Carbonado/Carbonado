@@ -28,18 +28,19 @@ import java.lang.annotation.*;
  * makes the property or type unsupported.  Any subsequent invocation of a property access
  * method for the independent type or property will cause an UnsupportedOperationException
  * to be thrown.
- * <p>
- * One example of when this might be used would be to store a calculated field in the cached
- * representation of the object.  It is <b>not</b> necessary to prevent implemented methods
- * of the form "get&lt;value&gt;" from being inadvertently interpreted as properties of the
- * storable; any implementation is by definition not a property.
- * <p>
- * If a correctly matching property actually is found, then this annotation is
- * ignored and the property or type is defined as usual. If the Repository
+ *
+ * <p>One example of when this might be used would be to store a calculated
+ * field in the cached representation of the object.  It is <b>not</b>
+ * necessary to prevent implemented methods of the form {@literal "get<value>"}
+ * from being inadvertently interpreted as properties of the storable; any
+ * implementation is by definition not a property.
+ *
+ * <p>If a correctly matching property actually is found, then this annotation
+ * is ignored and the property or type is defined as usual. If the Repository
  * finds a property whose name matches, but whose type does not match, a
  * MismatchException will be thrown regardless of this annotation.
  *
- * <P>Independent repositories completely ignore this annotation.
+ * <p>Independent repositories completely ignore this annotation.
  *
  * <p>Example:<pre>
  * public interface UserInfo extends Storable&lt;UserInfo&gt; {

@@ -495,8 +495,8 @@ public abstract class RawCursor<S> extends AbstractCursor<S> {
     }
 
     /**
-     * Returns &lt;0 if key1 is less, 0 if equal (at least partially), &gt;0
-     * if key1 is greater.
+     * Returns {@literal <0} if key1 is less, 0 if equal (at least partially),
+     * {@literal >0} if key1 is greater.
      */
     protected int compareKeysPartially(byte[] key1, byte[] key2) {
         int length = Math.min(key1.length, key2.length);

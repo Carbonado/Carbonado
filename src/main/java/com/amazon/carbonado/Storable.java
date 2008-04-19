@@ -259,12 +259,12 @@ public interface Storable<S extends Storable<S>> {
 
     /**
      * Copies all supported properties, skipping any that are uninitialized.
-     * Specifically, calls "target.set&lt;property&gt;" for all supported
+     * Specifically, calls {@literal "target.set<property>"} for all supported
      * properties in this storable, passing the value of the property from this
      * object. Unsupported {@link Independent independent} properties in this
      * or the target are not copied.
      *
-     * @param target storable on which to call set&lt;property&gt; methods
+     * @param target storable on which to call {@literal set<property>} methods
      * @throws IllegalStateException if any primary key properties of target
      * cannot be altered
      */
@@ -272,12 +272,12 @@ public interface Storable<S extends Storable<S>> {
 
     /**
      * Copies all supported primary key properties, skipping any that are
-     * uninitialized. Specifically, calls "target.set&lt;property&gt;" for all
+     * uninitialized. Specifically, calls {@literal "target.set<property>"} for all
      * supported properties which participate in the primary key, passing the
      * value of the property from this object. Unsupported {@link Independent
      * independent} properties in this or the target are not copied.
      *
-     * @param target storable on which to call set&lt;property&gt; methods
+     * @param target storable on which to call {@literal set<property>} methods
      * @throws IllegalStateException if any primary key properties of target
      * cannot be altered
      */
@@ -285,38 +285,38 @@ public interface Storable<S extends Storable<S>> {
 
     /**
      * Copies the optional version property, unless it is uninitialized.
-     * Specifically, calls "target.set&lt;property&gt;" for the version
+     * Specifically, calls {@literal "target.set<property>"} for the version
      * property (if supported), passing the value of the property from this
      * object. If no version property is defined, then this method does
      * nothing. Unsupported {@link Independent independent} properties in this
      * or the target are not copied.
      *
-     * @param target storable on which to call set&lt;property&gt; method
+     * @param target storable on which to call {@literal set<property>} method
      */
     void copyVersionProperty(S target);
 
     /**
      * Copies all supported non-primary key properties which are unequal,
      * skipping any that are uninitialized. Specifically, calls
-     * "target.get&lt;property&gt;", and if the value thus retrieved differs
-     * from the local value, "target.set&lt;property&gt;" is called for that
+     * {@literal "target.get<property>"}, and if the value thus retrieved differs
+     * from the local value, {@literal "target.set<property>"} is called for that
      * property. Unsupported {@link Independent independent} properties in this
      * or the target are not copied.
      *
-     * @param target storable on which to call set&lt;property&gt; methods
+     * @param target storable on which to call {@literal set<property>} methods
      */
     void copyUnequalProperties(S target);
 
     /**
      * Copies all supported non-primary key properties which are
-     * dirty. Specifically, calls "target.set&lt;property&gt;" for any
+     * dirty. Specifically, calls {@literal "target.set<property>"} for any
      * non-primary key property which is dirty, passing the value of the
      * property from this object. A property is considered dirty when set
      * before a load or persist operation is called. Unsupported {@link
      * Independent independent} properties in this or the target are not
      * copied.
      *
-     * @param target storable on which to call set&lt;property&gt; methods
+     * @param target storable on which to call {@literal set<property>} methods
      */
     void copyDirtyProperties(S target);
 

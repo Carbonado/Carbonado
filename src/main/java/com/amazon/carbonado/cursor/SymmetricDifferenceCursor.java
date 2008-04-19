@@ -81,9 +81,9 @@ public class SymmetricDifferenceCursor<S> extends AbstractCursor<S> {
     }
 
     /**
-     * Returns 0 if no next element available, &lt;0 if next element is from
-     * left source cursor, and &gt;0 if next element is from right source
-     * cursor.
+     * Returns 0 if no next element available, {@literal <0} if next element is
+     * from left source cursor, and {@literal >0} if next element is from right
+     * source cursor.
      */
     public int compareNext() throws FetchException {
         if (mCompareResult != 0) {

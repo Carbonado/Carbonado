@@ -543,8 +543,10 @@ public class StorableIndex<S extends Storable> implements Appender {
     /**
      * Converts this index into a parseable name descriptor string, whose
      * general format is:
-     * <pre>&lt;storable type&gt;~&lt;attr&gt;&lt;+|-|~&gt;&lt;property&gt;&lt;+|-|~&gt;&lt;property&gt;...</pre>
-     * Attr is "U" for a unique index, "N" for a non-unique index.
+     *
+     * <p>{@code <storable type>~<attr><+|-|~><property><+|-|~><property>...}
+     *
+     * <p>Attr is "U" for a unique index, "N" for a non-unique index.
      *
      * <p>Example: {@code my.pkg.UserInfo~N+lastName+firstName-birthDate}
      *
