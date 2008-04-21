@@ -796,6 +796,12 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
 
     public static interface DatabaseHook {
         /**
+         * Returns an appropriate database name for the given type. Simply
+         * return the type name as-is to support default behavior.
+         */
+        String databaseName(String typeName);
+
+        /**
          * Called right before database is opened.
          *
          * @param db reference to database or config - actual type depends on BDB

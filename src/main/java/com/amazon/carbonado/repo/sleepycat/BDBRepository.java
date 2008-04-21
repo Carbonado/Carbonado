@@ -365,7 +365,11 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
 
         String dbFileName = dbName;
 
-        if (singleFileName != null) {
+        if (singleFileName == null) {
+            if (mDatabaseHook != null) {
+                dbFileName = mDatabaseHook.databaseName(dbName);
+            }
+        } else {
             dbFileName = singleFileName;
         }
 
@@ -379,7 +383,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     /**
      * Returns null if name should not be used.
      */
-    String getDatabaseName(final String dbName) {
+    String getDatabaseName(String dbName) {
         if (mFileNameMap == null) {
             return null;
         }
@@ -387,7 +391,13 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         if (name == null && dbName != null) {
             name = mFileNameMap.get(null);
         }
-        return name == null ? null : dbName;
+        if (name == null) {
+            return null;
+        }
+        if (mDatabaseHook != null) {
+            dbName = mDatabaseHook.databaseName(dbName);
+        }
+        return dbName;
     }
 
     StorableCodecFactory getStorableCodecFactory() {
