@@ -752,18 +752,47 @@ public class GenericEncodingStrategy<S extends Storable> {
             staticLength += (properties.length + 3) / 4;
         }
 
+        // Stash of properties which are loaded and locally stored before
+        // entering the first loop. This avoids having to load them twice.
+        LocalVariable[] stashedProperties = null;
+        Boolean[] stashedFromInstances = null;
+
         boolean hasVariableLength;
-        if (doPartial) {
-            hasVariableLength = true;
-        } else {
-            hasVariableLength = false;
-            for (GenericPropertyInfo info : infos) {
+        {
+            hasVariableLength = doPartial;
+
+            for (int i=0; i<infos.length; i++) {
+                GenericPropertyInfo info = infos[i];
                 int len = staticEncodingLength(info);
                 if (len >= 0) {
-                    staticLength += len;
+                    if (!doPartial) {
+                        staticLength += len;
+                    }
                 } else {
-                    staticLength += ~len;
-                    hasVariableLength = true;
+                    if (!doPartial) {
+                        staticLength += ~len;
+                        hasVariableLength = true;
+                    }
+
+                    if (info.getPropertyType() == info.getStorageType()) {
+                        // Property won't be adapted, so loading it twice is no big deal.
+                        continue;
+                    }
+
+                    if (stashedProperties == null) {
+                        stashedProperties = new LocalVariable[infos.length];
+                        stashedFromInstances = new Boolean[infos.length];
+                    }
+
+                    LocalVariable propVar = a.createLocalVariable(null, info.getStorageType());
+                    stashedProperties[i] = propVar;
+
+                    if (doPartial) {
+                        // Initialize the stashed propery to null or zero to make
+                        // the verifier happy.
+                        loadBlankValue(a, propVar.getType());
+                        a.storeLocal(propVar);
+                    }
                 }
             }
         }
@@ -772,37 +801,8 @@ public class GenericEncodingStrategy<S extends Storable> {
         // variable length. Load each property and perform the necessary
         // tests to determine the exact encoding length.
 
-        // Stash of properties which are loaded and locally stored before
-        // entering the first loop. This avoids having to load them twice.
-        LocalVariable[] stashedProperties = null;
-        Boolean[] stashedFromInstances = null;
-
         boolean hasStackVar = false;
         if (hasVariableLength) {
-            // Figure out which properties should be locally stashed.
-            stashedProperties = new LocalVariable[properties.length];
-            stashedFromInstances = new Boolean[properties.length];
-
-            for (int i=0; i<properties.length; i++) {
-                StorableProperty<S> property = properties[i];
-                StorablePropertyInfo info = infos[i];
-
-                if (info.getPropertyType() == info.getStorageType()) {
-                    // Property won't be adapted, so loading it twice is no big deal.
-                    continue;
-                }
-
-                LocalVariable propVar = a.createLocalVariable(null, info.getStorageType());
-                stashedProperties[i] = propVar;
-
-                if (doPartial) {
-                    // Initialize the stashed propery to null or zero to make
-                    // the verifier happy.
-                    loadBlankValue(a, propVar.getType());
-                    a.storeLocal(propVar);
-                }
-            }
-
             Label[] entryPoints = null;
 
             if (mode == Mode.SERIAL || partialStartVar != null) {
@@ -842,24 +842,25 @@ public class GenericEncodingStrategy<S extends Storable> {
                     // Skip uninitialized properties.
                     nextProperty = a.createLabel();
 
+                    int fieldOrdinal = property.getNumber() >> 4;
                     if (stateFieldVar != null) {
                         a.loadLocal(stateFieldVar);
                     } else {
-                        int fieldOrdinal = property.getNumber() >> 4;
-
                         a.loadThis();
                         a.loadField(PROPERTY_STATE_FIELD_NAME + fieldOrdinal, TypeDesc.INT);
+                    }
 
-                        if (i + 1 < properties.length
-                            && properties[i + 1].getNumber() >> 4 == fieldOrdinal)
-                        {
+                    if (i + 1 < properties.length
+                        && (properties[i + 1].getNumber() >> 4) == fieldOrdinal)
+                    {
+                        if (stateFieldVar == null) {
                             // Save for use by next property.
                             stateFieldVar = a.createLocalVariable(null, TypeDesc.INT);
                             a.storeLocal(stateFieldVar);
                             a.loadLocal(stateFieldVar);
-                        } else {
-                            stateFieldVar = null;
                         }
+                    } else {
+                        stateFieldVar = null;
                     }
 
                     a.loadConstant(PROPERTY_STATE_MASK << ((property.getNumber() & 0xf) * 2));
