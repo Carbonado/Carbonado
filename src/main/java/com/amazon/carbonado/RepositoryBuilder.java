@@ -33,6 +33,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * configuration. This logic is hidden, making it easier to use repositories
  * that would otherwise require complex steps to construct.
  *
+ * <p>RepositoryBuilders are not expected to be thread-safe, but the
+ * Repositories they build are thread-safe.
+ *
  * @author Brian S O'Neill
  */
 public interface RepositoryBuilder {
