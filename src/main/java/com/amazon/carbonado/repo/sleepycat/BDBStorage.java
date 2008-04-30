@@ -27,9 +27,13 @@ import org.apache.commons.logging.LogFactory;
 import org.cojen.classfile.TypeDesc;
 
 import com.amazon.carbonado.Cursor;
+import com.amazon.carbonado.FetchDeadlockException;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.FetchTimeoutException;
 import com.amazon.carbonado.IsolationLevel;
+import com.amazon.carbonado.PersistDeadlockException;
 import com.amazon.carbonado.PersistException;
+import com.amazon.carbonado.PersistTimeoutException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
@@ -491,12 +495,32 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
                     if (!readOnly) {
                         Repository repo = mRepository.getRootRepository();
-                        Transaction txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
                         try {
-                            primaryInfo.update();
-                            txn.commit();
-                        } finally {
-                            txn.exit();
+                            Transaction txn =
+                                repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                            try {
+                                primaryInfo.update();
+                                txn.commit();
+                            } finally {
+                                txn.exit();
+                            }
+                        } catch (PersistException e) {
+                            if (e instanceof PersistDeadlockException ||
+                                e instanceof PersistTimeoutException)
+                            {
+                                // Might be caused by coarse locks. Switch to
+                                // nested transaction to share the locks.
+                                Transaction txn =
+                                    repo.enterTransaction(IsolationLevel.READ_COMMITTED);
+                                try {
+                                    primaryInfo.update();
+                                    txn.commit();
+                                } finally {
+                                    txn.exit();
+                                }
+                            } else {
+                                throw e;
+                            }
                         }
                     }
                 }
@@ -788,9 +812,16 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         info.setDatabaseName(getStorableType().getName());
 
         // Try to insert metadata up to three times.
+        boolean top = true;
         for (int retryCount = 3;;) {
             try {
-                Transaction txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                Transaction txn;
+                if (top) {
+                    txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                } else {
+                    txn = mRepository.enterTransaction(IsolationLevel.READ_COMMITTED);
+                }
+
                 txn.setForUpdate(true);
                 try {
                     if (!info.tryLoad()) {
@@ -815,6 +846,28 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                 // a few times before throwing exception. Wait up to a second
                 // before each retry.
                 retryCount = e.backoff(e, retryCount, 1000);
+            } catch (FetchException e) {
+                if (e instanceof FetchDeadlockException || e instanceof FetchTimeoutException) {
+                    // Might be caused by coarse locks. Switch to nested
+                    // transaction to share the locks.
+                    if (top) {
+                        top = false;
+                        retryCount = e.backoff(e, retryCount, 100);
+                        continue;
+                    }
+                }
+                throw e;
+            } catch (PersistException e) {
+                if (e instanceof PersistDeadlockException || e instanceof PersistTimeoutException){
+                    // Might be caused by coarse locks. Switch to nested
+                    // transaction to share the locks.
+                    if (top) {
+                        top = false;
+                        retryCount = e.backoff(e, retryCount, 100);
+                        continue;
+                    }
+                }
+                throw e;
             }
         }
 

@@ -29,10 +29,14 @@ import java.util.Map;
 import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.Cursor;
+import com.amazon.carbonado.FetchDeadlockException;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchNoneException;
+import com.amazon.carbonado.FetchTimeoutException;
 import com.amazon.carbonado.IsolationLevel;
+import com.amazon.carbonado.PersistDeadlockException;
 import com.amazon.carbonado.PersistException;
+import com.amazon.carbonado.PersistTimeoutException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
@@ -98,9 +102,16 @@ public class LayoutFactory implements LayoutCapability {
         ResyncCapability resyncCap = null;
 
         // Try to insert metadata up to three times.
+        boolean top = true;
         loadLayout: for (int retryCount = 3;;) {
             try {
-                Transaction txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                Transaction txn;
+                if (top) {
+                    txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                } else {
+                    txn = mRepository.enterTransaction(IsolationLevel.READ_COMMITTED);
+                }
+
                 txn.setForUpdate(true);
                 try {
                     // If type represents a new generation, then a new layout needs to
@@ -185,6 +196,28 @@ public class LayoutFactory implements LayoutCapability {
                 // before each retry.
                 retryCount = e.backoff(e, retryCount, 1000);
                 resyncCap = mRepository.getCapability(ResyncCapability.class);
+            } catch (FetchException e) {
+                if (e instanceof FetchDeadlockException || e instanceof FetchTimeoutException) {
+                    // Might be caused by coarse locks. Switch to nested
+                    // transaction to share the locks.
+                    if (top) {
+                        top = false;
+                        retryCount = e.backoff(e, retryCount, 100);
+                        continue;
+                    }
+                }
+                throw e;
+            } catch (PersistException e) {
+                if (e instanceof PersistDeadlockException || e instanceof PersistTimeoutException){
+                    // Might be caused by coarse locks. Switch to nested
+                    // transaction to share the locks.
+                    if (top) {
+                        top = false;
+                        retryCount = e.backoff(e, retryCount, 100);
+                        continue;
+                    }
+                }
+                throw e;
             }
         }
 

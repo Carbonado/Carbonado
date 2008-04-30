@@ -242,17 +242,26 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             masterQuery = masterStorage.query().orderBy(naturalOrdering);
         }
 
+        // Quick check to see if any records exist in master.
+        {
+            Transaction txn = repo.enterTransaction(IsolationLevel.READ_COMMITTED);
+            try {
+                Cursor<S> cursor = masterQuery.fetch();
+                if (!cursor.hasNext()) {
+                    // Nothing exists in master, so nothing to populate.
+                    return;
+                }
+            } finally {
+                txn.exit();
+            }
+        }
+
         // Enter top transaction with isolation level of none to make sure
         // preload operation does not run in a long nested transaction.
         Transaction txn = repo.enterTopTransaction(IsolationLevel.NONE);
         try {
             Cursor<S> cursor = masterQuery.fetch();
             try {
-                if (!cursor.hasNext()) {
-                    // Nothing exists in master, so nothing to populate.
-                    return;
-                }
-
                 if (log.isInfoEnabled()) {
                     StringBuilder b = new StringBuilder();
                     b.append("Populating index on ");
