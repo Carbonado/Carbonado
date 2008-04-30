@@ -395,7 +395,11 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
             return null;
         }
         if (mDatabaseHook != null) {
-            dbName = mDatabaseHook.databaseName(dbName);
+            try {
+                dbName = mDatabaseHook.databaseName(dbName);
+            } catch (IncompatibleClassChangeError e) {
+                // Method not implemented.
+            }
         }
         return dbName;
     }
