@@ -20,6 +20,7 @@ package com.amazon.carbonado.repo.indexed;
 
 import java.util.Comparator;
 
+import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 
@@ -30,6 +31,7 @@ import com.amazon.carbonado.capability.IndexInfo;
  * inspection and repair.
  *
  * @author Brian S O'Neill
+ * @see IndexEntryAccessCapability
  */
 public interface IndexEntryAccessor<S extends Storable> extends IndexInfo {
     /**
@@ -64,6 +66,15 @@ public interface IndexEntryAccessor<S extends Storable> extends IndexInfo {
      * @param master source of property values
      */
     boolean isConsistent(Storable indexEntry, S master);
+
+    /**
+     * Repairs the index by inserting missing entries and fixing
+     * inconsistencies.
+     *
+     * @param desiredSpeed throttling parameter - 1.0 = full speed, 0.5 = half
+     * speed, 0.1 = one-tenth speed, etc
+     */
+    void repair(double desiredSpeed) throws RepositoryException;
 
     /**
      * Returns a comparator for ordering index entries.

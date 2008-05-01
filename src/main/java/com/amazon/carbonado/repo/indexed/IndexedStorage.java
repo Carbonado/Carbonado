@@ -287,7 +287,8 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
                 IndexEntryGenerator<S> builder = IndexEntryGenerator.getInstance(index);
                 Class<? extends Storable> indexEntryClass = builder.getIndexEntryClass();
                 Storage<?> indexEntryStorage = repository.getIndexEntryStorageFor(indexEntryClass);
-                ManagedIndex managedIndex = new ManagedIndex<S>(index, builder, indexEntryStorage);
+                ManagedIndex managedIndex =
+                    new ManagedIndex<S>(this, index, builder, indexEntryStorage);
 
                 mAllIndexInfoMap.put(index, managedIndex);
                 managedIndexes[i++] = managedIndex;
@@ -510,9 +511,8 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
             }
         }
 
-        // New index, so populate it.
-        managedIndex.populateIndex(mRepository, mMasterStorage,
-                                   mRepository.getIndexRepairThrottle());
+        // New index, so build it.
+        managedIndex.buildIndex(mRepository.getIndexRepairThrottle());
 
         boolean top = true;
         while (true) {
