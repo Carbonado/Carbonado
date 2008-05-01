@@ -54,6 +54,8 @@ Carbonado change history
 - Fixed query plan bug which sometimes caused a correctly selected index to be
   fully scanned.
 - Index build skips records which are corrupt instead of giving up entirely.
+- Support named databases in one BDB file.
+- Add index repair method.
 
 1.1 to 1.1.2
 -------------------------------

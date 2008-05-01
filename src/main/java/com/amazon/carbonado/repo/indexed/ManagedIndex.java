@@ -29,7 +29,6 @@ import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
-import com.amazon.carbonado.OptimisticLockException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
@@ -388,7 +387,6 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
 
         txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
         try {
-
             for (Object obj : buffer) {
                 Storable indexEntry = (Storable) obj;
                 if (indexEntry.tryInsert()) {

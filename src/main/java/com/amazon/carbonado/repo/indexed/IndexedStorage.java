@@ -605,7 +605,7 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
             // Doesn't completely remove the index, but it should free up space.
 
             double desiredSpeed = mRepository.getIndexRepairThrottle();
-            Throttle throttle = desiredSpeed < 1.0 ? new Throttle(POPULATE_THROTTLE_WINDOW) : null;
+            Throttle throttle = desiredSpeed < 1.0 ? new Throttle(BUILD_THROTTLE_WINDOW) : null;
 
             if (throttle == null) {
                 indexEntryStorage.truncate();
@@ -624,7 +624,7 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
                         final long savedTotal = totalDropped;
                         boolean anyFailure = false;
                         try {
-                            while (count++ < POPULATE_BATCH_SIZE && cursor.hasNext()) {
+                            while (count++ < BUILD_BATCH_SIZE && cursor.hasNext()) {
                                 if (cursor.next().tryDelete()) {
                                     totalDropped++;
                                 } else {
@@ -650,7 +650,7 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
                     }
 
                     try {
-                        throttle.throttle(desiredSpeed, POPULATE_THROTTLE_SLEEP_PRECISION);
+                        throttle.throttle(desiredSpeed, BUILD_THROTTLE_SLEEP_PRECISION);
                     } catch (InterruptedException e) {
                         throw new RepositoryException("Index removal interrupted");
                     }
