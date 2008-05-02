@@ -242,12 +242,7 @@ class ReplicatedRepository
             return (C) this;
         }
 
-        C cap = mMasterRepository.getCapability(capabilityType);
-        if (cap == null) {
-            cap = mReplicaRepository.getCapability(capabilityType);
-        }
-
-        return cap;
+        return mReplicaRepository.getCapability(capabilityType);
     }
 
     public void close() {
