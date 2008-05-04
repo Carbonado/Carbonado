@@ -36,12 +36,9 @@ import com.amazon.carbonado.spi.BelatedRepositoryCreator;
 /**
  * Repository builder for the replicated repository.
  * <p>
- * In addition to providing all the replica's capabilities, the following extra
- * capabilities are supported:
+ * The following extra capabilities are supported:
  * <ul>
  * <li>{@link com.amazon.carbonado.capability.ResyncCapability ResyncCapability}
- * <li>{@link com.amazon.carbonado.capability.ShutdownCapability ShutdownCapability}
- * <li>{@link com.amazon.carbonado.capability.StorableInfoCapability StorableInfoCapability}
  * </ul>
  *
  * @author Don Schneider

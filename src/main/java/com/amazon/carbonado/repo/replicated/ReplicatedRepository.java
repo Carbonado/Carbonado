@@ -53,6 +53,8 @@ import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 
+import com.amazon.carbonado.repo.indexed.IndexEntryAccessCapability;
+
 import com.amazon.carbonado.spi.StoragePool;
 import com.amazon.carbonado.spi.TransactionPair;
 
@@ -242,7 +244,19 @@ class ReplicatedRepository
             return (C) this;
         }
 
-        return mReplicaRepository.getCapability(capabilityType);
+        // Favor replica's indexing capabilities, since they are used for queries.
+        boolean favorReplica =
+            IndexInfoCapability.class.isAssignableFrom(capabilityType) ||
+            IndexEntryAccessCapability.class.isAssignableFrom(capabilityType);
+
+        C masterCap = mMasterRepository.getCapability(capabilityType);
+        C replicaCap = mReplicaRepository.getCapability(capabilityType);
+
+        if (favorReplica) {
+            return replicaCap != null ? replicaCap : masterCap;
+        } else {
+            return masterCap != null ? masterCap : replicaCap;
+        }
     }
 
     public void close() {
