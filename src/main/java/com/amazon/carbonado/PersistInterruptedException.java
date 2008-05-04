@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2008 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -19,32 +19,32 @@
 package com.amazon.carbonado;
 
 /**
- * Thrown from a fetch operation that was canceled.
+ * Thrown from a persist operation that was canceled.
  *
  * @author Brian S O'Neill
+ * @since 1.2
  */
-public class FetchInterruptedException extends FetchException {
+public class PersistInterruptedException extends PersistException {
+    private static final long serialVersionUID = 1;
 
-    private static final long serialVersionUID = -1708236034888616065L;
-
-    public FetchInterruptedException() {
+    public PersistInterruptedException() {
         super();
     }
 
-    public FetchInterruptedException(String message) {
+    public PersistInterruptedException(String message) {
         super(message);
     }
 
-    public FetchInterruptedException(String message, Throwable cause) {
+    public PersistInterruptedException(String message, Throwable cause) {
         super(message, cause);
     }
 
-    public FetchInterruptedException(Throwable cause) {
+    public PersistInterruptedException(Throwable cause) {
         super(cause);
     }
 
     @Override
-    protected PersistException makePersistException(String message, Throwable cause) {
-        return new PersistInterruptedException(message, cause);
+    protected FetchException makeFetchException(String message, Throwable cause) {
+        return new FetchInterruptedException(message, cause);
     }
 }

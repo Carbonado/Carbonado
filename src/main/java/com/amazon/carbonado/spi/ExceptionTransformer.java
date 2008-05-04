@@ -24,6 +24,7 @@ import java.nio.channels.ClosedByInterruptException;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchInterruptedException;
 import com.amazon.carbonado.PersistException;
+import com.amazon.carbonado.PersistInterruptedException;
 import com.amazon.carbonado.RepositoryException;
 
 /**
@@ -157,6 +158,9 @@ public class ExceptionTransformer {
     protected PersistException transformIntoPersistException(Throwable e) {
         if (e instanceof PersistException) {
             return (PersistException) e;
+        }
+        if (e instanceof InterruptedIOException) {
+            return new PersistInterruptedException(e);
         }
         if (e instanceof FetchException) {
             return ((FetchException) e).toPersistException();
