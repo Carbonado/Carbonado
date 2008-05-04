@@ -817,9 +817,9 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             try {
                 Transaction txn;
                 if (top) {
-                    txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                    txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
                 } else {
-                    txn = mRepository.enterTransaction(IsolationLevel.READ_COMMITTED);
+                    txn = repo.enterTransaction(IsolationLevel.READ_COMMITTED);
                 }
 
                 txn.setForUpdate(true);
@@ -956,7 +956,6 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         boolean[] nullable = null;
 
         if (typeDescriptor != null) {
-            System.out.println(typeDescriptor);
             types = new TypeDesc[count];
             nullable = new boolean[count];
 
