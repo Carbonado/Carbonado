@@ -1122,6 +1122,13 @@ class UpgradableLock<L> {
     }
 
     /**
+     * Used by unit tests.
+     */
+    boolean noLocksHeld() {
+        return mState == 0 && mOwner == null && mUpgradeCount == 0 && mWriteCount == 0;
+    }
+
+    /**
      * Node class ripped off from AbstractQueuedSynchronizer and modified
      * slightly. Read the comments in that class for better understanding.
      */
