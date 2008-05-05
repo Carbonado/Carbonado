@@ -105,7 +105,13 @@ public class AnnotationDescParser {
             Annotation.MemberValue mv;
             if (propTag == TAG_ARRAY) {
                 mPos++;
-                mv = parseArray(dest, peekTag(), parseTypeDesc());
+                char compTag = peekTag();
+                if (compTag == ';') {
+                    // Empty array.
+                    mv = dest.makeMemberValue(new Annotation.MemberValue[0]);
+                } else {
+                    mv = parseArray(dest, compTag, parseTypeDesc());
+                }
             } else {
                 mv = parseProperty(dest, propTag, parseTypeDesc());
             }
@@ -220,7 +226,7 @@ public class AnnotationDescParser {
 
             switch (mStr.charAt(mPos)) {
             default:
-                throw error("Invalid tag");
+                throw error("Invalid tag '" + mStr.charAt(mPos) + '\'');
 
             case TAG_ARRAY:
                 mPos++;
