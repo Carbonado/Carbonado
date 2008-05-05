@@ -126,6 +126,10 @@ class MapTransaction {
             public void undo() {
                 storage.mapRemove(key);
             }
+
+            public String toString() {
+                return "undo insert by remove: " + key;
+            }
         });
     }
 
@@ -137,6 +141,10 @@ class MapTransaction {
             public void undo() {
                 storage.mapPut(old);
             }
+
+            public String toString() {
+                return "undo update by put: " + old;
+            }
         });
     }
 
@@ -147,6 +155,10 @@ class MapTransaction {
         addToUndoLog(new Undoable() {
             public void undo() {
                 storage.mapPut(old);
+            }
+
+            public String toString() {
+                return "undo delete by put: " + old;
             }
         });
     }
