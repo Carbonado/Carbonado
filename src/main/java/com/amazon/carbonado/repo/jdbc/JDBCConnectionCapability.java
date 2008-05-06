@@ -19,8 +19,10 @@
 package com.amazon.carbonado.repo.jdbc;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.capability.Capability;
 
 /**
@@ -68,6 +70,41 @@ public interface JDBCConnectionCapability extends Capability {
      * yielded in same thread that retrieved it.
      */
     void yieldConnection(Connection con) throws FetchException;
+
+    /**
+     * Transforms the given throwable into an appropriate fetch exception. If
+     * it already is a fetch exception, it is simply casted.
+     *
+     * @param e required exception to transform
+     * @return FetchException, never null
+     * @since 1.2
+     */
+    FetchException toFetchException(Throwable e);
+
+    /**
+     * Transforms the given throwable into an appropriate persist exception. If
+     * it already is a persist exception, it is simply casted.
+     *
+     * @param e required exception to transform
+     * @return PersistException, never null
+     * @since 1.2
+     */
+    PersistException toPersistException(Throwable e);
+
+    /**
+     * Examines the SQLSTATE code of the given SQL exception and determines if
+     * it is a unique constaint violation.
+     *
+     * @since 1.2
+     */
+    boolean isUniqueConstraintError(SQLException e);
+
+    /**
+     * Returns true if a transaction is in progress and it is for update.
+     *
+     * @since 1.2
+     */
+    boolean isTransactionForUpdate();
 
     /**
      * Returns the name of the database product connected to.
