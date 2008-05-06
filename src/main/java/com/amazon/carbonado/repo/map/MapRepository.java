@@ -88,24 +88,29 @@ class MapRepository extends AbstractRepository<MapTransaction>
         return ((MapStorage) storageFor(storableType)).getIndexInfo();
     }
 
+    @Override
     protected Log getLog() {
         return null;
     }
 
+    @Override
     protected TransactionManager<MapTransaction> transactionManager() {
         return mTxnManager;
     }
 
+    @Override
     protected TransactionScope<MapTransaction> localTransactionScope() {
         return mTxnManager.localScope();
     }
 
+    @Override
     protected <S extends Storable> Storage<S> createStorage(Class<S> type)
         throws RepositoryException
     {
         return new MapStorage<S>(this, type, mLockTimeout, mLockTimeoutUnit);
     }
 
+    @Override
     protected SequenceValueProducer createSequenceValueProducer(String name)
         throws RepositoryException
     {

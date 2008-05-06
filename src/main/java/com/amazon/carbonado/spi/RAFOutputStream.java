@@ -37,18 +37,22 @@ public class RAFOutputStream extends OutputStream {
         mRAF = raf;
     }
 
+    @Override
     public void write(int b) throws IOException {
         mRAF.write(b);
     }
 
+    @Override
     public void write(byte[] b) throws IOException {
         mRAF.write(b);
     }
 
+    @Override
     public void write(byte[] b, int offset, int length) throws IOException {
         mRAF.write(b, offset, length);
     }
 
+    @Override
     public void close() throws IOException {
         mRAF.close();
     }

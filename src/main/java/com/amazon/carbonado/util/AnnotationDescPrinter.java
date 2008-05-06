@@ -81,6 +81,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return visit(value, null);
     }
 
+    @Override
     public Object visit(String name, int pos, Annotation value, Object param) {
         if (appendName(name, pos, TAG_ANNOTATION)) {
             mBuilder.append(TypeDesc.forClass(value.annotationType()).getDescriptor());
@@ -90,6 +91,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, int value, Object param) {
         appendName(name, pos, TAG_INT);
         mBuilder.append(value);
@@ -97,6 +99,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, long value, Object param) {
         appendName(name, pos, TAG_LONG);
         mBuilder.append(value);
@@ -104,6 +107,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, float value, Object param) {
         appendName(name, pos, TAG_FLOAT);
         mBuilder.append(Float.toString(value));
@@ -111,6 +115,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, double value, Object param) {
         appendName(name, pos, TAG_DOUBLE);
         mBuilder.append(Double.toString(value));
@@ -118,12 +123,14 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, boolean value, Object param) {
         appendName(name, pos, TAG_BOOLEAN);
         mBuilder.append(value ? '1' : '0');
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, byte value, Object param) {
         appendName(name, pos, TAG_BYTE);
         mBuilder.append(value);
@@ -131,6 +138,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, short value, Object param) {
         appendName(name, pos, TAG_SHORT);
         mBuilder.append(value);
@@ -138,12 +146,14 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, char value, Object param) {
         appendName(name, pos, TAG_CHAR);
         mBuilder.append(value);
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, String value, Object param) {
         appendName(name, pos, TAG_STRING);
         int length = value.length();
@@ -158,6 +168,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Class value, Object param) {
         appendName(name, pos, TAG_CLASS);
         if (value == String.class) {
@@ -170,6 +181,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Enum value, Object param) {
         if (appendName(name, pos, TAG_ENUM)) {
             mBuilder.append(value.getDeclaringClass().getName());
@@ -180,6 +192,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Annotation[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -187,6 +200,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, int[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -194,6 +208,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, long[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -201,6 +216,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, float[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -208,6 +224,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, double[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -215,6 +232,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, boolean[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -222,6 +240,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, byte[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -229,6 +248,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, short[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -236,6 +256,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, char[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -243,6 +264,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, String[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -250,6 +272,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Class[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);
@@ -257,6 +280,7 @@ public class AnnotationDescPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Enum[] value, Object param) {
         appendName(name, pos, TAG_ARRAY);
         super.visit(name, pos, value, param);

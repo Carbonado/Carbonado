@@ -39,7 +39,6 @@ import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.lob.AbstractClob;
 import com.amazon.carbonado.lob.Clob;
-import com.amazon.carbonado.lob.CharArrayClob;
 
 /**
  * After loading a replica, replaces all Clobs with ReplicatedClobs.
@@ -143,6 +142,7 @@ class ClobReplicationTrigger<S extends Storable> extends Trigger<S> {
             return mReplicaClob.getLength();
         }
 
+        @Override
         public String asString() throws FetchException {
             return mReplicaClob.asString();
         }
@@ -271,21 +271,25 @@ class ClobReplicationTrigger<S extends Storable> extends Trigger<S> {
             mReplicaOut = replica;
         }
 
+        @Override
         public void write(int c) throws IOException {
             mMasterOut.write(c);
             mReplicaOut.write(c);
         }
 
+        @Override
         public void write(char[] c, int off, int len) throws IOException {
             mMasterOut.write(c, off, len);
             mReplicaOut.write(c, off, len);
         }
 
+        @Override
         public void flush() throws IOException {
             mMasterOut.flush();
             mReplicaOut.flush();
         }
 
+        @Override
         public void close() throws IOException {
             mMasterOut.close();
             mReplicaOut.close();

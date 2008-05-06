@@ -165,6 +165,7 @@ class PropertyFilterList<S extends Storable> {
     static class Builder<S extends Storable>
         extends Visitor<S, PropertyFilterList<S>, PropertyFilterList<S>>
     {
+        @Override
         public PropertyFilterList<S> visit(OrFilter<S> filter, PropertyFilterList<S> list) {
             // Traverse right-to-left since list must be built in this order.
             list = filter.getRightFilter().accept(this, list);
@@ -172,6 +173,7 @@ class PropertyFilterList<S extends Storable> {
             return list;
         }
 
+        @Override
         public PropertyFilterList<S> visit(AndFilter<S> filter, PropertyFilterList<S> list) {
             // Traverse right-to-left since list must be built in this order.
             list = filter.getRightFilter().accept(this, list);
@@ -179,10 +181,12 @@ class PropertyFilterList<S extends Storable> {
             return list;
         }
 
+        @Override
         public PropertyFilterList<S> visit(PropertyFilter<S> filter, PropertyFilterList<S> list) {
             return list == null ? new PropertyFilterList<S>(filter, null) : list.prepend(filter);
         }
 
+        @Override
         public PropertyFilterList<S> visit(ExistsFilter<S> filter, PropertyFilterList<S> list) {
             PropertyFilterList<S> subList =
                 filter.getJoinedSubFilter().getTailPropertyFilterList();

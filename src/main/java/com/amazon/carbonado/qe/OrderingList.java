@@ -49,6 +49,8 @@ import com.amazon.carbonado.info.StorableIntrospector;
 public class OrderingList<S extends Storable> extends AbstractList<OrderedProperty<S>>
     implements Serializable
 {
+    private static final long serialVersionUID = 3692335128299485356L;
+
     private static final OrderingList EMPTY_LIST = new OrderingList();
 
     private static final Map<Class, OrderingList> cCache;
@@ -154,10 +156,12 @@ public class OrderingList<S extends Storable> extends AbstractList<OrderedProper
         mSize = parent.mSize + 1;
     }
 
+    @Override
     public int size() {
         return mSize;
     }
 
+    @Override
     public OrderedProperty<S> get(int index) {
         return asArray()[index];
     }
@@ -363,7 +367,7 @@ public class OrderingList<S extends Storable> extends AbstractList<OrderedProper
     private static class Orderings implements Externalizable {
         private static final long serialVersionUID = 1L;
 
-        private OrderedProperty<?>[] mOrderings;
+        private OrderedProperty[] mOrderings;
 
         // Required for Externalizable.
         public Orderings() {

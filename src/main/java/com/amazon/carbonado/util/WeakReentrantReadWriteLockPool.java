@@ -40,6 +40,7 @@ class WeakReentrantReadWriteLockPool<K>
         mFair = fair;
     }
 
+    @Override
     protected ReentrantReadWriteLock create(K key) {
         return new ReentrantReadWriteLock(mFair);
     }

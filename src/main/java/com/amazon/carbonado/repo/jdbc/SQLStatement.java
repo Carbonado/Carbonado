@@ -49,6 +49,7 @@ abstract class SQLStatement<S extends Storable> {
     /**
      * Just used for debugging.
      */
+    @Override
     public String toString() {
         StringBuilder b = new StringBuilder();
         appendTo(b, null);

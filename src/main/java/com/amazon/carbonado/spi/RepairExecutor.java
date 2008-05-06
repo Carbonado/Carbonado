@@ -61,6 +61,7 @@ public class RepairExecutor {
             ("com.amazon.carbonado.spi.RepairExecutor.queueSize", 10000);
 
         cExecutor = new ThreadLocal<RepairExecutor>() {
+            @Override
             protected RepairExecutor initialValue() {
                 return new RepairExecutor(keepAliveSeconds, queueSize);
             }
@@ -157,6 +158,7 @@ public class RepairExecutor {
             setName(Thread.currentThread().getName() + " (repository repair)");
         }
 
+        @Override
         public void run() {
             while (true) {
                 try {

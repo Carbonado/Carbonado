@@ -25,8 +25,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -111,6 +109,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             (info.getStorableType(), repository.mTriggerFactories);
     }
 
+    @Override
     public Class<S> getStorableType() {
         return mInfo.getStorableType();
     }
@@ -292,6 +291,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         return mInfo;
     }
 
+    @Override
     protected StandardQuery<S> createQuery(Filter<S> filter,
                                            FilterValues<S> values,
                                            OrderingList<S> ordering,
@@ -780,6 +780,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return mOrdering;
         }
 
+        @Override
         public boolean printNative(Appendable app, int indentLevel, FilterValues<S> values)
             throws IOException
         {
@@ -933,18 +934,22 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             }
         }
 
+        @Override
         protected Transaction enterTransaction(IsolationLevel level) {
             return getRootRepository().enterTransaction(level);
         }
 
+        @Override
         protected QueryFactory<S> queryFactory() {
             return JDBCStorage.this;
         }
 
+        @Override
         protected QueryExecutorFactory<S> executorFactory() {
             return JDBCStorage.this.mExecutorFactory;
         }
 
+        @Override
         protected StandardQuery<S> newInstance(FilterValues<S> values, OrderingList<S> ordering,
                                                QueryHints hints)
         {

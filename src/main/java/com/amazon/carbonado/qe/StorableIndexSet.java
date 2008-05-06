@@ -475,6 +475,8 @@ public class StorableIndexSet<S extends Storable> extends TreeSet<StorableIndex<
     private static class StorableIndexComparator
         implements Comparator<StorableIndex<?>>, java.io.Serializable
     {
+        private static final long serialVersionUID = 2204885249683067349L;
+
         public int compare(StorableIndex<?> a, StorableIndex<?> b) {
             if (a == b) {
                 return 0;

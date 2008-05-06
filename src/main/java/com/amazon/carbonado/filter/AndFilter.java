@@ -49,14 +49,17 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
         super(left, right);
     }
 
+    @Override
     public Filter<S> not() {
         return mLeft.not().or(mRight.not());
     }
 
+    @Override
     public <R, P> R accept(Visitor<S, R, P> visitor, P param) {
         return visitor.visit(this, param);
     }
 
+    @Override
     public Filter<S> unbind() {
         if (!isBound()) {
             return this;
@@ -64,6 +67,7 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
         return mLeft.unbind().and(mRight.unbind());
     }
 
+    @Override
     <T extends Storable> Filter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
         return mLeft.asJoinedFromAny(joinProperty).and(mRight.asJoinedFromAny(joinProperty));
     }
@@ -81,6 +85,7 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
                              left.getRemainderFilter().and(right.getRemainderFilter()));
     }
 
+    @Override
     Filter<S> buildDisjunctiveNormalForm() {
         Filter<S> left = mLeft.reduce().dnf();
         Filter<S> right = mRight.reduce().dnf();
@@ -93,10 +98,12 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
         return left.and(right).reduce();
     }
 
+    @Override
     Filter<S> buildConjunctiveNormalForm() {
         return mLeft.cnf().and(mRight.cnf()).reduce();
     }
 
+    @Override
     boolean checkIsDisjunctiveNormalForm() {
         return (!(mLeft instanceof OrFilter))
             && (!(mRight instanceof OrFilter))
@@ -104,6 +111,7 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
             && mRight.isDisjunctiveNormalForm();
     }
 
+    @Override
     boolean checkIsConjunctiveNormalForm() {
         return mLeft.isConjunctiveNormalForm() && mRight.isConjunctiveNormalForm();
     }
@@ -126,6 +134,7 @@ public class AndFilter<S extends Storable> extends BinaryOpFilter<S> {
         return false;
     }
 
+    @Override
     public void appendTo(Appendable app, FilterValues<S> values) throws IOException {
         if (mLeft instanceof OrFilter) {
             app.append('(');

@@ -148,6 +148,7 @@ public class LoggingRepositoryBuilder extends AbstractRepositoryBuilder {
         return mRepoBuilder;
     }
 
+    @Override
     public void errorCheck(Collection<String> messages) throws ConfigurationException {
         super.errorCheck(messages);
         if (mRepoBuilder == null) {

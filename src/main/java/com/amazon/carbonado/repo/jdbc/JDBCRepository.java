@@ -626,6 +626,7 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
         return mExceptionTransformer;
     }
     
+    @Override
     protected void shutdownHook() {
         // Close all open connections.
         mOpenConnectionsLock.lock();
@@ -657,10 +658,12 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
         }
     }
 
+    @Override
     protected Log getLog() {
         return mLog;
     }
 
+    @Override
     protected <S extends Storable> Storage<S> createStorage(Class<S> type)
         throws RepositoryException
     {
@@ -696,16 +699,19 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
         return new JDBCStorage<S>(this, info, autoVersioning, suppressReload);
     }
 
+    @Override
     protected SequenceValueProducer createSequenceValueProducer(String name)
         throws RepositoryException
     {
         return mSupportStrategy.createSequenceValueProducer(name);
     }
 
+    @Override
     protected final TransactionManager<JDBCTransaction> transactionManager() {
         return mTxnMgr;
     }
 
+    @Override
     protected final TransactionScope<JDBCTransaction> localTransactionScope() {
         return mTxnMgr.localScope();
     }

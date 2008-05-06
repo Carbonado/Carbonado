@@ -61,6 +61,7 @@ public class KeyQueryExecutor<S extends Storable> extends AbstractQueryExecutor<
         mKeyFilter = score.getIdentityFilter();
     }
 
+    @Override
     public Class<S> getStorableType() {
         // Storable type of filter may differ if index is used along with a
         // join. The type of the index is the correct storable type.

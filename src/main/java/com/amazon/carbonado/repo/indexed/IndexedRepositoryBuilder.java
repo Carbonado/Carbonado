@@ -190,6 +190,7 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
         mAllClustered = clustered;
     }
 
+    @Override
     public void errorCheck(Collection<String> messages) throws ConfigurationException {
         super.errorCheck(messages);
         if (null == getWrappedRepository()) {

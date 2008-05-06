@@ -449,16 +449,19 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
         final List<Filter<S>> list = new ArrayList<Filter<S>>();
 
         disjunctiveNormalForm().accept(new Visitor<S, Object, Object>() {
+            @Override
             public Object visit(AndFilter<S> filter, Object param) {
                 list.add(filter);
                 return null;
             }
 
+            @Override
             public Object visit(PropertyFilter<S> filter, Object param) {
                 list.add(filter);
                 return null;
             }
 
+            @Override
             public Object visit(ExistsFilter<S> filter, Object param) {
                 list.add(filter);
                 return null;
@@ -510,16 +513,19 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
         final List<Filter<S>> list = new ArrayList<Filter<S>>();
 
         conjunctiveNormalForm().accept(new Visitor<S, Object, Object>() {
+            @Override
             public Object visit(OrFilter<S> filter, Object param) {
                 list.add(filter);
                 return null;
             }
 
+            @Override
             public Object visit(PropertyFilter<S> filter, Object param) {
                 list.add(filter);
                 return null;
             }
 
+            @Override
             public Object visit(ExistsFilter<S> filter, Object param) {
                 list.add(filter);
                 return null;
@@ -829,10 +835,12 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
             return mRemainder;
         }
 
+        @Override
         public int hashCode() {
             return mNotJoined.hashCode() * 31 + mRemainder.hashCode();
         }
 
+        @Override
         public boolean equals(Object obj) {
             if (this == obj) {
                 return true;
@@ -844,6 +852,7 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
             return false;
         }
 
+        @Override
         public String toString() {
             return "not joined: " + mNotJoined + ", remainder: " + mRemainder;
         }

@@ -52,8 +52,6 @@ import com.amazon.carbonado.cursor.MergeSortBuffer;
 
 import com.amazon.carbonado.spi.RepairExecutor;
 
-import com.amazon.carbonado.qe.BoundaryType;
-
 import com.amazon.carbonado.util.Throttle;
 
 /**
@@ -181,6 +179,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         return new IndexedCursor<S>(indexEntryQuery.fetch(), storage, mGenerator);
     }
 
+    @Override
     public String toString() {
         StringBuilder b = new StringBuilder();
         b.append("IndexInfo ");

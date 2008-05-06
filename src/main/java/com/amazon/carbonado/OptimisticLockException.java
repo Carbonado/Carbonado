@@ -138,11 +138,7 @@ public class OptimisticLockException extends PersistException {
         }
 
         if (s != null) {
-            if (message == null) {
-                message = s.toStringKeyOnly();
-            } else {
-                message = message + ": " + s.toStringKeyOnly();
-            }
+            message = message + ": " + s.toStringKeyOnly();
         }
 
         return message;

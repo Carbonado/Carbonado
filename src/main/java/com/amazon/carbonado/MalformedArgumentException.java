@@ -48,6 +48,7 @@ public abstract class MalformedArgumentException extends IllegalArgumentExceptio
         mMessages = Collections.unmodifiableList(messages);
     }
 
+    @Override
     public String getMessage() {
         if (mMessages == null || mMessages.size() == 0) {
             return super.getMessage();

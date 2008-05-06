@@ -23,22 +23,16 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
-import java.util.Set;
-
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
-
-import org.cojen.classfile.TypeDesc;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchInterruptedException;
 import com.amazon.carbonado.FetchTimeoutException;
-import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.PersistInterruptedException;
 import com.amazon.carbonado.PersistTimeoutException;
@@ -71,15 +65,11 @@ import com.amazon.carbonado.gen.MasterFeature;
 
 import com.amazon.carbonado.util.QuickConstructorGenerator;
 
-import com.amazon.carbonado.filter.Filter;
-
-import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIndex;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
-import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.qe.BoundaryType;
 import com.amazon.carbonado.qe.QueryExecutorFactory;

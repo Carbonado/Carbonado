@@ -37,6 +37,7 @@ class CompositeStatement<S extends Storable> extends SQLStatement<S> {
         mStatements = statements.toArray(new SQLStatement[statements.size()]);
     }
 
+    @Override
     public int maxLength() {
         int max = 0;
         for (SQLStatement<S> statement : mStatements) {
@@ -45,6 +46,7 @@ class CompositeStatement<S extends Storable> extends SQLStatement<S> {
         return max;
     }
 
+    @Override
     public void appendTo(StringBuilder b, FilterValues<S> filterValues) {
         for (SQLStatement<S> statement : mStatements) {
             statement.appendTo(b, filterValues);

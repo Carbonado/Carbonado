@@ -86,15 +86,18 @@ class PropertyFilterList<S extends Storable> extends AbstractList<PropertyFilter
             final List<ExistsFilter<S>> fexistsList = existsList;
 
             filter.accept(new Visitor<S, Object, Object>() {
+                @Override
                 public Object visit(OrFilter<S> filter, Object param) {
                     throw new IllegalArgumentException("OrFilter not allowed");
                 }
 
+                @Override
                 public Object visit(ExistsFilter<S> filter, Object param) {
                     fexistsList.add(filter);
                     return null;
                 }
 
+                @Override
                 public Object visit(PropertyFilter<S> filter, Object param) {
                     flist.add(filter);
                     return null;
@@ -139,10 +142,12 @@ class PropertyFilterList<S extends Storable> extends AbstractList<PropertyFilter
         return mPosMap.get(filter);
     }
 
+    @Override
     public int size() {
         return mList.size();
     }
 
+    @Override
     public PropertyFilter<S> get(int index) {
         return mList.get(index);
     }
@@ -157,6 +162,8 @@ class PropertyFilterList<S extends Storable> extends AbstractList<PropertyFilter
     private static class PFComparator<S extends Storable>
         implements Comparator<PropertyFilter<S>>, java.io.Serializable
     {
+        private static final long serialVersionUID = 2322537712763223517L;
+
         public int compare(PropertyFilter<S> a, PropertyFilter<S> b) {
             if (a.getOperator() != b.getOperator()) {
                 if (a.getOperator() == RelOp.EQ) {

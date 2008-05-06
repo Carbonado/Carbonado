@@ -20,7 +20,6 @@ package com.amazon.carbonado.filter;
 
 import java.io.IOException;
 
-import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.info.ChainedProperty;
@@ -134,6 +133,7 @@ public class ExistsFilter<S extends Storable> extends Filter<S> {
         return mNot;
     }
 
+    @Override
     public Filter<S> not() {
         return getCanonical(mProperty, mSubFilter, !mNot);
     }
@@ -164,10 +164,12 @@ public class ExistsFilter<S extends Storable> extends Filter<S> {
         return tail;
     }
 
+    @Override
     public <R, P> R accept(Visitor<S, R, P> visitor, P param) {
         return visitor.visit(this, param);
     }
 
+    @Override
     public ExistsFilter<S> bind() {
         Filter<?> boundSubFilter = mSubFilter.bind();
         if (boundSubFilter == mSubFilter) {
@@ -176,6 +178,7 @@ public class ExistsFilter<S extends Storable> extends Filter<S> {
         return getCanonical(mProperty, boundSubFilter, mNot);
     }
 
+    @Override
     public ExistsFilter<S> unbind() {
         Filter<?> unboundSubFilter = mSubFilter.unbind();
         if (unboundSubFilter == mSubFilter) {
@@ -184,13 +187,16 @@ public class ExistsFilter<S extends Storable> extends Filter<S> {
         return getCanonical(mProperty, unboundSubFilter, mNot);
     }
 
+    @Override
     public boolean isBound() {
         return mSubFilter.isBound();
     }
 
+    @Override
     void markBound() {
     }
 
+    @Override
     <T extends Storable> ExistsFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
         ChainedProperty<T> newProperty = joinProperty.append(getChainedProperty());
         return getCanonical(newProperty, mSubFilter, mNot);
@@ -219,26 +225,32 @@ public class ExistsFilter<S extends Storable> extends Filter<S> {
         return new NotJoined(notJoinedFilter, getOpenFilter(getStorableType()));
     }
 
+    @Override
     Filter<S> buildDisjunctiveNormalForm() {
         return this;
     }
 
+    @Override
     Filter<S> buildConjunctiveNormalForm() {
         return this;
     }
 
+    @Override
     boolean isDisjunctiveNormalForm() {
         return true;
     }
 
+    @Override
     boolean isConjunctiveNormalForm() {
         return true;
     }
 
+    @Override
     boolean isReduced() {
         return true;
     }
 
+    @Override
     void markReduced() {
     }
 
@@ -263,6 +275,7 @@ public class ExistsFilter<S extends Storable> extends Filter<S> {
         return false;
     }
 
+    @Override
     public void appendTo(Appendable app, FilterValues<S> values) throws IOException {
         if (mNot) {
             app.append('!');

@@ -45,6 +45,7 @@ class JDBCTransactionManager extends TransactionManager<JDBCTransaction> {
         mRepositoryRef = new WeakReference<JDBCRepository>(repository);
     }
 
+    @Override
     protected IsolationLevel selectIsolationLevel(Transaction parent, IsolationLevel level) {
         JDBCRepository repo = mRepositoryRef.get();
         if (repo == null) {
@@ -53,11 +54,13 @@ class JDBCTransactionManager extends TransactionManager<JDBCTransaction> {
         return repo.selectIsolationLevel(parent, level);
     }
 
+    @Override
     protected boolean supportsForUpdate() {
         JDBCRepository repo = mRepositoryRef.get();
         return repo != null && repo.supportsSelectForUpdate();
     }
 
+    @Override
     protected JDBCTransaction createTxn(JDBCTransaction parent, IsolationLevel level)
         throws SQLException, FetchException
     {
@@ -82,6 +85,7 @@ class JDBCTransactionManager extends TransactionManager<JDBCTransaction> {
         txn.reuse();
     }
 
+    @Override
     protected boolean commitTxn(JDBCTransaction txn) throws PersistException {
         try {
             txn.commit();
@@ -91,6 +95,7 @@ class JDBCTransactionManager extends TransactionManager<JDBCTransaction> {
         }
     }
 
+    @Override
     protected void abortTxn(JDBCTransaction txn) throws PersistException {
         try {
             Connection con;

@@ -483,6 +483,7 @@ public class OrderingScore<S extends Storable> {
         return new OrderingScore<S>(this, ordering);
     }
 
+    @Override
     public String toString() {
         return "OrderingScore {handledCount=" + getHandledCount() +
             ", remainderCount=" + getRemainderCount() +

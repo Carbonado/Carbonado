@@ -160,6 +160,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         mFileNameMap = builder.getFileNameMap();
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public <C extends Capability> C getCapability(Class<C> capabilityType) {
         C cap = super.getCapability(capabilityType);
@@ -279,6 +280,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         close();
     }
 
+    @Override
     protected void shutdownHook() {
         // Run any external shutdown logic that needs to happen before the
         // databases and the environment are actually closed
@@ -327,10 +329,12 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         }
     }
 
+    @Override
     protected Log getLog() {
         return mLog;
     }
 
+    @Override
     protected <S extends Storable> Storage createStorage(Class<S> type)
         throws RepositoryException
     {
@@ -341,6 +345,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         }
     }
 
+    @Override
     protected SequenceValueProducer createSequenceValueProducer(String name)
         throws RepositoryException
     {
@@ -528,10 +533,12 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         return mExTransformer.toRepositoryException(e);
     }
 
+    @Override
     protected final TransactionManager<Txn> transactionManager() {
         return mTxnMgr;
     }
 
+    @Override
     protected final TransactionScope<Txn> localTransactionScope() {
         return mTxnMgr.localScope();
     }
@@ -575,6 +582,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
             mMinutes = minutes;
         }
 
+        @Override
         public void run() {
             try {
                 while (true) {
@@ -711,6 +719,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
             mSleepInterval = sleepInterval;
         }
 
+        @Override
         public void run() {
             while (true) {
                 try {

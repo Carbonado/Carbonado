@@ -48,7 +48,6 @@ import com.amazon.carbonado.gen.MasterStorableGenerator;
 import com.amazon.carbonado.gen.MasterSupport;
 import com.amazon.carbonado.gen.StorableGenerator;
 import com.amazon.carbonado.gen.TriggerSupport;
-import static com.amazon.carbonado.gen.CommonMethodNames.*;
 
 /**
  * Generates and caches abstract implementations of {@link Storable} types

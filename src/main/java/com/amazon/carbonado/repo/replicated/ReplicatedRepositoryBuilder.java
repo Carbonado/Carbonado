@@ -85,6 +85,7 @@ public class ReplicatedRepositoryBuilder extends AbstractRepositoryBuilder {
             BelatedRepositoryCreator creator = new BelatedRepositoryCreator
                 (log, mMasterRepositoryBuilder, rootRef, DEFAULT_RETRY_MILLIS) {
 
+                @Override
                 protected void createdNotification(Repository repo) {
                     // Don't need builder any more so restore it.
                     mMasterRepositoryBuilder.setMaster(originalOption);
@@ -155,6 +156,7 @@ public class ReplicatedRepositoryBuilder extends AbstractRepositoryBuilder {
         mMasterRepositoryBuilder = masterRepositoryBuilder;
     }
 
+    @Override
     public void errorCheck(Collection<String> messages) throws ConfigurationException {
         super.errorCheck(messages);
         if (null == getReplicaRepositoryBuilder()) {

@@ -120,6 +120,7 @@ public class TaskQueueThread extends Thread implements Executor {
         mQueue.offer(STOP_TASK);
     }
 
+    @Override
     public void run() {
         synchronized (this) {
             if (mState == STATE_SHOULD_STOP || mState == STATE_STOPPED) {

@@ -544,6 +544,7 @@ public class IndexedQueryAnalyzer<S extends Storable> {
             return executor;
         }
 
+        @Override
         public String toString() {
             return "IndexedQueryAnalyzer.Result {score="
                 + getCompositeScore() + ", localIndex="

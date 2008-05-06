@@ -100,6 +100,7 @@ public class CharArrayClob extends AbstractClob {
         return mLength;
     }
 
+    @Override
     public synchronized String asString() {
         return new String(mData, 0, mLength);
     }

@@ -165,6 +165,7 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         return Collections.singletonList((Filter<S>) this);
     }
 
+    @Override
     public <R, P> R accept(Visitor<S, R, P> visitor, P param) {
         return visitor.visit(this, param);
     }
@@ -208,18 +209,22 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         return mBindID;
     }
 
+    @Override
     public PropertyFilter<S> bind() {
         return mBindID == 0 ? getCanonical(this, 1) : this;
     }
 
+    @Override
     public PropertyFilter<S> unbind() {
         return mBindID == 0 ? this : getCanonical(this, 0);
     }
 
+    @Override
     public boolean isBound() {
         return mBindID != 0;
     }
 
+    @Override
     <T extends Storable> PropertyFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
         ChainedProperty<T> newProperty = joinProperty.append(getChainedProperty());
 
@@ -292,29 +297,36 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         return mBindID == BOUND_CONSTANT;
     }
 
+    @Override
     void markBound() {
     }
 
+    @Override
     Filter<S> buildDisjunctiveNormalForm() {
         return this;
     }
 
+    @Override
     Filter<S> buildConjunctiveNormalForm() {
         return this;
     }
 
+    @Override
     boolean isDisjunctiveNormalForm() {
         return true;
     }
 
+    @Override
     boolean isConjunctiveNormalForm() {
         return true;
     }
 
+    @Override
     boolean isReduced() {
         return true;
     }
 
+    @Override
     void markReduced() {
     }
 
@@ -511,6 +523,7 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         return false;
     }
 
+    @Override
     public void appendTo(Appendable app, FilterValues<S> values) throws IOException {
         mProperty.appendTo(app);
         app.append(' ');

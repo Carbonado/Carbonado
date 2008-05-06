@@ -28,6 +28,7 @@ import java.sql.SQLException;
 class MysqlExceptionTransformer extends JDBCExceptionTransformer {
     public static int DUPLICATE_ENTRY = 1062;
 
+    @Override
     public boolean isUniqueConstraintError(SQLException e) {
         if (isConstraintError(e)) {
             String sqlstate = e.getSQLState();

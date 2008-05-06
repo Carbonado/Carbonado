@@ -194,6 +194,7 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
         throw new NoSuchElementException();
     }
 
+    @Override
     public int skipNext(int amount) throws FetchException {
         if (amount <= 0) {
             if (amount < 0) {

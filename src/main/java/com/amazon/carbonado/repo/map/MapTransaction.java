@@ -33,7 +33,6 @@ import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.PersistInterruptedException;
 import com.amazon.carbonado.PersistTimeoutException;
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.Storage;
 
 /**
  * 
@@ -127,6 +126,7 @@ class MapTransaction {
                 storage.mapRemove(key);
             }
 
+            @Override
             public String toString() {
                 return "undo insert by remove: " + key;
             }
@@ -142,6 +142,7 @@ class MapTransaction {
                 storage.mapPut(old);
             }
 
+            @Override
             public String toString() {
                 return "undo update by put: " + old;
             }
@@ -157,6 +158,7 @@ class MapTransaction {
                 storage.mapPut(old);
             }
 
+            @Override
             public String toString() {
                 return "undo delete by put: " + old;
             }

@@ -37,10 +37,12 @@ class BlobProperty extends LobProperty<Blob> {
         super(engine, propertyName);
     }
 
+    @Override
     Blob createNewLob(int blockSize) throws PersistException {
         return mEngine.createNewBlob(blockSize);
     }
 
+    @Override
     void setLobValue(long locator, Blob data) throws PersistException {
         try {
             mEngine.setBlobValue(locator, data);

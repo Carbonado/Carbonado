@@ -486,6 +486,7 @@ public class SyntheticStorableBuilder
         if (annotationDescs != null && annotationDescs.size() > 0) {
             for (String desc : annotationDescs) {
                 new AnnotationDescParser(desc) {
+                    @Override
                     protected Annotation buildRootAnnotation(TypeDesc rootAnnotationType) {
                         return mi.addRuntimeVisibleAnnotation(rootAnnotationType);
                     }
@@ -520,6 +521,7 @@ public class SyntheticStorableBuilder
         return mPropertyList;
     }
 
+    @Override
     public String toString() {
         return mName + mPropertyList.toString();
     }

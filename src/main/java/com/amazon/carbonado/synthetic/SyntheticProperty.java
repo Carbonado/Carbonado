@@ -218,6 +218,7 @@ public class SyntheticProperty implements Comparable<SyntheticProperty> {
         return mName.compareTo(otherProp.mName);
     }
 
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
@@ -244,6 +245,7 @@ public class SyntheticProperty implements Comparable<SyntheticProperty> {
         return true;
     }
 
+    @Override
     public int hashCode() {
         int result;
         result = (mType != null ? mType.hashCode() : 0);
@@ -260,6 +262,7 @@ public class SyntheticProperty implements Comparable<SyntheticProperty> {
         return name;
     }
 
+    @Override
     public String toString() {
         return mName+'|'+
                (mIsNullable?"NULL|":"")+

@@ -45,14 +45,17 @@ class BDBTransactionManager<Txn> extends TransactionManager<Txn> {
         mRepositoryRef = new WeakReference<BDBRepository<Txn>>(repository);
     }
 
+    @Override
     protected IsolationLevel selectIsolationLevel(Transaction parent, IsolationLevel level) {
         return repository().selectIsolationLevel(parent, level);
     }
 
+    @Override
     protected boolean supportsForUpdate() {
         return true;
     }
 
+    @Override
     protected Txn createTxn(Txn parent, IsolationLevel level) throws Exception {
         if (level == IsolationLevel.NONE) {
             return null;
@@ -74,6 +77,7 @@ class BDBTransactionManager<Txn> extends TransactionManager<Txn> {
         }
     }
 
+    @Override
     protected boolean commitTxn(Txn txn) throws PersistException {
         try {
             repository().txn_commit(txn);
@@ -83,6 +87,7 @@ class BDBTransactionManager<Txn> extends TransactionManager<Txn> {
         }
     }
 
+    @Override
     protected void abortTxn(Txn txn) throws PersistException {
         try {
             repository().txn_abort(txn);

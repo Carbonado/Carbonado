@@ -41,7 +41,6 @@ import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.lob.AbstractBlob;
 import com.amazon.carbonado.lob.Blob;
-import com.amazon.carbonado.lob.ByteArrayBlob;
 
 /**
  * After loading a replica, replaces all Blobs with ReplicatedBlobs.
@@ -145,14 +144,17 @@ class BlobReplicationTrigger<S extends Storable> extends Trigger<S> {
             return mReplicaBlob.getLength();
         }
 
+        @Override
         public String asString() throws FetchException {
             return mReplicaBlob.asString();
         }
 
+        @Override
         public String asString(String charsetName) throws FetchException {
             return mReplicaBlob.asString(charsetName);
         }
 
+        @Override
         public String asString(Charset charset) throws FetchException {
             return mReplicaBlob.asString(charset);
         }
@@ -281,21 +283,25 @@ class BlobReplicationTrigger<S extends Storable> extends Trigger<S> {
             mReplicaOut = replica;
         }
 
+        @Override
         public void write(int b) throws IOException {
             mMasterOut.write(b);
             mReplicaOut.write(b);
         }
 
+        @Override
         public void write(byte[] b, int off, int len) throws IOException {
             mMasterOut.write(b, off, len);
             mReplicaOut.write(b, off, len);
         }
 
+        @Override
         public void flush() throws IOException {
             mMasterOut.flush();
             mReplicaOut.flush();
         }
 
+        @Override
         public void close() throws IOException {
             mMasterOut.close();
             mReplicaOut.close();

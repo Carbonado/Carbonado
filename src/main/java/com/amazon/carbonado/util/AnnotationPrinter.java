@@ -48,6 +48,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return visit(value, null);
     }
 
+    @Override
     public Object visit(String name, int pos, Annotation value, Object param) {
         appendName(name, pos);
         mBuilder.append('@');
@@ -58,12 +59,14 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, int value, Object param) {
         appendName(name, pos);
         mBuilder.append(value);
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, long value, Object param) {
         appendName(name, pos);
         mBuilder.append(value);
@@ -71,6 +74,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, float value, Object param) {
         appendName(name, pos);
         if (Float.isNaN(value)) {
@@ -86,6 +90,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, double value, Object param) {
         appendName(name, pos);
         if (Double.isNaN(value)) {
@@ -101,24 +106,28 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, boolean value, Object param) {
         appendName(name, pos);
         mBuilder.append(value);
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, byte value, Object param) {
         appendName(name, pos);
         mBuilder.append(value);
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, short value, Object param) {
         appendName(name, pos);
         mBuilder.append(value);
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, char value, Object param) {
         appendName(name, pos);
         mBuilder.append('\'');
@@ -198,6 +207,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         }
     }
 
+    @Override
     public Object visit(String name, int pos, String value, Object param) {
         appendName(name, pos);
         mBuilder.append('"');
@@ -209,6 +219,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Class value, Object param) {
         appendName(name, pos);
         mBuilder.append(value.getName());
@@ -216,6 +227,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Enum value, Object param) {
         appendName(name, pos);
         mBuilder.append(value.getDeclaringClass().getName());
@@ -224,6 +236,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Annotation[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');
@@ -232,6 +245,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, int[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');
@@ -240,6 +254,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, long[] value, Object param) {
         appendName(name, pos);
         super.visit(name, pos, value, param);
@@ -247,6 +262,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, float[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');
@@ -255,6 +271,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, double[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');
@@ -263,6 +280,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, boolean[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');
@@ -271,6 +289,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, byte[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');
@@ -279,6 +298,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, short[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');
@@ -287,6 +307,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, char[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');
@@ -295,6 +316,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, String[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');
@@ -303,6 +325,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Class[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');
@@ -311,6 +334,7 @@ public class AnnotationPrinter extends AnnotationVisitor<Object, Object> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Enum[] value, Object param) {
         appendName(name, pos);
         mBuilder.append('{');

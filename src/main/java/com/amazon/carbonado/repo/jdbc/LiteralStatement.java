@@ -34,6 +34,7 @@ class LiteralStatement<S extends Storable> extends SQLStatement<S> {
         mStr = str;
     }
 
+    @Override
     public int maxLength() {
         return mStr.length();
     }
@@ -43,6 +44,7 @@ class LiteralStatement<S extends Storable> extends SQLStatement<S> {
         return mStr;
     }
 
+    @Override
     public void appendTo(StringBuilder b, FilterValues<S> filterValues) {
         b.append(mStr);
     }

@@ -214,6 +214,7 @@ public class SequenceValueGenerator extends AbstractSequenceValueProducer {
      * @throws PersistException for fetch/persist failure or if sequence is
      * exhausted for int values.
      */
+    @Override
     public int nextIntValue() throws PersistException {
         try {
             synchronized (mStoredSequence) {

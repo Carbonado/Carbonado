@@ -79,6 +79,7 @@ class IndexedRepository implements Repository,
         mAllClustered = allClustered;
 
         mStoragePool = new StoragePool() {
+            @Override
             protected <S extends Storable> Storage<S> createStorage(Class<S> type)
                 throws RepositoryException
             {

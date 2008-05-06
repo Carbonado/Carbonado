@@ -35,14 +35,14 @@ import com.amazon.carbonado.PersistException;
  * @author bcastill
  */
 class OracleSupportStrategy extends JDBCSupportStrategy {
-    
+
     private static final String DEFAULT_SEQUENCE_SELECT_STATEMENT = "SELECT %s.NEXTVAL FROM DUAL";
 
     private static final String TRUNCATE_STATEMENT = "TRUNCATE TABLE %s";
-    
+
     private static final int LOB_CHUNK_LIMIT = 2000;
 
-    private static final String PLAN_TABLE_NAME = "TEMP_CARBONADO_PLAN_TABLE";
+    //private static final String PLAN_TABLE_NAME = "TEMP_CARBONADO_PLAN_TABLE";
 
     final Method mBLOB_empty_lob;
     final Method mBLOB_getBinaryStream;
@@ -63,7 +63,7 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
         setSequenceSelectStatement(DEFAULT_SEQUENCE_SELECT_STATEMENT);
 
         setTruncateTableStatement(TRUNCATE_STATEMENT);
-        
+
         // Access all the custom oracle.sql.BLOB methods via reflection.
         {
             Method blob_empty_lob = null;
@@ -104,7 +104,7 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
 
             try {
                 Class clobClass = Class.forName("oracle.sql.CLOB");
-                
+
                 clob_empty_lob = clobClass.getMethod("empty_lob");
                 clob_getCharacterStream = clobClass.getMethod("getCharacterStream", long.class);
                 clob_length = clobClass.getMethod("length");

@@ -189,6 +189,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
         mComparator = comparator;
     }
 
+    @Override
     public boolean add(S storable) {
         if (mPreparer == null) {
             mPreparer = new FromStorable(storable);
@@ -307,10 +308,12 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
         return true;
     }
 
+    @Override
     public int size() {
         return mTotalSize;
     }
 
+    @Override
     public Iterator<S> iterator() {
         return iterator(mFilesInUse);
     }
@@ -342,6 +345,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
         return new Merger<S>(pq);
     }
 
+    @Override
     public void clear() {
         if (mPreparer instanceof FromStorable) {
             mPreparer = null;
@@ -474,6 +478,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
             mSize = size;
         }
 
+        @Override
         S peek() {
             int pos = mPos;
             if (pos >= mSize) {
@@ -482,6 +487,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
             return mArray[pos];
         }
 
+        @Override
         S next() {
             int pos = mPos;
             if (pos >= mSize) {
@@ -508,6 +514,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
             mIn = in;
         }
 
+        @Override
         S peek() {
             if (mNext != null) {
                 return mNext;
@@ -528,6 +535,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
             return mNext;
         }
 
+        @Override
         S next() {
             S next = peek();
             mNext = null;

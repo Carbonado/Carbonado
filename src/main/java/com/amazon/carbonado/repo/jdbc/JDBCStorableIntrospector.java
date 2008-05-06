@@ -24,12 +24,10 @@ import java.lang.reflect.UndeclaredThrowableException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 
 import java.math.BigDecimal;
@@ -447,7 +445,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             for (StorableKey<S> altKey : mainInfo.getAlternateKeys()) {
                 if (matchesKey(pkProps, altKey)) {
                     // Okay. Primary key in database matches a Storable
-                    // alternate key. 
+                    // alternate key.
                     foundAnyAltKey = true;
 
                     // Also check that declared primary key is a strict subset
@@ -461,7 +459,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
             if (foundAnyAltKey) {
                 errorMessages.add("Actual primary key matches a declared alternate key, " +
-                                  "but declared primary key must be a strict subset. " + 
+                                  "but declared primary key must be a strict subset. " +
                                   mainInfo.getPrimaryKey().getProperties() +
                                   " is not a subset of " + pkProps);
             } else {
@@ -1121,6 +1119,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
      * shorthand to disambiguate the class name.
      */
     private static class JProperty<S extends Storable> implements JDBCStorableProperty<S> {
+        private static final long serialVersionUID = -7333912817502875485L;
+
         private final StorableProperty<S> mMainProperty;
         private final String mColumnName;
         private final Integer mDataType;
@@ -1393,6 +1393,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mExternal.clone();
         }
 
+        @Override
         public String toString() {
             return mMainProperty.toString();
         }

@@ -53,14 +53,17 @@ public class ClosedFilter<S extends Storable> extends Filter<S> {
         return true;
     }
 
+    @Override
     public ClosedFilter<S> and(Filter<S> filter) {
         return this;
     }
 
+    @Override
     public Filter<S> or(Filter<S> filter) {
         return filter;
     }
 
+    @Override
     public OpenFilter<S> not() {
         return getOpenFilter(getStorableType());
     }
@@ -93,49 +96,61 @@ public class ClosedFilter<S extends Storable> extends Filter<S> {
         return null;
     }
 
+    @Override
     public <R, P> R accept(Visitor<S, R, P> visitor, P param) {
         return visitor.visit(this, param);
     }
 
+    @Override
     public ClosedFilter<S> bind() {
         return this;
     }
 
+    @Override
     public ClosedFilter<S> unbind() {
         return this;
     }
 
+    @Override
     public boolean isBound() {
         return true;
     }
 
+    @Override
     <T extends Storable> ClosedFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
         return getClosedFilter(joinProperty.getPrimeProperty().getEnclosingType());
     }
 
+    @Override
     void markBound() {
     }
 
+    @Override
     Filter<S> buildDisjunctiveNormalForm() {
         return this;
     }
 
+    @Override
     Filter<S> buildConjunctiveNormalForm() {
         return this;
     }
 
+    @Override
     boolean isDisjunctiveNormalForm() {
         return true;
     }
 
+    @Override
     boolean isConjunctiveNormalForm() {
         return true;
     }
 
+    @Override
     boolean isReduced() {
         return true;
     }
 
+    @Override
     void markReduced() {
     }
 
@@ -161,6 +176,7 @@ public class ClosedFilter<S extends Storable> extends Filter<S> {
         return "closed";
     }
 
+    @Override
     public void appendTo(Appendable app, FilterValues<S> values) throws IOException {
         app.append("closed");
     }

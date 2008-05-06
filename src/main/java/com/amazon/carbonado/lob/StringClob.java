@@ -63,6 +63,7 @@ public class StringClob extends AbstractClob {
         return mStr.length();
     }
 
+    @Override
     public String asString() {
         return mStr;
     }
@@ -83,6 +84,7 @@ public class StringClob extends AbstractClob {
         throw denied();
     }
 
+    @Override
     public void setValue(String value) throws PersistException {
         denied();
     }

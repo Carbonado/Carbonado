@@ -748,6 +748,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
         return (long) (seconds * 1000000);
     }
 
+    @Override
     public void errorCheck(Collection<String> messages) throws ConfigurationException {
         super.errorCheck(messages);
 

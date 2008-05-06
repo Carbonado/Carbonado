@@ -114,6 +114,7 @@ public abstract class MultiTransformedCursor<S, T> extends AbstractCursor<T> {
         throw new NoSuchElementException();
     }
 
+    @Override
     public int skipNext(int amount) throws FetchException {
         if (amount <= 0) {
             if (amount < 0) {

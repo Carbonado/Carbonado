@@ -32,7 +32,6 @@ import java.util.Set;
 import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.Storable;
-import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 

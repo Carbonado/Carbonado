@@ -173,6 +173,7 @@ class JDBCClob extends AbstractClob implements JDBCLob {
             mPos = pos;
         }
 
+        @Override
         public int read() throws IOException {
             if (fillBuffer() <= 0) {
                 return -1;
@@ -180,6 +181,7 @@ class JDBCClob extends AbstractClob implements JDBCLob {
             return mBuffer.charAt(mBufferPos++);
         }
 
+        @Override
         public int read(char[] c, int off, int len) throws IOException {
             int avail = fillBuffer();
             if (avail <= 0) {
@@ -193,6 +195,7 @@ class JDBCClob extends AbstractClob implements JDBCLob {
             return len;
         }
 
+        @Override
         public long skip(long n) throws IOException {
             if (n <= 0) {
                 return 0;
@@ -221,6 +224,7 @@ class JDBCClob extends AbstractClob implements JDBCLob {
             return n;
         }
 
+        @Override
         public void close() {
         }
 

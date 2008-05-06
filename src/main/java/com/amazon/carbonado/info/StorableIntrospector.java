@@ -339,7 +339,7 @@ public class StorableIntrospector {
                 }
             }
         }
-            
+
         return candidate;
     }
 
@@ -1042,7 +1042,7 @@ public class StorableIntrospector {
         if (sequence != null) {
             sequenceName = sequence.value();
         }
-        
+
         if (join == null) {
             if (errorMessages.size() > 0) {
                 return null;
@@ -1640,6 +1640,8 @@ public class StorableIntrospector {
     }
 
     private static class SimpleProperty<S extends Storable> implements StorableProperty<S> {
+        private static final long serialVersionUID = 6599542401516624863L;
+
         private static final ChainedProperty[] EMPTY_CHAIN_ARRAY = new ChainedProperty[0];
 
         private final BeanProperty mBeanProperty;
@@ -1895,11 +1897,13 @@ public class StorableIntrospector {
             return mAdapter;
         }
 
+        @Override
         public int hashCode() {
             return (getName().hashCode() * 31 + getType().getName().hashCode()) * 31
                 + getEnclosingType().getName().hashCode();
         }
 
+        @Override
         public boolean equals(Object obj) {
             if (this == obj) {
                 return true;
@@ -1915,6 +1919,7 @@ public class StorableIntrospector {
             return false;
         }
 
+        @Override
         public String toString() {
             StringBuilder b = new StringBuilder();
             try {
@@ -2190,6 +2195,8 @@ public class StorableIntrospector {
     }
 
     private static final class JoinProperty<S extends Storable> extends SimpleProperty<S> {
+        private static final long serialVersionUID = 5617446241872193369L;
+
         private final Class<? extends Storable> mJoinedType;
 
         // Just the names of the join properties, held here until properties
@@ -2225,38 +2232,47 @@ public class StorableIntrospector {
             mExternalNames = external;
         }
 
+        @Override
         public boolean isJoin() {
             return true;
         }
 
+        @Override
         public boolean isOneToOneJoin() {
             return mOneToOne;
         }
 
+        @Override
         public Class<? extends Storable> getJoinedType() {
             return mJoinedType;
         }
 
+        @Override
         public int getJoinElementCount() {
             return mInternal.length;
         }
 
+        @Override
         public StorableProperty<S> getInternalJoinElement(int index) {
             return mInternal[index];
         }
 
+        @Override
         public StorableProperty<S>[] getInternalJoinElements() {
             return mInternal.clone();
         }
 
+        @Override
         public StorableProperty<?> getExternalJoinElement(int index) {
             return mExternal[index];
         }
 
+        @Override
         public StorableProperty<?>[] getExternalJoinElements() {
             return mExternal.clone();
         }
 
+        @Override
         public boolean isQuery() {
             return getType() == Query.class;
         }
@@ -2610,7 +2626,7 @@ public class StorableIntrospector {
                 oneToOneCheck: {
                     Set<StorableProperty> internalPrimaryKey = new HashSet<StorableProperty>
                         (mEnclosingInfo.getPrimaryKeyProperties().values());
-                
+
                     for (int i=0; i<mInternal.length; i++) {
                         internalPrimaryKey.remove(getInternalJoinElement(i));
                         if (internalPrimaryKey.size() == 0) {

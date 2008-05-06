@@ -227,6 +227,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws {@link PersistNoneException}.
      */
+    @Override
     public void deleteOne() throws PersistNoneException {
         throw new PersistNoneException();
     }

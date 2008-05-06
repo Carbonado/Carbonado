@@ -29,6 +29,7 @@ import java.sql.SQLException;
 class H2ExceptionTransformer extends JDBCExceptionTransformer {
     public static int DUPLICATE_KEY = 23001;
 
+    @Override
     public boolean isUniqueConstraintError(SQLException e) {
         return DUPLICATE_KEY == e.getErrorCode();
     }

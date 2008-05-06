@@ -38,6 +38,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         mStack = new Stack<Annotation.MemberValue[]>();
     }
 
+    @Override
     public Object visit(String name, int pos, java.lang.annotation.Annotation value,
                         Annotation ann)
     {
@@ -54,62 +55,74 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, int value, Annotation ann) {
         put(ann, name, pos, ann.makeMemberValue(value));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, long value, Annotation ann) {
         put(ann, name, pos, ann.makeMemberValue(value));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, float value, Annotation ann) {
         put(ann, name, pos, ann.makeMemberValue(value));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, double value, Annotation ann) {
         put(ann, name, pos, ann.makeMemberValue(value));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, boolean value, Annotation ann) {
         put(ann, name, pos, ann.makeMemberValue(value));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, byte value, Annotation ann) {
         put(ann, name, pos, ann.makeMemberValue(value));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, short value, Annotation ann) {
         put(ann, name, pos, ann.makeMemberValue(value));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, char value, Annotation ann) {
         put(ann, name, pos, ann.makeMemberValue(value));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, String value, Annotation ann) {
         put(ann, name, pos, ann.makeMemberValue(value));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Class value, Annotation ann) {
         put(ann, name, pos, ann.makeMemberValue(TypeDesc.forClass(value)));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Enum value, Annotation ann) {
         put(ann, name, pos,
             ann.makeMemberValue(TypeDesc.forClass(value.getDeclaringClass()), value.name()));
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, java.lang.annotation.Annotation[] value,
                         Annotation ann)
     {
@@ -119,6 +132,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, int[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);
@@ -126,6 +140,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, long[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);
@@ -133,6 +148,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, float[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);
@@ -140,6 +156,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, double[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);
@@ -147,6 +164,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, boolean[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);
@@ -154,6 +172,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, byte[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);
@@ -161,6 +180,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, short[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);
@@ -168,6 +188,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, char[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);
@@ -175,6 +196,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, String[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);
@@ -182,6 +204,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Class[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);
@@ -189,6 +212,7 @@ public class AnnotationBuilder extends AnnotationVisitor<Object, Annotation> {
         return null;
     }
 
+    @Override
     public Object visit(String name, int pos, Enum[] value, Annotation ann) {
         mStack.push(new Annotation.MemberValue[value.length]);
         super.visit(name, pos, value, ann);

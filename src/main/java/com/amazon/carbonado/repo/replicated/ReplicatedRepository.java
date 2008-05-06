@@ -152,6 +152,7 @@ class ReplicatedRepository
         mMasterRepository = aMasterRepository;
 
         mStoragePool = new StoragePool() {
+            @Override
             protected <S extends Storable> Storage<S> createStorage(Class<S> type)
                 throws SupportException, RepositoryException
             {
@@ -448,10 +449,9 @@ class ReplicatedRepository
             masterCursor = masterQuery.fetch();
 
             S lastReplicaEntry = null;
-            S lastMasterEntry = null;
             S replicaEntry = null;
             S masterEntry = null;
-            
+
             int count = 0, txnCount = 0;
             while (true) {
                 if (throttle != null) {
@@ -531,7 +531,7 @@ class ReplicatedRepository
                         }
                     }
                 }
-                
+
                 if (count++ >= RESYNC_WATERMARK || txnCount >= RESYNC_BATCH_SIZE) {
                     replicaTxn.commit();
                     if (replicaCursor != null) {
@@ -567,7 +567,6 @@ class ReplicatedRepository
                     // Replica cursor is missing an entry so copy it.
                     resyncTask = prepareResyncTask(replicationTrigger, null, masterEntry);
                     // Allow master to advance.
-                    lastMasterEntry = masterEntry;
                     masterEntry = null;
                 } else {
                     // If compare is zero, replicaEntry and masterEntry are
@@ -590,7 +589,6 @@ class ReplicatedRepository
                         replicaCursor = replicaQuery.fetchAfter(replicaEntry);
                     }
                     lastReplicaEntry = replicaEntry;
-                    lastMasterEntry = masterEntry;
                     replicaEntry = null;
                     masterEntry = null;
                 }

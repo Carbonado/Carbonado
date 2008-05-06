@@ -153,6 +153,7 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
         throw new NoSuchElementException();
     }
 
+    @Override
     public int skipNext(int amount) throws FetchException {
         if (amount <= 0) {
             if (amount < 0) {

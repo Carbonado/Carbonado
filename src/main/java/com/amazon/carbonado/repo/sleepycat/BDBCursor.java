@@ -76,6 +76,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         }
     }
 
+    @Override
     public void close() throws FetchException {
         try {
             super.close();
@@ -84,6 +85,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         }
     }
 
+    @Override
     protected void release() throws FetchException {
         try {
             cursor_close();
@@ -92,6 +94,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         }
     }
 
+    @Override
     protected byte[] getCurrentKey() throws FetchException {
         if (searchKey_getPartial()) {
             throw new IllegalStateException();
@@ -99,6 +102,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         return searchKey_getDataCopy();
     }
 
+    @Override
     protected byte[] getCurrentValue() throws FetchException {
         if (data_getPartial()) {
             throw new IllegalStateException();
@@ -106,15 +110,18 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         return data_getDataCopy();
     }
 
+    @Override
     protected void disableKeyAndValue() {
         searchKey_setPartial(true);
         data_setPartial(true);
     }
 
+    @Override
     protected void disableValue() {
         data_setPartial(true);
     }
 
+    @Override
     protected void enableKeyAndValue() throws FetchException {
         searchKey_setPartial(false);
         data_setPartial(false);
@@ -131,10 +138,12 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         }
     }
 
+    @Override
     protected S instantiateCurrent() throws FetchException {
         return mStorage.instantiate(primaryKey_getData(), data_getData());
     }
 
+    @Override
     protected boolean toFirst() throws FetchException {
         try {
             return cursor_getFirst();
@@ -143,6 +152,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         }
     }
 
+    @Override
     protected boolean toFirst(byte[] key) throws FetchException {
         try {
             searchKey_setData(key);
@@ -152,6 +162,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         }
     }
 
+    @Override
     protected boolean toLast() throws FetchException {
         try {
             return cursor_getLast();
@@ -160,6 +171,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         }
     }
 
+    @Override
     protected boolean toLast(byte[] key) throws FetchException {
         try {
             // BDB cursor doesn't support "search for exact or less than", so
@@ -209,6 +221,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         }
     }
 
+    @Override
     protected boolean toNext() throws FetchException {
         try {
             return cursor_getNext();
@@ -217,6 +230,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         }
     }
 
+    @Override
     protected boolean toPrevious() throws FetchException {
         try {
             return cursor_getPrev();
@@ -254,6 +268,7 @@ abstract class BDBCursor<Txn, S extends Storable> extends RawCursor<S> {
         return newData;
     }
 
+    @Override
     protected void handleNoSuchElement() throws FetchException {
         // Might not be any more elements because storage is closed.
         mStorage.checkClosed();

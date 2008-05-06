@@ -384,7 +384,6 @@ class UpgradableLock<L> {
      * @param locker object trying to become lock owner
      */
     public final void lockForWrite(L locker) {
-        Result writeResult;
         if (!tryLockForWrite(locker)) {
             Result upgradeResult = lockForUpgrade_(locker);
             if (!tryLockForWrite(locker)) {
@@ -506,6 +505,7 @@ class UpgradableLock<L> {
         }
     }
 
+    @Override
     public String toString() {
         int state = mState;
         int readLocks = state & ~LOCK_STATE_MASK;

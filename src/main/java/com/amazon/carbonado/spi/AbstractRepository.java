@@ -21,8 +21,6 @@ package com.amazon.carbonado.spi;
 import java.lang.ref.WeakReference;
 
 import java.util.Collection;
-import java.util.Map;
-
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -72,6 +70,7 @@ public abstract class AbstractRepository<Txn>
         mShutdownLock = new ReentrantReadWriteLock();
 
         mStoragePool = new StoragePool() {
+            @Override
             protected <S extends Storable> Storage<S> createStorage(Class<S> type)
                 throws RepositoryException
             {
@@ -85,6 +84,7 @@ public abstract class AbstractRepository<Txn>
         };
 
         mSequencePool = new SequenceValueProducerPool() {
+            @Override
             protected SequenceValueProducer createSequenceValueProducer(String name)
                 throws RepositoryException
             {
@@ -297,6 +297,7 @@ public abstract class AbstractRepository<Txn>
             mRepository = new WeakReference<AbstractRepository<?>>(repository);
         }
 
+        @Override
         public void run() {
             run(true);
         }

@@ -22,8 +22,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 
-import org.apache.commons.logging.LogFactory;
-
 import org.cojen.classfile.TypeDesc;
 
 import com.amazon.carbonado.Cursor;

@@ -37,10 +37,12 @@ class NullablePropertyStatement<S extends Storable> extends SQLStatement<S> {
         mIsNullOp = isNullOp;
     }
 
+    @Override
     public int maxLength() {
         return mIsNullOp ? 8 : 12; // for " IS NULL" or " IS NOT NULL"
     }
 
+    @Override
     public void appendTo(StringBuilder b, FilterValues<S> filterValues) {
         if (filterValues != null
             && filterValues.getValue(mFilter) == null

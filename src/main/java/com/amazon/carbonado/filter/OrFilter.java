@@ -49,14 +49,17 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
         super(left, right);
     }
 
+    @Override
     public Filter<S> not() {
         return mLeft.not().and(mRight.not());
     }
 
+    @Override
     public <R, P> R accept(Visitor<S, R, P> visitor, P param) {
         return visitor.visit(this, param);
     }
 
+    @Override
     public Filter<S> unbind() {
         if (!isBound()) {
             return this;
@@ -64,6 +67,7 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
         return mLeft.unbind().or(mRight.unbind());
     }
 
+    @Override
     <T extends Storable> Filter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
         return mLeft.asJoinedFromAny(joinProperty).or(mRight.asJoinedFromAny(joinProperty));
     }
@@ -96,10 +100,12 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
         return new NotJoined(leftNotJoined.or(rightNotJoined), getOpenFilter(getStorableType()));
     }
 
+    @Override
     Filter<S> buildDisjunctiveNormalForm() {
         return mLeft.dnf().or(mRight.dnf()).reduce();
     }
 
+    @Override
     Filter<S> buildConjunctiveNormalForm() {
         Filter<S> left = mLeft.reduce().cnf();
         Filter<S> right = mRight.reduce().cnf();
@@ -112,10 +118,12 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
         return left.or(right).reduce();
     }
 
+    @Override
     boolean checkIsDisjunctiveNormalForm() {
         return mLeft.isDisjunctiveNormalForm() && mRight.isDisjunctiveNormalForm();
     }
 
+    @Override
     boolean checkIsConjunctiveNormalForm() {
         return (!(mLeft instanceof AndFilter))
             && (!(mRight instanceof AndFilter))
@@ -141,6 +149,7 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
         return false;
     }
 
+    @Override
     public void appendTo(Appendable app, FilterValues<S> values) throws IOException {
         if (mLeft instanceof AndFilter) {
             app.append('(');

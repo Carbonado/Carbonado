@@ -78,6 +78,7 @@ public class BelatedRepositoryCreator extends BelatedCreator<Repository, Support
         mRootRef = rootRef;
     }
 
+    @Override
     protected Repository createReal() throws SupportException {
         Exception error;
         try {
@@ -100,10 +101,12 @@ public class BelatedRepositoryCreator extends BelatedCreator<Repository, Support
         return null;
     }
 
+    @Override
     protected Repository createBogus() {
         return new BogusRepository();
     }
 
+    @Override
     protected void timedOutNotification(long timedOutMillis) {
         mLog.error("Timed out waiting for Repository \"" + mBuilder.getName() +
                    "\" to build after waiting " + timedOutMillis +

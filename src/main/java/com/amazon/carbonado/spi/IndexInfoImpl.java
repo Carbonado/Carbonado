@@ -101,6 +101,7 @@ public class IndexInfoImpl implements IndexInfo {
         return mPropertyDirections.clone();
     }
 
+    @Override
     public String toString() {
         StringBuilder b = new StringBuilder();
         b.append("IndexInfo {name=");

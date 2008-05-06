@@ -37,10 +37,12 @@ class ClobProperty extends LobProperty<Clob> {
         super(engine, propertyName);
     }
 
+    @Override
     Clob createNewLob(int blockSize) throws PersistException {
         return mEngine.createNewClob(blockSize);
     }
 
+    @Override
     void setLobValue(long locator, Clob data) throws PersistException {
         try {
             mEngine.setClobValue(locator, data);

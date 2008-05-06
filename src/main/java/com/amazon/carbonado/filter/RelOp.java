@@ -40,6 +40,7 @@ public enum RelOp {
     /**
      * Returns one of "=", "!=", "<", ">=", ">", or "<=".
      */
+    @Override
     public String toString() {
         switch (this) {
         case EQ:

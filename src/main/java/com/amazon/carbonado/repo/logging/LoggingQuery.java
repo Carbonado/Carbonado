@@ -242,6 +242,7 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         appendable.append(mQuery.toString());
     }
 
+    @Override
     public String toString() {
         return mQuery.toString();
     }

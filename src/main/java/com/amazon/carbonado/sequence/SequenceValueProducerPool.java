@@ -47,6 +47,7 @@ public abstract class SequenceValueProducerPool
      *
      * @param name name of sequence
      */
+    @Override
     public SequenceValueProducer get(String name) throws RepositoryException {
         return (SequenceValueProducer) super.get(name);
     }
@@ -69,6 +70,7 @@ public abstract class SequenceValueProducerPool
         }
     }
 
+    @Override
     protected final SequenceValueProducer create(String name) throws RepositoryException {
         return createSequenceValueProducer(name);
     }

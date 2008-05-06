@@ -25,8 +25,6 @@ import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -316,7 +314,6 @@ public final class StorableGenerator<S extends Storable> {
     private final TypeDesc mSupportType;
     private final StorableInfo<S> mInfo;
     private final Map<String, ? extends StorableProperty<S>> mAllProperties;
-    private final boolean mHasJoins;
 
     private final ClassInjector mClassInjector;
     private final ClassFile mClassFile;
@@ -326,15 +323,6 @@ public final class StorableGenerator<S extends Storable> {
         mSupportType = TypeDesc.forClass(TriggerSupport.class);
         mInfo = StorableIntrospector.examine(storableType);
         mAllProperties = mInfo.getAllProperties();
-
-        boolean hasJoins = false;
-        for (StorableProperty<?> property : mAllProperties.values()) {
-            if (property.isJoin()) {
-                hasJoins = true;
-                break;
-            }
-        }
-        mHasJoins = hasJoins;
 
         mClassInjector = ClassInjector.create
             (storableType.getName(), storableType.getClassLoader());
@@ -346,7 +334,7 @@ public final class StorableGenerator<S extends Storable> {
     private Class<? extends S> generateAndInjectClass() {
         generateClass();
         Class abstractClass = mClassInjector.defineClass(mClassFile);
-        return (Class<? extends S>) abstractClass;
+        return abstractClass;
     }
 
     private void generateClass() {
@@ -1743,6 +1731,7 @@ public final class StorableGenerator<S extends Storable> {
         }
     }
 
+    /*
     private static Method lookupMethod(Class type, MethodInfo mi) {
         MethodDesc desc = mi.getMethodDescriptor();
         TypeDesc[] params = desc.getParameterTypes();
@@ -1759,6 +1748,7 @@ public final class StorableGenerator<S extends Storable> {
 
         return lookupMethod(type, mi.getName(), args);
     }
+    */
 
     private static Method lookupMethod(Class type, String name, Class... args) {
         try {
@@ -2392,7 +2382,7 @@ public final class StorableGenerator<S extends Storable> {
     private void addPropertyStateExtractMethod() {
         MethodInfo mi = mClassFile.addMethod(Modifiers.PRIVATE, PROPERTY_STATE_EXTRACT_METHOD_NAME,
                                              TypeDesc.INT, new TypeDesc[] {TypeDesc.STRING});
-        
+
         addPropertySwitch(new CodeBuilder(mi), SWITCH_FOR_STATE);
     }
 
@@ -2739,7 +2729,7 @@ public final class StorableGenerator<S extends Storable> {
         GenericEncodingStrategy<S> encoder = new GenericEncodingStrategy<S>(mStorableType, null);
 
         CodeBuilder b = new CodeBuilder(mi);
-        
+
         LocalVariable encodedVar;
         try {
             encodedVar = encoder.buildSerialEncoding(b, null);
@@ -3049,7 +3039,7 @@ public final class StorableGenerator<S extends Storable> {
         invokeAppend(b, TypeDesc.STRING);
 
         // First pass, just print primary keys.
-        
+
         LocalVariable commaCountVar = b.createLocalVariable(null, TypeDesc.INT);
         b.loadConstant(-1);
         b.storeLocal(commaCountVar);

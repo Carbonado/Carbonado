@@ -64,6 +64,7 @@ public class BelatedStorageCreator<S extends Storable>
         mStorableType = storableType;
     }
 
+    @Override
     protected Storage<S> createReal() throws SupportException {
         Exception error;
         try {
@@ -86,10 +87,12 @@ public class BelatedStorageCreator<S extends Storable>
         return null;
     }
 
+    @Override
     protected Storage<S> createBogus() {
         return new BogusStorage();
     }
 
+    @Override
     protected void timedOutNotification(long timedOutMillis) {
         mLog.error("Timed out waiting to get Storage of type \"" + mStorableType.getName() +
                    "\" after waiting " + timedOutMillis + " milliseconds");

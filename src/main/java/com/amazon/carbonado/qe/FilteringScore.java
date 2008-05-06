@@ -699,6 +699,7 @@ public class FilteringScore<S extends Storable> {
         return new FilteringScore<S>(this, filter);
     }
 
+    @Override
     public String toString() {
         return "FilteringScore {identityCount=" + getIdentityCount() +
             ", hasRangeStart=" + hasRangeStart() +
@@ -767,16 +768,19 @@ public class FilteringScore<S extends Storable> {
 
     private boolean isProvidedByIndex(Filter<S> filter) {
         return filter.accept(new Visitor<S, Boolean, Object>() {
+            @Override
             public Boolean visit(OrFilter<S> filter, Object param) {
                 return filter.getLeftFilter().accept(this, param)
                     && filter.getRightFilter().accept(this, param);
             }
 
+            @Override
             public Boolean visit(AndFilter<S> filter, Object param) {
                 return filter.getLeftFilter().accept(this, param)
                     && filter.getRightFilter().accept(this, param);
             }
 
+            @Override
             public Boolean visit(PropertyFilter<S> filter, Object param) {
                 ChainedProperty<S> filterProp = filter.getChainedProperty();
                 for (OrderedProperty<S> indexProp : mIndexProperties) {

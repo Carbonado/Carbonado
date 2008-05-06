@@ -40,6 +40,7 @@ class WeakReentrantLockPool<K>
         mFair = fair;
     }
 
+    @Override
     protected ReentrantLock create(K key) {
         return new ReentrantLock(mFair);
     }

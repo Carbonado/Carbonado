@@ -49,6 +49,7 @@ public class QueryEngine<S extends Storable> extends StandardQueryFactory<S>
         return mExecutorFactory.executor(filter, ordering, hints);
     }
 
+    @Override
     protected StandardQuery<S> createQuery(Filter<S> filter,
                                            FilterValues<S> values,
                                            OrderingList<S> ordering,
@@ -66,18 +67,22 @@ public class QueryEngine<S extends Storable> extends StandardQueryFactory<S>
             super(filter, values, ordering, hints);
         }
 
+        @Override
         protected Transaction enterTransaction(IsolationLevel level) {
             return mRepoAccess.getRootRepository().enterTransaction(level);
         }
 
+        @Override
         protected QueryFactory<S> queryFactory() {
             return QueryEngine.this;
         }
 
+        @Override
         protected QueryExecutorFactory<S> executorFactory() {
             return mExecutorFactory;
         }
 
+        @Override
         protected StandardQuery<S> newInstance(FilterValues<S> values,
                                                OrderingList<S> ordering,
                                                QueryHints hints)

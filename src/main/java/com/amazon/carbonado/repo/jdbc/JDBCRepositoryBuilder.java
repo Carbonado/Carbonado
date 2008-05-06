@@ -392,6 +392,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
         mForceStoredSequence = forceStoredSequence;
     }
 
+    @Override
     public void errorCheck(Collection<String> messages) throws ConfigurationException {
         super.errorCheck(messages);
         if (mDataSource == null) {

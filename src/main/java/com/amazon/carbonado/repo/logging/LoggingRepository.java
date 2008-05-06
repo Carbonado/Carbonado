@@ -27,8 +27,6 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
-import com.amazon.carbonado.TriggerFactory;
-
 import com.amazon.carbonado.capability.Capability;
 
 import com.amazon.carbonado.spi.StoragePool;
@@ -56,6 +54,7 @@ class LoggingRepository implements Repository, LogAccessCapability {
         mLog = log;
 
         mStoragePool = new StoragePool() {
+            @Override
             protected <S extends Storable> Storage<S> createStorage(Class<S> type)
                 throws RepositoryException
             {

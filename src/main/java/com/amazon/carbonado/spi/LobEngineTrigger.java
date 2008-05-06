@@ -49,6 +49,7 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
     }
 
     // Returns user specified Lob values
+    @Override
     public Object beforeInsert(S storable) throws PersistException {
         // Capture user lob values for later and replace with new locators.
         int length = mLobProperties.length;
@@ -65,6 +66,7 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
         return userLobs;
     }
 
+    @Override
     public void afterInsert(S storable, Object state) throws PersistException {
         // Save user lob value contents into new lobs. This is done after the
         // insert of the enclosing record to avoid an expensive rollback if a
@@ -81,10 +83,12 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
         }
     }
 
+    @Override
     public void failedInsert(S storable, Object state) {
         unreplaceLobs(storable, state);
     }
 
+    @Override
     public Object beforeUpdate(S storable) throws PersistException {
         // For each dirty lob property, capture it in case update fails. All
         // lob updates are made in this method.
@@ -129,11 +133,13 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
         return userLobs;
     }
 
+    @Override
     public void failedUpdate(S storable, Object state) {
         unreplaceLobs(storable, state);
     }
 
     // Returns existing Storable or null
+    @Override
     public Object beforeDelete(S storable) throws PersistException {
         S existing = (S) storable.copy();
         try {
@@ -146,6 +152,7 @@ class LobEngineTrigger<S extends Storable> extends Trigger<S> {
         }
     }
 
+    @Override
     public void afterDelete(S storable, Object existing) throws PersistException {
         if (existing != null) {
             // After successful delete of master storable, delete all the lobs.

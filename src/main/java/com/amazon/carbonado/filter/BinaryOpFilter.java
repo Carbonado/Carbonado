@@ -62,6 +62,7 @@ public abstract class BinaryOpFilter<S extends Storable> extends Filter<S> {
         return mRight;
     }
 
+    @Override
     public Filter<S> bind() {
         if (isBound()) {
             return this;
@@ -69,14 +70,17 @@ public abstract class BinaryOpFilter<S extends Storable> extends Filter<S> {
         return accept(new Binder<S>(), null);
     }
 
+    @Override
     public synchronized boolean isBound() {
         return (mState & BOUND) != 0;
     }
 
+    @Override
     synchronized void markBound() {
         mState |= BOUND;
     }
 
+    @Override
     final synchronized boolean isDisjunctiveNormalForm() {
         if ((mState & DNF_KNOWN) != 0) { // if dnf state is known...
             return (mState & DNF) != 0;  // return true if dnf
@@ -93,6 +97,7 @@ public abstract class BinaryOpFilter<S extends Storable> extends Filter<S> {
 
     abstract boolean checkIsDisjunctiveNormalForm();
 
+    @Override
     final synchronized boolean isConjunctiveNormalForm() {
         if ((mState & CNF_KNOWN) != 0) { // if cnf state is known...
             return (mState & CNF) != 0;  // return true if cnf
@@ -109,10 +114,12 @@ public abstract class BinaryOpFilter<S extends Storable> extends Filter<S> {
 
     abstract boolean checkIsConjunctiveNormalForm();
 
+    @Override
     synchronized boolean isReduced() {
         return (mState & REDUCED) != 0;
     }
 
+    @Override
     synchronized void markReduced() {
         mState |= REDUCED;
     }

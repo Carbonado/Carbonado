@@ -18,7 +18,6 @@
 
 package com.amazon.carbonado.cursor;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import java.util.ArrayList;
@@ -217,6 +216,7 @@ class FilteredCursorGenerator {
         Validator() {
         }
 
+        @Override
         public Object visit(PropertyFilter<S> filter, Object param) {
             ChainedProperty<S> chained = filter.getChainedProperty();
 
@@ -304,6 +304,7 @@ class FilteredCursorGenerator {
             return mSubFilters;
         }
 
+        @Override
         public Object visit(OrFilter<S> filter, Object param) {
             Label failLocation = mIsAllowedBuilder.createLabel();
             // Inherit success location to short-circuit if 'or' test succeeds.
@@ -315,6 +316,7 @@ class FilteredCursorGenerator {
             return null;
         }
 
+        @Override
         public Object visit(AndFilter<S> filter, Object param) {
             Label successLocation = mIsAllowedBuilder.createLabel();
             // Inherit fail location to short-circuit if 'and' test fails.
@@ -326,6 +328,7 @@ class FilteredCursorGenerator {
             return null;
         }
 
+        @Override
         public Object visit(PropertyFilter<S> filter, Object param) {
             TypeDesc type = TypeDesc.forClass(filter.getChainedProperty().getType());
             String fieldName = addFilterField(filter, type);
@@ -334,6 +337,7 @@ class FilteredCursorGenerator {
             return null;
         }
 
+        @Override
         public Object visit(ExistsFilter<S> filter, Object param) {
             // Load join property value to stack.
             CodeBuilder b = mIsAllowedBuilder;

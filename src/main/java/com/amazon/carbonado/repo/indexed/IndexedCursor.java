@@ -179,6 +179,7 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
         throw new NoSuchElementException();
     }
 
+    @Override
     public int skipNext(int amount) throws FetchException {
         try {
             if (mNext == null) {

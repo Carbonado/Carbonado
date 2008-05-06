@@ -37,18 +37,22 @@ public class RAFInputStream extends InputStream {
         mRAF = raf;
     }
 
+    @Override
     public int read() throws IOException {
         return mRAF.read();
     }
 
+    @Override
     public int read(byte[] b) throws IOException {
         return mRAF.read(b);
     }
 
+    @Override
     public int read(byte[] b, int offset, int length) throws IOException {
         return mRAF.read(b, offset, length);
     }
 
+    @Override
     public long skip(long n) throws IOException {
         if (n > Integer.MAX_VALUE) {
             n = Integer.MAX_VALUE;
@@ -56,6 +60,7 @@ public class RAFInputStream extends InputStream {
         return mRAF.skipBytes((int) n);
     }
 
+    @Override
     public void close() throws IOException {
         mRAF.close();
     }

@@ -218,6 +218,7 @@ public class CompositeScore<S extends Storable> {
                                      mOrderingScore.withRemainderOrdering(ordering));
     }
 
+    @Override
     public String toString() {
         return "CompositeScore {" + getFilteringScore() + ", " + getOrderingScore() + '}';
     }

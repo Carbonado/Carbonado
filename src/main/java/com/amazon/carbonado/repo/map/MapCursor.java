@@ -25,7 +25,6 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.cursor.AbstractCursor;

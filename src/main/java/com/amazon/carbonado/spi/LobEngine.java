@@ -685,6 +685,7 @@ public class LobEngine {
             super(new BlobImpl(lob));
         }
 
+        @Override
         public Long getLocator() {
             return ((BlobImpl) super.getWrappedBlob()).getLocator();
         }
@@ -711,6 +712,7 @@ public class LobEngine {
         }
 
         // Override to gain permission.
+        @Override
         protected BlobImpl getWrappedBlob() {
             return (BlobImpl) super.getWrappedBlob();
         }

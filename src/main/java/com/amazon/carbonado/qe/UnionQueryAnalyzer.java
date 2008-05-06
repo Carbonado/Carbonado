@@ -558,6 +558,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
             return 0;
         }
 
+        @Override
         public String toString() {
             return "Tally: {property=" + mProperty +
                 ", asc=" + mAscendingCount +

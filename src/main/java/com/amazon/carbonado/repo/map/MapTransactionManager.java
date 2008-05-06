@@ -40,6 +40,7 @@ class MapTransactionManager extends TransactionManager<MapTransaction> {
         mLockTimeoutUnit = lockTimeoutUnit;
     }
 
+    @Override
     protected IsolationLevel selectIsolationLevel(Transaction parent, IsolationLevel level) {
         if (level == null) {
             if (parent == null) {
@@ -63,10 +64,12 @@ class MapTransactionManager extends TransactionManager<MapTransaction> {
         }
     }
 
+    @Override
     protected boolean supportsForUpdate() {
         return true;
     }
 
+    @Override
     protected MapTransaction createTxn(MapTransaction parent, IsolationLevel level)
         throws Exception
     {
@@ -87,11 +90,13 @@ class MapTransactionManager extends TransactionManager<MapTransaction> {
         return new MapTransaction(parent, level, timeout, unit);
     }
 
+    @Override
     protected boolean commitTxn(MapTransaction txn) throws PersistException {
         txn.commit();
         return false;
     }
 
+    @Override
     protected void abortTxn(MapTransaction txn) throws PersistException {
         txn.abort();
     }

@@ -30,6 +30,7 @@ class OracleExceptionTransformer extends JDBCExceptionTransformer {
 
     public static int INSUFFICIENT_PRIVILEGES = 1031;
 
+    @Override
     public boolean isUniqueConstraintError(SQLException e) {
         if (isConstraintError(e)) {
             String sqlstate = e.getSQLState();
@@ -40,6 +41,7 @@ class OracleExceptionTransformer extends JDBCExceptionTransformer {
         return false;
     }
 
+    @Override
     public boolean isInsufficientPrivilegesError(SQLException e) {
         if (e != null) {
             int errorCode = e.getErrorCode();

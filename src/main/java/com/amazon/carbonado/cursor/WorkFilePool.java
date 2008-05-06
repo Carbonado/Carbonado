@@ -155,6 +155,7 @@ class WorkFilePool {
         String threadName = "MergeSortBuffer shutdown (" + tempDir + ')';
 
         mShutdownHook = new Thread(threadName) {
+            @Override
             public void run() {
                 // Notify users of work files and wait for them to close.
                 synchronized (mWorkFileUsers) {

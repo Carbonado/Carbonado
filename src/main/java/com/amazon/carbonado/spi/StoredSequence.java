@@ -30,6 +30,7 @@ import com.amazon.carbonado.Storable;
  * @author Brian S O'Neill
  * @deprecated Replaced by {@link com.amazon.carbonado.sequence.StoredSequence}
  */
+@Deprecated
 @PrimaryKey("name")
 @Authoritative
 @Independent

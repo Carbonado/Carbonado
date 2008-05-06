@@ -51,6 +51,7 @@ public abstract class StoragePool
         return (Storage<S>) super.get(type);
     }
 
+    @Override
     protected final Storage create(Class type) throws SupportException, RepositoryException {
         return createStorage(type);
     }
