@@ -143,7 +143,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 return;
             }
 
-            Connection con = mRepository.getConnection();
+            Connection con = getConnection();
             try {
                 java.sql.Statement st = con.createStatement();
                 try {
@@ -152,9 +152,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     st.close();
                 }
             } catch (SQLException e) {
-                throw JDBCExceptionTransformer.getInstance().toPersistException(e);
+                throw toPersistException(e);
             } finally {
-                mRepository.yieldConnection(con);
+                yieldConnection(con);
             }
         } catch (FetchException e) {
             throw e.toPersistException();
@@ -205,6 +205,34 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         mTriggerManager.locallyEnableLoad();
     }
 
+    public boolean isTransactionForUpdate() {
+        return mRepository.isTransactionForUpdate();
+    }
+
+    public FetchException toFetchException(Throwable e) {
+        return mRepository.toFetchException(e);
+    }
+
+    public PersistException toPersistException(Throwable e) {
+        return mRepository.toPersistException(e);
+    }
+
+    public boolean isUniqueConstraintError(SQLException e) {
+        return mRepository.isUniqueConstraintError(e);
+    }
+
+    public Connection getConnection() throws FetchException {
+        return mRepository.getConnection();
+    }
+
+    public void yieldConnection(Connection con) throws FetchException {
+        mRepository.yieldConnection(con);
+    }
+
+    public String getDatabaseProductName() {
+        return mRepository.getDatabaseProductName();
+    }
+
     /**
      * @param loader used to reload Blob outside original transaction
      */
@@ -220,7 +248,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     txn.register(jblob);
                 }
             } catch (Exception e) {
-                throw mRepository.toFetchException(e);
+                throw toFetchException(e);
             }
         }
 
@@ -242,7 +270,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     txn.register(jclob);
                 }
             } catch (Exception e) {
-                throw mRepository.toFetchException(e);
+                throw toFetchException(e);
             }
         }
 
@@ -334,7 +362,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 jn = jnb.getRootJoinNode();
                 jnb.captureOrderings(ordering);
             } catch (UndeclaredThrowableException e) {
-                throw mRepository.toFetchException(e);
+                throw toFetchException(e);
             }
 
             SQLStatementBuilder<S> selectBuilder = new SQLStatementBuilder<S>(mRepository);
@@ -617,7 +645,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
             boolean forUpdate = mRepository.localTransactionScope().isForUpdate();
-            Connection con = mRepository.getConnection();
+            Connection con = getConnection();
             try {
                 PreparedStatement ps = con.prepareStatement(prepareSelect(values, forUpdate));
                 Integer fetchSize = mRepository.getFetchSize();
@@ -640,11 +668,11 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             } catch (Exception e) {
                 // in case of exception, yield connection
                 try {
-                    mRepository.yieldConnection(con);
+                    yieldConnection(con);
                 } catch (FetchException e2) {
                    // ignore and allow triggering exception to propagate
                 }
-                throw mRepository.toFetchException(e);
+                throw toFetchException(e);
             }
         }
 
@@ -689,7 +717,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 select = select.concat(" FOR UPDATE");
             }
 
-            Connection con = mRepository.getConnection();
+            Connection con = getConnection();
             try {
                 PreparedStatement ps = con.prepareStatement(select);
                 Integer fetchSize = mRepository.getFetchSize();
@@ -740,17 +768,17 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             } catch (Exception e) {
                 // in case of exception, yield connection
                 try {
-                    mRepository.yieldConnection(con);
+                    yieldConnection(con);
                 } catch (FetchException e2) {
                    // ignore and allow triggering exception to propagate
                 }
-                throw mRepository.toFetchException(e);
+                throw toFetchException(e);
             }
         }
 
         @Override
         public long count(FilterValues<S> values) throws FetchException {
-            Connection con = mRepository.getConnection();
+            Connection con = getConnection();
             try {
                 PreparedStatement ps = con.prepareStatement(prepareCount(values));
                 try {
@@ -766,9 +794,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     ps.close();
                 }
             } catch (Exception e) {
-                throw mRepository.toFetchException(e);
+                throw toFetchException(e);
             } finally {
-                mRepository.yieldConnection(con);
+                yieldConnection(con);
             }
         }
 
@@ -810,7 +838,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         int executeDelete(FilterValues<S> filterValues) throws PersistException {
             Connection con;
             try {
-                con = mRepository.getConnection();
+                con = getConnection();
             } catch (FetchException e) {
                 throw e.toPersistException();
             }
@@ -823,10 +851,10 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     ps.close();
                 }
             } catch (Exception e) {
-                throw mRepository.toPersistException(e);
+                throw toPersistException(e);
             } finally {
                 try {
-                    mRepository.yieldConnection(con);
+                    yieldConnection(con);
                 } catch (FetchException e) {
                     throw e.toPersistException();
                 }
