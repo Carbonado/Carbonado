@@ -144,9 +144,12 @@ public class CharArrayClob extends AbstractClob {
             length = mLength - ipos;
         }
 
-        System.arraycopy(mData, ipos, chars, 0, length);
-
-        return length;
+        if (length > 0) {
+            System.arraycopy(mData, ipos, chars, 0, length);
+            return length;
+        } else {
+            return -1;
+        }
     }
 
     synchronized int read(long pos, char[] chars, int offset, int length) {
@@ -176,16 +179,19 @@ public class CharArrayClob extends AbstractClob {
             length = mLength - ipos;
         }
 
-        try {
-            System.arraycopy(mData, ipos, chars, offset, length);
-        } catch (IndexOutOfBoundsException e) {
-            if (offset >= chars.length && length > 0) {
-                throw new IllegalArgumentException("Offset is too large: " + offset);
+        if (length > 0) {
+            try {
+                System.arraycopy(mData, ipos, chars, offset, length);
+            } catch (IndexOutOfBoundsException e) {
+                if (offset >= chars.length && length > 0) {
+                    throw new IllegalArgumentException("Offset is too large: " + offset);
+                }
+                throw e;
             }
-            throw e;
+            return length;
+        } else {
+            return -1;
         }
-
-        return length;
     }
 
     public Writer openWriter() {

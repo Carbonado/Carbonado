@@ -138,9 +138,12 @@ public class ByteArrayBlob extends AbstractBlob {
             length = mLength - ipos;
         }
 
-        System.arraycopy(mData, ipos, bytes, 0, length);
-
-        return length;
+        if (length > 0) {
+            System.arraycopy(mData, ipos, bytes, 0, length);
+            return length;
+        } else {
+            return -1;
+        }
     }
 
     synchronized int read(long pos, byte[] bytes, int offset, int length) {
@@ -170,16 +173,19 @@ public class ByteArrayBlob extends AbstractBlob {
             length = mLength - ipos;
         }
 
-        try {
-            System.arraycopy(mData, ipos, bytes, offset, length);
-        } catch (IndexOutOfBoundsException e) {
-            if (offset >= bytes.length && length > 0) {
-                throw new IllegalArgumentException("Offset is too large: " + offset);
+        if (length > 0) {
+            try {
+                System.arraycopy(mData, ipos, bytes, offset, length);
+            } catch (IndexOutOfBoundsException e) {
+                if (offset >= bytes.length && length > 0) {
+                    throw new IllegalArgumentException("Offset is too large: " + offset);
+                }
+                throw e;
             }
-            throw e;
+            return length;
+        } else {
+            return -1;
         }
-
-        return length;
     }
 
     public OutputStream openOutputStream() {
