@@ -25,11 +25,12 @@ package com.amazon.carbonado.repo.jdbc;
  * @since 1.2
  */
 class H2SupportStrategy extends JDBCSupportStrategy {
+    private static final String DEFAULT_SEQUENCE_SELECT_STATEMENT = "SELECT NEXT VALUE FOR %s";
     private static final String TRUNCATE_STATEMENT = "TRUNCATE TABLE %s";
 
     protected H2SupportStrategy(JDBCRepository repo) {
         super(repo);
-
+        setSequenceSelectStatement(DEFAULT_SEQUENCE_SELECT_STATEMENT);
         setTruncateTableStatement(TRUNCATE_STATEMENT);
     }
 
