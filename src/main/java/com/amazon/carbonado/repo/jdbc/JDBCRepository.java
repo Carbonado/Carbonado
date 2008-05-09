@@ -51,6 +51,7 @@ import com.amazon.carbonado.capability.IndexInfo;
 import com.amazon.carbonado.capability.IndexInfoCapability;
 import com.amazon.carbonado.capability.ShutdownCapability;
 import com.amazon.carbonado.capability.StorableInfoCapability;
+import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.sequence.SequenceCapability;
 import com.amazon.carbonado.sequence.SequenceValueProducer;
@@ -70,8 +71,7 @@ import com.amazon.carbonado.util.ThrowUnchecked;
  * @author bcastill
  * @see JDBCRepositoryBuilder
  */
-// Note: this class must be public because auto-generated code needs access to it
-public class JDBCRepository extends AbstractRepository<JDBCTransaction>
+class JDBCRepository extends AbstractRepository<JDBCTransaction>
     implements Repository,
                IndexInfoCapability,
                ShutdownCapability,
@@ -195,6 +195,8 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
     private final JDBCSupportStrategy mSupportStrategy;
     private JDBCExceptionTransformer mExceptionTransformer;
 
+    private final SupportResolver mResolver;
+
     private final JDBCTransactionManager mTxnMgr;
 
     // Mappings from IsolationLevel to best matching supported level.
@@ -224,7 +226,8 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
                    Integer fetchSize,
                    Map<String, Boolean> autoVersioningMap,
                    Map<String, Boolean> suppressReloadMap,
-                   String sequenceSelectStatement, boolean forceStoredSequence)
+                   String sequenceSelectStatement, boolean forceStoredSequence,
+                   SupportResolver resolver)
         throws RepositoryException
     {
         super(name);
@@ -242,6 +245,8 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
 
         mAutoVersioningMap = autoVersioningMap;
         mSuppressReloadMap = suppressReloadMap;
+
+        mResolver = resolver;
 
         mOpenConnections = new IdentityHashMap<Connection, Object>();
         mOpenConnectionsLock = new ReentrantLock(true);
@@ -327,7 +332,6 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
     /**
      * Returns true if a transaction is in progress and it is for update.
      */
-    // Is called by auto-generated code and must be public.
     public boolean isTransactionForUpdate() {
         return localTransactionScope().isForUpdate();
     }
@@ -344,7 +348,8 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
         throws RepositoryException, SupportException
     {
         try {
-            return JDBCStorableIntrospector.examine(type, mDataSource, mCatalog, mSchema);
+            return JDBCStorableIntrospector
+                .examine(type, mDataSource, mCatalog, mSchema, mResolver);
         } catch (SQLException e) {
             throw toRepositoryException(e);
         }
@@ -417,7 +422,6 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
      * Any connection returned by this method must be closed by calling
      * yieldConnection on this repository.
      */
-    // Note: This method must be public for auto-generated code to access it.
     public Connection getConnection() throws FetchException {
         try {
             if (mOpenConnections == null) {
@@ -493,7 +497,6 @@ public class JDBCRepository extends AbstractRepository<JDBCTransaction>
      * Gives up a connection returned from getConnection. Connection must be
      * yielded in same thread that retrieved it.
      */
-    // Note: This method must be public for auto-generated code to access it.
     public void yieldConnection(Connection con) throws FetchException {
         try {
             if (con.getAutoCommit()) {

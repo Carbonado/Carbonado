@@ -181,7 +181,6 @@ class JDBCStorableGenerator<S extends Storable> {
         final Map<JDBCStorableProperty<S>, Class<?>> lobLoaderMap = generateLobLoaders();
 
         // Declare some types.
-        final TypeDesc jdbcRepoType = TypeDesc.forClass(JDBCRepository.class);
         final TypeDesc jdbcSupportType = TypeDesc.forClass(JDBCSupport.class);
         final TypeDesc resultSetType = TypeDesc.forClass(ResultSet.class);
         final TypeDesc connectionType = TypeDesc.forClass(Connection.class);
@@ -299,34 +298,34 @@ class JDBCStorableGenerator<S extends Storable> {
             mi.addException(TypeDesc.forClass(FetchException.class));
             CodeBuilder b = new CodeBuilder(mi);
 
-            LocalVariable repoVar = getJDBCRepository(b);
+            LocalVariable supportVar = getJDBCSupport(b);
             Label tryBeforeCon = b.createLabel().setLocation();
-            LocalVariable conVar = getConnection(b, repoVar);
+            LocalVariable conVar = getConnection(b, supportVar);
             Label tryAfterCon = b.createLabel().setLocation();
 
             b.loadThis();
-            b.loadLocal(repoVar);
+            b.loadLocal(supportVar);
             b.loadLocal(conVar);
             b.loadNull(); // No Lobs to update
             b.invokeVirtual(MasterStorableGenerator.DO_TRY_LOAD_MASTER_METHOD_NAME,
                             TypeDesc.BOOLEAN,
-                            new TypeDesc[] {jdbcRepoType, connectionType, lobArrayType});
+                            new TypeDesc[] {jdbcSupportType, connectionType, lobArrayType});
             LocalVariable resultVar = b.createLocalVariable("result", TypeDesc.BOOLEAN);
             b.storeLocal(resultVar);
 
-            yieldConAndHandleException(b, repoVar, tryBeforeCon, conVar, tryAfterCon, false);
+            yieldConAndHandleException(b, supportVar, tryBeforeCon, conVar, tryAfterCon, false);
 
             b.loadLocal(resultVar);
             b.returnValue(TypeDesc.BOOLEAN);
         }
 
-        // Now define doTryLoad(JDBCRepositry, Connection, Lob[]). The Lob array argument
+        // Now define doTryLoad(JDBCSupport, Connection, Lob[]). The Lob array argument
         // is optional, and it indicates which (large) Lobs should be updated upon load.
         {
             MethodInfo mi = mClassFile.addMethod
                 (Modifiers.PROTECTED,
                  MasterStorableGenerator.DO_TRY_LOAD_MASTER_METHOD_NAME, TypeDesc.BOOLEAN,
-                 new TypeDesc[] {jdbcRepoType, connectionType, lobArrayType});
+                 new TypeDesc[] {jdbcSupportType, connectionType, lobArrayType});
             mi.addException(TypeDesc.forClass(Exception.class));
             CodeBuilder b = new CodeBuilder(mi);
 
@@ -418,13 +417,16 @@ class JDBCStorableGenerator<S extends Storable> {
             Label tryEnd = b.createLabel().setLocation();
             b.returnVoid();
 
+            b.exceptionHandler(tryStart, tryEnd, RuntimeException.class.getName());
+            b.throwObject();
+
             b.exceptionHandler(tryStart, tryEnd, Exception.class.getName());
-            pushJDBCRepository(b);
-            // Swap exception object and JDBCRepository instance.
+            pushJDBCSupport(b);
+            // Swap exception object and JDBCSupport instance.
             b.swap();
             TypeDesc[] params = {TypeDesc.forClass(Throwable.class)};
-            b.invokeVirtual(jdbcRepoType, "toPersistException",
-                            TypeDesc.forClass(PersistException.class), params);
+            b.invokeInterface(jdbcSupportType, "toPersistException",
+                              TypeDesc.forClass(PersistException.class), params);
             b.throwObject();
         }
 
@@ -444,11 +446,11 @@ class JDBCStorableGenerator<S extends Storable> {
 
             b.exceptionHandler(tryStart, innerTryEnd, SQLException.class.getName());
             b.dup(); // dup the SQLException
-            pushJDBCRepository(b);
+            pushJDBCSupport(b);
             b.swap(); // swap the dup'ed SQLException to pass to method
-            b.invokeVirtual(jdbcRepoType, "isUniqueConstraintError",
-                            TypeDesc.BOOLEAN,
-                            new TypeDesc[] {TypeDesc.forClass(SQLException.class)});
+            b.invokeInterface(jdbcSupportType, "isUniqueConstraintError",
+                              TypeDesc.BOOLEAN,
+                              new TypeDesc[] {TypeDesc.forClass(SQLException.class)});
             Label notConstraint = b.createLabel();
             b.ifZeroComparisonBranch(notConstraint, "==");
             // Return false to indicate unique constraint violation.
@@ -461,13 +463,16 @@ class JDBCStorableGenerator<S extends Storable> {
 
             Label outerTryEnd = b.createLabel().setLocation();
 
+            b.exceptionHandler(tryStart, outerTryEnd, RuntimeException.class.getName());
+            b.throwObject();
+
             b.exceptionHandler(tryStart, outerTryEnd, Exception.class.getName());
-            pushJDBCRepository(b);
-            // Swap exception object and JDBCRepository instance.
+            pushJDBCSupport(b);
+            // Swap exception object and JDBCSupport instance.
             b.swap();
             TypeDesc[] params = {TypeDesc.forClass(Throwable.class)};
-            b.invokeVirtual(jdbcRepoType, "toPersistException",
-                            TypeDesc.forClass(PersistException.class), params);
+            b.invokeInterface(jdbcSupportType, "toPersistException",
+                              TypeDesc.forClass(PersistException.class), params);
             b.throwObject();
         }
 
@@ -479,8 +484,8 @@ class JDBCStorableGenerator<S extends Storable> {
             mi.addException(TypeDesc.forClass(PersistException.class));
             CodeBuilder b = new CodeBuilder(mi);
 
-            LocalVariable repoVar = getJDBCRepository(b);
-            LocalVariable conVar = getConnection(b, repoVar);
+            LocalVariable supportVar = getJDBCSupport(b);
+            LocalVariable conVar = getConnection(b, supportVar);
             Label tryAfterCon = b.createLabel().setLocation();
 
             // Push connection in preparation for preparing a statement.
@@ -752,7 +757,7 @@ class JDBCStorableGenerator<S extends Storable> {
                 // progress at this point.
 
                 b.loadThis();
-                b.loadLocal(repoVar);
+                b.loadLocal(supportVar);
                 b.loadLocal(conVar);
                 if (lobArrayVar == null) {
                     b.loadNull();
@@ -761,13 +766,13 @@ class JDBCStorableGenerator<S extends Storable> {
                 }
                 b.invokeVirtual(MasterStorableGenerator.DO_TRY_LOAD_MASTER_METHOD_NAME,
                                 TypeDesc.BOOLEAN,
-                                new TypeDesc[] {jdbcRepoType, connectionType, lobArrayType});
+                                new TypeDesc[] {jdbcSupportType, connectionType, lobArrayType});
                 b.pop();
             }
 
             // Note: yieldConAndHandleException is not called, allowing any
             // SQLException to be thrown. The insert or tryInsert methods must handle it.
-            yieldCon(b, repoVar, conVar, tryAfterCon);
+            yieldCon(b, supportVar, conVar, tryAfterCon);
 
             b.loadConstant(true);
             b.returnValue(TypeDesc.BOOLEAN);
@@ -786,9 +791,9 @@ class JDBCStorableGenerator<S extends Storable> {
             // Only update properties with state DIRTY. Therefore, update
             // statement is always dynamic.
 
-            LocalVariable repoVar = getJDBCRepository(b);
+            LocalVariable supportVar = getJDBCSupport(b);
             Label tryBeforeCon = b.createLabel().setLocation();
-            LocalVariable conVar = getConnection(b, repoVar);
+            LocalVariable conVar = getConnection(b, supportVar);
             Label tryAfterCon = b.createLabel().setLocation();
 
             // Load connection in preparation for creating statement.
@@ -1105,7 +1110,7 @@ class JDBCStorableGenerator<S extends Storable> {
                 // progress at this point.
 
                 b.loadThis();
-                b.loadLocal(repoVar);
+                b.loadLocal(supportVar);
                 b.loadLocal(conVar);
                 if (lobArrayVar == null) {
                     b.loadNull();
@@ -1114,7 +1119,7 @@ class JDBCStorableGenerator<S extends Storable> {
                 }
                 b.invokeVirtual(MasterStorableGenerator.DO_TRY_LOAD_MASTER_METHOD_NAME,
                                 TypeDesc.BOOLEAN,
-                                new TypeDesc[] {jdbcRepoType, connectionType, lobArrayType});
+                                new TypeDesc[] {jdbcSupportType, connectionType, lobArrayType});
                 // Even though a boolean is returned, the actual value for true and
                 // false is an int, 1 or 0.
                 b.storeLocal(updateCount);
@@ -1122,7 +1127,7 @@ class JDBCStorableGenerator<S extends Storable> {
 
             skipReload.setLocation();
 
-            yieldConAndHandleException(b, repoVar, tryBeforeCon, conVar, tryAfterCon, true);
+            yieldConAndHandleException(b, supportVar, tryBeforeCon, conVar, tryAfterCon, true);
 
             b.loadLocal(updateCount);
             b.returnValue(TypeDesc.BOOLEAN);
@@ -1140,9 +1145,9 @@ class JDBCStorableGenerator<S extends Storable> {
             deleteBuilder.append("DELETE FROM ");
             deleteBuilder.append(mInfo.getQualifiedTableName());
 
-            LocalVariable repoVar = getJDBCRepository(b);
+            LocalVariable supportVar = getJDBCSupport(b);
             Label tryBeforeCon = b.createLabel().setLocation();
-            LocalVariable conVar = getConnection(b, repoVar);
+            LocalVariable conVar = getConnection(b, supportVar);
             Label tryAfterCon = b.createLabel().setLocation();
 
             LocalVariable psVar = b.createLocalVariable("ps", preparedStatementType);
@@ -1160,7 +1165,7 @@ class JDBCStorableGenerator<S extends Storable> {
             b.storeLocal(resultVar);
 
             closeStatement(b, psVar, tryAfterPs);
-            yieldConAndHandleException(b, repoVar, tryBeforeCon, conVar, tryAfterCon, true);
+            yieldConAndHandleException(b, supportVar, tryBeforeCon, conVar, tryAfterCon, true);
 
             b.loadLocal(resultVar);
             b.returnValue(TypeDesc.BOOLEAN);
@@ -1212,24 +1217,15 @@ class JDBCStorableGenerator<S extends Storable> {
     }
 
     /**
-     * Generates code to get the JDBCRepository instance and store it in a
-     * local variable.
+     * Generates code to get the JDBCSupport instance and store it in a local
+     * variable.
      */
-    private LocalVariable getJDBCRepository(CodeBuilder b) {
-        pushJDBCRepository(b);
-        LocalVariable repoVar =
-            b.createLocalVariable("repo", TypeDesc.forClass(JDBCRepository.class));
-        b.storeLocal(repoVar);
-        return repoVar;
-    }
-
-    /**
-     * Generates code to push the JDBCRepository instance on the stack.
-     */
-    private void pushJDBCRepository(CodeBuilder b) {
+    private LocalVariable getJDBCSupport(CodeBuilder b) {
         pushJDBCSupport(b);
-        b.invokeInterface(TypeDesc.forClass(JDBCSupport.class), "getJDBCRepository",
-                          TypeDesc.forClass(JDBCRepository.class), null);
+        LocalVariable supportVar =
+            b.createLocalVariable("support", TypeDesc.forClass(JDBCSupport.class));
+        b.storeLocal(supportVar);
+        return supportVar;
     }
 
     /**
@@ -1242,14 +1238,15 @@ class JDBCStorableGenerator<S extends Storable> {
     }
 
     /**
-     * Generates code to get connection from JDBCRepository and store it in a local variable.
+     * Generates code to get connection from JDBCConnectionCapability and store
+     * it in a local variable.
      *
-     * @param repoVar reference to JDBCRepository
+     * @param capVar reference to JDBCConnectionCapability
      */
-    private LocalVariable getConnection(CodeBuilder b, LocalVariable repoVar) {
-        b.loadLocal(repoVar);
-        b.invokeVirtual(TypeDesc.forClass(JDBCRepository.class),
-                        "getConnection", TypeDesc.forClass(Connection.class), null);
+    private LocalVariable getConnection(CodeBuilder b, LocalVariable capVar) {
+        b.loadLocal(capVar);
+        b.invokeInterface(TypeDesc.forClass(JDBCConnectionCapability.class),
+                          "getConnection", TypeDesc.forClass(Connection.class), null);
         LocalVariable conVar = b.createLocalVariable("con", TypeDesc.forClass(Connection.class));
         b.storeLocal(conVar);
         return conVar;
@@ -1259,18 +1256,18 @@ class JDBCStorableGenerator<S extends Storable> {
      * Generates code which emulates this:
      *
      *     // May throw FetchException
-     *     JDBCRepository.yieldConnection(con);
+     *     JDBCConnectionCapability.yieldConnection(con);
      *
-     * @param repoVar required reference to JDBCRepository
+     * @param capVar required reference to JDBCConnectionCapability
      * @param conVar optional connection to yield
      */
-    private void yieldConnection(CodeBuilder b, LocalVariable repoVar, LocalVariable conVar) {
+    private void yieldConnection(CodeBuilder b, LocalVariable capVar, LocalVariable conVar) {
         if (conVar != null) {
-            b.loadLocal(repoVar);
+            b.loadLocal(capVar);
             b.loadLocal(conVar);
-            b.invokeVirtual(TypeDesc.forClass(JDBCRepository.class),
-                            "yieldConnection", null,
-                            new TypeDesc[] {TypeDesc.forClass(Connection.class)});
+            b.invokeInterface(TypeDesc.forClass(JDBCConnectionCapability.class),
+                              "yieldConnection", null,
+                              new TypeDesc[] {TypeDesc.forClass(Connection.class)});
         }
     }
 
@@ -1282,7 +1279,7 @@ class JDBCStorableGenerator<S extends Storable> {
      * @param sqlBuilder contains SQL statement right before the WHERE clause
      * @param conVar local variable referencing connection
      * @param psVar declared local variable which will receive PreparedStatement
-     * @param jdbcRepoVar when non-null, check transaction if SELECT should be FOR UPDATE
+     * @param capVar when non-null, check transaction if SELECT should be FOR UPDATE
      * @param instanceVar when null, assume properties are contained in
      * "this". Otherwise, invoke property access methods on storable referenced
      * in var.
@@ -1295,7 +1292,7 @@ class JDBCStorableGenerator<S extends Storable> {
          StringBuilder sqlBuilder,
          LocalVariable conVar,
          LocalVariable psVar,
-         LocalVariable jdbcRepoVar,
+         LocalVariable capVar,
          LocalVariable instanceVar)
         throws SupportException
     {
@@ -1332,10 +1329,10 @@ class JDBCStorableGenerator<S extends Storable> {
             b.loadConstant(sqlBuilder.toString());
 
             // Determine at runtime if SELECT should be " FOR UPDATE".
-            if (jdbcRepoVar != null) {
-                b.loadLocal(jdbcRepoVar);
-                b.invokeVirtual
-                    (jdbcRepoVar.getType(), "isTransactionForUpdate", TypeDesc.BOOLEAN, null);
+            if (capVar != null) {
+                b.loadLocal(capVar);
+                b.invokeInterface(TypeDesc.forClass(JDBCConnectionCapability.class),
+                                  "isTransactionForUpdate", TypeDesc.BOOLEAN, null);
                 Label notForUpdate = b.createLabel();
                 b.ifZeroComparisonBranch(notForUpdate, "==");
 
@@ -1406,10 +1403,10 @@ class JDBCStorableGenerator<S extends Storable> {
             }
 
             // Determine at runtime if SELECT should be " FOR UPDATE".
-            if (jdbcRepoVar != null) {
-                b.loadLocal(jdbcRepoVar);
-                b.invokeVirtual
-                    (jdbcRepoVar.getType(), "isTransactionForUpdate", TypeDesc.BOOLEAN, null);
+            if (capVar != null) {
+                b.loadLocal(capVar);
+                b.invokeInterface(TypeDesc.forClass(JDBCConnectionCapability.class),
+                                  "isTransactionForUpdate", TypeDesc.BOOLEAN, null);
                 Label notForUpdate = b.createLabel();
                 b.ifZeroComparisonBranch(notForUpdate, "==");
 
@@ -1669,27 +1666,27 @@ class JDBCStorableGenerator<S extends Storable> {
      *
      * ...
      * } finally {
-     *     JDBCRepository.yieldConnection(con);
+     *     JDBCConnectionCapability.yieldConnection(con);
      * }
      *
-     * @param repoVar required reference to JDBCRepository
+     * @param capVar required reference to JDBCConnectionCapability
      * @param conVar optional connection variable
      * @param tryAfterCon label right after connection acquisition
      */
     private void yieldCon
         (CodeBuilder b,
-         LocalVariable repoVar,
+         LocalVariable capVar,
          LocalVariable conVar,
          Label tryAfterCon)
     {
         Label endFinallyLabel = b.createLabel().setLocation();
         Label contLabel = b.createLabel();
 
-        yieldConnection(b, repoVar, conVar);
+        yieldConnection(b, capVar, conVar);
         b.branch(contLabel);
 
         b.exceptionHandler(tryAfterCon, endFinallyLabel, null);
-        yieldConnection(b, repoVar, conVar);
+        yieldConnection(b, capVar, conVar);
         b.throwObject();
 
         contLabel.setLocation();
@@ -1700,13 +1697,15 @@ class JDBCStorableGenerator<S extends Storable> {
      *
      * ...
      *     } finally {
-     *         JDBCRepository.yieldConnection(con);
+     *         JDBCConnectionCapability.yieldConnection(con);
      *     }
+     * } catch (RuntimeException e) {
+     *     throw e;
      * } catch (Exception e) {
-     *     throw JDBCRepository.toFetchException(e);
+     *     throw JDBCConnectionCapability.toFetchException(e);
      * }
      *
-     * @param repoVar required reference to JDBCRepository
+     * @param capVar required reference to JDBCConnectionCapability
      * @param txnVar optional transaction variable to commit/exit
      * @param tryBeforeCon label right before connection acquisition
      * @param conVar optional connection variable
@@ -1714,32 +1713,38 @@ class JDBCStorableGenerator<S extends Storable> {
      */
     private void yieldConAndHandleException
         (CodeBuilder b,
-         LocalVariable repoVar,
+         LocalVariable capVar,
          Label tryBeforeCon, LocalVariable conVar, Label tryAfterCon,
          boolean forPersist)
     {
         Label endFinallyLabel = b.createLabel().setLocation();
         Label contLabel = b.createLabel();
 
-        yieldConnection(b, repoVar, conVar);
+        yieldConnection(b, capVar, conVar);
         b.branch(contLabel);
 
         b.exceptionHandler(tryAfterCon, endFinallyLabel, null);
-        yieldConnection(b, repoVar, conVar);
+        yieldConnection(b, capVar, conVar);
+        b.throwObject();
+
+        b.exceptionHandler
+            (tryBeforeCon, b.createLabel().setLocation(), RuntimeException.class.getName());
         b.throwObject();
 
         b.exceptionHandler
             (tryBeforeCon, b.createLabel().setLocation(), Exception.class.getName());
-        b.loadLocal(repoVar);
-        // Swap exception object and JDBCRepository instance.
+        b.loadLocal(capVar);
+        // Swap exception object and JDBCConnectionCapability instance.
         b.swap();
         TypeDesc[] params = {TypeDesc.forClass(Throwable.class)};
         if (forPersist) {
-            b.invokeVirtual(TypeDesc.forClass(JDBCRepository.class), "toPersistException",
-                            TypeDesc.forClass(PersistException.class), params);
+            b.invokeInterface(TypeDesc.forClass(JDBCConnectionCapability.class),
+                              "toPersistException",
+                              TypeDesc.forClass(PersistException.class), params);
         } else {
-            b.invokeVirtual(TypeDesc.forClass(JDBCRepository.class), "toFetchException",
-                            TypeDesc.forClass(FetchException.class), params);
+            b.invokeInterface(TypeDesc.forClass(JDBCConnectionCapability.class),
+                              "toFetchException",
+                              TypeDesc.forClass(FetchException.class), params);
         }
         b.throwObject();
 
@@ -1971,7 +1976,7 @@ class JDBCStorableGenerator<S extends Storable> {
 
                     // The Lob in the array represents the new value. What is
                     // currently on the stack (as converted above) is the old
-                    // value currently in the database. Call the JDBCRepository
+                    // value currently in the database. Call the JDBCSupport
                     // updateXlob method, which stuffs the new blob contents
                     // into the old blob, thus updating it.
 
@@ -2131,7 +2136,7 @@ class JDBCStorableGenerator<S extends Storable> {
 
         boolean isClob = loaderType == JDBCClobLoader.class;
 
-        final TypeDesc jdbcRepoType = TypeDesc.forClass(JDBCRepository.class);
+        final TypeDesc capType = TypeDesc.forClass(JDBCConnectionCapability.class);
         final TypeDesc resultSetType = TypeDesc.forClass(ResultSet.class);
         final TypeDesc preparedStatementType = TypeDesc.forClass(PreparedStatement.class);
         final TypeDesc sqlLobType = TypeDesc.forClass
@@ -2155,14 +2160,14 @@ class JDBCStorableGenerator<S extends Storable> {
         }
 
         MethodInfo mi = cf.addMethod
-            (Modifiers.PUBLIC, "load", sqlLobType, new TypeDesc[] {jdbcRepoType});
+            (Modifiers.PUBLIC, "load", sqlLobType, new TypeDesc[] {capType});
         mi.addException(TypeDesc.forClass(FetchException.class));
         CodeBuilder b = new CodeBuilder(mi);
 
-        LocalVariable repoVar = b.getParameter(0);
+        LocalVariable capVar = b.getParameter(0);
 
         Label tryBeforeCon = b.createLabel().setLocation();
-        LocalVariable conVar = getConnection(b, repoVar);
+        LocalVariable conVar = getConnection(b, capVar);
         Label tryAfterCon = b.createLabel().setLocation();
 
         StringBuilder selectBuilder = new StringBuilder();
@@ -2179,7 +2184,7 @@ class JDBCStorableGenerator<S extends Storable> {
         b.storeLocal(instanceVar);
 
         Label tryAfterPs = buildWhereClauseAndPreparedStatement
-            (b, selectBuilder, conVar, psVar, repoVar, instanceVar);
+            (b, selectBuilder, conVar, psVar, capVar, instanceVar);
 
         b.loadLocal(psVar);
         b.invokeInterface(preparedStatementType, "executeQuery", resultSetType, null);
@@ -2209,7 +2214,7 @@ class JDBCStorableGenerator<S extends Storable> {
 
         closeResultSet(b, rsVar, tryAfterRs);
         closeStatement(b, psVar, tryAfterPs);
-        yieldConAndHandleException(b, repoVar, tryBeforeCon, conVar, tryAfterCon, false);
+        yieldConAndHandleException(b, capVar, tryBeforeCon, conVar, tryAfterCon, false);
 
         b.loadLocal(resultVar);
         b.returnValue(sqlLobType);

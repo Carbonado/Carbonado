@@ -75,7 +75,9 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     private Map<String, Boolean> mSuppressReloadMap;
     private String mSequenceSelectStatement;
     private boolean mForceStoredSequence;
-    
+
+    private SupportResolver mResolver;
+
     public JDBCRepositoryBuilder() {
     }
 
@@ -88,7 +90,8 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
              mFetchSize,
              getAutoVersioningMap(),
              getSuppressReloadMap(),
-             mSequenceSelectStatement, mForceStoredSequence);
+             mSequenceSelectStatement, mForceStoredSequence,
+             mResolver);
         rootRef.set(repo);
         return repo;
     }
@@ -407,5 +410,10 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
                 getDataSource();
             }
         }
+    }
+
+    // Experimental feature.
+    void setSupportResolver(SupportResolver resolver) {
+        mResolver = resolver;
     }
 }

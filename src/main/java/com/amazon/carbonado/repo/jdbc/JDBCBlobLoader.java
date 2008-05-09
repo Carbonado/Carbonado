@@ -29,5 +29,5 @@ public interface JDBCBlobLoader {
     /**
      * @return Blob or null if missing
      */
-    java.sql.Blob load(JDBCRepository jdbcRepo) throws FetchException;
+    java.sql.Blob load(JDBCConnectionCapability cap) throws FetchException;
 }

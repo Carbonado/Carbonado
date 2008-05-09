@@ -19,6 +19,7 @@
 package com.amazon.carbonado.repo.jdbc;
 
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.FetchException;
@@ -31,9 +32,8 @@ import com.amazon.carbonado.gen.MasterSupport;
  *
  * @author Brian S O'Neill
  */
-public interface JDBCSupport<S extends Storable> extends MasterSupport<S> {
-    public JDBCRepository getJDBCRepository();
-
+public interface JDBCSupport<S extends Storable> extends MasterSupport<S>, JDBCConnectionCapability
+{
     // FIXME: Lob convert methods need to take Storable and property name. With
     // this, the optional Lob adapting trigger must be invoked.
 

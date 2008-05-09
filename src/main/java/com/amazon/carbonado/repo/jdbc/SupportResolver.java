@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2008 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -18,16 +18,26 @@
 
 package com.amazon.carbonado.repo.jdbc;
 
-import com.amazon.carbonado.FetchException;
+import java.sql.Connection;
+import java.sql.SQLException;
+
+import com.amazon.carbonado.RepositoryException;
+import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.SupportException;
+import com.amazon.carbonado.info.StorableInfo;
 
 /**
- * Callback for reloading Clobs outside original transaction.
+ * Experimental interface for allowing tables to be created or altered when the
+ * Storable definition doesn't match the table or the table doesn't
+ * exist. Currently only used by unit tests.
  *
  * @author Brian S O'Neill
  */
-public interface JDBCClobLoader {
+interface SupportResolver {
     /**
-     * @return Clob or null if missing
+     * @return true if support has been resolved
      */
-    java.sql.Clob load(JDBCConnectionCapability cap) throws FetchException;
+    <S extends Storable> boolean resolve(StorableInfo<S> info,
+                                         Connection con, String catalog, String schema)
+        throws SQLException;
 }

@@ -97,6 +97,13 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         (Class<S> type, DataSource ds, String catalog, String schema)
         throws SQLException, SupportException
     {
+        return examine(type, ds, catalog, schema, null);
+    }
+
+    public static <S extends Storable> JDBCStorableInfo<S> examine
+        (Class<S> type, DataSource ds, String catalog, String schema, SupportResolver resolver)
+        throws SQLException, SupportException
+    {
         Object key = KeyFactory.createKey(new Object[] {type, ds, catalog, schema});
 
         synchronized (cCache) {
@@ -109,7 +116,15 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             StorableInfo<S> mainInfo = examine(type);
             Connection con = ds.getConnection();
             try {
-                jInfo = examine(mainInfo, con, catalog, schema);
+                try {
+                    jInfo = examine(mainInfo, con, catalog, schema, resolver);
+                } catch (SupportException e) {
+                    if (resolver != null && resolver.resolve(mainInfo, con, catalog, schema)) {
+                        jInfo = examine(mainInfo, con, catalog, schema, resolver);
+                    } else {
+                        throw e;
+                    }
+                }
             } finally {
                 try {
                     con.close();
@@ -124,8 +139,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             // added to cache. This makes it possible for joins to (directly or
             // indirectly) reference their own enclosing type.
             for (JDBCStorableProperty<S> jProperty : jInfo.getAllProperties().values()) {
-                ((JProperty<S>) jProperty).fillInternalJoinElements(ds, catalog, schema);
-                ((JProperty<S>) jProperty).fillExternalJoinElements(ds, catalog, schema);
+                ((JProperty<S>) jProperty).fillInternalJoinElements(ds, catalog, schema, resolver);
+                ((JProperty<S>) jProperty).fillExternalJoinElements(ds, catalog, schema, resolver);
             }
 
             return jInfo;
@@ -140,7 +155,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
      */
     private static <S extends Storable> JDBCStorableInfo<S> examine
         (StorableInfo<S> mainInfo, Connection con,
-         final String searchCatalog, final String searchSchema)
+         final String searchCatalog, final String searchSchema,
+         SupportResolver resolver)
         throws SQLException, SupportException
     {
         DatabaseMetaData meta = con.getMetaData();
@@ -850,6 +866,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         addToSet(aliases, derived.toUpperCase());
         addToSet(aliases, derived.toLowerCase());
         addToSet(aliases, derived);
+        addToSet(aliases, base.toUpperCase());
+        addToSet(aliases, base.toLowerCase());
         addToSet(aliases, base);
 
         return aliases.toArray(new String[aliases.size()]);
@@ -1403,7 +1421,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         }
 
         @SuppressWarnings("unchecked")
-        void fillInternalJoinElements(DataSource ds, String catalog, String schema)
+        void fillInternalJoinElements(DataSource ds, String catalog, String schema,
+                                      SupportResolver resolver)
             throws SQLException, SupportException
         {
             StorableProperty<S>[] mainInternal = mMainProperty.getInternalJoinElements();
@@ -1412,7 +1431,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 return;
             }
 
-            JDBCStorableInfo<S> info = examine(getEnclosingType(), ds, catalog, schema);
+            JDBCStorableInfo<S> info = examine(getEnclosingType(), ds, catalog, schema, resolver);
 
             JDBCStorableProperty<S>[] internal = new JDBCStorableProperty[mainInternal.length];
             for (int i=mainInternal.length; --i>=0; ) {
@@ -1421,7 +1440,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             mInternal = internal;
         }
 
-        void fillExternalJoinElements(DataSource ds, String catalog, String schema)
+        void fillExternalJoinElements(DataSource ds, String catalog, String schema,
+                                      SupportResolver resolver)
             throws SQLException, SupportException
         {
             StorableProperty<?>[] mainExternal = mMainProperty.getExternalJoinElements();
@@ -1430,7 +1450,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 return;
             }
 
-            JDBCStorableInfo<?> info = examine(getJoinedType(), ds, catalog, schema);
+            JDBCStorableInfo<?> info = examine(getJoinedType(), ds, catalog, schema, resolver);
 
             JDBCStorableProperty<?>[] external = new JDBCStorableProperty[mainExternal.length];
             for (int i=mainExternal.length; --i>=0; ) {
