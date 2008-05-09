@@ -164,7 +164,7 @@ class JDBCRepository extends AbstractRepository<JDBCTransaction>
 
     private final Log mLog = LogFactory.getLog(getClass());
 
-    final boolean mIsMaster;
+    private final boolean mIsMaster;
     final Iterable<TriggerFactory> mTriggerFactories;
     private final AtomicReference<Repository> mRootRef;
     private final String mDatabaseProductName;
@@ -699,7 +699,7 @@ class JDBCRepository extends AbstractRepository<JDBCTransaction>
             }
         }
 
-        return new JDBCStorage<S>(this, info, autoVersioning, suppressReload);
+        return new JDBCStorage<S>(this, info, mIsMaster, autoVersioning, suppressReload);
     }
 
     @Override

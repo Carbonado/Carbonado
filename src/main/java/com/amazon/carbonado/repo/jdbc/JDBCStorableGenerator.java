@@ -90,18 +90,21 @@ class JDBCStorableGenerator<S extends Storable> {
     }
 
     static <S extends Storable> Class<? extends S> getGeneratedClass(JDBCStorableInfo<S> info,
+                                                                     boolean isMaster,
                                                                      boolean autoVersioning,
                                                                      boolean suppressReload)
         throws SupportException
     {
-        Object key = KeyFactory.createKey(new Object[] {info, autoVersioning, suppressReload});
+        Object key = KeyFactory.createKey(new Object[] {
+            info, isMaster, autoVersioning, suppressReload});
 
         synchronized (cCache) {
             Class<? extends S> generatedClass = (Class<? extends S>) cCache.get(key);
             if (generatedClass != null) {
                 return generatedClass;
             }
-            generatedClass = new JDBCStorableGenerator<S>(info, autoVersioning, suppressReload)
+            generatedClass = new JDBCStorableGenerator<S>
+                (info, isMaster, autoVersioning, suppressReload)
                 .generateAndInjectClass();
             cCache.put(key, generatedClass);
             return generatedClass;
@@ -110,7 +113,13 @@ class JDBCStorableGenerator<S extends Storable> {
 
     private final Class<S> mStorableType;
     private final JDBCStorableInfo<S> mInfo;
-    private final boolean mAutoVersioning;
+
+    private static enum Versioning {
+        NONE, EXTERNAL, AUTO
+    }
+
+    private final Versioning mVersioning;
+
     private final boolean mSuppressReload;
     private final Map<String, ? extends JDBCStorableProperty<S>> mAllProperties;
 
@@ -119,22 +128,31 @@ class JDBCStorableGenerator<S extends Storable> {
     private final ClassFile mClassFile;
 
     private JDBCStorableGenerator(JDBCStorableInfo<S> info,
-                                  boolean autoVersioning, boolean suppressReload)
+                                  boolean isMaster, boolean autoVersioning, boolean suppressReload)
         throws SupportException
     {
         mStorableType = info.getStorableType();
         mInfo = info;
-        mAutoVersioning = autoVersioning;
         mAllProperties = mInfo.getAllProperties();
 
         EnumSet<MasterFeature> features = EnumSet
-            .of(MasterFeature.INSERT_SEQUENCES,
-                MasterFeature.INSERT_CHECK_REQUIRED, // Must use @Automatic to override.
-                MasterFeature.INSERT_TXN,            // Required because of reload after insert.
+            .of(MasterFeature.INSERT_TXN,            // Required because of reload after insert.
                 MasterFeature.UPDATE_TXN);           // Required because of reload after update.
 
-        if (info.getVersionProperty() != null && info.getVersionProperty().isDerived()) {
-            features.add(MasterFeature.VERSIONING);
+        if (!isMaster) {
+            mVersioning = Versioning.NONE;
+        } else {
+            features.add(MasterFeature.INSERT_SEQUENCES);
+            // Must use @Automatic to override.
+            features.add(MasterFeature.INSERT_CHECK_REQUIRED);
+
+            if (info.getVersionProperty() != null && info.getVersionProperty().isDerived()) {
+                features.add(MasterFeature.VERSIONING);
+                // Say none because master storable takes care of it.
+                mVersioning = Versioning.NONE;
+            } else {
+                mVersioning = autoVersioning ? Versioning.AUTO : Versioning.EXTERNAL;
+            }
         }
 
         if (suppressReload) {
@@ -155,7 +173,7 @@ class JDBCStorableGenerator<S extends Storable> {
                         suppressReload = false;
                         break honorSuppression;
                     }
-                    if (prop.isVersion() && !mAutoVersioning) {
+                    if (prop.isVersion() && mVersioning == Versioning.EXTERNAL) {
                         // Always need to reload for version.
                         suppressReload = false;
                         break honorSuppression;
@@ -706,7 +724,7 @@ class JDBCStorableGenerator<S extends Storable> {
                 }
 
                 Label setNormally = b.createLabel();
-                if (property.isVersion() && mAutoVersioning) {
+                if (property.isVersion() && mVersioning == Versioning.AUTO) {
                     // Automatically supply initial value unless manually supplied.
                     branchIfDirty(b, propNumber, setNormally, true);
                     setPreparedStatementValue
@@ -835,14 +853,14 @@ class JDBCStorableGenerator<S extends Storable> {
                 propNumber++;
 
                 if (property.isSelectable() && !property.isPrimaryKeyMember()) {
-                    if (property.isVersion() && !mAutoVersioning) {
+                    if (property.isVersion() && mVersioning == Versioning.EXTERNAL) {
                         // Assume database trigger manages version.
                         continue;
                     }
 
                     Label isNotDirty = null;
-                    if (!property.isVersion()) {
-                        // Version must always be updated, but all other
+                    if (!property.isVersion() || mVersioning != Versioning.AUTO) {
+                        // Auto version must always be updated, but all other
                         // properties are updated only if dirty.
                         isNotDirty = b.createLabel();
                         branchIfDirty(b, propNumber, isNotDirty, false);
@@ -873,7 +891,7 @@ class JDBCStorableGenerator<S extends Storable> {
 
             JDBCStorableProperty<S> versionProperty = mInfo.getVersionProperty();
             if (versionProperty != null) {
-                if (!versionProperty.isSelectable()) {
+                if (!versionProperty.isSelectable() || mVersioning == Versioning.NONE) {
                     versionProperty = null;
                 } else {
                     // Include version property in WHERE clause to support optimistic locking.
@@ -990,14 +1008,14 @@ class JDBCStorableGenerator<S extends Storable> {
                 propNumber++;
 
                 if (property.isSelectable() && !property.isPrimaryKeyMember()) {
-                    if (property.isVersion() && !mAutoVersioning) {
+                    if (property.isVersion() && mVersioning == Versioning.EXTERNAL) {
                         // Assume database trigger manages version.
                         continue;
                     }
 
                     Label isNotDirty = null;
-                    if (!property.isVersion()) {
-                        // Version must always be updated, but all other
+                    if (!property.isVersion() || mVersioning != Versioning.AUTO) {
+                        // Auto version must always be updated, but all other
                         // properties are updated only if dirty.
                         isNotDirty = b.createLabel();
                         branchIfDirty(b, propNumber, isNotDirty, false);
@@ -1005,8 +1023,10 @@ class JDBCStorableGenerator<S extends Storable> {
 
                     b.loadLocal(psVar);
                     b.loadLocal(indexVar);
+                    int mode = (property.isVersion() && mVersioning == Versioning.AUTO) ?
+                        INCREMENT_VERSION : NORMAL;
                     setPreparedStatementValue
-                        (b, property, property.isVersion() ? INCREMENT_VERSION : NORMAL,
+                        (b, property, mode,
                          null, lobArrayVar, lobIndexMap.get(property));
 
                     b.integerIncrement(indexVar, 1);
@@ -1196,7 +1216,7 @@ class JDBCStorableGenerator<S extends Storable> {
      * Returns true if property value is always part of insert statement.
      */
     private boolean isAlwaysInserted(JDBCStorableProperty<?> property) {
-        return property.isVersion() ? mAutoVersioning : !property.isAutomatic();
+        return property.isVersion() ? (mVersioning == Versioning.AUTO) : !property.isAutomatic();
     }
 
     /**

@@ -89,7 +89,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
     final TriggerManager<S> mTriggerManager;
 
     JDBCStorage(JDBCRepository repository, JDBCStorableInfo<S> info,
-                boolean autoVersioning, boolean suppressReload)
+                boolean isMaster, boolean autoVersioning, boolean suppressReload)
         throws SupportException, RepositoryException
     {
         super(info.getStorableType());
@@ -98,7 +98,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         mInfo = info;
 
         Class<? extends S> generatedStorableClass = JDBCStorableGenerator
-            .getGeneratedClass(info, autoVersioning, suppressReload);
+            .getGeneratedClass(info, isMaster, autoVersioning, suppressReload);
 
         mInstanceFactory = QuickConstructorGenerator
             .getInstance(generatedStorableClass, InstanceFactory.class);
