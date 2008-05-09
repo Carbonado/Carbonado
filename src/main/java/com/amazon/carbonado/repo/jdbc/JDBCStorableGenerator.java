@@ -133,6 +133,10 @@ class JDBCStorableGenerator<S extends Storable> {
                 MasterFeature.INSERT_TXN,            // Required because of reload after insert.
                 MasterFeature.UPDATE_TXN);           // Required because of reload after update.
 
+        if (info.getVersionProperty() != null && info.getVersionProperty().isDerived()) {
+            features.add(MasterFeature.VERSIONING);
+        }
+
         if (suppressReload) {
             // No need to be in a transaction if reload never happens.
             honorSuppression: {
@@ -140,6 +144,9 @@ class JDBCStorableGenerator<S extends Storable> {
                     info.getIdentityProperties();
 
                 for (JDBCStorableProperty<S> prop : mAllProperties.values()) {
+                    if (!prop.isSelectable()) {
+                        continue;
+                    }
                     if (prop.isAutomatic() && !identityProperties.containsKey(prop.getName())) {
                         // Might still need to reload. This could be determined
                         // dynamically, but this is an optimization that be
@@ -865,12 +872,16 @@ class JDBCStorableGenerator<S extends Storable> {
                 mInfo.getPrimaryKeyProperties().values();
 
             JDBCStorableProperty<S> versionProperty = mInfo.getVersionProperty();
-            if (versionProperty != null && versionProperty.isSupported()) {
-                // Include version property in WHERE clause to support optimistic locking.
-                List<JDBCStorableProperty<S>> list =
-                    new ArrayList<JDBCStorableProperty<S>>(whereProperties);
-                list.add(versionProperty);
-                whereProperties = list;
+            if (versionProperty != null) {
+                if (!versionProperty.isSelectable()) {
+                    versionProperty = null;
+                } else {
+                    // Include version property in WHERE clause to support optimistic locking.
+                    List<JDBCStorableProperty<S>> list =
+                        new ArrayList<JDBCStorableProperty<S>>(whereProperties);
+                    list.add(versionProperty);
+                    whereProperties = list;
+                }
             }
 
             // If no dirty properties, a valid update statement must still be
