@@ -25,7 +25,9 @@ import java.io.IOException;
 import java.sql.SQLException;
 
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.FetchNoneException;
 import com.amazon.carbonado.PersistException;
+import com.amazon.carbonado.PersistNoneException;
 
 import com.amazon.carbonado.lob.AbstractClob;
 
@@ -128,7 +130,7 @@ class JDBCClob extends AbstractClob implements JDBCLob {
     java.sql.Clob getInternalClobForFetch() throws FetchException {
         if (mClob == null) {
             if ((mClob = mLoader.load(mRepo)) == null) {
-                throw new FetchException("Clob value is null");
+                throw new FetchNoneException("Clob value is null");
             }
             try {
                 JDBCTransaction txn = mRepo.localTransactionScope().getTxn();
@@ -146,7 +148,7 @@ class JDBCClob extends AbstractClob implements JDBCLob {
         if (mClob == null) {
             try {
                 if ((mClob = mLoader.load(mRepo)) == null) {
-                    throw new PersistException("Clob value is null");
+                    throw new PersistNoneException("Clob value is null");
                 }
                 JDBCTransaction txn = mRepo.localTransactionScope().getTxn();
                 if (txn != null) {
