@@ -76,7 +76,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     private String mSequenceSelectStatement;
     private boolean mForceStoredSequence;
 
-    private SupportResolver mResolver;
+    private SchemaResolver mResolver;
 
     public JDBCRepositoryBuilder() {
     }
@@ -413,7 +413,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     }
 
     // Experimental feature.
-    void setSupportResolver(SupportResolver resolver) {
+    void setSchemaResolver(SchemaResolver resolver) {
         mResolver = resolver;
     }
 }

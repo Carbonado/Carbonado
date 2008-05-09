@@ -195,7 +195,7 @@ class JDBCRepository extends AbstractRepository<JDBCTransaction>
     private final JDBCSupportStrategy mSupportStrategy;
     private JDBCExceptionTransformer mExceptionTransformer;
 
-    private final SupportResolver mResolver;
+    private final SchemaResolver mResolver;
 
     private final JDBCTransactionManager mTxnMgr;
 
@@ -227,7 +227,7 @@ class JDBCRepository extends AbstractRepository<JDBCTransaction>
                    Map<String, Boolean> autoVersioningMap,
                    Map<String, Boolean> suppressReloadMap,
                    String sequenceSelectStatement, boolean forceStoredSequence,
-                   SupportResolver resolver)
+                   SchemaResolver resolver)
         throws RepositoryException
     {
         super(name);

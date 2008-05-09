@@ -33,7 +33,7 @@ import com.amazon.carbonado.info.StorableInfo;
  *
  * @author Brian S O'Neill
  */
-interface SupportResolver {
+interface SchemaResolver {
     /**
      * @return true if support has been resolved
      */

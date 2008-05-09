@@ -101,7 +101,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
     }
 
     public static <S extends Storable> JDBCStorableInfo<S> examine
-        (Class<S> type, DataSource ds, String catalog, String schema, SupportResolver resolver)
+        (Class<S> type, DataSource ds, String catalog, String schema, SchemaResolver resolver)
         throws SQLException, SupportException
     {
         Object key = KeyFactory.createKey(new Object[] {type, ds, catalog, schema});
@@ -156,7 +156,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
     private static <S extends Storable> JDBCStorableInfo<S> examine
         (StorableInfo<S> mainInfo, Connection con,
          final String searchCatalog, final String searchSchema,
-         SupportResolver resolver)
+         SchemaResolver resolver)
         throws SQLException, SupportException
     {
         DatabaseMetaData meta = con.getMetaData();
@@ -1414,7 +1414,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         @SuppressWarnings("unchecked")
         void fillInternalJoinElements(DataSource ds, String catalog, String schema,
-                                      SupportResolver resolver)
+                                      SchemaResolver resolver)
             throws SQLException, SupportException
         {
             StorableProperty<S>[] mainInternal = mMainProperty.getInternalJoinElements();
@@ -1433,7 +1433,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         }
 
         void fillExternalJoinElements(DataSource ds, String catalog, String schema,
-                                      SupportResolver resolver)
+                                      SchemaResolver resolver)
             throws SQLException, SupportException
         {
             StorableProperty<?>[] mainExternal = mMainProperty.getExternalJoinElements();
