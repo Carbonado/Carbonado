@@ -682,7 +682,12 @@ class MapStorage<S extends Storable>
                 break;
             }
 
-            map = map.tailMap(startKey, true);
+            Key<S> ceilingKey = map.ceilingKey(startKey);
+            if (ceilingKey == null) {
+                return EmptyCursor.the();
+            }
+
+            map = map.tailMap(ceilingKey, true);
         }
 
         Cursor<S> cursor;

@@ -67,13 +67,7 @@ class Key<S extends Storable> implements Comparable<Key<S>> {
     public int compareTo(Key<S> other) {
         int result = mComparator.compare(mStorable, other.mStorable);
         if (result == 0) {
-            int t1 = tieBreaker();
-            int t2 = other.tieBreaker();
-            if (t1 < t2) {
-                result = -1;
-            } else if (t1 > t2) {
-                result = 1;
-            }
+            result = tieBreaker() - other.tieBreaker();
         }
         return result;
     }
