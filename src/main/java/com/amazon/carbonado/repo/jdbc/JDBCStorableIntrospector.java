@@ -646,21 +646,13 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             }
             break;
 
+        case REAL:
         case FLOAT:
+        case DOUBLE:
             if (desiredClass == float.class) {
                 actualClass = float.class;
                 suffix = "Float";
-            } else if (desiredClass == String.class) {
-                actualClass = String.class;
-                suffix = "String";
-            } else {
-                return null;
-            }
-            break;
-
-        case DOUBLE:
-        case REAL:
-            if (desiredClass == double.class) {
+            } else if (desiredClass == double.class) {
                 actualClass = double.class;
                 suffix = "Double";
             } else if (desiredClass == String.class) {
