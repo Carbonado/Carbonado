@@ -99,6 +99,9 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         {
             desiredIndexSet = IndexAnalysis.gatherDesiredIndexes(info);
             desiredIndexSet.reduce(Direction.ASCENDING);
+            if (mRepository.isAllClustered()) {
+                desiredIndexSet.markClustered(true);
+            }            
         }
 
         // The set of indexes that are populated and available for use. This is
@@ -225,10 +228,6 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
 
             // Add the indexes we get for free.
             queryableIndexSet.addAll(freeIndexSet);
-
-            if (mRepository.isAllClustered()) {
-                queryableIndexSet.markClustered(true);
-            }
         }
 
         // The set of indexes that should be kept up-to-date. If index repair

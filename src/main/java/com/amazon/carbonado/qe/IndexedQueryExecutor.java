@@ -310,7 +310,7 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
             indent(app, indentLevel);
             app.append("...covering filter: ");
             mCoveringFilter.appendTo(app, values);
-            
+            newline(app);
         }
         return true;
     }

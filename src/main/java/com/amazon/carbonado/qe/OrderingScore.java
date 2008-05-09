@@ -526,7 +526,11 @@ public class OrderingScore<S extends Storable> {
             // Choose index with any handled properties over the one with
             // neither handled nor remainder properties.
             if (Double.isNaN(firstRatio)) {
-                if (!Double.isNaN(otherRatio)) {
+                if (Double.isNaN(otherRatio)) {
+                    // Order checks are not really applicable. The query does
+                    // not have an ordering applied to it.
+                   return 0;
+                } else {
                     return 1;
                 }
             } else if (Double.isNaN(otherRatio)) {

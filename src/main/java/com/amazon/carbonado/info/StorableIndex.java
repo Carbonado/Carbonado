@@ -603,6 +603,7 @@ public class StorableIndex<S extends Storable> implements Appender {
         if (obj instanceof StorableIndex) {
             StorableIndex<?> other = (StorableIndex<?>) obj;
             return isUnique() == other.isUnique()
+                && isClustered() == other.isClustered()
                 && Arrays.equals(mProperties, other.mProperties)
                 && Arrays.equals(mDirections, other.mDirections);
         }
