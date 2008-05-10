@@ -67,7 +67,7 @@ public abstract class BinaryOpFilter<S extends Storable> extends Filter<S> {
         if (isBound()) {
             return this;
         }
-        return accept(new Binder<S>(), null);
+        return Binder.doBind(this);
     }
 
     @Override

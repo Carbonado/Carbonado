@@ -220,7 +220,8 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     private Query<S> buildAfter(S start, OrderingList<S> orderings) throws FetchException {
         Class<S> storableType = getStorableType();
         Filter<S> orderFilter = Filter.getClosedFilter(storableType);
-        Filter<S> lastSubFilter = Filter.getOpenFilter(storableType);
+        Filter<S> openFilter = Filter.getOpenFilter(storableType);
+        Filter<S> lastSubFilter = openFilter;
 
         Object[] values = new Object[orderings.size()];
 
@@ -240,7 +241,8 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
                 break;
             }
 
-            lastSubFilter = lastSubFilter.and(propertyName, RelOp.EQ).bind();
+            Filter<S> propFilter = openFilter.and(propertyName, RelOp.EQ).bind();
+            lastSubFilter = lastSubFilter.and(propFilter);
         }
 
         Query<S> query = this.and(orderFilter);

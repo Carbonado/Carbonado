@@ -31,16 +31,36 @@ import com.amazon.carbonado.Storable;
  * @author Brian S O'Neill
  */
 class Binder<S extends Storable> extends Visitor<S, Filter<S>, Object> {
-    // Maps PropertyFilter with bind ID zero to PropertyFilter with highest
-    // bind ID.
-    private final Map<PropertyFilter<S>, PropertyFilter<S>> mBindMap;
-
-    Binder() {
-        mBindMap = new IdentityHashMap<PropertyFilter<S>, PropertyFilter<S>>();
+    static <S extends Storable> Filter<S> doBind(Filter<S> filter) {
+        return doBind(filter, null);
     }
 
-    private Binder(Map<PropertyFilter<S>, PropertyFilter<S>> bindMap) {
-        mBindMap = bindMap;
+    private static <S extends Storable> Filter<S> doBind(Filter<S> filter, Binder<S> binder) {
+        binder = new Binder<S>(binder);
+        Filter<S> boundFilter = filter.accept(binder, null);
+        if (binder.isRebindNeeded()) {
+            binder = new Binder<S>(binder);
+            boundFilter = boundFilter.accept(binder, null);
+        }
+        return boundFilter;
+    }
+
+    // Maps PropertyFilter with bind ID zero to PropertyFilter with highest bind
+    // ID. All other mappings track which bindings have been created.
+    private final Map<PropertyFilter<S>, PropertyFilter<S>> mBindMap;
+
+    private boolean mNeedsRebind;
+
+    private Binder(Binder<S> binder) {
+        if (binder == null) {
+            mBindMap = new IdentityHashMap<PropertyFilter<S>, PropertyFilter<S>>();
+        } else {
+            mBindMap = binder.mBindMap;
+        }
+    }
+
+    public boolean isRebindNeeded() {
+        return mNeedsRebind;
     }
 
     @Override
@@ -80,19 +100,42 @@ class Binder<S extends Storable> extends Visitor<S, Filter<S>, Object> {
     }
 
     @Override
-    public Filter<S> visit(PropertyFilter<S> filter, Object param) {
+    public Filter<S> visit(final PropertyFilter<S> filter, Object param) {
         if (filter.isBound()) {
+            if (mBindMap.containsKey(filter)) {
+                // Binding was created by this Binder.
+                return filter;
+            }
+            final PropertyFilter<S> zero = PropertyFilter.getCanonical(filter, 0);
+            PropertyFilter<S> highest = mBindMap.get(zero);
+            if (highest == null) {
+                mBindMap.put(zero, filter);
+            } else {
+                // Have already created bindings which clash with existing
+                // bindings.
+                mNeedsRebind = true;
+                if (filter.getBindID() > highest.getBindID()) {
+                    mBindMap.put(zero, filter);
+                }
+            }
             return filter;
-        }
-        filter = PropertyFilter.getCanonical(filter, 1);
-        PropertyFilter<S> highest = mBindMap.get(filter);
-        if (highest == null) {
-            highest = filter;
         } else {
-            highest = PropertyFilter.getCanonical(filter, highest.getBindID() + 1);
+            final PropertyFilter<S> zero;
+            if (filter.getBindID() == 0) {
+                zero = filter;
+            } else {
+                zero = PropertyFilter.getCanonical(filter, 0);
+            }
+            PropertyFilter<S> highest = mBindMap.get(zero);
+            if (highest == null) {
+                highest = PropertyFilter.getCanonical(filter, 1);
+            } else {
+                highest = PropertyFilter.getCanonical(filter, highest.getBindID() + 1);
+            }
+            mBindMap.put(zero, highest);
+            mBindMap.put(highest, highest);
+            return highest;
         }
-        mBindMap.put(filter, highest);
-        return highest;
     }
 
     @Override
@@ -100,8 +143,7 @@ class Binder<S extends Storable> extends Visitor<S, Filter<S>, Object> {
         if (filter.isBound()) {
             return filter;
         }
-        Filter<S> boundJoinedSubFilter =
-            filter.getJoinedSubFilter().accept(new Binder<S>(mBindMap), null);
+        Filter<S> boundJoinedSubFilter = doBind(filter.getJoinedSubFilter(), this);
         Filter<S>.NotJoined nj =
             boundJoinedSubFilter.notJoinedFromAny(filter.getChainedProperty());
         if (nj.getRemainderFilter() != null && !(nj.getRemainderFilter().isOpen())) {
