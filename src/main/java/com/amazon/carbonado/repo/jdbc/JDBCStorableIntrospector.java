@@ -118,6 +118,11 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             try {
                 try {
                     jInfo = examine(mainInfo, con, catalog, schema, resolver);
+                    if (!jInfo.isSupported() && resolver != null &&
+                        resolver.resolve(mainInfo, con, catalog, schema))
+                    {
+                        jInfo = examine(mainInfo, con, catalog, schema, resolver);
+                    }
                 } catch (SupportException e) {
                     if (resolver != null && resolver.resolve(mainInfo, con, catalog, schema)) {
                         jInfo = examine(mainInfo, con, catalog, schema, resolver);
@@ -159,7 +164,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
          SchemaResolver resolver)
         throws SQLException, SupportException
     {
-        DatabaseMetaData meta = con.getMetaData();
+        final DatabaseMetaData meta = con.getMetaData();
 
         final String databaseProductName = meta.getDatabaseProductName();
         final String userName = meta.getUserName();
@@ -491,8 +496,38 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         // IndexInfo is empty, as querying for it tends to cause a table analyze to run.
         IndexInfo[] indexInfo = new IndexInfo[0];
 
+        if (needsQuotes(tableName)) {
+            String quote = meta.getIdentifierQuoteString();
+            if (quote != null && !quote.equals(" ")) {
+                tableName = quote + tableName + quote;
+                qualifiedTableName = quote + qualifiedTableName + quote;
+            }
+        }
+
         return new JInfo<S>
             (mainInfo, catalog, schema, tableName, qualifiedTableName, indexInfo, jProperties);
+    }
+
+    private static boolean needsQuotes(String str) {
+        if (str == null) {
+            return false;
+        }
+        if (str.length() == 0) {
+            return true;
+        }
+        char c = str.charAt(0);
+        if (!(c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c == '_')) {
+            return true;
+        }
+        for (int i=str.length(); --i>=0; ) {
+            c = str.charAt(i);
+            if (!(c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c == '_' ||
+                  c >= '0' && c <= '9'))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean matchesKey(Collection<String> keyProps, StorableKey<?> declaredKey) {
