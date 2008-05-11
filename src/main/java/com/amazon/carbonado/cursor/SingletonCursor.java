@@ -80,9 +80,8 @@ public class SingletonCursor<S> implements Cursor<S> {
         if (object == null) {
             return 0;
         }
-        int originalSize = c.size();
         c.add(object);
-        return originalSize + 1;
+        return 1;
     }
 
     public int copyInto(Collection<? super S> c, int limit) {

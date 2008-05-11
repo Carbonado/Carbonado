@@ -38,11 +38,12 @@ public abstract class AbstractCursor<S> implements Cursor<S> {
 
     public int copyInto(Collection<? super S> c) throws FetchException {
         try {
-            int originalSize = c.size();
+            int count = 0;
             while (hasNext()) {
                 c.add(next());
+                count++;
             }
-            return c.size() - originalSize;
+            return count;
         } catch (FetchException e) {
             try {
                 close();
@@ -55,11 +56,12 @@ public abstract class AbstractCursor<S> implements Cursor<S> {
 
     public int copyInto(Collection<? super S> c, int limit) throws FetchException {
         try {
-            int originalSize = c.size();
+            int count = 0;
             while (--limit >= 0 && hasNext()) {
                 c.add(next());
+                count++;
             }
-            return c.size() - originalSize;
+            return count;
         } catch (FetchException e) {
             try {
                 close();
