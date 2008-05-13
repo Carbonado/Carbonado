@@ -100,7 +100,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         return examine(type, ds, catalog, schema, null);
     }
 
-    public static <S extends Storable> JDBCStorableInfo<S> examine
+    static <S extends Storable> JDBCStorableInfo<S> examine
         (Class<S> type, DataSource ds, String catalog, String schema, SchemaResolver resolver)
         throws SQLException, SupportException
     {
