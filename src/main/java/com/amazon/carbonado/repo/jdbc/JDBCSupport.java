@@ -34,9 +34,6 @@ import com.amazon.carbonado.gen.MasterSupport;
  */
 public interface JDBCSupport<S extends Storable> extends MasterSupport<S>, JDBCConnectionCapability
 {
-    // FIXME: Lob convert methods need to take Storable and property name. With
-    // this, the optional Lob adapting trigger must be invoked.
-
     /**
      * @param loader used to reload Blob outside original transaction
      */
