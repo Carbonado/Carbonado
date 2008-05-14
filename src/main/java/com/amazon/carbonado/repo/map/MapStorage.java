@@ -728,8 +728,14 @@ class MapStorage<S extends Storable>
                 filter = filter.and(index.getProperty(i).getName(), RelOp.EQ);
             }
 
-            filter = filter.and(index.getProperty(i).getName(),
-                                rangeEndBoundary == BoundaryType.INCLUSIVE ? RelOp.LE : RelOp.LT);
+            RelOp rangeOp;
+            if (reverseRange) {
+                rangeOp = rangeEndBoundary == BoundaryType.INCLUSIVE ? RelOp.GE : RelOp.GT;
+            } else {
+                rangeOp = rangeEndBoundary == BoundaryType.INCLUSIVE ? RelOp.LE : RelOp.LT;
+            }
+
+            filter = filter.and(index.getProperty(i).getName(), rangeOp);
 
             filterValues = filter.initialFilterValues();
 
