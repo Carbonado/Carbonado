@@ -42,6 +42,8 @@ import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 
+import com.amazon.carbonado.util.Comparators;
+
 /**
  * Wraps another Cursor and ensures the results are sorted. If the elements in
  * the source cursor are already partially sorted, a handled comparator can be

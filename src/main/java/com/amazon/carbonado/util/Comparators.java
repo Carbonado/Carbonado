@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.cursor;
+package com.amazon.carbonado.util;
 
 import java.util.Comparator;
 
@@ -27,7 +27,7 @@ import org.cojen.classfile.TypeDesc;
  *
  * @author Brian S O'Neill
  */
-class Comparators {
+public class Comparators {
     /**
      * Returns a comparator which can sort single or multi-dimensional arrays
      * of primitves or Comparables.
@@ -35,7 +35,7 @@ class Comparators {
      * @param unsigned applicable only to arrays of bytes, shorts, ints, or longs
      * @return null if unsupported
      */
-    static <T> Comparator<T> arrayComparator(Class<T> arrayType, boolean unsigned) {
+    public static <T> Comparator<T> arrayComparator(Class<T> arrayType, boolean unsigned) {
         if (!arrayType.isArray()) {
             throw new IllegalArgumentException();
         }
