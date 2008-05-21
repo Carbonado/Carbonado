@@ -315,7 +315,7 @@ public abstract class AbstractRepository<Txn>
             } finally {
                 repository.mHasShutdown = true;
                 mRepository.clear();
-                repository.info("Finished closing repository \"" + repository.getName() + '"');
+                repository.info("Closed repository \"" + repository.getName() + '"');
             }
         }
 

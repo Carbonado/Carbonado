@@ -158,6 +158,8 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         mEnvHome = builder.getEnvironmentHomeFile();
         mSingleFileName = builder.getSingleFileName();
         mFileNameMap = builder.getFileNameMap();
+
+        getLog().info("Opening repository \"" + getName() + '"');
     }
 
     @Override
@@ -462,7 +464,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
      * milliseconds, or zero if never.
      */
     void start(long checkpointInterval, long deadlockDetectorInterval) {
-        getLog().info("Opening repository \"" + getName() + '"');
+        getLog().info("Opened repository \"" + getName() + '"');
 
         if (mRunCheckpointer && checkpointInterval > 0) {
             mCheckpointer = new Checkpointer(this, checkpointInterval);
