@@ -141,31 +141,27 @@ public abstract class AbstractRepository<Txn>
     }
 
     // Required by ShutdownCapability.
-    public boolean isAutoShutdownEnabled() {
+    public synchronized boolean isAutoShutdownEnabled() {
         return mShutdownHook != null;
     }
 
     // Required by ShutdownCapability.
-    public void setAutoShutdownEnabled(boolean enabled) {
-        if (mShutdownHook == null) {
-            if (enabled) {
-                mShutdownHook = new ShutdownHook(this);
-                try {
-                    Runtime.getRuntime().addShutdownHook(mShutdownHook);
-                } catch (IllegalStateException e) {
-                    // Shutdown in progress, so immediately run hook.
-                    mShutdownHook.run();
+    public synchronized void setAutoShutdownEnabled(boolean enabled) {
+        try {
+            if (mShutdownHook == null) {
+                if (enabled) {
+                    ShutdownHook hook = new ShutdownHook(this);
+                    Runtime.getRuntime().addShutdownHook(hook);
+                    mShutdownHook = hook;
                 }
-            }
-        } else {
-            if (!enabled) {
-                try {
+            } else {
+                if (!enabled) {
                     Runtime.getRuntime().removeShutdownHook(mShutdownHook);
-                } catch (IllegalStateException e) {
-                    // Shutdown in progress, hook is running.
+                    mShutdownHook = null;
                 }
-                mShutdownHook = null;
             }
+        } catch (IllegalStateException e) {
+            // Shutdown is in progress so make no changes.
         }
     }
 
@@ -178,23 +174,26 @@ public abstract class AbstractRepository<Txn>
         if (!mHasShutdown) {
             // Since this repository is being closed before system shutdown,
             // remove shutdown hook and run it now.
-            ShutdownHook hook = mShutdownHook;
-            if (hook != null) {
-                try {
-                    Runtime.getRuntime().removeShutdownHook(hook);
-                } catch (IllegalStateException e) {
-                    // Shutdown in progress, hook is running.
-                    hook = null;
+            ShutdownHook hook;
+            synchronized (this) {
+                hook = mShutdownHook;
+                if (hook == null) {
+                    // If hook is null, auto-shutdown was disabled. Make a new
+                    // instance to use, but don't register it.
+                    hook = new ShutdownHook(this);
+                } else {
+                    try {
+                        Runtime.getRuntime().removeShutdownHook(hook);
+                        mShutdownHook = null;
+                    } catch (IllegalStateException e) {
+                        // Shutdown in progress, hook is running.
+                        hook = null;
+                    }
                 }
-            } else {
-                // If hook is null, auto-shutdown was disabled. Make a new
-                // instance to use, but don't register it.
-                hook = new ShutdownHook(this);
             }
             if (hook != null) {
                 hook.run(suspendThreads);
             }
-            mHasShutdown = true;
         }
     }
 

@@ -33,7 +33,7 @@ public interface ShutdownCapability extends Capability {
 
     /**
      * Request to enable or disable the automatic shutdown hook. Repository may
-     * ignore this request.
+     * ignore this request if shutdown is in progress.
      *
      * @throws SecurityException if caller does not have permission
      */
