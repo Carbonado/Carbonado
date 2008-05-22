@@ -322,6 +322,8 @@ class JDBCRepository extends AbstractRepository<JDBCTransaction>
         mSupportStrategy.setForceStoredSequence(forceStoredSequence);
         mExceptionTransformer = mSupportStrategy.createExceptionTransformer();
 
+        getLog().info("Opened repository \"" + getName() + '"');
+
         setAutoShutdownEnabled(true);
     }
 
