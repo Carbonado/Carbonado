@@ -57,6 +57,7 @@ Carbonado change history
 - Index build skips records which are corrupt instead of giving up entirely.
 - Support named databases in one BDB file.
 - Add index repair method.
+- Fix automatic replication repair which might sometimes throw IllegalStateException.
 
 1.1 to 1.1.2
 -------------------------------

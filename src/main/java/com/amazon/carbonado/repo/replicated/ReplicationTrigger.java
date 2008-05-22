@@ -294,18 +294,16 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                     }
                 }
             } else {
-                try {
-                    if (!master.tryLoad()) {
-                        // Both are missing -- no repair needed.
-                        return;
-                    }
-                } catch (IllegalStateException e) {
-                    // Can be caused by not fully defining the primary key on
-                    // the replica, but an alternate key is. The insert will
-                    // fail anyhow, so don't try to repair.
+                if (!master.tryLoad()) {
+                    // Both are missing -- no repair needed.
                     return;
                 }
             }
+        } catch (IllegalStateException e) {
+            // Can be caused by not fully defining the primary key on the
+            // replica, but an alternate key is. The insert will fail anyhow,
+            // so don't try to repair.
+            return;
         } catch (FetchException e) {
             throw e.toPersistException();
         }
