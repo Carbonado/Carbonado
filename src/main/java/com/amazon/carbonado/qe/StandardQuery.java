@@ -340,7 +340,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     public boolean exists() throws FetchException {
-        Cursor<S> cursor = fetch();
+        Cursor<S> cursor = fetchSlice(0L, 1L);
         try {
             return cursor.skipNext(1) > 0;
         } finally {
