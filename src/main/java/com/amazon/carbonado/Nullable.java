@@ -36,6 +36,13 @@ import java.lang.annotation.*;
  * }
  * </pre>
  *
+ * <p>If the repository does not allow a property to be declared as nullable
+ * because the underlying schema differs, it can be also annotated as {@link
+ * Independent}. This makes it easier for a common set of Storables to interact
+ * with schemas which are slightly different. Attempting to persist null into a
+ * property for which null is not allowed will likely result in a constraint
+ * exception.
+ *
  * @author Brian S O'Neill
  */
 @Documented
