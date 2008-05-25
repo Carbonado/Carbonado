@@ -82,20 +82,23 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         return naturalOrdering;
     }
 
-    private final IndexedStorage<S> mIndexedStorage;
+    private final IndexedRepository mRepository;
+    private final Storage<S> mMasterStorage;
     private final StorableIndex mIndex;
     private final IndexEntryGenerator<S> mGenerator;
     private final Storage<?> mIndexEntryStorage;
 
     private Query<?> mSingleMatchQuery;
 
-    ManagedIndex(IndexedStorage<S> indexedStorage,
+    ManagedIndex(IndexedRepository repository,
+                 Storage<S> masterStorage,
                  StorableIndex<S> index,
                  IndexEntryGenerator<S> generator,
                  Storage<?> indexEntryStorage)
         throws SupportException
     {
-        mIndexedStorage = indexedStorage;
+        mRepository = repository;
+        mMasterStorage = masterStorage;
         mIndex = index;
         mGenerator = generator;
         mIndexEntryStorage = indexEntryStorage;
@@ -236,9 +239,6 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
      * @param repo used to enter transactions
      */
     void buildIndex(double desiredSpeed) throws RepositoryException {
-        final Repository repo = mIndexedStorage.mRepository;
-        final Storage<S> masterStorage = mIndexedStorage.mMasterStorage;
-
         final MergeSortBuffer buffer;
         final Comparator c;
 
@@ -249,13 +249,13 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             // Need to explicitly order master query by primary key in order
             // for fetchAfter to work correctly in case corrupt records are
             // encountered.
-            masterQuery = masterStorage.query()
-                .orderBy(naturalOrdering(masterStorage.getStorableType()));
+            masterQuery = mMasterStorage.query()
+                .orderBy(naturalOrdering(mMasterStorage.getStorableType()));
         }
 
         // Quick check to see if any records exist in master.
         {
-            Transaction txn = repo.enterTransaction(IsolationLevel.READ_COMMITTED);
+            Transaction txn = mRepository.enterTransaction(IsolationLevel.READ_COMMITTED);
             try {
                 Cursor<S> cursor = masterQuery.fetch();
                 if (!cursor.hasNext()) {
@@ -269,14 +269,14 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
 
         // Enter top transaction with isolation level of none to make sure
         // preload operation does not run in a long nested transaction.
-        Transaction txn = repo.enterTopTransaction(IsolationLevel.NONE);
+        Transaction txn = mRepository.enterTopTransaction(IsolationLevel.NONE);
         try {
             Cursor<S> cursor = masterQuery.fetch();
             try {
                 if (log.isInfoEnabled()) {
                     StringBuilder b = new StringBuilder();
-                    b.append("Building index on ");
-                    b.append(masterStorage.getStorableType().getName());
+                    b.append("Preparing index on ");
+                    b.append(mMasterStorage.getStorableType().getName());
                     b.append(": ");
                     try {
                         mIndex.appendTo(b);
@@ -350,7 +350,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             // fail, since unique index cannot be built.
 
             if (log.isInfoEnabled()) {
-                log.info("Verifying unique index");
+                log.info("Verifying index");
             }
 
             Object last = null;
@@ -384,7 +384,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         long totalDeleted = 0;
         long totalProgress = 0;
 
-        txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+        txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
         try {
             txn.setForUpdate(true);
 
@@ -463,7 +463,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                         log.info(String.format(format, percent));
                     }
 
-                    txn = repo.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+                    txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
 
                     if (indexEntryCursor != null) {
                         indexEntryCursor.close();

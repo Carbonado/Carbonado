@@ -45,8 +45,10 @@ import com.amazon.carbonado.info.StorableProperty;
 class DependentStorableFetcher<S extends Storable, D extends Storable> {
     private final IndexedRepository mRepository;
     private final IndexEntryAccessor<D>[] mIndexEntryAccessors;
-    private final Query<D> mQuery;
+    private final Filter<D> mFilter;
     private final String[] mJoinProperties;
+
+    private Query<D> mQuery;
 
     /**
      * @param derivedTo special chained property from StorableProperty.getDerivedToProperties
@@ -81,7 +83,7 @@ class DependentStorableFetcher<S extends Storable, D extends Storable> {
         if (accessorList.size() == 0) {
             throw new SupportException
                 ("Unable to find index accessors for derived-to property: " + derivedTo +
-                 ", enclosing type: " + dType);
+                 ", enclosing type: " + dType.getName() + ", source type: " + sType.getName());
         }
 
         // Build a query on D joined to S.
@@ -100,18 +102,18 @@ class DependentStorableFetcher<S extends Storable, D extends Storable> {
 
         Filter<D> dFilter = Filter.getOpenFilter(dType);
         for (int i=0; i<joinElementCount; i++) {
-            StorableProperty<S> element = join.getInternalJoinElement(i);
-            joinProperties[i] = element.getName();
+            joinProperties[i] = join.getExternalJoinElement(i).getName();
+            StorableProperty<S> internal = join.getInternalJoinElement(i);
             if (base == null) {
-                dFilter = dFilter.and(element.getName(), RelOp.EQ);
+                dFilter = dFilter.and(internal.getName(), RelOp.EQ);
             } else {
-                dFilter = dFilter.and(base.append(element).toString(), RelOp.EQ);
+                dFilter = dFilter.and(base.append(internal).toString(), RelOp.EQ);
             }
         }
 
         mRepository = repository;
         mIndexEntryAccessors = accessorList.toArray(new IndexEntryAccessor[accessorList.size()]);
-        mQuery = repository.storageFor(dType).query(dFilter);
+        mFilter = dFilter;
         mJoinProperties = joinProperties;
     }
 
@@ -120,7 +122,7 @@ class DependentStorableFetcher<S extends Storable, D extends Storable> {
     }
 
     public Cursor<D> fetchDependenentStorables(S storable) throws FetchException {
-        Query<D> query = mQuery;
+        Query<D> query = query();
         for (String property : mJoinProperties) {
             query = query.with(storable.getPropertyValue(property));
         }
@@ -144,7 +146,7 @@ class DependentStorableFetcher<S extends Storable, D extends Storable> {
 
     @Override
     public int hashCode() {
-        return mQuery.getFilter().hashCode();
+        return mFilter.hashCode();
     }
 
     @Override
@@ -154,7 +156,7 @@ class DependentStorableFetcher<S extends Storable, D extends Storable> {
         }
         if (obj instanceof DependentStorableFetcher) {
             DependentStorableFetcher other = (DependentStorableFetcher) obj;
-            return mQuery.getFilter().equals(other.mQuery.getFilter())
+            return mFilter.equals(other.mFilter)
                 && Arrays.equals(mJoinProperties, other.mJoinProperties)
                 && Arrays.equals(mIndexEntryAccessors, other.mIndexEntryAccessors);
         }
@@ -164,7 +166,21 @@ class DependentStorableFetcher<S extends Storable, D extends Storable> {
     @Override
     public String toString() {
         return "DependentStorableFetcher: {indexes=" + Arrays.toString(mIndexEntryAccessors) +
-            ", query=" + mQuery +
+            ", filter=" + mFilter +
             ", join properties=" + Arrays.toString(mJoinProperties) + '}';
+    }
+
+    private Query<D> query() throws FetchException {
+        // Query is lazily created to avoid stack overflow due to cyclic
+        // dependencies.
+        Query<D> query = mQuery;
+        if (query == null) {
+            try {
+                mQuery = query = mRepository.storageFor(mFilter.getStorableType()).query(mFilter);
+            } catch (RepositoryException e) {
+                throw e.toFetchException();
+            }
+        }
+        return query;
     }
 }

@@ -20,6 +20,7 @@ package com.amazon.carbonado.repo.indexed;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -64,6 +65,7 @@ class IndexedRepository implements Repository,
     private final double mIndexThrottle;
     private final boolean mAllClustered;
     private final StoragePool mStoragePool;
+    private final IndexAnalysisPool mIndexAnalysisPool;
 
     IndexedRepository(AtomicReference<Repository> rootRef, String name,
                       Repository repository,
@@ -71,12 +73,19 @@ class IndexedRepository implements Repository,
                       double indexThrottle,
                       boolean allClustered)
     {
+        if (repository.getCapability(IndexInfoCapability.class) == null) {
+            throw new UnsupportedOperationException
+                ("Wrapped repository doesn't support being indexed -- " +
+                 "it must support IndexInfoCapability.");
+        }
+
         mRootRef = rootRef;
         mRepository = repository;
         mName = name;
         mIndexRepairEnabled = indexRepairEnabled;
         mIndexThrottle = indexThrottle;
         mAllClustered = allClustered;
+        mIndexAnalysisPool = new IndexAnalysisPool(this);
 
         mStoragePool = new StoragePool() {
             @Override
@@ -97,15 +106,11 @@ class IndexedRepository implements Repository,
                     return masterStorage;
                 }
 
-                return new IndexedStorage<S>(IndexedRepository.this, masterStorage);
+                IndexAnalysis<S> analysis = mIndexAnalysisPool.get(masterStorage);
+
+                return new IndexedStorage<S>(analysis);
             }
         };
-
-        if (repository.getCapability(IndexInfoCapability.class) == null) {
-            throw new UnsupportedOperationException
-                ("Wrapped repository doesn't support being indexed -- " +
-                 "it must support IndexInfoCapability.");
-        }
     }
 
     public String getName() {
@@ -143,22 +148,41 @@ class IndexedRepository implements Repository,
         return mRepository.getCapability(capabilityType);
     }
 
+    // Required by IndexInfoCapability.
     public <S extends Storable> IndexInfo[] getIndexInfo(Class<S> storableType)
         throws RepositoryException
     {
-        return ((IndexedStorage) storageFor(storableType)).getIndexInfo();
+        if (Unindexed.class.isAssignableFrom(storableType)) {
+            return new IndexInfo[0];
+        }
+
+        Storage<S> masterStorage = mRepository.storageFor(storableType);
+        IndexAnalysis<S> analysis = mIndexAnalysisPool.get(masterStorage);
+
+        IndexInfo[] infos = new IndexInfo[analysis.allIndexInfoMap.size()];
+        return analysis.allIndexInfoMap.values().toArray(infos);
     }
 
+    // Required by IndexEntryAccessCapability.
     public <S extends Storable> IndexEntryAccessor<S>[]
         getIndexEntryAccessors(Class<S> storableType)
         throws RepositoryException
     {
-        Storage<S> storage = storageFor(storableType);
-        if (storage instanceof IndexedStorage) {
-            return ((IndexedStorage<S>) storage).getIndexEntryAccessors();
-        } else {
+        if (Unindexed.class.isAssignableFrom(storableType)) {
             return new IndexEntryAccessor[0];
         }
+
+        Storage<S> masterStorage = mRepository.storageFor(storableType);
+        IndexAnalysis<S> analysis = mIndexAnalysisPool.get(masterStorage);
+
+        List<IndexEntryAccessor<S>> accessors =
+            new ArrayList<IndexEntryAccessor<S>>(analysis.allIndexInfoMap.size());
+        for (IndexInfo info : analysis.allIndexInfoMap.values()) {
+            if (info instanceof IndexEntryAccessor) {
+                accessors.add((IndexEntryAccessor<S>) info);
+            }
+        }
+        return accessors.toArray(new IndexEntryAccessor[accessors.size()]);
     }
 
     public String[] getUserStorableTypeNames() throws RepositoryException {

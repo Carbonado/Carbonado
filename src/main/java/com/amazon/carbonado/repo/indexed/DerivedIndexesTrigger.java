@@ -50,7 +50,7 @@ class DerivedIndexesTrigger<S extends Storable, D extends Storable> extends Trig
         this(new DependentStorableFetcher(repository, sType, derivedTo));
     }
 
-    DerivedIndexesTrigger(DependentStorableFetcher<S, D> fetcher) {
+    private DerivedIndexesTrigger(DependentStorableFetcher<S, D> fetcher) {
         mFetcher = fetcher;
     }
 
