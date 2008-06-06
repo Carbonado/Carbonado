@@ -32,6 +32,8 @@ import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.UniqueConstraintException;
 
+import com.amazon.carbonado.capability.ResyncCapability;
+
 import com.amazon.carbonado.spi.RepairExecutor;
 import com.amazon.carbonado.spi.TriggerManager;
 
@@ -198,10 +200,14 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
      * Re-sync the replica to the master. The primary keys of both entries are
      * assumed to match.
      *
+     * @param listener optional
      * @param replicaEntry current replica entry, or null if none
      * @param masterEntry current master entry, or null if none
      */
-    void resyncEntries(S replicaEntry, S masterEntry) throws FetchException, PersistException {
+    void resyncEntries(ResyncCapability.Listener<? super S> listener,
+                       S replicaEntry, S masterEntry)
+        throws FetchException, PersistException
+    {
         if (replicaEntry == null && masterEntry == null) {
             return;
         }
@@ -212,6 +218,9 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         try {
             Transaction txn = mRepository.enterTransaction();
             try {
+                S newReplicaEntry = null;
+
+                // Delete old entry.
                 if (replicaEntry != null) {
                     if (masterEntry == null) {
                         log.info("Deleting bogus replica entry: " + replicaEntry);
@@ -222,11 +231,13 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                         log.error("Unable to delete replica entry: " + replicaEntry, e);
                         if (masterEntry != null) {
                             // Try to update instead.
-                            S newReplicaEntry = mReplicaStorage.prepare();
+                            newReplicaEntry = mReplicaStorage.prepare();
                             transferToReplicaEntry(replicaEntry, masterEntry, newReplicaEntry);
                             log.info("Replacing corrupt replica entry with: " + newReplicaEntry);
                             try {
                                 newReplicaEntry.update();
+                                // This disables the insert step, which is not needed now.
+                                masterEntry = null;
                             } catch (PersistException e2) {
                                 log.error("Unable to update replica entry: " + replicaEntry, e2);
                                 return;
@@ -234,8 +245,10 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                         }
                     }
                 }
+
+                // Insert new entry.
                 if (masterEntry != null) {
-                    S newReplicaEntry = mReplicaStorage.prepare();
+                    newReplicaEntry = mReplicaStorage.prepare();
                     if (replicaEntry == null) {
                         masterEntry.copyAllProperties(newReplicaEntry);
                         log.info("Adding missing replica entry: " + newReplicaEntry);
@@ -252,6 +265,19 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                         newReplicaEntry.tryInsert();
                     }
                 }
+
+                if (listener != null) {
+                    if (replicaEntry == null) {
+                        if (newReplicaEntry != null) {
+                            listener.inserted(newReplicaEntry);
+                        }
+                    } else if (newReplicaEntry != null) {
+                        listener.updated(replicaEntry, newReplicaEntry);
+                    } else {
+                        listener.deleted(replicaEntry);
+                    }
+                }
+
                 txn.commit();
             } finally {
                 txn.exit();
@@ -319,12 +345,12 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                         txn.setForUpdate(true);
                         if (finalReplica.tryLoad()) {
                             if (finalMaster.tryLoad()) {
-                                resyncEntries(finalReplica, finalMaster);
+                                resyncEntries(null, finalReplica, finalMaster);
                             } else {
-                                resyncEntries(finalReplica, null);
+                                resyncEntries(null, finalReplica, null);
                             }
                         } else if (finalMaster.tryLoad()) {
-                            resyncEntries(null, finalMaster);
+                            resyncEntries(null, null, finalMaster);
                         }
                         txn.commit();
                     } finally {

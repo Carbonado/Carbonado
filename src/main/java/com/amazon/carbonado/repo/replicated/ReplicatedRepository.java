@@ -366,6 +366,28 @@ class ReplicatedRepository
                                             Object... filterValues)
         throws RepositoryException
     {
+        resync(type, null, desiredSpeed, filter, filterValues);
+    }
+
+    /**
+     * Repairs replicated storables by synchronizing the replica repository
+     * against the master repository.
+     *
+     * @param type type of storable to re-sync
+     * @param listener optional listener which gets notified as storables are re-sync'd
+     * @param desiredSpeed throttling parameter - 1.0 = full speed, 0.5 = half
+     * speed, 0.1 = one-tenth speed, etc
+     * @param filter optional query filter to limit which objects get re-sync'ed
+     * @param filterValues filter values for optional filter
+     * @since 1.2
+     */
+    public <S extends Storable> void resync(Class<S> type,
+                                            ResyncCapability.Listener<? super S> listener,
+                                            double desiredSpeed,
+                                            String filter,
+                                            Object... filterValues)
+        throws RepositoryException
+    {
         ReplicationTrigger<S> replicationTrigger;
         if (storageFor(type) instanceof ReplicatedStorage) {
             replicationTrigger = ((ReplicatedStorage) storageFor(type)).getReplicationTrigger();
@@ -422,6 +444,7 @@ class ReplicatedRepository
             resync(replicationTrigger,
                    replicaStorage, replicaQuery,
                    masterStorage, masterQuery,
+                   listener,
                    throttle, desiredSpeed,
                    comparator, replicaTxn);
 
@@ -435,6 +458,7 @@ class ReplicatedRepository
     private <S extends Storable> void resync(ReplicationTrigger<S> replicationTrigger,
                                              Storage<S> replicaStorage, Query<S> replicaQuery,
                                              Storage<S> masterStorage, Query<S> masterQuery,
+                                             ResyncCapability.Listener<? super S> listener,
                                              Throttle throttle, double desiredSpeed,
                                              Comparator comparator, Transaction replicaTxn)
         throws RepositoryException
@@ -556,7 +580,8 @@ class ReplicatedRepository
 
                 if (compare < 0) {
                     // Bogus record exists only in replica so delete it.
-                    resyncTask = prepareResyncTask(replicationTrigger, replicaEntry, null);
+                    resyncTask = prepareResyncTask
+                        (replicationTrigger, listener, replicaEntry, null);
                     // Allow replica to advance.
                     if (replicaCursor == null) {
                         replicaCursor = replicaQuery.fetchAfter(replicaEntry);
@@ -565,7 +590,8 @@ class ReplicatedRepository
                     replicaEntry = null;
                 } else if (compare > 0) {
                     // Replica cursor is missing an entry so copy it.
-                    resyncTask = prepareResyncTask(replicationTrigger, null, masterEntry);
+                    resyncTask = prepareResyncTask
+                        (replicationTrigger, listener, null, masterEntry);
                     // Allow master to advance.
                     masterEntry = null;
                 } else {
@@ -581,7 +607,7 @@ class ReplicatedRepository
                     if (!replicaEntry.equalProperties(masterEntry)) {
                         // Replica is stale.
                         resyncTask = prepareResyncTask
-                            (replicationTrigger, replicaEntry, masterEntry);
+                            (replicationTrigger, listener, replicaEntry, masterEntry);
                     }
 
                     // Entries are synchronized so allow both cursors to advance.
@@ -613,6 +639,7 @@ class ReplicatedRepository
 
     private <S extends Storable> Runnable prepareResyncTask
                        (final ReplicationTrigger<S> replicationTrigger,
+                        final ResyncCapability.Listener<? super S> listener,
                         final S replicaEntry,
                         final S masterEntry)
         throws RepositoryException
@@ -627,7 +654,7 @@ class ReplicatedRepository
         Runnable task = new Runnable() {
             public void run() {
                 try {
-                    replicationTrigger.resyncEntries(replicaEntry, masterEntry);
+                    replicationTrigger.resyncEntries(listener, replicaEntry, masterEntry);
                 } catch (Exception e) {
                     LogFactory.getLog(ReplicatedRepository.class).error(null, e);
                 }
