@@ -75,7 +75,7 @@ import java.lang.annotation.*;
  *             if (propertyValue == 'F') { return false; };
  *             throw new IllegalArgumentException
  *                 ("Cannot adapt '" + value + "' into boolean for property \"" +
- *                   mPropertyName + '"');
+ *                   propertyName + '"');
  *         }
  *     }
  * }
