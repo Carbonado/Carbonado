@@ -32,6 +32,7 @@ import com.amazon.carbonado.ConfigurationException;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
+import com.amazon.carbonado.MalformedArgumentException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
@@ -342,6 +343,8 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     {
         try {
             return createBDBStorage(type);
+        } catch (MalformedArgumentException e) {
+            throw e;
         } catch (Exception e) {
             throw toRepositoryException(e);
         }
