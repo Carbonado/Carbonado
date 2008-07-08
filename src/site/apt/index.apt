@@ -80,8 +80,8 @@ CarbonadoSleepycatJE package bundles.
 * Limitations
 
     Carbonado queries are not as expressive as SQL selects. Unlike SQL,
-Carbonado queries do not support things like sub-selects or data
-processing. See Carbonado
+Carbonado queries do not support data
+processing or aggregate functions. See Carbonado
 {{{http://sourceforge.net/tracker/?group_id=171277&atid=857357}feature
 requests}}.
 
