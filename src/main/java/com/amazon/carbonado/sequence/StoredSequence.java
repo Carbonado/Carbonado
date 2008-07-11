@@ -44,16 +44,19 @@ import com.amazon.carbonado.Version;
 @PrimaryKey("name")
 @Authoritative
 @Independent
-@Alias("CARBONADO_SEQUENCE")
+@Alias({
+    "CARBONADO_SEQUENCE", "Carbonado_Sequence", "carbonado_sequence",
+    "CarbonadoSequence", "carbonadoSequence"
+})
 public interface StoredSequence extends Storable<StoredSequence> {
-    @Alias("NAME")
+    @Alias({"NAME", "Name", "name"})
     String getName();
     void setName(String name);
 
     /**
      * Returns the initial value for the sequence.
      */
-    @Alias("INITIAL_VALUE")
+    @Alias({"INITIAL_VALUE", "Initial_Value", "initial_value", "InitialValue", "initialValue"})
     long getInitialValue();
     void setInitialValue(long value);
 
@@ -62,10 +65,11 @@ public interface StoredSequence extends Storable<StoredSequence> {
      * initially Long.MIN_VALUE, and it increments up to Long.MAX_VALUE. The actual
      * next value for the sequence is: (getNextValue() + Long.MIN_VALUE + getInitialValue()).
      */
-    @Alias("NEXT_VALUE")
+    @Alias({"NEXT_VALUE", "Next_Value", "next_value", "NextValue", "nextValue"})
     long getNextValue();
     void setNextValue(long value);
 
+    @Alias({"VERSION", "Version", "version"})
     @Version
     int getVersion();
     void setVersion(int version);
