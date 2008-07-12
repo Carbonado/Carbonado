@@ -474,9 +474,13 @@ public class IndexedQueryAnalyzer<S extends Storable> {
          * Returns a new result with the remainder filter replaced.
          */
         public Result withRemainderFilter(Filter<S> remainderFilter) {
+            Filter<S> handledFilter = getCompositeScore().getFilteringScore().getHandledFilter();
+
+            Filter<S> filter = andFilters(handledFilter, remainderFilter);
+
             CompositeScore<S> score = mScore.withRemainderFilter(remainderFilter);
-            return new Result(mFilter, score, mLocalIndex,
-                              mForeignIndex, mForeignProperty, mHints);
+
+            return new Result(filter, score, mLocalIndex, mForeignIndex, mForeignProperty, mHints);
         }
 
         /**

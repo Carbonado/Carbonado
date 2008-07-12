@@ -426,7 +426,7 @@ public class UnionQueryAnalyzer<S extends Storable> implements QueryExecutorFact
         if (mergedResults.size() == 0) {
             // Nothing was exempt. Rather than return a result with a dnf
             // filter, return full scan with a simpler reduced filter.
-            full.withRemainderFilter(filter.reduce());
+            full = full.withRemainderFilter(filter.reduce());
         }
 
         mergedResults.add(full);
