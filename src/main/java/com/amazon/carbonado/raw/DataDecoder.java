@@ -24,17 +24,16 @@ import java.io.IOException;
 
 import com.amazon.carbonado.CorruptEncodingException;
 
-import static com.amazon.carbonado.raw.DataEncoder.*;
+import static com.amazon.carbonado.raw.EncodingConstants.*;
 
 /**
  * A very low-level class that decodes key components encoded by methods of
  * {@link DataEncoder}.
  *
  * @author Brian S O'Neill
+ * @see KeyDecoder
  */
 public class DataDecoder {
-    static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
-
     /**
      * Decodes a signed integer from exactly 4 bytes.
      *

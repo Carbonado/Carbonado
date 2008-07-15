@@ -21,6 +21,8 @@ package com.amazon.carbonado.raw;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import static com.amazon.carbonado.raw.EncodingConstants.*;
+
 /**
  * A very low-level class that supports encoding of primitive data. For
  * encoding data into keys, see {@link KeyEncoder}.
@@ -29,20 +31,8 @@ import java.io.OutputStream;
  * @see DataDecoder
  */
 public class DataEncoder {
-    // Note: Most of these methods are inherited by KeyEncoder, which is why
+    // Note: Most of these methods are also used by KeyEncoder, which is why
     // they are encoded for supporting proper ordering.
-
-    /** Byte to use for null, low ordering */
-    static final byte NULL_BYTE_LOW = 0;
-
-    /** Byte to use for null, high ordering */
-    static final byte NULL_BYTE_HIGH = (byte)~NULL_BYTE_LOW;
-
-    /** Byte to use for not-null, low ordering */
-    static final byte NOT_NULL_BYTE_HIGH = (byte)128;
-
-    /** Byte to use for not-null, high ordering */
-    static final byte NOT_NULL_BYTE_LOW = (byte)~NOT_NULL_BYTE_HIGH;
 
     /**
      * Encodes the given signed integer into exactly 4 bytes.

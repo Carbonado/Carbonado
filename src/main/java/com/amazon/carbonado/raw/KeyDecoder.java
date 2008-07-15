@@ -20,16 +20,16 @@ package com.amazon.carbonado.raw;
 
 import com.amazon.carbonado.CorruptEncodingException;
 
-import static com.amazon.carbonado.raw.KeyEncoder.*;
+import static com.amazon.carbonado.raw.EncodingConstants.*;
 
 /**
  * A very low-level class that decodes key components encoded by methods of
  * {@link KeyEncoder}.
  *
  * @author Brian S O'Neill
+ * @see DataDecoder
  */
-public class KeyDecoder extends DataDecoder {
-
+public class KeyDecoder {
     /**
      * Decodes a signed integer from exactly 4 bytes, as encoded for descending
      * order.
@@ -41,7 +41,7 @@ public class KeyDecoder extends DataDecoder {
     public static int decodeIntDesc(byte[] src, int srcOffset)
         throws CorruptEncodingException
     {
-        return ~decodeInt(src, srcOffset);
+        return ~DataDecoder.decodeInt(src, srcOffset);
     }
 
     /**
@@ -77,7 +77,7 @@ public class KeyDecoder extends DataDecoder {
     public static long decodeLongDesc(byte[] src, int srcOffset)
         throws CorruptEncodingException
     {
-        return ~decodeLong(src, srcOffset);
+        return ~DataDecoder.decodeLong(src, srcOffset);
     }
 
     /**
@@ -273,7 +273,7 @@ public class KeyDecoder extends DataDecoder {
     public static float decodeFloatDesc(byte[] src, int srcOffset)
         throws CorruptEncodingException
     {
-        int bits = decodeFloatBits(src, srcOffset);
+        int bits = DataDecoder.decodeFloatBits(src, srcOffset);
         if (bits >= 0) {
             bits ^= 0x7fffffff;
         }
@@ -290,7 +290,7 @@ public class KeyDecoder extends DataDecoder {
     public static Float decodeFloatObjDesc(byte[] src, int srcOffset)
         throws CorruptEncodingException
     {
-        int bits = decodeFloatBits(src, srcOffset);
+        int bits = DataDecoder.decodeFloatBits(src, srcOffset);
         if (bits >= 0) {
             bits ^= 0x7fffffff;
         }
@@ -307,7 +307,7 @@ public class KeyDecoder extends DataDecoder {
     public static double decodeDoubleDesc(byte[] src, int srcOffset)
         throws CorruptEncodingException
     {
-        long bits = decodeDoubleBits(src, srcOffset);
+        long bits = DataDecoder.decodeDoubleBits(src, srcOffset);
         if (bits >= 0) {
             bits ^= 0x7fffffffffffffffL;
         }
@@ -324,7 +324,7 @@ public class KeyDecoder extends DataDecoder {
     public static Double decodeDoubleObjDesc(byte[] src, int srcOffset)
         throws CorruptEncodingException
     {
-        long bits = decodeDoubleBits(src, srcOffset);
+        long bits = DataDecoder.decodeDoubleBits(src, srcOffset);
         if (bits >= 0) {
             bits ^= 0x7fffffffffffffffL;
         }

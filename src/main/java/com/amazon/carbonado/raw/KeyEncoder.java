@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.raw;
 
+import static com.amazon.carbonado.raw.EncodingConstants.*;
+
 /**
  * A very low-level class that supports encoding of primitive data into unique,
  * sortable byte array keys. If the data to encode is of a variable size, then
@@ -29,12 +31,9 @@ package com.amazon.carbonado.raw;
  *
  * @author Brian S O'Neill
  * @see KeyDecoder
+ * @see DataEncoder
  */
-public class KeyEncoder extends DataEncoder {
-
-    /** Byte to terminate variable data encoded for ascending order */
-    static final byte TERMINATOR = (byte)1;
-
+public class KeyEncoder {
     /**
      * Encodes the given signed integer into exactly 4 bytes for descending
      * order.
@@ -44,7 +43,7 @@ public class KeyEncoder extends DataEncoder {
      * @param dstOffset offset into destination array
      */
     public static void encodeDesc(int value, byte[] dst, int dstOffset) {
-        encode(~value, dst, dstOffset);
+        DataEncoder.encode(~value, dst, dstOffset);
     }
 
     /**
@@ -63,7 +62,7 @@ public class KeyEncoder extends DataEncoder {
             return 1;
         } else {
             dst[dstOffset] = NOT_NULL_BYTE_LOW;
-            encode(~value.intValue(), dst, dstOffset + 1);
+            DataEncoder.encode(~value.intValue(), dst, dstOffset + 1);
             return 5;
         }
     }
@@ -76,7 +75,7 @@ public class KeyEncoder extends DataEncoder {
      * @param dstOffset offset into destination array
      */
     public static void encodeDesc(long value, byte[] dst, int dstOffset) {
-        encode(~value, dst, dstOffset);
+        DataEncoder.encode(~value, dst, dstOffset);
     }
 
     /**
@@ -95,7 +94,7 @@ public class KeyEncoder extends DataEncoder {
             return 1;
         } else {
             dst[dstOffset] = NOT_NULL_BYTE_LOW;
-            encode(~value.longValue(), dst, dstOffset + 1);
+            DataEncoder.encode(~value.longValue(), dst, dstOffset + 1);
             return 9;
         }
     }
@@ -141,7 +140,7 @@ public class KeyEncoder extends DataEncoder {
      * @param dstOffset offset into destination array
      */
     public static void encodeDesc(short value, byte[] dst, int dstOffset) {
-        encode((short) ~value, dst, dstOffset);
+        DataEncoder.encode((short) ~value, dst, dstOffset);
     }
 
     /**
@@ -160,7 +159,7 @@ public class KeyEncoder extends DataEncoder {
             return 1;
         } else {
             dst[dstOffset] = NOT_NULL_BYTE_LOW;
-            encode((short) ~value.shortValue(), dst, dstOffset + 1);
+            DataEncoder.encode((short) ~value.shortValue(), dst, dstOffset + 1);
             return 3;
         }
     }
@@ -173,7 +172,7 @@ public class KeyEncoder extends DataEncoder {
      * @param dstOffset offset into destination array
      */
     public static void encodeDesc(char value, byte[] dst, int dstOffset) {
-        encode((char) ~value, dst, dstOffset);
+        DataEncoder.encode((char) ~value, dst, dstOffset);
     }
 
     /**
@@ -192,7 +191,7 @@ public class KeyEncoder extends DataEncoder {
             return 1;
         } else {
             dst[dstOffset] = NOT_NULL_BYTE_LOW;
-            encode((char) ~value.charValue(), dst, dstOffset + 1);
+            DataEncoder.encode((char) ~value.charValue(), dst, dstOffset + 1);
             return 3;
         }
     }
@@ -252,7 +251,7 @@ public class KeyEncoder extends DataEncoder {
      */
     public static void encodeDesc(Float value, byte[] dst, int dstOffset) {
         if (value == null) {
-            encode(~0x7fffffff, dst, dstOffset);
+            DataEncoder.encode(~0x7fffffff, dst, dstOffset);
         } else {
             encodeDesc(value.floatValue(), dst, dstOffset);
         }
@@ -292,7 +291,7 @@ public class KeyEncoder extends DataEncoder {
      */
     public static void encodeDesc(Double value, byte[] dst, int dstOffset) {
         if (value == null) {
-            encode(~0x7fffffffffffffffL, dst, dstOffset);
+            DataEncoder.encode(~0x7fffffffffffffffL, dst, dstOffset);
         } else {
             encodeDesc(value.doubleValue(), dst, dstOffset);
         }
