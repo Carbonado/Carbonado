@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.raw;
 
+import java.math.BigInteger;
+
 import static com.amazon.carbonado.raw.EncodingConstants.*;
 
 /**
@@ -295,6 +297,111 @@ public class KeyEncoder {
         } else {
             encodeDesc(value.doubleValue(), dst, dstOffset);
         }
+    }
+
+    /**
+     * Encodes the given optional BigInteger into a variable amount of
+     * bytes. If the BigInteger is null, exactly 1 byte is written. Otherwise,
+     * the amount written can be determined by calling calculateEncodedLength.
+     *
+     * @param value byte array value to encode, may be null
+     * @param dst destination for encoded bytes
+     * @param dstOffset offset into destination array
+     * @return amount of bytes written
+     * @since 1.2
+     */
+    public static int encode(BigInteger value, byte[] dst, int dstOffset) {
+        if (value == null) {
+            dst[dstOffset] = NULL_BYTE_HIGH;
+            return 1;
+        }
+
+        byte[] bytes = value.toByteArray();
+        // Always at least one.
+        int bytesLength = bytes.length;
+
+        int headerSize;
+        if (bytesLength < 0x7f) {
+            // First byte is 0x02..0x7f for negative values and 0x80..0xfd for
+            // positive values.
+            if (value.signum() < 0) {
+                dst[dstOffset] = (byte) (0x80 - bytesLength);
+            } else {
+                dst[dstOffset] = (byte) (bytesLength + 0x7f);
+            }
+            headerSize = 1;
+        } else {
+            dst[dstOffset] = (byte) (value.signum() < 0 ? 1 : 0xfe);
+            int encodedLen = value.signum() < 0 ? -bytesLength : bytesLength;
+            DataEncoder.encode(encodedLen, dst, dstOffset + 1);
+            headerSize = 5;
+        }
+
+        System.arraycopy(bytes, 0, dst, headerSize + dstOffset, bytesLength);
+
+        return headerSize + bytesLength;
+    }
+
+    /**
+     * Encodes the given optional BigInteger into a variable amount of bytes
+     * for descending order. If the BigInteger is null, exactly 1 byte is
+     * written. Otherwise, the amount written can be determined by calling
+     * calculateEncodedLength.
+     *
+     * @param value byte array value to encode, may be null
+     * @param dst destination for encoded bytes
+     * @param dstOffset offset into destination array
+     * @return amount of bytes written
+     * @since 1.2
+     */
+    public static int encodeDesc(BigInteger value, byte[] dst, int dstOffset) {
+        if (value == null) {
+            dst[dstOffset] = NULL_BYTE_LOW;
+            return 1;
+        }
+
+        byte[] bytes = value.toByteArray();
+        // Always at least one.
+        int bytesLength = bytes.length;
+
+        int headerSize;
+        if (bytesLength < 0x7f) {
+            // First byte is 0x02..0x7f for negative values and 0x80..0xfd for
+            // positive values.
+            if (value.signum() < 0) {
+                dst[dstOffset] = (byte) (bytesLength + 0x7f);
+            } else {
+                dst[dstOffset] = (byte) (0x80 - bytesLength);
+            }
+            headerSize = 1;
+        } else {
+            dst[dstOffset] = (byte) (value.signum() < 0 ? 0xfe : 1);
+            int encodedLen = value.signum() < 0 ? bytesLength : -bytesLength;
+            DataEncoder.encode(encodedLen, dst, dstOffset + 1);
+            headerSize = 5;
+        }
+
+        dstOffset += headerSize;
+        for (int i=0; i<bytesLength; i++) {
+            dst[dstOffset + i] = (byte) ~bytes[i];
+        }
+
+        return headerSize + bytesLength;
+    }
+
+    /**
+     * Returns the amount of bytes required to encode a BigInteger.
+     *
+     * @param value BigInteger value to encode, may be null
+     * @return amount of bytes needed to encode
+     * @since 1.2
+     */
+    public static int calculateEncodedLength(BigInteger value) {
+        if (value == null) {
+            return 1;
+        }
+        int bytesLength = (value.bitLength() >> 3) + 1;
+        return bytesLength < 0x7f ? (1 + bytesLength) : (5 + bytesLength);
     }
 
     /**

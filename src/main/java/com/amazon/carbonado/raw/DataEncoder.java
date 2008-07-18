@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.raw;
 
+import java.math.BigInteger;
+
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -303,6 +305,61 @@ public class DataEncoder {
             encode(0x7fffffffffffffffL, dst, dstOffset);
         } else {
             encode(value.doubleValue(), dst, dstOffset);
+        }
+    }
+
+    /**
+     * Encodes the given optional BigInteger into a variable amount of
+     * bytes. If the BigInteger is null, exactly 1 byte is written. Otherwise,
+     * the amount written can be determined by calling calculateEncodedLength.
+     *
+     * @param value BigInteger value to encode, may be null
+     * @param dst destination for encoded bytes
+     * @param dstOffset offset into destination array
+     * @return amount of bytes written
+     * @since 1.2
+     */
+    public static int encode(BigInteger value, byte[] dst, int dstOffset) {
+        if (value == null) {
+            dst[dstOffset] = NULL_BYTE_HIGH;
+            return 1;
+        }
+
+        byte[] bytes = value.toByteArray();
+
+        // Write the byte array length first, in a variable amount of bytes.
+        int amt = encodeLength(bytes.length, dst, dstOffset);
+
+        // Now write the byte array.
+        System.arraycopy(bytes, 0, dst, dstOffset + amt, bytes.length);
+
+        return amt + bytes.length;
+    }
+
+    /**
+     * Returns the amount of bytes required to encode the given BigInteger.
+     *
+     * @param value BigInteger value to encode, may be null
+     * @return amount of bytes needed to encode
+     * @since 1.2
+     */
+    public static int calculateEncodedLength(BigInteger value) {
+        if (value == null) {
+            return 1;
+        }
+
+        int byteCount = (value.bitLength() >> 3) + 1;
+
+        if (byteCount < 128) {
+            return 1 + byteCount;
+        } else if (byteCount < 16384) {
+            return 2 + byteCount;
+        } else if (byteCount < 2097152) {
+            return 3 + byteCount;
+        } else if (byteCount < 268435456) {
+            return 4 + byteCount;
+        } else {
+            return 5 + byteCount;
         }
     }
 

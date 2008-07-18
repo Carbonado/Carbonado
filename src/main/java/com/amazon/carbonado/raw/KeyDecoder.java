@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.raw;
 
+import java.math.BigInteger;
+
 import com.amazon.carbonado.CorruptEncodingException;
 
 import static com.amazon.carbonado.raw.EncodingConstants.*;
@@ -329,6 +331,93 @@ public class KeyDecoder {
             bits ^= 0x7fffffffffffffffL;
         }
         return bits == 0x7fffffffffffffffL ? null : Double.longBitsToDouble(bits);
+    }
+
+    /**
+     * Decodes the given BigInteger as originally encoded for ascending order.
+     *
+     * @param src source of encoded data
+     * @param srcOffset offset into encoded data
+     * @param valueRef decoded BigInteger is stored in element 0, which may be null
+     * @return amount of bytes read from source
+     * @throws CorruptEncodingException if source data is corrupt
+     * @since 1.2
+     */
+    public static int decode(byte[] src, int srcOffset, BigInteger[] valueRef)
+        throws CorruptEncodingException
+    {
+        int header = src[srcOffset];
+        if (header == NULL_BYTE_HIGH || header == NULL_BYTE_LOW) {
+            valueRef[0] = null;
+            return 1;
+        }
+
+        header &= 0xff;
+
+        int headerSize;
+        int bytesLength;
+        if (header > 1 && header < 0xfe) {
+            if (header < 0x80) {
+                bytesLength = 0x80 - header;
+            } else {
+                bytesLength = header - 0x7f;
+            }
+            headerSize = 1;
+        } else {
+            bytesLength = Math.abs(DataDecoder.decodeInt(src, srcOffset + 1));
+            headerSize = 5;
+        }
+
+        byte[] bytes = new byte[bytesLength];
+        System.arraycopy(src, srcOffset + headerSize, bytes, 0, bytesLength);
+        valueRef[0] = new BigInteger(bytes);
+        return headerSize + bytesLength;
+    }
+
+    /**
+     * Decodes the given BigInteger as originally encoded for descending order.
+     *
+     * @param src source of encoded data
+     * @param srcOffset offset into encoded data
+     * @param valueRef decoded BigInteger is stored in element 0, which may be null
+     * @return amount of bytes read from source
+     * @throws CorruptEncodingException if source data is corrupt
+     * @since 1.2
+     */
+    public static int decodeDesc(byte[] src, int srcOffset, BigInteger[] valueRef)
+        throws CorruptEncodingException
+    {
+        int header = src[srcOffset];
+        if (header == NULL_BYTE_HIGH || header == NULL_BYTE_LOW) {
+            valueRef[0] = null;
+            return 1;
+        }
+
+        header &= 0xff;
+
+        int headerSize;
+        int bytesLength;
+        if (header > 1 && header < 0xfe) {
+            if (header < 0x80) {
+                bytesLength = 0x80 - header;
+            } else {
+                bytesLength = header - 0x7f;
+            }
+            headerSize = 1;
+        } else {
+            bytesLength = Math.abs(DataDecoder.decodeInt(src, srcOffset + 1));
+            headerSize = 5;
+        }
+
+        byte[] bytes = new byte[bytesLength];
+
+        srcOffset += headerSize;
+        for (int i=0; i<bytesLength; i++) {
+            bytes[i] = (byte) ~src[srcOffset + i];
+        }
+
+        valueRef[0] = new BigInteger(bytes);
+        return headerSize + bytesLength;
     }
 
     /**

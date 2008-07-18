@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.raw;
 
+import java.math.BigInteger;
+
 import java.io.EOFException;
 import java.io.InputStream;
 import java.io.IOException;
@@ -367,6 +369,25 @@ public class DataDecoder {
         } catch (IndexOutOfBoundsException e) {
             throw new CorruptEncodingException(null, e);
         }
+    }
+
+    /**
+     * Decodes a BigInteger.
+     *
+     * @param src source of encoded data
+     * @param srcOffset offset into encoded data
+     * @param valueRef decoded BigInteger is stored in element 0, which may be null
+     * @return amount of bytes read from source
+     * @throws CorruptEncodingException if source data is corrupt
+     * @since 1.2
+     */
+    public static int decode(byte[] src, int srcOffset, BigInteger[] valueRef)
+        throws CorruptEncodingException
+    {
+        byte[][] bytesRef = new byte[1][];
+        int amt = decode(src, srcOffset, bytesRef);
+        valueRef[0] = (bytesRef[0] == null) ? null : new BigInteger(bytesRef[0]);
+        return amt;
     }
 
     /**
