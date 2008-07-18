@@ -28,6 +28,8 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.cursor.AbstractCursor;
 
+import com.amazon.carbonado.txn.TransactionScope;
+
 /**
  * Cursor implementation that queries a PreparedStatement.
  *
@@ -35,6 +37,7 @@ import com.amazon.carbonado.cursor.AbstractCursor;
  */
 class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
     private final JDBCStorage<S> mStorage;
+    private final TransactionScope<JDBCTransaction> mScope;
     private final Connection mConnection;
     private final PreparedStatement mStatement;
 
@@ -46,19 +49,23 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
      * up when this happens by closing statement and connection.
      */
     JDBCCursor(JDBCStorage<S> storage,
+               TransactionScope<JDBCTransaction> scope,
                Connection con,
                PreparedStatement statement)
         throws SQLException
     {
         mStorage = storage;
+        mScope = scope;
         mConnection = con;
         mStatement = statement;
         mResultSet = statement.executeQuery();
+        scope.register(storage.getStorableType(), this);
     }
 
     public void close() throws FetchException {
         if (mResultSet != null) {
             try {
+                mScope.unregister(mStorage.getStorableType(), this);
                 mResultSet.close();
                 mStatement.close();
                 mStorage.mRepository.yieldConnection(mConnection);

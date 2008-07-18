@@ -68,6 +68,7 @@ import com.amazon.carbonado.qe.StandardQuery;
 import com.amazon.carbonado.qe.StandardQueryFactory;
 import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.spi.TriggerManager;
+import com.amazon.carbonado.txn.TransactionScope;
 import com.amazon.carbonado.util.QuickConstructorGenerator;
 
 /**
@@ -644,7 +645,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         }
 
         public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
-            boolean forUpdate = mRepository.localTransactionScope().isForUpdate();
+            TransactionScope<JDBCTransaction> scope = mRepository.localTransactionScope();
+            boolean forUpdate = scope.isForUpdate();
             Connection con = getConnection();
             try {
                 PreparedStatement ps = con.prepareStatement(prepareSelect(values, forUpdate));
@@ -655,7 +657,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
                 try {
                     setParameters(ps, values);
-                    return new JDBCCursor<S>(JDBCStorage.this, con, ps);
+                    return new JDBCCursor<S>(JDBCStorage.this, scope, con, ps);
                 } catch (Exception e) {
                     // in case of exception, close statement
                     try {
@@ -713,7 +715,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 break;
             }
 
-            if (mRepository.localTransactionScope().isForUpdate()) {
+            TransactionScope<JDBCTransaction> scope = mRepository.localTransactionScope();
+            if (scope.isForUpdate()) {
                 select = select.concat(" FOR UPDATE");
             }
 
@@ -733,7 +736,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                             switch (option) {
                             case OFFSET_ONLY:
                                 ps.setLong(psOrdinal, from);
-                                Cursor<S> c = new JDBCCursor<S>(JDBCStorage.this, con, ps);
+                                Cursor<S> c = new JDBCCursor<S>(JDBCStorage.this, scope, con, ps);
                                 return new LimitCursor<S>(c, to - from);
                             case LIMIT_AND_OFFSET:
                                 ps.setLong(psOrdinal, to - from);
@@ -755,7 +758,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                         ps.setLong(psOrdinal, to);
                     }
 
-                    return new JDBCCursor<S>(JDBCStorage.this, con, ps);
+                    return new JDBCCursor<S>(JDBCStorage.this, scope, con, ps);
                 } catch (Exception e) {
                     // in case of exception, close statement
                     try {
