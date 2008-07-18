@@ -304,7 +304,7 @@ public class KeyEncoder {
      * bytes. If the BigInteger is null, exactly 1 byte is written. Otherwise,
      * the amount written can be determined by calling calculateEncodedLength.
      *
-     * @param value byte array value to encode, may be null
+     * @param value BigInteger value to encode, may be null
      * @param dst destination for encoded bytes
      * @param dstOffset offset into destination array
      * @return amount of bytes written
@@ -348,7 +348,7 @@ public class KeyEncoder {
      * written. Otherwise, the amount written can be determined by calling
      * calculateEncodedLength.
      *
-     * @param value byte array value to encode, may be null
+     * @param value BigInteger value to encode, may be null
      * @param dst destination for encoded bytes
      * @param dstOffset offset into destination array
      * @return amount of bytes written
