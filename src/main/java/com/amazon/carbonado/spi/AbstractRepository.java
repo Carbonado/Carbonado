@@ -41,6 +41,9 @@ import com.amazon.carbonado.sequence.SequenceCapability;
 import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.sequence.SequenceValueProducerPool;
 
+import com.amazon.carbonado.txn.TransactionManager;
+import com.amazon.carbonado.txn.TransactionScope;
+
 /**
  * Implements basic functionality required by a core Repository.
  *

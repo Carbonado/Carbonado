@@ -29,7 +29,7 @@ import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.cursor.AbstractCursor;
 
-import com.amazon.carbonado.spi.TransactionScope;
+import com.amazon.carbonado.txn.TransactionScope;
 
 /**
  * Returns copies of Storables that it iterates over.

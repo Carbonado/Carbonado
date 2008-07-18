@@ -56,7 +56,8 @@ import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.repo.indexed.IndexEntryAccessCapability;
 
 import com.amazon.carbonado.spi.StoragePool;
-import com.amazon.carbonado.spi.TransactionPair;
+
+import com.amazon.carbonado.txn.TransactionPair;
 
 import com.amazon.carbonado.util.Throttle;
 

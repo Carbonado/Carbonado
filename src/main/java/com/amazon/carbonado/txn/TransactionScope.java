@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.amazon.carbonado.spi;
+package com.amazon.carbonado.txn;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -31,6 +31,8 @@ import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Transaction;
+
+import com.amazon.carbonado.spi.ExceptionTransformer;
 
 /**
  * Container of thread local, scoped transactions.

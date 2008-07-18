@@ -64,8 +64,9 @@ import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.spi.AbstractRepository;
 import com.amazon.carbonado.spi.ExceptionTransformer;
 import com.amazon.carbonado.spi.LobEngine;
-import com.amazon.carbonado.spi.TransactionManager;
-import com.amazon.carbonado.spi.TransactionScope;
+
+import com.amazon.carbonado.txn.TransactionManager;
+import com.amazon.carbonado.txn.TransactionScope;
 
 /**
  * Repository implementation backed by a Berkeley DB. Data is encoded in the

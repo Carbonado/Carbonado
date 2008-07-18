@@ -25,7 +25,7 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.raw.RawCursor;
 import com.amazon.carbonado.raw.RawUtil;
 
-import com.amazon.carbonado.spi.TransactionScope;
+import com.amazon.carbonado.txn.TransactionScope;
 
 /**
  *

@@ -26,7 +26,7 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Transaction;
-import com.amazon.carbonado.spi.TransactionManager;
+import com.amazon.carbonado.txn.TransactionManager;
 
 /**
  * Manages transactions for JDBCRepository.

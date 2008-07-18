@@ -40,8 +40,9 @@ import com.amazon.carbonado.qe.StorageAccess;
 
 import com.amazon.carbonado.spi.AbstractRepository;
 import com.amazon.carbonado.spi.LobEngine;
-import com.amazon.carbonado.spi.TransactionManager;
-import com.amazon.carbonado.spi.TransactionScope;
+
+import com.amazon.carbonado.txn.TransactionManager;
+import com.amazon.carbonado.txn.TransactionScope;
 
 /**
  * 

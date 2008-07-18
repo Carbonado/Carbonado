@@ -199,7 +199,7 @@
             </group>
             <group>
               <title>Service Provider Interface</title>
-              <packages>com.amazon.carbonado.repo.indexed:com.amazon.carbonado.gen:com.amazon.carbonado.spi:com.amazon.carbonado.raw:com.amazon.carbonado.synthetic:com.amazon.carbonado.qe</packages>
+              <packages>com.amazon.carbonado.repo.indexed:com.amazon.carbonado.gen:com.amazon.carbonado.spi:com.amazon.carbonado.raw:com.amazon.carbonado.synthetic:com.amazon.carbonado.qe:com.amazon.carbonado.txn</packages>
             </group>
             <group>
               <title>Generic Utilities</title>

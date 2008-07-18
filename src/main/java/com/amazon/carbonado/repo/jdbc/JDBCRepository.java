@@ -56,8 +56,8 @@ import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.sequence.SequenceCapability;
 import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.spi.AbstractRepository;
-import com.amazon.carbonado.spi.TransactionManager;
-import com.amazon.carbonado.spi.TransactionScope;
+import com.amazon.carbonado.txn.TransactionManager;
+import com.amazon.carbonado.txn.TransactionScope;
 import com.amazon.carbonado.util.ThrowUnchecked;
 
 /**

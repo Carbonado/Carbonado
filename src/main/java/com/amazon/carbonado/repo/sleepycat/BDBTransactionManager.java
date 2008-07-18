@@ -26,7 +26,7 @@ import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Transaction;
 
 import com.amazon.carbonado.spi.ExceptionTransformer;
-import com.amazon.carbonado.spi.TransactionManager;
+import com.amazon.carbonado.txn.TransactionManager;
 
 /**
  * This class is used for tracking transactions and open cursors.

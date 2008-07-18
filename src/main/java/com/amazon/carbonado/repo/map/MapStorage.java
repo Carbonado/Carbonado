@@ -78,8 +78,9 @@ import com.amazon.carbonado.qe.StorageAccess;
 
 import com.amazon.carbonado.spi.IndexInfoImpl;
 import com.amazon.carbonado.spi.LobEngine;
-import com.amazon.carbonado.spi.TransactionScope;
 import com.amazon.carbonado.spi.TriggerManager;
+
+import com.amazon.carbonado.txn.TransactionScope;
 
 /**
  * 
