@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.raw;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import java.io.EOFException;
@@ -388,6 +389,62 @@ public class DataDecoder {
         int amt = decode(src, srcOffset, bytesRef);
         valueRef[0] = (bytesRef[0] == null) ? null : new BigInteger(bytesRef[0]);
         return amt;
+    }
+
+    /**
+     * Decodes a BigDecimal.
+     *
+     * @param src source of encoded data
+     * @param srcOffset offset into encoded data
+     * @param valueRef decoded BigDecimal is stored in element 0, which may be null
+     * @return amount of bytes read from source
+     * @throws CorruptEncodingException if source data is corrupt
+     * @since 1.2
+     */
+    public static int decode(byte[] src, int srcOffset, BigDecimal[] valueRef)
+        throws CorruptEncodingException
+    {
+        try {
+            final int originalOffset = srcOffset;
+
+            int b = src[srcOffset++] & 0xff;
+            if (b >= 0xf8) {
+                valueRef[0] = null;
+                return 1;
+            }
+
+            int scale;
+            if (b <= 0x7f) {
+                scale = b;
+            } else if (b <= 0xbf) {
+                scale = ((b & 0x3f) << 8) | (src[srcOffset++] & 0xff);
+            } else if (b <= 0xdf) {
+                scale = ((b & 0x1f) << 16) | ((src[srcOffset++] & 0xff) << 8) |
+                    (src[srcOffset++] & 0xff);
+            } else if (b <= 0xef) {
+                scale = ((b & 0x0f) << 24) | ((src[srcOffset++] & 0xff) << 16) |
+                    ((src[srcOffset++] & 0xff) << 8) | (src[srcOffset++] & 0xff);
+            } else {
+                scale = ((src[srcOffset++] & 0xff) << 24) |
+                    ((src[srcOffset++] & 0xff) << 16) |
+                    ((src[srcOffset++] & 0xff) << 8) | (src[srcOffset++] & 0xff);
+            }
+
+            if ((scale & 1) != 0) {
+                scale = (~(scale >> 1)) | (1 << 31);
+            } else {
+                scale >>>= 1;
+            }
+
+            BigInteger[] unscaledRef = new BigInteger[1];
+            int amt = decode(src, srcOffset, unscaledRef);
+
+            valueRef[0] = new BigDecimal(unscaledRef[0], scale);
+
+            return (srcOffset + amt) - originalOffset;
+        } catch (IndexOutOfBoundsException e) {
+            throw new CorruptEncodingException(null, e);
+        }
     }
 
     /**

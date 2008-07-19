@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.raw;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import java.io.IOException;
@@ -328,7 +329,7 @@ public class DataEncoder {
         byte[] bytes = value.toByteArray();
 
         // Write the byte array length first, in a variable amount of bytes.
-        int amt = encodeLength(bytes.length, dst, dstOffset);
+        int amt = encodeUnsignedVarInt(bytes.length, dst, dstOffset);
 
         // Now write the byte array.
         System.arraycopy(bytes, 0, dst, dstOffset + amt, bytes.length);
@@ -347,20 +348,42 @@ public class DataEncoder {
         if (value == null) {
             return 1;
         }
-
         int byteCount = (value.bitLength() >> 3) + 1;
+        return unsignedVarIntLength(byteCount) + byteCount;
+    }
 
-        if (byteCount < 128) {
-            return 1 + byteCount;
-        } else if (byteCount < 16384) {
-            return 2 + byteCount;
-        } else if (byteCount < 2097152) {
-            return 3 + byteCount;
-        } else if (byteCount < 268435456) {
-            return 4 + byteCount;
-        } else {
-            return 5 + byteCount;
+    /**
+     * Encodes the given optional BigDecimal into a variable amount of
+     * bytes. If the BigDecimal is null, exactly 1 byte is written. Otherwise,
+     * the amount written can be determined by calling calculateEncodedLength.
+     *
+     * @param value BigDecimal value to encode, may be null
+     * @param dst destination for encoded bytes
+     * @param dstOffset offset into destination array
+     * @return amount of bytes written
+     * @since 1.2
+     */
+    public static int encode(BigDecimal value, byte[] dst, int dstOffset) {
+        if (value == null) {
+            dst[dstOffset] = NULL_BYTE_HIGH;
+            return 1;
         }
+        int amt = encodeSignedVarInt(value.scale(), dst, dstOffset);
+        return amt + encode(value.unscaledValue(), dst, dstOffset + amt);
+    }
+
+    /**
+     * Returns the amount of bytes required to encode the given BigDecimal.
+     *
+     * @param value BigDecimal value to encode, may be null
+     * @return amount of bytes needed to encode
+     * @since 1.2
+     */
+    public static int calculateEncodedLength(BigDecimal value) {
+        if (value == null) {
+            return 1;
+        }
+        return signedVarIntLength(value.scale()) + calculateEncodedLength(value.unscaledValue());
     }
 
     /**
@@ -401,7 +424,7 @@ public class DataEncoder {
         }
 
         // Write the value length first, in a variable amount of bytes.
-        int amt = encodeLength(valueLength, dst, dstOffset);
+        int amt = encodeUnsignedVarInt(valueLength, dst, dstOffset);
 
         // Now write the value.
         System.arraycopy(value, valueOffset, dst, dstOffset + amt, valueLength);
@@ -428,19 +451,7 @@ public class DataEncoder {
      * @return amount of bytes needed to encode
      */
     public static int calculateEncodedLength(byte[] value, int valueOffset, int valueLength) {
-        if (value == null) {
-            return 1;
-        } else if (valueLength < 128) {
-            return 1 + valueLength;
-        } else if (valueLength < 16384) {
-            return 2 + valueLength;
-        } else if (valueLength < 2097152) {
-            return 3 + valueLength;
-        } else if (valueLength < 268435456) {
-            return 4 + valueLength;
-        } else {
-            return 5 + valueLength;
-        }
+        return value == null ? 1 : (unsignedVarIntLength(valueLength) + valueLength);
     }
 
     /**
@@ -467,7 +478,7 @@ public class DataEncoder {
         int valueLength = value.length();
 
         // Write the value length first, in a variable amount of bytes.
-        dstOffset += encodeLength(valueLength, dst, dstOffset);
+        dstOffset += encodeUnsignedVarInt(valueLength, dst, dstOffset);
 
         for (int i = 0; i < valueLength; i++) {
             int c = value.charAt(i);
@@ -508,19 +519,7 @@ public class DataEncoder {
         }
 
         int valueLength = value.length();
-        int encodedLen;
-
-        if (valueLength < 128) {
-            encodedLen = 1;
-        } else if (valueLength < 16384) {
-            encodedLen = 2;
-        } else if (valueLength < 2097152) {
-            encodedLen = 3;
-        } else if (valueLength < 268435456) {
-            encodedLen = 4;
-        } else {
-            encodedLen = 5;
-        }
+        int encodedLen = unsignedVarIntLength(valueLength);
 
         for (int i = 0; i < valueLength; i++) {
             int c = value.charAt(i);
@@ -546,33 +545,66 @@ public class DataEncoder {
         return encodedLen;
     }
 
-    private static int encodeLength(int valueLength, byte[] dst, int dstOffset) {
-        if (valueLength < 128) {
-            dst[dstOffset] = (byte)valueLength;
+    private static int encodeUnsignedVarInt(int value, byte[] dst, int dstOffset) {
+        if (value < 128) {
+            dst[dstOffset] = (byte)value;
             return 1;
-        } else if (valueLength < 16384) {
-            dst[dstOffset++] = (byte)((valueLength >> 8) | 0x80);
-            dst[dstOffset] = (byte)valueLength;
+        } else if (value < 16384) {
+            dst[dstOffset++] = (byte)((value >> 8) | 0x80);
+            dst[dstOffset] = (byte)value;
             return 2;
-        } else if (valueLength < 2097152) {
-            dst[dstOffset++] = (byte)((valueLength >> 16) | 0xc0);
-            dst[dstOffset++] = (byte)(valueLength >> 8);
-            dst[dstOffset] = (byte)valueLength;
+        } else if (value < 2097152) {
+            dst[dstOffset++] = (byte)((value >> 16) | 0xc0);
+            dst[dstOffset++] = (byte)(value >> 8);
+            dst[dstOffset] = (byte)value;
             return 3;
-        } else if (valueLength < 268435456) {
-            dst[dstOffset++] = (byte)((valueLength >> 24) | 0xe0);
-            dst[dstOffset++] = (byte)(valueLength >> 16);
-            dst[dstOffset++] = (byte)(valueLength >> 8);
-            dst[dstOffset] = (byte)valueLength;
+        } else if (value < 268435456) {
+            dst[dstOffset++] = (byte)((value >> 24) | 0xe0);
+            dst[dstOffset++] = (byte)(value >> 16);
+            dst[dstOffset++] = (byte)(value >> 8);
+            dst[dstOffset] = (byte)value;
             return 4;
         } else {
             dst[dstOffset++] = (byte)0xf0;
-            dst[dstOffset++] = (byte)(valueLength >> 24);
-            dst[dstOffset++] = (byte)(valueLength >> 16);
-            dst[dstOffset++] = (byte)(valueLength >> 8);
-            dst[dstOffset] = (byte)valueLength;
+            dst[dstOffset++] = (byte)(value >> 24);
+            dst[dstOffset++] = (byte)(value >> 16);
+            dst[dstOffset++] = (byte)(value >> 8);
+            dst[dstOffset] = (byte)value;
             return 5;
         }
+    }
+
+    private static int unsignedVarIntLength(int value) {
+        if (value < 128) {
+            return 1;
+        } else if (value < 16384) {
+            return 2;
+        } else if (value < 2097152) {
+            return 3;
+        } else if (value < 268435456) {
+            return 4;
+        } else {
+            return 5;
+        }
+    }
+
+    private static int encodeSignedVarInt(int value, byte[] dst, int dstOffset) {
+        value = (value < 0 ? (((~value) << 1) | 1) : (value << 1));
+        if (value < 0) {
+            dst[dstOffset++] = (byte)0xf0;
+            dst[dstOffset++] = (byte)(value >> 24);
+            dst[dstOffset++] = (byte)(value >> 16);
+            dst[dstOffset++] = (byte)(value >> 8);
+            dst[dstOffset] = (byte)value;
+            return 5;
+        } else {
+            return encodeUnsignedVarInt(value, dst, dstOffset);
+        }
+    }
+
+    private static int signedVarIntLength(int value) {
+        value = (value < 0 ? ~value : value) << 1;
+        return value < 0 ? 5 : unsignedVarIntLength(value);
     }
 
     /**
