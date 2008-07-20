@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.raw;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import static com.amazon.carbonado.raw.EncodingConstants.*;
@@ -311,6 +312,16 @@ public class KeyEncoder {
      * @since 1.2
      */
     public static int encode(BigInteger value, byte[] dst, int dstOffset) {
+        /* Encoding of first byte:
+
+        0x00:       null low (unused)
+        0x01:       negative signum; four bytes follow for value length
+        0x02..0x7f: negative signum; value length 7e range, 1..126
+        0x80..0xfd: positive signum; value length 7e range, 1..126
+        0xfe:       positive signum; four bytes follow for value length
+        0xff:       null high
+        */
+
         if (value == null) {
             dst[dstOffset] = NULL_BYTE_HIGH;
             return 1;
@@ -322,8 +333,6 @@ public class KeyEncoder {
 
         int headerSize;
         if (bytesLength < 0x7f) {
-            // First byte is 0x02..0x7f for negative values and 0x80..0xfd for
-            // positive values.
             if (value.signum() < 0) {
                 dst[dstOffset] = (byte) (0x80 - bytesLength);
             } else {
@@ -355,6 +364,16 @@ public class KeyEncoder {
      * @since 1.2
      */
     public static int encodeDesc(BigInteger value, byte[] dst, int dstOffset) {
+        /* Encoding of first byte:
+
+        0x00:       null high (unused)
+        0x01:       positive signum; four bytes follow for value length
+        0x02..0x7f: positive signum; value length 7e range, 1..126
+        0x80..0xfd: negative signum; value length 7e range, 1..126
+        0xfe:       negative signum; four bytes follow for value length
+        0xff:       null low
+        */
+
         if (value == null) {
             dst[dstOffset] = NULL_BYTE_LOW;
             return 1;
@@ -366,8 +385,6 @@ public class KeyEncoder {
 
         int headerSize;
         if (bytesLength < 0x7f) {
-            // First byte is 0x02..0x7f for negative values and 0x80..0xfd for
-            // positive values.
             if (value.signum() < 0) {
                 dst[dstOffset] = (byte) (bytesLength + 0x7f);
             } else {
@@ -402,6 +419,225 @@ public class KeyEncoder {
         }
         int bytesLength = (value.bitLength() >> 3) + 1;
         return bytesLength < 0x7f ? (1 + bytesLength) : (5 + bytesLength);
+    }
+
+    /**
+     * Encodes the given optional BigDecimal into a variable amount of
+     * bytes. If the BigDecimal is null, exactly 1 byte is written. Otherwise,
+     * the amount written can be determined by calling calculateEncodedLength.
+     *
+     * <p><i>Note:</i> It is recommended that value be normalized by stripping
+     * trailing zeros. This makes searching by value much simpler.
+     *
+     * @param value BigDecimal value to encode, may be null
+     * @param dst destination for encoded bytes
+     * @param dstOffset offset into destination array
+     * @return amount of bytes written
+     * @since 1.2
+     */
+    public static int encode(BigDecimal value, byte[] dst, int dstOffset) {
+        /* Encoding of first byte:
+
+        0x00:       null low (unused)
+        0x01:       negative signum; four bytes follow for positive exponent
+        0x02..0x3f: negative signum; positive exponent; 3e range, 61..0
+        0x40..0x7d: negative signum; negative exponent; 3e range, -1..-62
+        0x7e:       negative signum; four bytes follow for negative exponent
+        0x7f:       negative zero (unused)
+        0x80:       zero
+        0x81:       positive signum; four bytes follow for negative exponent
+        0x82..0xbf: positive signum; negative exponent; 3e range, -62..-1
+        0xc0..0xfd: positive signum; positive exponent; 3e range, 0..61
+        0xfe:       positive signum; four bytes follow for positive exponent
+        0xff:       null high
+        */
+
+        if (value == null) {
+            dst[dstOffset] = NULL_BYTE_HIGH;
+            return 1;
+        }
+
+        int signum = value.signum();
+        if (signum == 0) {
+            dst[dstOffset] = (byte) 0x80;
+            return 1;
+        }
+
+        final int originalOffset = dstOffset;
+
+        int scale = value.scale();
+        int exponent = value.precision() - scale;
+
+        if (signum < 0) {
+            if (exponent >= -0x3e && exponent < 0x3e) {
+                dst[dstOffset++] = (byte) (0x3f - exponent);
+            } else {
+                if (exponent < 0) {
+                    dst[dstOffset++] = (byte) 0x7e;
+                } else {
+                    dst[dstOffset++] = (byte) 1;
+                }
+                DataEncoder.encode(~exponent, dst, dstOffset);
+                dstOffset += 4;
+            }
+        } else {
+            if (exponent >= -0x3e && exponent < 0x3e) {
+                dst[dstOffset++] = (byte) (exponent + 0xc0);
+            } else {
+                if (exponent < 0) {
+                    dst[dstOffset++] = (byte) 0x81;
+                } else {
+                    dst[dstOffset++] = (byte) 0xfe;
+                }
+                DataEncoder.encode(exponent, dst, dstOffset);
+                dstOffset += 4;
+            }
+        }
+
+        dstOffset += encode(value.unscaledValue(), dst, dstOffset);
+
+        /* Encoding of scale:
+
+        0x00:       negative scale; four bytes follow for scale
+        0x01..0x7f: negative scale; 7f range, -127..-1
+        0x80..0xfe: positive scale; 7f range, 0..126
+        0xff:       positive scale; four bytes follow for scale
+        */
+
+        if (signum < 0) {
+            scale = ~scale;
+        }
+        if (scale >= -0x7f && scale < 0x7f) {
+            dst[dstOffset++] = (byte) (scale + 0x80);
+        } else {
+            dst[dstOffset++] = scale < 0 ? ((byte) 0) : ((byte) 0xff);
+            DataEncoder.encode(scale, dst, dstOffset);
+            dstOffset += 4;
+        }
+
+        return dstOffset - originalOffset;
+    }
+
+    /**
+     * Encodes the given optional BigDecimal into a variable amount of bytes
+     * for descending order. If the BigDecimal is null, exactly 1 byte is
+     * written. Otherwise, the amount written can be determined by calling
+     * calculateEncodedLength.
+     *
+     * <p><i>Note:</i> It is recommended that value be normalized by stripping
+     * trailing zeros. This makes searching by value much simpler.
+     *
+     * @param value BigDecimal value to encode, may be null
+     * @param dst destination for encoded bytes
+     * @param dstOffset offset into destination array
+     * @return amount of bytes written
+     * @since 1.2
+     */
+    public static int encodeDesc(BigDecimal value, byte[] dst, int dstOffset) {
+        /* Encoding of first byte:
+
+        0x00:       null high (unused)
+        0x01:       positive signum; four bytes follow for positive exponent
+        0x02..0x3f: positive signum; positive exponent; 3e range, 0..61
+        0x40..0x7d: positive signum; negative exponent; 3e range, -62..-1
+        0x7e:       positive signum; four bytes follow for negative exponent
+        0x7f:       zero
+        0x80:       negative zero (unused)
+        0x81:       negative signum; four bytes follow for negative exponent
+        0x82..0xbf: negative signum; negative exponent; 3e range, -1..-62
+        0xc0..0xfd: negative signum; positive exponent; 3e range, 61..0
+        0xfe:       negative signum; four bytes follow for positive exponent
+        0xff:       null low
+        */
+
+        if (value == null) {
+            dst[dstOffset] = NULL_BYTE_LOW;
+            return 1;
+        }
+
+        int signum = value.signum();
+        if (signum == 0) {
+            dst[dstOffset] = (byte) 0x7f;
+            return 1;
+        }
+
+        final int originalOffset = dstOffset;
+
+        int scale = value.scale();
+        int exponent = value.precision() - scale;
+
+        if (signum < 0) {
+            if (exponent >= -0x3e && exponent < 0x3e) {
+                dst[dstOffset++] = (byte) (exponent + 0xc0);
+            } else {
+                if (exponent < 0) {
+                    dst[dstOffset++] = (byte) 0x81;
+                } else {
+                    dst[dstOffset++] = (byte) 0xfe;
+                }
+                DataEncoder.encode(exponent, dst, dstOffset);
+                dstOffset += 4;
+            }
+        } else {
+            if (exponent >= -0x3e && exponent < 0x3e) {
+                dst[dstOffset++] = (byte) (0x3f - exponent);
+            } else {
+                if (exponent < 0) {
+                    dst[dstOffset++] = (byte) 0x7e;
+                } else {
+                    dst[dstOffset++] = (byte) 1;
+                }
+                DataEncoder.encode(~exponent, dst, dstOffset);
+                dstOffset += 4;
+            }
+        }
+
+        dstOffset += encodeDesc(value.unscaledValue(), dst, dstOffset);
+
+        /* Encoding of scale:
+
+        0x00:       positive scale; four bytes follow for scale
+        0x01..0x7f: positive scale; 7f range, 0..126
+        0x80..0xfe: negative scale; 7f range, -127..-1
+        0xff:       negative scale; four bytes follow for scale
+        */
+
+        if (signum < 0) {
+            scale = ~scale;
+        }
+        if (scale >= -0x7f && scale < 0x7f) {
+            dst[dstOffset++] = (byte) (0x7f - scale);
+        } else {
+            dst[dstOffset++] = scale < 0 ? ((byte) 0xff) : ((byte) 0);
+            DataEncoder.encode(~scale, dst, dstOffset);
+            dstOffset += 4;
+        }
+
+        return dstOffset - originalOffset;
+    }
+
+    /**
+     * Returns the amount of bytes required to encode a BigDecimal.
+     *
+     * <p><i>Note:</i> It is recommended that value be normalized by stripping
+     * trailing zeros. This makes searching by value much simpler.
+     *
+     * @param value BigDecimal value to encode, may be null
+     * @return amount of bytes needed to encode
+     * @since 1.2
+     */
+    public static int calculateEncodedLength(BigDecimal value) {
+        if (value == null || value.signum() == 0) {
+            return 1;
+        }
+
+        int scale = value.scale();
+        int exponent = value.precision() - value.scale();
+
+        int headerSize = (exponent >= -0x3e && exponent < 0x3e) ? 1 : 5;
+        int scaleSize = (scale >= -0x7f && scale < 0x7f) ? 1 : 5;
+            
+        return headerSize + calculateEncodedLength(value.unscaledValue()) + scaleSize;
     }
 
     /**

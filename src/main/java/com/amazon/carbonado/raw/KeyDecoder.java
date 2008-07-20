@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.raw;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import com.amazon.carbonado.CorruptEncodingException;
@@ -346,30 +347,37 @@ public class KeyDecoder {
     public static int decode(byte[] src, int srcOffset, BigInteger[] valueRef)
         throws CorruptEncodingException
     {
-        int header = src[srcOffset];
-        if (header == NULL_BYTE_HIGH || header == NULL_BYTE_LOW) {
-            valueRef[0] = null;
-            return 1;
-        }
-
-        header &= 0xff;
-
         int headerSize;
         int bytesLength;
-        if (header > 1 && header < 0xfe) {
-            if (header < 0x80) {
-                bytesLength = 0x80 - header;
-            } else {
-                bytesLength = header - 0x7f;
+        byte[] bytes;
+
+        try {
+            int header = src[srcOffset];
+            if (header == NULL_BYTE_HIGH || header == NULL_BYTE_LOW) {
+                valueRef[0] = null;
+                return 1;
             }
-            headerSize = 1;
-        } else {
-            bytesLength = Math.abs(DataDecoder.decodeInt(src, srcOffset + 1));
-            headerSize = 5;
+
+            header &= 0xff;
+
+            if (header > 1 && header < 0xfe) {
+                if (header < 0x80) {
+                    bytesLength = 0x80 - header;
+                } else {
+                    bytesLength = header - 0x7f;
+                }
+                headerSize = 1;
+            } else {
+                bytesLength = Math.abs(DataDecoder.decodeInt(src, srcOffset + 1));
+                headerSize = 5;
+            }
+
+            bytes = new byte[bytesLength];
+            System.arraycopy(src, srcOffset + headerSize, bytes, 0, bytesLength);
+        } catch (IndexOutOfBoundsException e) {
+            throw new CorruptEncodingException(null, e);
         }
 
-        byte[] bytes = new byte[bytesLength];
-        System.arraycopy(src, srcOffset + headerSize, bytes, 0, bytesLength);
         valueRef[0] = new BigInteger(bytes);
         return headerSize + bytesLength;
     }
@@ -387,37 +395,173 @@ public class KeyDecoder {
     public static int decodeDesc(byte[] src, int srcOffset, BigInteger[] valueRef)
         throws CorruptEncodingException
     {
-        int header = src[srcOffset];
-        if (header == NULL_BYTE_HIGH || header == NULL_BYTE_LOW) {
-            valueRef[0] = null;
-            return 1;
-        }
-
-        header &= 0xff;
-
         int headerSize;
         int bytesLength;
-        if (header > 1 && header < 0xfe) {
-            if (header < 0x80) {
-                bytesLength = 0x80 - header;
-            } else {
-                bytesLength = header - 0x7f;
+        byte[] bytes;
+
+        try {
+            int header = src[srcOffset];
+            if (header == NULL_BYTE_HIGH || header == NULL_BYTE_LOW) {
+                valueRef[0] = null;
+                return 1;
             }
-            headerSize = 1;
-        } else {
-            bytesLength = Math.abs(DataDecoder.decodeInt(src, srcOffset + 1));
-            headerSize = 5;
-        }
 
-        byte[] bytes = new byte[bytesLength];
+            header &= 0xff;
 
-        srcOffset += headerSize;
-        for (int i=0; i<bytesLength; i++) {
-            bytes[i] = (byte) ~src[srcOffset + i];
+            if (header > 1 && header < 0xfe) {
+                if (header < 0x80) {
+                    bytesLength = 0x80 - header;
+                } else {
+                    bytesLength = header - 0x7f;
+                }
+                headerSize = 1;
+            } else {
+                bytesLength = Math.abs(DataDecoder.decodeInt(src, srcOffset + 1));
+                headerSize = 5;
+            }
+
+            bytes = new byte[bytesLength];
+
+            srcOffset += headerSize;
+            for (int i=0; i<bytesLength; i++) {
+                bytes[i] = (byte) ~src[srcOffset + i];
+            }
+        } catch (IndexOutOfBoundsException e) {
+            throw new CorruptEncodingException(null, e);
         }
 
         valueRef[0] = new BigInteger(bytes);
         return headerSize + bytesLength;
+    }
+
+    /**
+     * Decodes the given BigDecimal as originally encoded for ascending order.
+     *
+     * @param src source of encoded data
+     * @param srcOffset offset into encoded data
+     * @param valueRef decoded BigDecimal is stored in element 0, which may be null
+     * @return amount of bytes read from source
+     * @throws CorruptEncodingException if source data is corrupt
+     * @since 1.2
+     */
+    public static int decode(byte[] src, int srcOffset, BigDecimal[] valueRef)
+        throws CorruptEncodingException
+    {
+        final int originalOffset;
+        BigInteger unscaledValue;
+        int scale;
+
+        try {
+            int header = src[srcOffset] & 0xff;
+
+            int headerSize;
+            switch (header) {
+            case (NULL_BYTE_HIGH & 0xff): case (NULL_BYTE_LOW & 0xff):
+                valueRef[0] = null;
+                return 1;
+
+            case 0x7f: case 0x80:
+                valueRef[0] = BigDecimal.ZERO;
+                return 1;
+
+            case 1: case 0x7e: case 0x81: case 0xfe:
+                headerSize = 5;
+                break;
+
+            default:
+                headerSize = 1;
+                break;
+            }
+
+            originalOffset = srcOffset;
+            srcOffset += headerSize;
+
+            BigInteger[] unscaledRef = new BigInteger[1];
+            srcOffset += decode(src, srcOffset, unscaledRef);
+
+            header = src[srcOffset++] & 0xff;
+            if (header > 0 && header < 0xff) {
+                scale = header - 0x80;
+            } else {
+                scale = DataDecoder.decodeInt(src, srcOffset);
+                srcOffset += 4;
+            }
+
+            unscaledValue = unscaledRef[0];
+            if (unscaledValue.signum() < 0) {
+                scale = ~scale;
+            }
+        } catch (IndexOutOfBoundsException e) {
+            throw new CorruptEncodingException(null, e);
+        }
+
+        valueRef[0] = new BigDecimal(unscaledValue, scale);
+        return srcOffset - originalOffset;
+    }
+
+    /**
+     * Decodes the given BigDecimal as originally encoded for descending order.
+     *
+     * @param src source of encoded data
+     * @param srcOffset offset into encoded data
+     * @param valueRef decoded BigDecimal is stored in element 0, which may be null
+     * @return amount of bytes read from source
+     * @throws CorruptEncodingException if source data is corrupt
+     * @since 1.2
+     */
+    public static int decodeDesc(byte[] src, int srcOffset, BigDecimal[] valueRef)
+        throws CorruptEncodingException
+    {
+        final int originalOffset;
+        BigInteger unscaledValue;
+        int scale;
+
+        try {
+            int header = src[srcOffset] & 0xff;
+
+            int headerSize;
+            switch (header) {
+            case (NULL_BYTE_HIGH & 0xff): case (NULL_BYTE_LOW & 0xff):
+                valueRef[0] = null;
+                return 1;
+
+            case 0x7f: case 0x80:
+                valueRef[0] = BigDecimal.ZERO;
+                return 1;
+
+            case 1: case 0x7e: case 0x81: case 0xfe:
+                headerSize = 5;
+                break;
+
+            default:
+                headerSize = 1;
+                break;
+            }
+
+            originalOffset = srcOffset;
+            srcOffset += headerSize;
+
+            BigInteger[] unscaledRef = new BigInteger[1];
+            srcOffset += decodeDesc(src, srcOffset, unscaledRef);
+
+            header = src[srcOffset++] & 0xff;
+            if (header > 0 && header < 0xff) {
+                scale = 0x7f - header;
+            } else {
+                scale = ~DataDecoder.decodeInt(src, srcOffset);
+                srcOffset += 4;
+            }
+
+            unscaledValue = unscaledRef[0];
+            if (unscaledValue.signum() < 0) {
+                scale = ~scale;
+            }
+        } catch (IndexOutOfBoundsException e) {
+            throw new CorruptEncodingException(null, e);
+        }
+
+        valueRef[0] = new BigDecimal(unscaledValue, scale);
+        return srcOffset - originalOffset;
     }
 
     /**
