@@ -137,11 +137,11 @@ public class RawStorableGenerator {
      * protected abstract byte[] encodeData();
      *
      * // Decode the primary key into properties of this storable.
-     * // Note: this method is also invoked by the four argument constructor.
+     * // Note: this method is also invoked by the three argument constructor.
      * protected abstract void decodeKey(byte[]);
      *
      * // Decode the data into properties of this storable.
-     * // Note: this method is also invoked by the four argument constructor.
+     * // Note: this method is also invoked by the three argument constructor.
      * protected abstract void decodeData(byte[]);
      * </pre>
      *

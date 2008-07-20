@@ -167,7 +167,7 @@ class JDBCStorableGenerator<S extends Storable> {
                     }
                     if (prop.isAutomatic() && !identityProperties.containsKey(prop.getName())) {
                         // Might still need to reload. This could be determined
-                        // dynamically, but this is an optimization that be
+                        // dynamically, but this is an optimization that can be
                         // implemented later.
                         // TODO: leave suppressReload alone and perform dynamic check
                         suppressReload = false;
