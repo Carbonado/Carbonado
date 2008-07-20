@@ -19,6 +19,10 @@
 package com.amazon.carbonado.raw;
 
 import java.lang.reflect.Method;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -373,9 +377,16 @@ public class GenericEncodingStrategy<S extends Storable> {
         if (propertyType.toPrimitiveType() != null) {
             return true;
         }
-        return propertyType == TypeDesc.STRING ||
-            propertyType == TypeDesc.forClass(byte[].class) ||
-            propertyType.toClass() != null && Lob.class.isAssignableFrom(propertyType.toClass());
+        if (propertyType == TypeDesc.STRING || propertyType == TypeDesc.forClass(byte[].class)) {
+            return true;
+        }
+        Class clazz = propertyType.toClass();
+        if (clazz != null) {
+            return Lob.class.isAssignableFrom(clazz) ||
+                BigInteger.class.isAssignableFrom(clazz) ||
+                BigDecimal.class.isAssignableFrom(clazz);
+        }
+        return false;
     }
 
     public int getKeyPrefixPadding() {
@@ -955,29 +966,26 @@ public class GenericEncodingStrategy<S extends Storable> {
                             notNull.setLocation();
                         }
                     }
-                } else if (propType == TypeDesc.STRING) {
+                } else if (propType == TypeDesc.STRING ||
+                           propType.toClass() == byte[].class ||
+                           propType.toClass() == BigInteger.class ||
+                           propType.toClass() == BigDecimal.class)
+                {
                     loadPropertyValue(stashedProperties, stashedFromInstances,
                                       a, info, i, useReadMethods,
                                       instanceVar, adapterInstanceClass, partialStartVar);
 
-                    String className =
-                        (mode == Mode.KEY ? KeyEncoder.class : DataEncoder.class).getName();
-                    a.invokeStatic(className, "calculateEncodedStringLength",
-                                   TypeDesc.INT, new TypeDesc[] {TypeDesc.STRING});
-                    if (hasStackVar) {
-                        a.math(Opcode.IADD);
+                    String methodName;
+                    if (propType == TypeDesc.STRING) {
+                        methodName = "calculateEncodedStringLength";
                     } else {
-                        hasStackVar = true;
+                        methodName = "calculateEncodedLength";
                     }
-                } else if (propType.toClass() == byte[].class) {
-                    loadPropertyValue(stashedProperties, stashedFromInstances,
-                                      a, info, i, useReadMethods,
-                                      instanceVar, adapterInstanceClass, partialStartVar);
 
                     String className =
                         (mode == Mode.KEY ? KeyEncoder.class : DataEncoder.class).getName();
-                    a.invokeStatic(className, "calculateEncodedLength",
-                                   TypeDesc.INT, new TypeDesc[] {byteArrayType});
+                    a.invokeStatic(className, methodName,
+                                   TypeDesc.INT, new TypeDesc[] {propType});
                     if (hasStackVar) {
                         a.math(Opcode.IADD);
                     } else {
@@ -1572,7 +1580,7 @@ public class GenericEncodingStrategy<S extends Storable> {
 
             return adjust;
         } else {
-            // Type is a String or byte array.
+            // Type is a String, byte array, BigInteger or BigDecimal.
             if (mode == Mode.KEY) {
                 if (descending) {
                     a.invokeStatic
@@ -1908,6 +1916,8 @@ public class GenericEncodingStrategy<S extends Storable> {
         // References to local variables which will hold references.
         LocalVariable[] stringRefRef = new LocalVariable[1];
         LocalVariable[] byteArrayRefRef = new LocalVariable[1];
+        LocalVariable[] bigIntegerRefRef = new LocalVariable[1];
+        LocalVariable[] bigDecimalRefRef = new LocalVariable[1];
         LocalVariable[] valueRefRef = new LocalVariable[1];
 
         if (mode == Mode.SERIAL) {
@@ -1939,6 +1949,22 @@ public class GenericEncodingStrategy<S extends Storable> {
                         a.loadConstant(1);
                         a.newObject(refType);
                         a.storeLocal(byteArrayRefRef[0]);
+                    }
+                } else if (BigInteger.class.isAssignableFrom(property.getType())) {
+                    if (bigIntegerRefRef[0] == null) {
+                        TypeDesc refType = TypeDesc.forClass(BigInteger[].class);
+                        bigIntegerRefRef[0] = a.createLocalVariable(null, refType);
+                        a.loadConstant(1);
+                        a.newObject(refType);
+                        a.storeLocal(bigIntegerRefRef[0]);
+                    }
+                } else if (BigDecimal.class.isAssignableFrom(property.getType())) {
+                    if (bigDecimalRefRef[0] == null) {
+                        TypeDesc refType = TypeDesc.forClass(BigDecimal[].class);
+                        bigDecimalRefRef[0] = a.createLocalVariable(null, refType);
+                        a.loadConstant(1);
+                        a.newObject(refType);
+                        a.storeLocal(bigDecimalRefRef[0]);
                     }
                 }
             }
@@ -2021,7 +2047,10 @@ public class GenericEncodingStrategy<S extends Storable> {
                 && directions != null && directions[i] == Direction.DESCENDING;
 
             int amt = decodeProperty(a, info, storageType, mode, descending,
-                                     stringRefRef, byteArrayRefRef, valueRefRef);
+                                     // TODO: do something better for passing these refs
+                                     stringRefRef, byteArrayRefRef,
+                                     bigIntegerRefRef, bigDecimalRefRef,
+                                     valueRefRef);
 
             if (info.isLob()) {
                 getLobFromLocator(a, info);
@@ -2106,6 +2135,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                                GenericPropertyInfo info, TypeDesc storageType,
                                Mode mode, boolean descending,
                                LocalVariable[] stringRefRef, LocalVariable[] byteArrayRefRef,
+                               LocalVariable[] bigIntegerRefRef, LocalVariable[] bigDecimalRefRef,
                                LocalVariable[] valueRefRef)
         throws SupportException
     {
@@ -2241,6 +2271,28 @@ public class GenericEncodingStrategy<S extends Storable> {
                 }
                 a.loadLocal(byteArrayRefRef[0]);
                 valueRefRef[0] = byteArrayRefRef[0];
+            } else if (storageType.toClass() == BigInteger.class) {
+                methodName = (mode == Mode.KEY && descending) ? "decodeDesc" : "decode";
+                refType = TypeDesc.forClass(BigInteger[].class);
+                if (bigIntegerRefRef[0] == null) {
+                    bigIntegerRefRef[0] = a.createLocalVariable(null, refType);
+                    a.loadConstant(1);
+                    a.newObject(refType);
+                    a.storeLocal(bigIntegerRefRef[0]);
+                }
+                a.loadLocal(bigIntegerRefRef[0]);
+                valueRefRef[0] = bigIntegerRefRef[0];
+            } else if (storageType.toClass() == BigDecimal.class) {
+                methodName = (mode == Mode.KEY && descending) ? "decodeDesc" : "decode";
+                refType = TypeDesc.forClass(BigDecimal[].class);
+                if (bigDecimalRefRef[0] == null) {
+                    bigDecimalRefRef[0] = a.createLocalVariable(null, refType);
+                    a.loadConstant(1);
+                    a.newObject(refType);
+                    a.storeLocal(bigDecimalRefRef[0]);
+                }
+                a.loadLocal(bigDecimalRefRef[0]);
+                valueRefRef[0] = bigDecimalRefRef[0];
             } else {
                 throw notSupported(info.getPropertyName(), storageType.getFullName());
             }
