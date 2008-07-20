@@ -2732,7 +2732,7 @@ public final class StorableGenerator<S extends Storable> {
 
         LocalVariable encodedVar;
         try {
-            encodedVar = encoder.buildSerialEncoding(b, null);
+            encodedVar = encoder.buildSerialEncoding(b, null, null);
         } catch (SupportException e) {
             CodeBuilderUtil.throwException(b, SupportException.class, e.getMessage());
             return;
@@ -2780,7 +2780,7 @@ public final class StorableGenerator<S extends Storable> {
         GenericEncodingStrategy<S> encoder = new GenericEncodingStrategy<S>(mStorableType, null);
 
         try {
-            encoder.buildSerialDecoding(b, null, encodedVar);
+            encoder.buildSerialDecoding(b, null, null, encodedVar);
         } catch (SupportException e) {
             CodeBuilderUtil.throwException(b, SupportException.class, e.getMessage());
             return;

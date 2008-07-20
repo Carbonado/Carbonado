@@ -21,6 +21,7 @@ package com.amazon.carbonado.raw;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.lang.reflect.UndeclaredThrowableException;
+import java.util.EnumSet;
 import java.util.Map;
 
 import org.cojen.classfile.ClassFile;
@@ -54,6 +55,8 @@ import com.amazon.carbonado.gen.CodeBuilderUtil;
 
 import com.amazon.carbonado.util.ThrowUnchecked;
 import com.amazon.carbonado.util.QuickConstructorGenerator;
+
+import static com.amazon.carbonado.raw.GenericEncodingStrategy.Option;
 
 /**
  * Generic codec that supports any kind of storable by auto-generating and
@@ -197,15 +200,17 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
 
             // TODO: Consider caching generated key. Rebuild if null or if pk is dirty.
 
+            EnumSet<Option> options = EnumSet.of(Option.NORMALIZE);
+
             // assembler            = b
             // properties           = null (defaults to all key properties)
             // instanceVar          = null (null means "this")
             // adapterInstanceClass = null (null means use instanceVar, in this case is "this")
-            // useReadMethods       = false (will read fields directly)
+            // options              = options
             // partialStartVar      = null (only support encoding all properties)
             // partialEndVar        = null (only support encoding all properties)
             LocalVariable encodedVar =
-                encodingStrategy.buildKeyEncoding(b, null, null, null, false, null, null);
+                encodingStrategy.buildKeyEncoding(b, null, null, null, options, null, null);
 
             b.loadLocal(encodedVar);
             b.returnValue(byteArrayType);
@@ -219,14 +224,16 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                                          byteArrayType, null);
             CodeBuilder b = new CodeBuilder(mi);
 
+            EnumSet<Option> options = EnumSet.of(Option.NORMALIZE);
+
             // assembler            = b
             // properties           = null (defaults to all non-key properties)
             // instanceVar          = null (null means "this")
             // adapterInstanceClass = null (null means use instanceVar, in this case is "this")
-            // useReadMethods       = false (will read fields directly)
+            // options              = options
             // generation           = generation
             LocalVariable encodedVar =
-                encodingStrategy.buildDataEncoding(b, null, null, null, false, generation);
+                encodingStrategy.buildDataEncoding(b, null, null, null, options, generation);
 
             b.loadLocal(encodedVar);
             b.returnValue(byteArrayType);
@@ -243,9 +250,9 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             // properties           = null (defaults to all key properties)
             // instanceVar          = null (null means "this")
             // adapterInstanceClass = null (null means use instanceVar, in this case is "this")
-            // useWriteMethods      = false (will set fields directly)
+            // options              = null (will set fields directly)
             // encodedVar           = references byte array with encoded key
-            encodingStrategy.buildKeyDecoding(b, null, null, null, false, b.getParameter(0));
+            encodingStrategy.buildKeyDecoding(b, null, null, null, null, b.getParameter(0));
 
             b.returnVoid();
         }
@@ -262,12 +269,12 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             // properties           = null (defaults to all non-key properties)
             // instanceVar          = null (null means "this")
             // adapterInstanceClass = null (null means use instanceVar, in this case is "this")
-            // useWriteMethods      = false (will set fields directly)
+            // options              = null (will set fields directly)
             // generation           = generation
             // altGenerationHandler = altGenerationHandler
             // encodedVar           = references byte array with encoded data
             encodingStrategy.buildDataDecoding
-                (b, null, null, null, false, generation, altGenerationHandler, b.getParameter(0));
+                (b, null, null, null, null, generation, altGenerationHandler, b.getParameter(0));
 
             b.returnVoid();
 
@@ -584,15 +591,17 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             LocalVariable instanceVar = b.createLocalVariable(null, instanceType);
             b.storeLocal(instanceVar);
 
+            EnumSet<Option> options = EnumSet.of(Option.NORMALIZE);
+
             // assembler            = b
             // properties           = properties to encode
             // instanceVar          = instanceVar which references storable instance
             // adapterInstanceClass = null (null means use instanceVar)
-            // useReadMethods       = false (will read fields directly)
+            // options              = options
             // partialStartVar      = null (only support encoding all properties)
             // partialEndVar        = null (only support encoding all properties)
             LocalVariable encodedVar = mEncodingStrategy.buildKeyEncoding
-                (b, properties, instanceVar, null, false, null, null);
+                (b, properties, instanceVar, null, options, null, null);
 
             b.loadLocal(encodedVar);
             b.returnValue(byteArrayType);
@@ -613,15 +622,17 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             LocalVariable instanceVar = b.createLocalVariable(null, instanceType);
             b.storeLocal(instanceVar);
 
+            EnumSet<Option> options = EnumSet.of(Option.NORMALIZE);
+
             // assembler            = b
             // properties           = properties to encode
             // instanceVar          = instanceVar which references storable instance
             // adapterInstanceClass = null (null means use instanceVar)
-            // useReadMethods       = false (will read fields directly)
+            // options              = options
             // partialStartVar      = int parameter 1, references start property index
             // partialEndVar        = int parameter 2, references end property index
             LocalVariable encodedVar = mEncodingStrategy.buildKeyEncoding
-                (b, properties, instanceVar, null, false, b.getParameter(1), b.getParameter(2));
+                (b, properties, instanceVar, null, options, b.getParameter(1), b.getParameter(2));
 
             b.loadLocal(encodedVar);
             b.returnValue(byteArrayType);
@@ -645,15 +656,17 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                  new TypeDesc[] {objectArrayType});
             CodeBuilder b = new CodeBuilder(mi);
 
+            EnumSet<Option> options = EnumSet.of(Option.NORMALIZE);
+
             // assembler            = b
             // properties           = properties to encode
             // instanceVar          = parameter 0, an object array
             // adapterInstanceClass = adapterInstanceClass - see comment above
-            // useReadMethods       = false (will read fields directly)
+            // options              = options
             // partialStartVar      = null (only support encoding all properties)
             // partialEndVar        = null (only support encoding all properties)
             LocalVariable encodedVar = mEncodingStrategy.buildKeyEncoding
-                (b, properties, b.getParameter(0), adapterInstanceClass, false, null, null);
+                (b, properties, b.getParameter(0), adapterInstanceClass, options, null, null);
 
             b.loadLocal(encodedVar);
             b.returnValue(byteArrayType);
@@ -670,16 +683,18 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                  new TypeDesc[] {objectArrayType, TypeDesc.INT, TypeDesc.INT});
             CodeBuilder b = new CodeBuilder(mi);
 
+            EnumSet<Option> options = EnumSet.of(Option.NORMALIZE);
+
             // assembler            = b
             // properties           = properties to encode
             // instanceVar          = parameter 0, an object array
             // adapterInstanceClass = adapterInstanceClass - see comment above
-            // useReadMethods       = false (will read fields directly)
+            // options              = options
             // partialStartVar      = int parameter 1, references start property index
             // partialEndVar        = int parameter 2, references end property index
             LocalVariable encodedVar = mEncodingStrategy.buildKeyEncoding
                 (b, properties, b.getParameter(0), adapterInstanceClass,
-                 false, b.getParameter(1), b.getParameter(2));
+                 options, b.getParameter(1), b.getParameter(2));
 
             b.loadLocal(encodedVar);
             b.returnValue(byteArrayType);
@@ -715,11 +730,11 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                 // properties           = no parameters - we just want the key prefix
                 // instanceVar          = null (no parameters means we don't need this)
                 // adapterInstanceClass = null (no parameters means we don't need this)
-                // useReadMethods       = false (no parameters means we don't need this)
+                // options              = null (no parameters means we don't need this)
                 // partialStartVar      = null (no parameters means we don't need this)
                 // partialEndVar        = null (no parameters means we don't need this)
                 LocalVariable encodedVar = mEncodingStrategy.buildKeyEncoding
-                    (b, new OrderedProperty[0], null, null, false, null, null);
+                    (b, new OrderedProperty[0], null, null, null, null, null);
 
                 b.loadLocal(encodedVar);
                 b.storeStaticField(BLANK_KEY_FIELD_NAME, byteArrayType);
@@ -783,13 +798,13 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
         // properties           = null (defaults to all non-key properties)
         // instanceVar          = "dest" storable
         // adapterInstanceClass = null (null means use instanceVar, in this case is "dest")
-        // useWriteMethods      = false (will set fields directly)
+        // options              = null (will set fields directly)
         // generation           = generation
         // altGenerationHandler = null (generation should match)
         // encodedVar           = "data" byte array
         try {
             altStrategy.buildDataDecoding
-                (b, null, destVar, null, false, generation, null, dataVar);
+                (b, null, destVar, null, null, generation, null, dataVar);
         } catch (SupportException e) {
             throw new CorruptEncodingException(e);
         }
