@@ -28,6 +28,9 @@ public enum MasterFeature {
     /** Insert and update operations implement record versioning, if version property exists */
     VERSIONING,
 
+    /** Insert and update operations normalize property types such as BigDecimal */
+    NORMALIZE,
+
     /** Update operations load clean copy first, to prevent destructive update */
     UPDATE_FULL,
 

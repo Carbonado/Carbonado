@@ -1,0 +1,602 @@
+/*
+ * Copyright 2008 Amazon Technologies, Inc. or its affiliates.
+ * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
+ * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.amazon.carbonado.util;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+
+import java.math.BigInteger;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import org.cojen.classfile.ClassFile;
+import org.cojen.classfile.CodeBuilder;
+import org.cojen.classfile.Label;
+import org.cojen.classfile.LocalVariable;
+import org.cojen.classfile.MethodInfo;
+import org.cojen.classfile.Modifiers;
+import org.cojen.classfile.Opcode;
+import org.cojen.classfile.TypeDesc;
+
+import org.cojen.util.ClassInjector;
+import org.cojen.util.SoftValuedHashMap;
+
+/**
+ * General purpose type converter. Custom conversions are possible by supplying
+ * an abstract subclass which has public conversion methods whose names begin
+ * with "convert". Each conversion method takes a single argument and returns a
+ * value.
+ *
+ * @author Brian S O'Neill
+ * @since 1.2
+ */
+public abstract class Converter {
+    private static final Map<Class, Converter> cCache = new SoftValuedHashMap<Class, Converter>();
+
+    public static synchronized <C extends Converter> C build(Class<C> converterType) {
+        C converter = (C) cCache.get(converterType);
+        if (converter == null) {
+            converter = new Builder<C>(converterType).build();
+            cCache.put(converterType, converter);
+        }
+        return converter;
+    }
+
+    /**
+     * @throws IllegalArgumentException if conversion is not supported
+     */
+    public abstract <T> T convert(Object from, Class<T> toType);
+
+    /**
+     * @throws IllegalArgumentException if conversion is not supported
+     */
+    public abstract <T> T convert(byte from, Class<T> toType);
+
+    /**
+     * @throws IllegalArgumentException if conversion is not supported
+     */
+    public abstract <T> T convert(short from, Class<T> toType);
+
+    /**
+     * @throws IllegalArgumentException if conversion is not supported
+     */
+    public abstract <T> T convert(int from, Class<T> toType);
+
+    /**
+     * @throws IllegalArgumentException if conversion is not supported
+     */
+    public abstract <T> T convert(long from, Class<T> toType);
+
+    /**
+     * @throws IllegalArgumentException if conversion is not supported
+     */
+    public abstract <T> T convert(float from, Class<T> toType);
+
+    /**
+     * @throws IllegalArgumentException if conversion is not supported
+     */
+    public abstract <T> T convert(double from, Class<T> toType);
+
+    /**
+     * @throws IllegalArgumentException if conversion is not supported
+     */
+    public abstract <T> T convert(boolean from, Class<T> toType);
+
+    /**
+     * @throws IllegalArgumentException if conversion is not supported
+     */
+    public abstract <T> T convert(char from, Class<T> toType);
+
+    protected IllegalArgumentException conversionNotSupported
+        (Object fromValue, Class fromType, Class toType)
+    {
+        StringBuilder b = new StringBuilder();
+
+        if (fromType == null && fromValue != null) {
+            fromType = fromValue.getClass();
+        }
+
+        if (fromValue == null) {
+            b.append("Actual value null cannot be converted to type ");
+        } else {
+            b.append("Actual value \"");
+            b.append(String.valueOf(fromValue));
+            b.append("\", of type \"");
+            b.append(TypeDesc.forClass(fromType).getFullName());
+            b.append("\", cannot be converted to expected type of ");
+        }
+
+        if (toType == null) {
+            b.append("null");
+        } else {
+            b.append('"');
+            b.append(TypeDesc.forClass(toType).getFullName());
+            b.append('"');
+        }
+
+        return new IllegalArgumentException(b.toString());
+    }
+
+    private static class Builder<C extends Converter> {
+        private final Class<C> mConverterType;
+
+        // Map "from class" to "to class" to optional conversion method.
+        private final Map<Class, Map<Class, Method>> mConvertMap;
+
+        private final Class[][] mBoxMatrix = {
+            {byte.class, Byte.class, Number.class, Object.class},
+            {short.class, Short.class, Number.class, Object.class},
+            {int.class, Integer.class, Number.class, Object.class},
+            {long.class, Long.class, Number.class, Object.class},
+            {float.class, Float.class, Number.class, Object.class},
+            {double.class, Double.class, Number.class, Object.class},
+            {boolean.class, Boolean.class, Object.class},
+            {char.class, Character.class, Object.class},
+        };
+
+        private ClassFile mClassFile;
+
+        private int mInnerConvertCounter;
+
+        Builder(Class<C> converterType) {
+            if (!Converter.class.isAssignableFrom(converterType)) {
+                throw new IllegalArgumentException("Not a TypeConverter: " + converterType);
+            }
+
+            try {
+                converterType.getConstructor();
+            } catch (NoSuchMethodException e) {
+                throw new IllegalArgumentException
+                    ("TypeConverter must have a public no-arg constructor: " + converterType);
+            }
+
+            mConverterType = converterType;
+            mConvertMap = new HashMap<Class, Map<Class, Method>>();
+
+            // Add built-in primitive boxing/unboxing conversions.
+            for (Class[] tuple : mBoxMatrix) {
+                Map<Class, Method> to = new HashMap<Class, Method>();
+                for (Class toType : tuple) {
+                    to.put(toType, null);
+                }
+                mConvertMap.put(tuple[0], to);
+                mConvertMap.put(tuple[1], to);
+            }
+
+            for (Method m : converterType.getMethods()) {
+                if (!m.getName().startsWith("convert")) {
+                    continue;
+                }
+                Class toType = m.getReturnType();
+                if (toType == null || toType == void.class) {
+                    continue;
+                }
+                Class[] params = m.getParameterTypes();
+                if (params == null || params.length != 1) {
+                    continue;
+                }
+
+                Map<Class, Method> to = mConvertMap.get(params[0]);
+                if (to == null) {
+                    to = new HashMap<Class, Method>();
+                    mConvertMap.put(params[0], to);
+                }
+
+                to.put(toType, m);
+            }
+
+            // Add automatic widening conversions.
+
+            // Copy to prevent concurrent modification.
+            Map<Class, Map<Class, Method>> convertMap =
+                new HashMap<Class, Map<Class, Method>>(mConvertMap);
+
+            for (Map.Entry<Class, Map<Class, Method>> entry : convertMap.entrySet()) {
+                Class fromType = entry.getKey();
+
+                // Copy to prevent concurrent modification.
+                Map<Class, Method> toMap = new HashMap<Class, Method>(entry.getValue());
+
+                for (Map.Entry<Class, Method> to : toMap.entrySet()) {
+                    Class toType = to.getKey();
+                    Method conversionMethod = to.getValue();
+                    addAutomaticConversion(fromType, toType, conversionMethod);
+                }
+            }
+
+            /*
+            for (Map.Entry<Class, Map<Class, Method>> entry : mConvertMap.entrySet()) {
+                Class fromType = entry.getKey();
+                for (Map.Entry<Class, Method> to : entry.getValue().entrySet()) {
+                    Class toType = to.getKey();
+                    Method conversionMethod = to.getValue();
+                    System.out.println("from: " + fromType.getName() + ", to: " +
+                                       toType.getName() + ", via: " + conversionMethod);
+                }
+            }
+            */
+        }
+
+        C build() {
+            ClassInjector ci = ClassInjector
+                .create(mConverterType.getName(), mConverterType.getClassLoader());
+
+            mClassFile = new ClassFile(ci.getClassName(), mConverterType);
+            mClassFile.markSynthetic();
+            mClassFile.setSourceFile(Converter.class.getName());
+            mClassFile.setTarget("1.5");
+
+            mClassFile.addDefaultConstructor();
+
+            addPrimitiveConvertMethod(byte.class);
+            addPrimitiveConvertMethod(short.class);
+            addPrimitiveConvertMethod(int.class);
+            addPrimitiveConvertMethod(long.class);
+            addPrimitiveConvertMethod(float.class);
+            addPrimitiveConvertMethod(double.class);
+            addPrimitiveConvertMethod(boolean.class);
+            addPrimitiveConvertMethod(char.class);
+
+            Method m = getAbstractConvertMethod(Object.class);
+            if (m != null) {
+                CodeBuilder b = new CodeBuilder(mClassFile.addMethod(m));
+
+                b.loadLocal(b.getParameter(0));
+                Label notNull = b.createLabel();
+                b.ifNullBranch(notNull, false);
+                b.loadNull();
+                b.returnValue(TypeDesc.OBJECT);
+
+                notNull.setLocation();
+                addConversionSwitch(b, null);
+            }
+
+            Class clazz = ci.defineClass(mClassFile);
+
+            try {
+                return (C) clazz.newInstance();
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            } catch (InstantiationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private void addPrimitiveConvertMethod(Class fromType) {
+            Method m = getAbstractConvertMethod(fromType);
+            if (m == null) {
+                return;
+            }
+
+            CodeBuilder b = new CodeBuilder(mClassFile.addMethod(m));
+
+            addConversionSwitch(b, fromType);
+        }
+
+        /*
+         * Generate big switch statements that operate on Classes.
+         *
+         * For switch case count, obtain a prime number, at least twice as
+         * large as needed. This should minimize hash collisions. Since all
+         * the hash keys are known up front, the capacity could be tweaked
+         * until there are no collisions, but this technique is easier and
+         * deterministic.
+         */
+
+        private void addConversionSwitch(CodeBuilder b, Class fromType) {
+            Map<Class, Method> toMap;
+            Map<Class, ?> caseMap;
+
+            if (fromType == null) {
+                Map<Class, Map<Class, Method>> convertMap =
+                    new HashMap<Class, Map<Class, Method>>(mConvertMap);
+                // Remove primitive type cases, since they will never match.
+                Iterator<Class> it = convertMap.keySet().iterator();
+                while (it.hasNext()) {
+                    if (it.next().isPrimitive()) {
+                        it.remove();
+                    }
+                }
+
+                toMap = null;
+                caseMap = convertMap;
+            } else {
+                toMap = mConvertMap.get(fromType);
+                caseMap = toMap;
+            }
+
+            int caseCount = caseCount(caseMap.size());
+
+            int[] cases = new int[caseCount];
+            for (int i=0; i<caseCount; i++) {
+                cases[i] = i;
+            }
+
+            Label[] switchLabels = new Label[caseCount];
+            Label noMatch = b.createLabel();
+            List<Class>[] caseMatches = caseMatches(caseMap, caseCount);
+
+            for (int i=0; i<caseCount; i++) {
+                List<?> matches = caseMatches[i];
+                if (matches == null || matches.size() == 0) {
+                    switchLabels[i] = noMatch;
+                } else {
+                    switchLabels[i] = b.createLabel();
+                }
+            }
+
+            final TypeDesc classType = TypeDesc.forClass(Class.class);
+
+            LocalVariable caseVar;
+            if (toMap == null) {
+                b.loadLocal(b.getParameter(0));
+                b.invokeVirtual(TypeDesc.OBJECT, "getClass", classType, null);
+                caseVar = b.createLocalVariable(null, classType);
+                b.storeLocal(caseVar);
+            } else {
+                caseVar = b.getParameter(1);
+            }
+
+            if (caseMap.size() > 1) {
+                b.loadLocal(caseVar);
+
+                b.invokeVirtual(Class.class.getName(), "hashCode", TypeDesc.INT, null);
+                b.loadConstant(0x7fffffff);
+                b.math(Opcode.IAND);
+                b.loadConstant(caseCount);
+                b.math(Opcode.IREM);
+
+                b.switchBranch(cases, switchLabels, noMatch);
+            }
+
+            TypeDesc fromTypeDesc = TypeDesc.forClass(fromType);
+
+            for (int i=0; i<caseCount; i++) {
+                List<Class> matches = caseMatches[i];
+                if (matches == null || matches.size() == 0) {
+                    continue;
+                }
+
+                switchLabels[i].setLocation();
+
+                int matchCount = matches.size();
+                for (int j=0; j<matchCount; j++) {
+                    Class toType = matches.get(j);
+                    TypeDesc toTypeDesc = TypeDesc.forClass(toType);
+
+                    // Test against class instance to find exact match.
+
+                    b.loadConstant(toTypeDesc);
+                    b.loadLocal(caseVar);
+                    Label notEqual;
+                    if (j == matchCount - 1) {
+                        notEqual = null;
+                        b.ifEqualBranch(noMatch, false);
+                    } else {
+                        notEqual = b.createLabel();
+                        b.ifEqualBranch(notEqual, false);
+                    }
+
+                    if (toMap == null) {
+                        // Switch in a switch, but do so in a separate method
+                        // to keep this one small.
+
+                        String name = "convert$" + (++mInnerConvertCounter);
+                        TypeDesc[] params = {toTypeDesc, classType};
+                        {
+                            MethodInfo mi = mClassFile.addMethod
+                                (Modifiers.PRIVATE, name, TypeDesc.OBJECT, params);
+                            CodeBuilder b2 = new CodeBuilder(mi);
+                            addConversionSwitch(b2, toType);
+                        }
+
+                        b.loadThis();
+                        b.loadLocal(b.getParameter(0));
+                        b.checkCast(toTypeDesc);
+                        b.loadLocal(b.getParameter(1));
+                        b.invokePrivate(name, TypeDesc.OBJECT, params);
+                        b.returnValue(TypeDesc.OBJECT);
+                    } else {
+                        Method convertMethod = toMap.get(toType);
+
+                        if (convertMethod == null) {
+                            b.loadLocal(b.getParameter(0));
+                            TypeDesc fromPrimDesc = fromTypeDesc.toPrimitiveType();
+                            if (fromPrimDesc != null) {
+                                b.convert(fromTypeDesc, fromPrimDesc);
+                                b.convert(fromPrimDesc, toTypeDesc.toObjectType());
+                            } else {
+                                b.convert(fromTypeDesc, toTypeDesc.toObjectType());
+                            }
+                        } else {
+                            b.loadThis();
+                            b.loadLocal(b.getParameter(0));
+                            Class paramType = convertMethod.getParameterTypes()[0];
+                            b.convert(fromTypeDesc, TypeDesc.forClass(paramType));
+                            b.invoke(convertMethod);
+                            TypeDesc retType = TypeDesc.forClass(convertMethod.getReturnType());
+                            b.convert(retType, retType.toObjectType());
+                        }
+
+                        b.returnValue(TypeDesc.OBJECT);
+                    }
+
+                    if (notEqual != null) {
+                        notEqual.setLocation();
+                    }
+                }
+            }
+
+            noMatch.setLocation();
+
+            final TypeDesc valueType = b.getParameter(0).getType();
+
+            if (fromType == null) {
+                // Check if object is already the desired type.
+
+                b.loadLocal(b.getParameter(1));
+                b.loadLocal(b.getParameter(0));
+                b.invokeVirtual(classType, "isInstance", TypeDesc.BOOLEAN,
+                                new TypeDesc[] {TypeDesc.OBJECT});
+                Label notSupported = b.createLabel();
+                b.ifZeroComparisonBranch(notSupported, "==");
+                b.loadLocal(b.getParameter(0));
+                b.convert(valueType, valueType.toObjectType());
+                b.returnValue(TypeDesc.OBJECT);
+
+                notSupported.setLocation();
+            }
+
+            b.loadThis();
+            b.loadLocal(b.getParameter(0));
+            b.convert(valueType, valueType.toObjectType());
+            if (valueType.isPrimitive()) {
+                b.loadConstant(valueType);
+            } else {
+                b.loadNull();
+            }
+            b.loadLocal(b.getParameter(1));
+            b.invokeVirtual("conversionNotSupported",
+                            TypeDesc.forClass(IllegalArgumentException.class),
+                            new TypeDesc[] {TypeDesc.OBJECT, classType, classType});
+            b.throwObject();
+        }
+
+        private int caseCount(int size) {
+            BigInteger capacity = BigInteger.valueOf(size * 2 + 1);
+            while (!capacity.isProbablePrime(100)) {
+                capacity = capacity.add(BigInteger.valueOf(2));
+            }
+            return capacity.intValue();
+        }
+
+        /**
+         * Returns the types that match on a given case. The array length is
+         * the same as the case count. Each list represents the matches. The
+         * lists themselves may be null if no matches for that case.
+         */
+        private List<Class>[] caseMatches(Map<Class, ?> caseMap, int caseCount) {
+            List<Class>[] cases = new List[caseCount];
+
+            for (Class to : caseMap.keySet()) {
+                int hashCode = to.hashCode();
+                int caseValue = (hashCode & 0x7fffffff) % caseCount;
+                List matches = cases[caseValue];
+                if (matches == null) {
+                    matches = cases[caseValue] = new ArrayList<Class>();
+                }
+                matches.add(to);
+            }
+
+            return cases;
+        }
+
+        /**
+         * @return null if should not be defined
+         */
+        private Method getAbstractConvertMethod(Class fromType) {
+            Method m;
+            try {
+                m = mConverterType.getMethod("convert", fromType, Class.class);
+            } catch (NoSuchMethodException e) {
+                return null;
+            }
+            if (!Modifier.isAbstract(m.getModifiers())) {
+                return null;
+            }
+            return m;
+        }
+
+        private void addAutomaticConversion(Class fromType, Class toType, Method method) {
+            addConversionIfNotExists(fromType, toType, method);
+
+            // Add no-op conversions.
+            addConversionIfNotExists(fromType, fromType, null);
+            addConversionIfNotExists(toType, toType, null);
+
+            for (Class[] pair : mBoxMatrix) {
+                if (fromType == pair[0]) {
+                    addConversionIfNotExists(pair[1], toType, method);
+                    if (toType == pair[1]) {
+                        addConversionIfNotExists(pair[1], pair[0], method);
+                    }
+                } else if (fromType == pair[1]) {
+                    addConversionIfNotExists(pair[0], toType, method);
+                    if (toType == pair[1]) {
+                        addConversionIfNotExists(pair[0], pair[1], method);
+                    }
+                }
+                if (toType == pair[0]) {
+                    addConversionIfNotExists(fromType, pair[1], method);
+                }
+            }
+
+            if (fromType == short.class || fromType == Short.class) {
+                addAutomaticConversion(byte.class, toType, method);
+            } else if (fromType == int.class || fromType == Integer.class) {
+                addAutomaticConversion(short.class, toType, method);
+            } else if (fromType == long.class || fromType == Long.class) {
+                addAutomaticConversion(int.class, toType, method);
+            } else if (fromType == float.class || fromType == Float.class) {
+                addAutomaticConversion(short.class, toType, method);
+            } else if (fromType == double.class || fromType == Double.class) {
+                addAutomaticConversion(int.class, toType, method);
+                addAutomaticConversion(float.class, toType, method);
+            }
+
+            if (toType == byte.class || toType == Byte.class) {
+                addAutomaticConversion(fromType, Short.class, method);
+            } else if (toType == short.class || toType == Short.class) {
+                addAutomaticConversion(fromType, Integer.class, method);
+                addAutomaticConversion(fromType, Float.class, method);
+            } else if (toType == int.class || toType == Integer.class) {
+                addAutomaticConversion(fromType, Long.class, method);
+                addAutomaticConversion(fromType, Double.class, method);
+            } else if (toType == float.class || toType == Float.class) {
+                addAutomaticConversion(fromType, Double.class, method);
+            }
+        }
+
+        private boolean addConversionIfNotExists(Class fromType, Class toType, Method method) {
+            Map<Class, Method> to = mConvertMap.get(fromType);
+            if (to == null) {
+                to = new HashMap<Class, Method>();
+                mConvertMap.put(fromType, to);
+            }
+            Method existing = to.get(toType);
+            if (existing != null) {
+                if (method == null) {
+                    return false;
+                }
+                ConversionComparator cc = new ConversionComparator(fromType);
+                Class existingFromType = existing.getParameterTypes()[0];
+                Class candidateFromType = method.getParameterTypes()[0];
+                if (cc.compare(existingFromType, candidateFromType) <= 0) {
+                    return false;
+                }
+            }
+            to.put(toType, method);
+            return true;
+        }
+    }
+}

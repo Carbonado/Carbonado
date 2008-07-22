@@ -72,6 +72,7 @@ import com.amazon.carbonado.Version;
 import com.amazon.carbonado.adapter.AdapterDefinition;
 import com.amazon.carbonado.constraint.ConstraintDefinition;
 import com.amazon.carbonado.lob.Lob;
+import com.amazon.carbonado.util.ConversionComparator;
 
 /**
  * Supports examination of {@link Storable} types, returning all metadata

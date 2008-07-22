@@ -19,8 +19,13 @@
 package com.amazon.carbonado.gen;
 
 import java.lang.reflect.Method;
+
+import java.math.BigDecimal;
+
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 import org.cojen.classfile.ClassFile;
@@ -489,8 +494,18 @@ public final class MasterStorableGenerator<S extends Storable> {
                 isInitialized.setLocation();
             }
 
+            // Copy of properties before normalization.
+            List<PropertyCopy> unnormalized = null;
+            if (mFeatures.contains(MasterFeature.NORMALIZE)) {
+                unnormalized = addNormalization(b, false);
+            }
+
+            Label doTryStart = b.createLabel().setLocation();
+
             b.loadThis();
             b.invokeVirtual(DO_TRY_INSERT_MASTER_METHOD_NAME, TypeDesc.BOOLEAN, null);
+
+            addNormalizationRollback(b, doTryStart, unnormalized);
 
             if (tryStart == null) {
                 b.returnValue(TypeDesc.BOOLEAN);
@@ -520,6 +535,7 @@ public final class MasterStorableGenerator<S extends Storable> {
             CodeBuilder b = new CodeBuilder(mi);
 
             if ((!mFeatures.contains(MasterFeature.VERSIONING)) &&
+                (!mFeatures.contains(MasterFeature.NORMALIZE)) &&
                 (!mFeatures.contains(MasterFeature.UPDATE_FULL)) &&
                 (!mFeatures.contains(MasterFeature.UPDATE_TXN)))
             {
@@ -539,7 +555,22 @@ public final class MasterStorableGenerator<S extends Storable> {
 
             Label tryLoadStart = null, tryLoadEnd = null;
 
-            if (mFeatures.contains(MasterFeature.UPDATE_FULL)) {
+            // Copy of properties before normalization.
+            List<PropertyCopy> unnormalized = null;
+            if (mFeatures.contains(MasterFeature.NORMALIZE)) {
+                unnormalized = addNormalization(b, false);
+            }
+
+            Label doTryStart = b.createLabel().setLocation();
+
+            if (!mFeatures.contains(MasterFeature.UPDATE_FULL)) {
+                // if (!this.doTryUpdateMaster()) {
+                //     goto failed;
+                // }
+                b.loadThis();
+                b.invokeVirtual(DO_TRY_UPDATE_MASTER_METHOD_NAME, TypeDesc.BOOLEAN, null);
+                b.ifZeroComparisonBranch(failed, "==");
+            } else {
                 // Storable saved = copy();
                 b.loadThis();
                 b.invokeVirtual(COPY_METHOD_NAME, storableType, null);
@@ -701,13 +732,6 @@ public final class MasterStorableGenerator<S extends Storable> {
                 b.loadThis();
                 b.invokeInterface
                     (storableType, COPY_UNEQUAL_PROPERTIES, null, new TypeDesc[] {storableType});
-            } else {
-                // if (!this.doTryUpdateMaster()) {
-                //     goto failed;
-                // }
-                b.loadThis();
-                b.invokeVirtual(DO_TRY_UPDATE_MASTER_METHOD_NAME, TypeDesc.BOOLEAN, null);
-                b.ifZeroComparisonBranch(failed, "==");
             }
 
             // txn.commit();
@@ -1022,5 +1046,102 @@ public final class MasterStorableGenerator<S extends Storable> {
         }
 
         b.invoke(versionProperty.getWriteMethod());
+    }
+
+    private List<PropertyCopy> addNormalization(CodeBuilder b, boolean forUpdate) {
+        List<PropertyCopy> unnormalized = null;
+
+        for (StorableProperty<S> property : mAllProperties.values()) {
+            if (property.isDerived()) {
+                continue;
+            }
+            if (!BigDecimal.class.isAssignableFrom(property.getType())) {
+                continue;
+            }
+
+            if (unnormalized == null) {
+                unnormalized = new ArrayList<PropertyCopy>();
+            }
+
+            PropertyCopy copy = new PropertyCopy<S>(b, property);
+            unnormalized.add(copy);
+
+            copy.makeCopy(b);
+
+            b.loadLocal(copy.copyVar);
+            Label skipNormalize = b.createLabel();
+            b.ifNullBranch(skipNormalize, true);
+
+            if (forUpdate) {
+                // FIXME: for update, also check if dirty
+            }
+
+            // Normalize by stripping trailing zeros.
+            // FIXME: Workaround BigDecimal.ZERO bug.
+            b.loadThis();
+            b.loadLocal(copy.copyVar);
+            TypeDesc propertyType = copy.copyVar.getType();
+            b.invokeVirtual(propertyType, "stripTrailingZeros", propertyType, null);
+            b.storeField(property.getName(), propertyType);
+
+            skipNormalize.setLocation();
+        }
+
+        return unnormalized;
+    }
+
+    /**
+     * Assumes a boolean is on the stack, as returned by doTryInsert or doTryUpdate.
+     */
+    private void addNormalizationRollback(CodeBuilder b, Label doTryStart,
+                                          List<PropertyCopy> unnormalized)
+    {
+        if (unnormalized != null) {
+            Label doTryEnd = b.createLabel().setLocation();
+
+            b.dup();
+            Label success = b.createLabel();
+            b.ifZeroComparisonBranch(success, "!=");
+
+            for (int i=0; i<2; i++) {
+                if (i == 0) {
+                } else {
+                    b.exceptionHandler(doTryStart, doTryEnd, null);
+                }
+                // Rollback normalized properties.
+                for (PropertyCopy copy : unnormalized) {
+                    copy.restore(b);
+                }
+                if (i == 0) {
+                    b.branch(success);
+                } else {
+                    b.throwObject();
+                }
+            }
+
+            success.setLocation();
+        }
+    }
+
+    private static class PropertyCopy<S extends Storable> {
+        final StorableProperty<S> property;
+        final LocalVariable copyVar;
+
+        PropertyCopy(CodeBuilder b, StorableProperty<S> property) {
+            this.property = property;
+            copyVar = b.createLocalVariable(null, TypeDesc.forClass(property.getType()));
+        }
+
+        void makeCopy(CodeBuilder b) {
+            b.loadThis();
+            b.loadField(property.getName(), copyVar.getType());
+            b.storeLocal(copyVar);
+        }
+
+        void restore(CodeBuilder b) {
+            b.loadThis();
+            b.loadLocal(copyVar);
+            b.storeField(property.getName(), copyVar.getType());
+        }
     }
 }

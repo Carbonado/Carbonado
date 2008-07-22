@@ -19,6 +19,10 @@
 package com.amazon.carbonado.filter;
 
 import java.io.IOException;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -27,6 +31,8 @@ import org.cojen.classfile.TypeDesc;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.StorableProperty;
+
+import com.amazon.carbonado.util.Converter;
 
 /**
  * Filter tree node that performs a relational test against a specific property
@@ -38,7 +44,13 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
     private static final long serialVersionUID = 1L;
 
     // Indicates property has been bound to a constant value.
-    private static int BOUND_CONSTANT = -1;
+    private static final int BOUND_CONSTANT = -1;
+
+    private static final Converter cConverter;
+
+    static {
+        cConverter = Converter.build(Hidden.Adapter.class);
+    }
 
     /**
      * Returns a canonical instance, creating a new one if there isn't one
@@ -334,171 +346,63 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
      * @throws IllegalArgumentException if type doesn't match
      */
     Object adaptValue(int value) {
-        Class<?> type = getBoxedType();
-        if (type == Integer.class) {
-            return Integer.valueOf(value);
-        } else if (type == Long.class) {
-            return Long.valueOf(value);
-        } else if (type == Double.class) {
-            return Double.valueOf(value);
-        } else if (type == Number.class || type == Object.class) {
-            return Integer.valueOf(value);
-        }
-        throw mismatch(int.class, value);
+        return cConverter.convert(value, getType());
     }
 
     /**
      * @throws IllegalArgumentException if type doesn't match
      */
     Object adaptValue(long value) {
-        Class<?> type = getBoxedType();
-        if (type == Long.class) {
-            return Long.valueOf(value);
-        } else if (type == Number.class || type == Object.class) {
-            return Long.valueOf(value);
-        }
-        throw mismatch(long.class, value);
+        return cConverter.convert(value, getType());
     }
 
     /**
      * @throws IllegalArgumentException if type doesn't match
      */
     Object adaptValue(float value) {
-        Class<?> type = getBoxedType();
-        if (type == Float.class) {
-            return Float.valueOf(value);
-        } else if (type == Double.class) {
-            return Double.valueOf(value);
-        } else if (type == Number.class || type == Object.class) {
-            return Float.valueOf(value);
-        }
-        throw mismatch(float.class, value);
+        return cConverter.convert(value, getType());
     }
 
     /**
      * @throws IllegalArgumentException if type doesn't match
      */
     Object adaptValue(double value) {
-        Class<?> type = getBoxedType();
-        if (type == Double.class) {
-            return Double.valueOf(value);
-        } else if (type == Number.class || type == Object.class) {
-            return Double.valueOf(value);
-        }
-        throw mismatch(float.class, value);
+        return cConverter.convert(value, getType());
     }
 
     /**
      * @throws IllegalArgumentException if type doesn't match
      */
     Object adaptValue(boolean value) {
-        Class<?> type = getBoxedType();
-        if (type == Boolean.class || type == Object.class) {
-            return Boolean.valueOf(value);
-        }
-        throw mismatch(boolean.class, value);
+        return cConverter.convert(value, getType());
     }
 
     /**
      * @throws IllegalArgumentException if type doesn't match
      */
     Object adaptValue(char value) {
-        Class<?> type = getBoxedType();
-        if (type == Character.class || type == Object.class) {
-            return Character.valueOf(value);
-        } else if (type == String.class || type == CharSequence.class) {
-            return String.valueOf(value);
-        }
-        throw mismatch(char.class, value);
+        return cConverter.convert(value, getType());
     }
 
     /**
      * @throws IllegalArgumentException if type doesn't match
      */
     Object adaptValue(byte value) {
-        Class<?> type = getBoxedType();
-        if (type == Byte.class) {
-            return Byte.valueOf(value);
-        } else if (type == Short.class) {
-            return Short.valueOf(value);
-        } else if (type == Integer.class) {
-            return Integer.valueOf(value);
-        } else if (type == Long.class) {
-            return Long.valueOf(value);
-        } else if (type == Double.class) {
-            return Double.valueOf(value);
-        } else if (type == Float.class) {
-            return Float.valueOf(value);
-        } else if (type == Number.class || type == Object.class) {
-            return Byte.valueOf(value);
-        }
-        throw mismatch(byte.class, value);
+        return cConverter.convert(value, getType());
     }
 
     /**
      * @throws IllegalArgumentException if type doesn't match
      */
     Object adaptValue(short value) {
-        Class<?> type = getBoxedType();
-        if (type == Short.class) {
-            return Short.valueOf(value);
-        } else if (type == Integer.class) {
-            return Integer.valueOf(value);
-        } else if (type == Long.class) {
-            return Long.valueOf(value);
-        } else if (type == Double.class) {
-            return Double.valueOf(value);
-        } else if (type == Float.class) {
-            return Float.valueOf(value);
-        } else if (type == Number.class || type == Object.class) {
-            return Short.valueOf(value);
-        }
-        throw mismatch(short.class, value);
+        return cConverter.convert(value, Object.class);
     }
 
     /**
      * @throws IllegalArgumentException if type doesn't match
      */
     Object adaptValue(Object value) {
-        if (getBoxedType().isInstance(value)) {
-            return value;
-        }
-
-        Class<?> type = getType();
-
-        if (value == null) {
-            if (!type.isPrimitive()) {
-                return value;
-            }
-        } else if (type.isPrimitive()) {
-            TypeDesc actualPrim = TypeDesc.forClass(value.getClass()).toPrimitiveType();
-            if (actualPrim != null) {
-                if (type == actualPrim.toClass()) {
-                    return value;
-                }
-                // Unbox and rebox.
-                switch (actualPrim.getTypeCode()) {
-                case TypeDesc.BYTE_CODE:
-                    return adaptValue(((Number) value).byteValue());
-                case TypeDesc.SHORT_CODE:
-                    return adaptValue(((Number) value).shortValue());
-                case TypeDesc.INT_CODE:
-                    return adaptValue(((Number) value).intValue());
-                case TypeDesc.LONG_CODE:
-                    return adaptValue(((Number) value).longValue());
-                case TypeDesc.FLOAT_CODE:
-                    return adaptValue(((Number) value).floatValue());
-                case TypeDesc.DOUBLE_CODE:
-                    return adaptValue(((Number) value).doubleValue());
-                case TypeDesc.BOOLEAN_CODE:
-                    return adaptValue(((Boolean) value).booleanValue());
-                case TypeDesc.CHAR_CODE:
-                    return adaptValue(((Character) value).charValue());
-                }
-            }
-        }
-
-        throw mismatch(value == null ? null : value.getClass(), value);
+        return cConverter.convert(value, getType());
     }
 
     @Override
@@ -546,29 +450,59 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
         }
     }
 
-    void appendMismatchMessage(Appendable a, Class<?> actualType, Object actualValue)
-        throws IOException
-    {
-        if (actualType == null || actualValue == null) {
-            a.append("Actual value is null, which cannot be assigned to type \"");
-        } else {
-            a.append("Actual value \"");
-            a.append(String.valueOf(actualValue));
-            a.append("\", of type \"");
-            a.append(TypeDesc.forClass(actualType).getFullName());
-            a.append("\", is incompatible with expected type of \"");
-        }
-        a.append(TypeDesc.forClass(getType()).getFullName());
-        a.append('"');
-    }
+    private static class Hidden {
+        public static abstract class Adapter extends Converter {
+            public String convertToString(char value) {
+                return String.valueOf(value);
+            }
 
-    private IllegalArgumentException mismatch(Class<?> actualType, Object actualValue) {
-        StringBuilder b = new StringBuilder();
-        try {
-            appendMismatchMessage(b, actualType, actualValue);
-        } catch (IOException e) {
-            // Not gonna happen
+            public CharSequence convertToCharSequence(char value) {
+                return String.valueOf(value);
+            }
+
+            public String convertToString(StringBuffer value) {
+                return value.toString();
+            }
+
+            public String convertToString(StringBuilder value) {
+                return value.toString();
+            }
+
+            public BigInteger convertToBigInteger(long value) {
+                return BigInteger.valueOf(value);
+            }
+
+            public BigDecimal convertToBigDecimal(long value) {
+                if (value > -10 && value < 10) {
+                    return BigDecimal.valueOf(value);
+                }
+                // Normalize value.
+                return BigDecimal.valueOf(value).stripTrailingZeros();
+            }
+
+            public BigDecimal convertToBigDecimal(double value) {
+                if (value == 0) {
+                    return BigDecimal.ZERO;
+                }
+                // Normalize value.
+                return BigDecimal.valueOf(value).stripTrailingZeros();
+            }
+
+            public BigDecimal convertToBigDecimal(BigInteger value) {
+                if (BigInteger.ZERO.equals(value)) {
+                    return BigDecimal.ZERO;
+                }
+                // Normalize value.
+                return new BigDecimal(value, 0).stripTrailingZeros();
+            }
+
+            public BigDecimal convertToBigDecimal(BigDecimal value) {
+                if (value.compareTo(BigDecimal.ZERO) == 0) {
+                    return BigDecimal.ZERO;
+                }
+                // Normalize value.
+                return value.stripTrailingZeros();
+            }
         }
-        return new IllegalArgumentException(b.toString());
     }
 }

@@ -132,10 +132,12 @@ class MapStorage<S extends Storable>
         EnumSet<MasterFeature> features;
         if (repo.isMaster()) {
             features = EnumSet.of(MasterFeature.INSERT_CHECK_REQUIRED,
+                                  MasterFeature.NORMALIZE,
                                   MasterFeature.VERSIONING,
                                   MasterFeature.INSERT_SEQUENCES);
         } else {
-            features = EnumSet.of(MasterFeature.INSERT_CHECK_REQUIRED);
+            features = EnumSet.of(MasterFeature.INSERT_CHECK_REQUIRED,
+                                  MasterFeature.NORMALIZE);
         }
 
         Class<? extends S> delegateStorableClass =

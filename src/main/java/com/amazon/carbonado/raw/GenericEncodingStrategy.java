@@ -25,7 +25,6 @@ import java.math.BigInteger;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
@@ -69,26 +68,6 @@ import com.amazon.carbonado.info.StorablePropertyAdapter;
  * @author Brian S O'Neill
  */
 public class GenericEncodingStrategy<S extends Storable> {
-    /**
-     * Defines extra encoding options.
-     *
-     * @since 1.2
-     */
-    public static enum Option {
-        /**
-         * Access properties by public methods instead of protected fields.
-         * Option should be used if class being generated doesn't have access
-         * to these fields.
-         */
-        USE_METHODS,
-
-        /**
-         * Property values such as BigDecimal are normalized before being
-         * encoded.
-         */
-        NORMALIZE,
-    }
-
     private static enum Mode { KEY, DATA, SERIAL }
 
     private final Class<S> mType;
@@ -165,7 +144,9 @@ public class GenericEncodingStrategy<S extends Storable> {
      * of a Storable instance.
      * @param adapterInstanceClass class containing static references to
      * adapter instances - defaults to instanceVar
-     * @param options optional encoding options
+     * @param useReadMethods when true, access properties by public read
+     * methods instead of protected fields - should be used if class being
+     * generated doesn't have access to these fields
      * @param partialStartVar optional variable for supporting partial key
      * generation. It must be an int, whose runtime value must be less than the
      * properties array length. It marks the range start of the partial
@@ -186,7 +167,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                                           OrderedProperty<S>[] properties,
                                           LocalVariable instanceVar,
                                           Class<?> adapterInstanceClass,
-                                          EnumSet<Option> options,
+                                          boolean useReadMethods,
                                           LocalVariable partialStartVar,
                                           LocalVariable partialEndVar)
         throws SupportException
@@ -195,7 +176,7 @@ public class GenericEncodingStrategy<S extends Storable> {
         return buildEncoding(Mode.KEY, assembler,
                              extractProperties(properties), extractDirections(properties),
                              instanceVar, adapterInstanceClass,
-                             options,
+                             useReadMethods,
                              -1, // no generation support
                              partialStartVar, partialEndVar);
     }
@@ -213,7 +194,9 @@ public class GenericEncodingStrategy<S extends Storable> {
      * of a Storable instance.
      * @param adapterInstanceClass class containing static references to
      * adapter instances - defaults to instanceVar
-     * @param options optional encoding options
+     * @param useWriteMethods when true, set properties by public write
+     * methods instead of protected fields - should be used if class being
+     * generated doesn't have access to these fields
      * @param encodedVar required variable, which must be a byte array. At
      * runtime, it references an encoded key.
      *
@@ -225,14 +208,14 @@ public class GenericEncodingStrategy<S extends Storable> {
                                  OrderedProperty<S>[] properties,
                                  LocalVariable instanceVar,
                                  Class<?> adapterInstanceClass,
-                                 EnumSet<Option> options,
+                                 boolean useWriteMethods,
                                  LocalVariable encodedVar)
         throws SupportException
     {
         properties = ensureKeyProperties(properties);
         buildDecoding(Mode.KEY, assembler,
                       extractProperties(properties), extractDirections(properties),
-                      instanceVar, adapterInstanceClass, options,
+                      instanceVar, adapterInstanceClass, useWriteMethods,
                       -1, null, // no generation support
                       encodedVar);
     }
@@ -252,7 +235,8 @@ public class GenericEncodingStrategy<S extends Storable> {
      * of a Storable instance.
      * @param adapterInstanceClass class containing static references to
      * adapter instances - defaults to instanceVar
-     * @param options optional encoding options
+     * @param useReadMethods when true, access properties by public read
+     * methods instead of protected fields
      * @param generation when non-negative, write a storable layout generation
      * value in one or four bytes. Generation 0..127 is encoded in one byte, and
      * 128..max is encoded in four bytes, with the most significant bit set.
@@ -267,7 +251,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                                            StorableProperty<S>[] properties,
                                            LocalVariable instanceVar,
                                            Class<?> adapterInstanceClass,
-                                           EnumSet<Option> options,
+                                           boolean useReadMethods,
                                            int generation)
         throws SupportException
     {
@@ -275,7 +259,7 @@ public class GenericEncodingStrategy<S extends Storable> {
         return buildEncoding(Mode.DATA, assembler,
                              properties, null,
                              instanceVar, adapterInstanceClass,
-                             options, generation, null, null);
+                             useReadMethods, generation, null, null);
     }
 
     /**
@@ -291,7 +275,9 @@ public class GenericEncodingStrategy<S extends Storable> {
      * of a Storable instance.
      * @param adapterInstanceClass class containing static references to
      * adapter instances - defaults to instanceVar
-     * @param options optional encoding options
+     * @param useWriteMethods when true, set properties by public write
+     * methods instead of protected fields - should be used if class being
+     * generated doesn't have access to these fields
      * @param generation when non-negative, decoder expects a storable layout
      * generation value to match this value. Otherwise, it throws a
      * CorruptEncodingException.
@@ -311,7 +297,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                                   StorableProperty<S>[] properties,
                                   LocalVariable instanceVar,
                                   Class<?> adapterInstanceClass,
-                                  EnumSet<Option> options,
+                                  boolean useWriteMethods,
                                   int generation,
                                   Label altGenerationHandler,
                                   LocalVariable encodedVar)
@@ -319,7 +305,7 @@ public class GenericEncodingStrategy<S extends Storable> {
     {
         properties = ensureDataProperties(properties);
         buildDecoding(Mode.DATA, assembler, properties, null,
-                      instanceVar, adapterInstanceClass, options,
+                      instanceVar, adapterInstanceClass, useWriteMethods,
                       generation, altGenerationHandler, encodedVar);
     }
 
@@ -330,19 +316,17 @@ public class GenericEncodingStrategy<S extends Storable> {
      * @param assembler code assembler to receive bytecode instructions
      * @param properties specific properties to decode, defaults to all
      * properties if null
-     * @param options optional encoding options
      * @return local variable referencing a byte array with encoded data
      * @throws SupportException if any property type is not supported
      * @since 1.2
      */
     public LocalVariable buildSerialEncoding(CodeAssembler assembler,
-                                             StorableProperty<S>[] properties,
-                                             EnumSet<Option> options)
+                                             StorableProperty<S>[] properties)
         throws SupportException
     {
         properties = ensureAllProperties(properties);
         return buildEncoding
-            (Mode.SERIAL, assembler, properties, null, null, null, options, -1, null, null);
+            (Mode.SERIAL, assembler, properties, null, null, null, false, -1, null, null);
     }
 
     /**
@@ -352,7 +336,6 @@ public class GenericEncodingStrategy<S extends Storable> {
      * @param assembler code assembler to receive bytecode instructions
      * @param properties specific properties to decode, defaults to all
      * properties if null
-     * @param options optional encoding options
      * @param encodedVar required variable, which must be a byte array. At
      * runtime, it references encoded data.
      * @throws SupportException if any property type is not supported
@@ -361,13 +344,12 @@ public class GenericEncodingStrategy<S extends Storable> {
      */
     public void buildSerialDecoding(CodeAssembler assembler,
                                     StorableProperty<S>[] properties,
-                                    EnumSet<Option> options,
                                     LocalVariable encodedVar)
         throws SupportException
     {
         properties = ensureAllProperties(properties);
         buildDecoding
-            (Mode.SERIAL, assembler, properties, null, null, null, options, -1, null, encodedVar);
+            (Mode.SERIAL, assembler, properties, null, null, null, false, -1, null, encodedVar);
     }
 
     /**
@@ -636,7 +618,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                                         Direction[] directions,
                                         LocalVariable instanceVar,
                                         Class<?> adapterInstanceClass,
-                                        EnumSet<Option> options,
+                                        boolean useReadMethods,
                                         int generation,
                                         LocalVariable partialStartVar,
                                         LocalVariable partialEndVar)
@@ -715,7 +697,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                 // property is optional, then a byte prefix is needed to
                 // identify a null reference.
 
-                loadPropertyValue(a, info, 0, options,
+                loadPropertyValue(a, info, 0, useReadMethods,
                                   instanceVar, adapterInstanceClass, partialStartVar);
 
                 boolean descending = mode == Mode.KEY
@@ -803,10 +785,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                         hasVariableLength = true;
                     }
 
-                    if (info.getPropertyType() == info.getStorageType() &&
-                        // BigDecimal is adapted in this method, to strip trailing zeros.
-                        info.getPropertyType() != TypeDesc.forClass(BigDecimal.class))
-                    {
+                    if (info.getPropertyType() == info.getStorageType()) {
                         // Property won't be adapted, so loading it twice is no big deal.
                         continue;
                     }
@@ -961,7 +940,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                     } else {
                         // Load property to test for null.
                         loadPropertyValue(stashedProperties, stashedFromInstances,
-                                          a, info, i, options,
+                                          a, info, i, useReadMethods,
                                           instanceVar, adapterInstanceClass, partialStartVar);
 
                         Label isNull = a.createLabel();
@@ -993,7 +972,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                            propType.toClass() == BigDecimal.class)
                 {
                     loadPropertyValue(stashedProperties, stashedFromInstances,
-                                      a, info, i, options,
+                                      a, info, i, useReadMethods,
                                       instanceVar, adapterInstanceClass, partialStartVar);
 
                     String methodName;
@@ -1179,7 +1158,7 @@ public class GenericEncodingStrategy<S extends Storable> {
 
             boolean fromInstance = loadPropertyValue
                 (stashedProperties, stashedFromInstances,
-                 a, info, i, options,
+                 a, info, i, useReadMethods,
                  instanceVar, adapterInstanceClass, partialStartVar);
 
             TypeDesc propType = info.getStorageType();
@@ -1279,7 +1258,8 @@ public class GenericEncodingStrategy<S extends Storable> {
      * @param info info for property to load
      * @param ordinal zero-based property ordinal, used only if instanceVar
      * refers to an object array.
-     * @param options optional encoding options
+     * @param useReadMethod when true, access property by public read method
+     * instead of protected field
      * @param instanceVar local variable referencing Storable instance,
      * defaults to "this" if null. If variable type is an Object array, then
      * property values are read from the runtime value of this array instead
@@ -1297,7 +1277,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                                         Boolean[] stashedFromInstances,
                                         CodeAssembler a,
                                         StorablePropertyInfo info, int ordinal,
-                                        EnumSet<Option> options,
+                                        boolean useReadMethod,
                                         LocalVariable instanceVar,
                                         Class<?> adapterInstanceClass,
                                         LocalVariable partialStartVar)
@@ -1308,7 +1288,7 @@ public class GenericEncodingStrategy<S extends Storable> {
         }
 
         boolean fromInstance = loadPropertyValue
-            (a, info, ordinal, options, instanceVar, adapterInstanceClass, partialStartVar);
+            (a, info, ordinal, useReadMethod, instanceVar, adapterInstanceClass, partialStartVar);
 
         if (stashedProperties != null) {
             LocalVariable propVar = stashedProperties[ordinal];
@@ -1329,7 +1309,8 @@ public class GenericEncodingStrategy<S extends Storable> {
      * @param info info for property to load
      * @param ordinal zero-based property ordinal, used only if instanceVar
      * refers to an object array.
-     * @param options optional encoding options
+     * @param useReadMethod when true, access property by public read method
+     * instead of protected field
      * @param instanceVar local variable referencing Storable instance,
      * defaults to "this" if null. If variable type is an Object array, then
      * property values are read from the runtime value of this array instead
@@ -1345,7 +1326,7 @@ public class GenericEncodingStrategy<S extends Storable> {
      */
     protected boolean loadPropertyValue(CodeAssembler a,
                                         StorablePropertyInfo info, int ordinal,
-                                        EnumSet<Option> options,
+                                        boolean useReadMethod,
                                         LocalVariable instanceVar,
                                         Class<?> adapterInstanceClass,
                                         LocalVariable partialStartVar)
@@ -1356,11 +1337,9 @@ public class GenericEncodingStrategy<S extends Storable> {
         final boolean isObjectArrayInstanceVar = instanceVar != null
             && instanceVar.getType() == TypeDesc.forClass(Object[].class);
 
-        final boolean useMethod = options != null && options.contains(Option.USE_METHODS);
-
         final boolean useAdapterInstance = adapterInstanceClass != null
             && info.getToStorageAdapter() != null
-            && (useMethod || isObjectArrayInstanceVar);
+            && (useReadMethod || isObjectArrayInstanceVar);
 
         if (useAdapterInstance) {
             // Push adapter instance to stack to be used later.
@@ -1373,7 +1352,7 @@ public class GenericEncodingStrategy<S extends Storable> {
 
         if (instanceVar == null) {
             a.loadThis();
-            if (useMethod) {
+            if (useReadMethod) {
                 info.addInvokeReadMethod(a);
             } else {
                 // Access property value directly from protected field of "this".
@@ -1386,7 +1365,7 @@ public class GenericEncodingStrategy<S extends Storable> {
             }
         } else if (!isObjectArrayInstanceVar) {
             a.loadLocal(instanceVar);
-            if (useMethod) {
+            if (useReadMethod) {
                 info.addInvokeReadMethod(a, instanceVar.getType());
             } else {
                 // Access property value directly from protected field of
@@ -1420,18 +1399,6 @@ public class GenericEncodingStrategy<S extends Storable> {
         if (useAdapterInstance) {
             // Invoke adapter method on instance pushed earlier.
             a.invoke(info.getToStorageAdapter());
-        } else {
-            if (options != null && options.contains(Option.NORMALIZE)) {
-                TypeDesc bdType = TypeDesc.forClass(BigDecimal.class);
-                if (type == bdType) {
-                    // Normalize by stripping trailing zeros.
-                    a.dup();
-                    Label isNull = a.createLabel();
-                    a.ifNullBranch(isNull, true);
-                    a.invokeVirtual(bdType, "stripTrailingZeros", bdType, null);
-                    isNull.setLocation();
-                }
-            }
         }
 
         return !isObjectArrayInstanceVar;
@@ -1831,7 +1798,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                                Direction[] directions,
                                LocalVariable instanceVar,
                                Class<?> adapterInstanceClass,
-                               EnumSet<Option> options,
+                               boolean useWriteMethods,
                                int generation,
                                Label altGenerationHandler,
                                LocalVariable encodedVar)
@@ -1936,7 +1903,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                     // Just store raw property value.
                 }
 
-                storePropertyValue(a, info, options, instanceVar, adapterInstanceClass);
+                storePropertyValue(a, info, useWriteMethods, instanceVar, adapterInstanceClass);
                 return;
             }
         }
@@ -2150,7 +2117,7 @@ public class GenericEncodingStrategy<S extends Storable> {
 
             storePropertyLocation.setLocation();
 
-            storePropertyValue(a, info, options, instanceVar, adapterInstanceClass);
+            storePropertyValue(a, info, useWriteMethods, instanceVar, adapterInstanceClass);
 
             nextPropertyLocation.setLocation();
         }
@@ -2370,7 +2337,8 @@ public class GenericEncodingStrategy<S extends Storable> {
      * array must also be on the operand stack.
      *
      * @param info info for property to store to
-     * @param options optional encoding options
+     * @param useWriteMethod when true, set property by public write method
+     * instead of protected field
      * @param instanceVar local variable referencing Storable instance,
      * defaults to "this" if null. If variable type is an Object array, then
      * property values are written to the runtime value of this array instead
@@ -2380,7 +2348,7 @@ public class GenericEncodingStrategy<S extends Storable> {
      * @see #pushDecodingInstanceVar pushDecodingInstanceVar
      */
     protected void storePropertyValue(CodeAssembler a, StorablePropertyInfo info,
-                                      EnumSet<Option> options,
+                                      boolean useWriteMethod,
                                       LocalVariable instanceVar,
                                       Class<?> adapterInstanceClass) {
         TypeDesc type = info.getPropertyType();
@@ -2389,11 +2357,9 @@ public class GenericEncodingStrategy<S extends Storable> {
         boolean isObjectArrayInstanceVar = instanceVar != null
             && instanceVar.getType() == TypeDesc.forClass(Object[].class);
 
-        final boolean useMethod = options != null && options.contains(Option.USE_METHODS);
-
         boolean useAdapterInstance = adapterInstanceClass != null
             && info.getToStorageAdapter() != null
-            && (useMethod || isObjectArrayInstanceVar);
+            && (useWriteMethod || isObjectArrayInstanceVar);
 
         if (useAdapterInstance) {
             // Push adapter instance to adapt property value. It must be on the
@@ -2416,7 +2382,7 @@ public class GenericEncodingStrategy<S extends Storable> {
         }
 
         if (instanceVar == null) {
-            if (useMethod) {
+            if (useWriteMethod) {
                 info.addInvokeWriteMethod(a);
             } else {
                 // Set property value directly to protected field of instance.
@@ -2499,7 +2465,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                 return;
             }
 
-            if (useMethod) {
+            if (useWriteMethod) {
                 info.addInvokeWriteMethod(a, instanceVarType);
             } else {
                 // Set property value directly to protected field of referenced

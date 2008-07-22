@@ -180,11 +180,13 @@ public class RawStorableGenerator {
         EnumSet<MasterFeature> features;
         if (isMaster) {
             features = EnumSet.of(MasterFeature.VERSIONING,
+                                  MasterFeature.NORMALIZE,
                                   MasterFeature.UPDATE_FULL,
                                   MasterFeature.INSERT_SEQUENCES,
                                   MasterFeature.INSERT_CHECK_REQUIRED);
         } else {
-            features = EnumSet.of(MasterFeature.UPDATE_FULL);
+            features = EnumSet.of(MasterFeature.NORMALIZE,
+                                  MasterFeature.UPDATE_FULL);
         }
 
         final Class<? extends S> abstractClass =

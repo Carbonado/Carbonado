@@ -99,7 +99,7 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
         try {
             obj = current.getPropertyFilter().adaptValue(value);
         } catch (IllegalArgumentException e) {
-            throw mismatch(int.class, value);
+            throw mismatch(e);
         }
         return with(current, obj);
     }
@@ -117,7 +117,7 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
         try {
             obj = current.getPropertyFilter().adaptValue(value);
         } catch (IllegalArgumentException e) {
-            throw mismatch(long.class, value);
+            throw mismatch(e);
         }
         return with(current, obj);
     }
@@ -135,7 +135,7 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
         try {
             obj = current.getPropertyFilter().adaptValue(value);
         } catch (IllegalArgumentException e) {
-            throw mismatch(float.class, value);
+            throw mismatch(e);
         }
         return with(current, obj);
     }
@@ -153,7 +153,7 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
         try {
             obj = current.getPropertyFilter().adaptValue(value);
         } catch (IllegalArgumentException e) {
-            throw mismatch(double.class, value);
+            throw mismatch(e);
         }
         return with(current, obj);
     }
@@ -171,7 +171,7 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
         try {
             obj = current.getPropertyFilter().adaptValue(value);
         } catch (IllegalArgumentException e) {
-            throw mismatch(boolean.class, value);
+            throw mismatch(e);
         }
         return with(current, obj);
     }
@@ -189,7 +189,7 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
         try {
             obj = current.getPropertyFilter().adaptValue(value);
         } catch (IllegalArgumentException e) {
-            throw mismatch(char.class, value);
+            throw mismatch(e);
         }
         return with(current, obj);
     }
@@ -207,7 +207,7 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
         try {
             obj = current.getPropertyFilter().adaptValue(value);
         } catch (IllegalArgumentException e) {
-            throw mismatch(byte.class, value);
+            throw mismatch(e);
         }
         return with(current, obj);
     }
@@ -225,7 +225,7 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
         try {
             obj = current.getPropertyFilter().adaptValue(value);
         } catch (IllegalArgumentException e) {
-            throw mismatch(short.class, value);
+            throw mismatch(e);
         }
         return with(current, obj);
     }
@@ -243,7 +243,7 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
         try {
             obj = current.getPropertyFilter().adaptValue(value);
         } catch (IllegalArgumentException e) {
-            throw mismatch(value == null ? null : value.getClass(), value);
+            throw mismatch(e);
         }
         return with(current, obj);
     }
@@ -672,17 +672,12 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
         return current;
     }
 
-    private IllegalArgumentException mismatch(Class<?> actualType, Object actualValue) {
+    private IllegalArgumentException mismatch(IllegalArgumentException e) {
         PropertyFilterList<S> current = currentProperty();
         PropertyFilter<S> propFilter = current.getPropertyFilter();
 
         StringBuilder b = new StringBuilder();
-
-        try {
-            propFilter.appendMismatchMessage(b, actualType, actualValue);
-        } catch (IOException e) {
-            // Not gonna happen
-        }
+        b.append(e.getMessage());
 
         int subFilterCount = current.getPreviousRemaining() + current.getNextRemaining() + 1;
 
@@ -696,7 +691,7 @@ public class FilterValues<S extends Storable> implements Serializable, Appender 
             b.append(" sub filter in \"");
             try {
                 appendTo(b);
-            } catch (IOException e) {
+            } catch (IOException e2) {
                 // Not gonna happen
             }
             b.append('"');
