@@ -51,7 +51,7 @@ import org.cojen.util.SoftValuedHashMap;
  * @since 1.2
  */
 public abstract class Converter {
-    private static final Map<Class, Converter> cCache = new SoftValuedHashMap<Class, Converter>();
+    private static final Map<Class, Converter> cCache = new SoftValuedHashMap();
 
     public static synchronized <C extends Converter> C build(Class<C> converterType) {
         C converter = (C) cCache.get(converterType);
