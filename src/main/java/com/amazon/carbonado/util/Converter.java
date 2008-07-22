@@ -21,8 +21,6 @@ package com.amazon.carbonado.util;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
-import java.math.BigInteger;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -293,16 +291,6 @@ public abstract class Converter {
             addConversionSwitch(b, fromType);
         }
 
-        /*
-         * Generate big switch statements that operate on Classes.
-         *
-         * For switch case count, obtain a prime number, at least twice as
-         * large as needed. This should minimize hash collisions. Since all
-         * the hash keys are known up front, the capacity could be tweaked
-         * until there are no collisions, but this technique is easier and
-         * deterministic.
-         */
-
         private void addConversionSwitch(CodeBuilder b, Class fromType) {
             Map<Class, Method> toMap;
             Map<Class, ?> caseMap;
@@ -325,23 +313,28 @@ public abstract class Converter {
                 caseMap = toMap;
             }
 
-            int caseCount = caseCount(caseMap.size());
+            Map<Integer, List<Class>> caseMatches = new HashMap<Integer, List<Class>>();
 
-            int[] cases = new int[caseCount];
-            for (int i=0; i<caseCount; i++) {
-                cases[i] = i;
+            for (Class to : caseMap.keySet()) {
+                int caseValue = to.hashCode();
+                List<Class> matches = caseMatches.get(caseValue);
+                if (matches == null) {
+                    matches = new ArrayList<Class>();
+                    caseMatches.put(caseValue, matches);
+                }
+                matches.add(to);
             }
 
-            Label[] switchLabels = new Label[caseCount];
+            int[] cases = new int[caseMatches.size()];
+            Label[] switchLabels = new Label[caseMatches.size()];
             Label noMatch = b.createLabel();
-            List<Class>[] caseMatches = caseMatches(caseMap, caseCount);
 
-            for (int i=0; i<caseCount; i++) {
-                List<?> matches = caseMatches[i];
-                if (matches == null || matches.size() == 0) {
-                    switchLabels[i] = noMatch;
-                } else {
+            {
+                int i = 0;
+                for (Integer caseValue : caseMatches.keySet()) {
+                    cases[i] = caseValue;
                     switchLabels[i] = b.createLabel();
+                    i++;
                 }
             }
 
@@ -359,24 +352,14 @@ public abstract class Converter {
 
             if (caseMap.size() > 1) {
                 b.loadLocal(caseVar);
-
                 b.invokeVirtual(Class.class.getName(), "hashCode", TypeDesc.INT, null);
-                b.loadConstant(0x7fffffff);
-                b.math(Opcode.IAND);
-                b.loadConstant(caseCount);
-                b.math(Opcode.IREM);
-
                 b.switchBranch(cases, switchLabels, noMatch);
             }
 
             TypeDesc fromTypeDesc = TypeDesc.forClass(fromType);
 
-            for (int i=0; i<caseCount; i++) {
-                List<Class> matches = caseMatches[i];
-                if (matches == null || matches.size() == 0) {
-                    continue;
-                }
-
+            int i = 0;
+            for (List<Class> matches : caseMatches.values()) {
                 switchLabels[i].setLocation();
 
                 int matchCount = matches.size();
@@ -445,6 +428,8 @@ public abstract class Converter {
                         notEqual.setLocation();
                     }
                 }
+
+                i++;
             }
 
             noMatch.setLocation();
@@ -480,35 +465,6 @@ public abstract class Converter {
                             TypeDesc.forClass(IllegalArgumentException.class),
                             new TypeDesc[] {TypeDesc.OBJECT, classType, classType});
             b.throwObject();
-        }
-
-        private int caseCount(int size) {
-            BigInteger capacity = BigInteger.valueOf(size * 2 + 1);
-            while (!capacity.isProbablePrime(100)) {
-                capacity = capacity.add(BigInteger.valueOf(2));
-            }
-            return capacity.intValue();
-        }
-
-        /**
-         * Returns the types that match on a given case. The array length is
-         * the same as the case count. Each list represents the matches. The
-         * lists themselves may be null if no matches for that case.
-         */
-        private List<Class>[] caseMatches(Map<Class, ?> caseMap, int caseCount) {
-            List<Class>[] cases = new List[caseCount];
-
-            for (Class to : caseMap.keySet()) {
-                int hashCode = to.hashCode();
-                int caseValue = (hashCode & 0x7fffffff) % caseCount;
-                List matches = cases[caseValue];
-                if (matches == null) {
-                    matches = cases[caseValue] = new ArrayList<Class>();
-                }
-                matches.add(to);
-            }
-
-            return cases;
         }
 
         /**
