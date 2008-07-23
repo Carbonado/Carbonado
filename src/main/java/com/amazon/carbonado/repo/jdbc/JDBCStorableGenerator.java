@@ -27,10 +27,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.cojen.classfile.ClassFile;
 import org.cojen.classfile.CodeBuilder;
 import org.cojen.classfile.Label;
@@ -42,6 +44,8 @@ import org.cojen.classfile.TypeDesc;
 import org.cojen.util.ClassInjector;
 import org.cojen.util.KeyFactory;
 import org.cojen.util.SoftValuedHashMap;
+
+import org.joda.time.ReadableInstant;
 
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.OptimisticLockException;
@@ -792,7 +796,34 @@ class JDBCStorableGenerator<S extends Storable> {
                 b.invokeVirtual(MasterStorableGenerator.DO_TRY_LOAD_MASTER_METHOD_NAME,
                                 TypeDesc.BOOLEAN,
                                 new TypeDesc[] {jdbcSupportType, connectionType, lobArrayType});
-                b.pop();
+                Label reloaded = b.createLabel();
+                b.ifZeroComparisonBranch(reloaded, "!=");
+
+                String message = "Reload after insert failed, " +
+                    "possibly because database changed the primary key: ";
+
+                for (JDBCStorableProperty<S> prop : mInfo.getPrimaryKeyProperties().values()) {
+                    Class type = prop.getType();
+                    if (Date.class.isAssignableFrom(type) ||
+                        ReadableInstant.class.isAssignableFrom(type))
+                    {
+                        message += "Property type of date may have been truncated: " + 
+                            prop.getName() + ": ";
+                    }
+                }
+
+                TypeDesc persistExType = TypeDesc.forClass(PersistException.class);
+                b.newObject(persistExType);
+                b.dup();
+                b.loadConstant(message);
+                b.loadThis();
+                b.invokeVirtual(TO_STRING_KEY_ONLY_METHOD_NAME, TypeDesc.STRING, null);
+                b.invokeVirtual(TypeDesc.STRING, "concat",
+                                TypeDesc.STRING, new TypeDesc[] {TypeDesc.STRING});
+                b.invokeConstructor(persistExType, new TypeDesc[] {TypeDesc.STRING});
+                b.throwObject();
+
+                reloaded.setLocation();
             }
 
             // Note: yieldConAndHandleException is not called, allowing any
