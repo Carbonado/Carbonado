@@ -152,7 +152,7 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                 if (!master.tryUpdate()) {
                     // Master record does not exist. To ensure consistency,
                     // delete record from replica.
-                    tryDeleteReplica(replica);
+                    repair(replica);
                     throw abortTry();
                 }
             } else {
@@ -161,7 +161,7 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                 } catch (PersistNoneException e) {
                     // Master record does not exist. To ensure consistency,
                     // delete record from replica.
-                    tryDeleteReplica(replica);
+                    repair(replica);
                     throw e;
                 }
             }
