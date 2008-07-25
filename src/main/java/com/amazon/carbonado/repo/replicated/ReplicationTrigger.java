@@ -152,7 +152,12 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                 if (!master.tryUpdate()) {
                     // Master record does not exist. To ensure consistency,
                     // delete record from replica.
-                    repair(replica);
+                    if (tryDeleteReplica(replica)) {
+                        // Replica was inconsistent, but caller might be in a
+                        // transaction and rollback the repair. Run repair
+                        // again in separate thread to ensure it sticks.
+                        repair(replica);
+                    }
                     throw abortTry();
                 }
             } else {
@@ -161,7 +166,12 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                 } catch (PersistNoneException e) {
                     // Master record does not exist. To ensure consistency,
                     // delete record from replica.
-                    repair(replica);
+                    if (tryDeleteReplica(replica)) {
+                        // Replica was inconsistent, but caller might be in a
+                        // transaction and rollback the repair. Run repair
+                        // again in separate thread to ensure it sticks.
+                        repair(replica);
+                    }
                     throw e;
                 }
             }
