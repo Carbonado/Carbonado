@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
 
 import org.cojen.classfile.ClassFile;
 import org.cojen.classfile.Modifiers;
@@ -447,6 +448,11 @@ public class CodeBuilderUtil {
             // Special treatment to handle NaN.
             b.invokeVirtual(TypeDesc.DOUBLE.toObjectType(), "compareTo", TypeDesc.INT,
                             new TypeDesc[] {TypeDesc.DOUBLE.toObjectType()});
+            return choice ? "==" : "!=";
+        } else if (BigDecimal.class.isAssignableFrom(fieldType.toClass())) {
+            // Call compareTo to disregard scale.
+            TypeDesc bdType = TypeDesc.forClass(BigDecimal.class);
+            b.invokeVirtual(bdType, "compareTo", TypeDesc.INT, new TypeDesc[] {bdType});
             return choice ? "==" : "!=";
         } else {
             TypeDesc[] params = {TypeDesc.OBJECT};
