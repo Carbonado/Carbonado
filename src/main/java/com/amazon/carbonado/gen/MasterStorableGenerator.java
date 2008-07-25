@@ -130,19 +130,54 @@ public final class MasterStorableGenerator<S extends Storable> {
     {
         StorableInfo<S> info = StorableIntrospector.examine(type);
 
-        anySequences:
-        if (features.contains(MasterFeature.INSERT_SEQUENCES)) {
-            for (StorableProperty<S> property : info.getAllProperties().values()) {
-                if (!property.isDerived() && property.getSequenceName() != null) {
-                    break anySequences;
-                }
-            }
-            features.remove(MasterFeature.INSERT_SEQUENCES);
+        if (features == null) {
+            features = EnumSet.noneOf(MasterFeature.class);
+        } else {
+            features = features.clone();
         }
 
-        if (info.getVersionProperty() == null) {
-            features.remove(MasterFeature.VERSIONING);
+        // Remove any features which don't apply.
+        {
+            boolean anySequences = false;
+            boolean doNormalize = false;
+
+            if (features.contains(MasterFeature.INSERT_SEQUENCES) ||
+                features.contains(MasterFeature.NORMALIZE))
+            {
+                for (StorableProperty<S> property : info.getAllProperties().values()) {
+                    if (property.isDerived() || property.isJoin()) {
+                        continue;
+                    }
+                    if (!anySequences) {
+                        if (property.getSequenceName() != null) {
+                            anySequences = true;
+                        }
+                    }
+                    if (!doNormalize) {
+                        if (BigDecimal.class.isAssignableFrom(property.getType())) {
+                            doNormalize = true;
+                        }
+                    }
+                    if (anySequences && doNormalize) {
+                        break;
+                    }
+                }
+
+                if (!anySequences) {
+                    features.remove(MasterFeature.INSERT_SEQUENCES);
+                }
+
+                if (!doNormalize) {
+                    features.remove(MasterFeature.NORMALIZE);
+                }
+            }
+
+            if (info.getVersionProperty() == null) {
+                features.remove(MasterFeature.VERSIONING);
+            }
         }
+
+        // Add implied features.
 
         if (features.contains(MasterFeature.VERSIONING)) {
             // Implied feature.
@@ -495,16 +530,11 @@ public final class MasterStorableGenerator<S extends Storable> {
             }
 
             // Copy of properties before normalization.
-            List<PropertyCopy> unnormalized = null;
-            if (mFeatures.contains(MasterFeature.NORMALIZE)) {
-                unnormalized = addNormalization(b, false);
-            }
-
+            List<PropertyCopy> unnormalized = addNormalization(b, false);
             Label doTryStart = b.createLabel().setLocation();
 
             b.loadThis();
             b.invokeVirtual(DO_TRY_INSERT_MASTER_METHOD_NAME, TypeDesc.BOOLEAN, null);
-
             addNormalizationRollback(b, doTryStart, unnormalized);
 
             if (tryStart == null) {
@@ -555,20 +585,17 @@ public final class MasterStorableGenerator<S extends Storable> {
 
             Label tryLoadStart = null, tryLoadEnd = null;
 
-            // Copy of properties before normalization.
-            List<PropertyCopy> unnormalized = null;
-            if (mFeatures.contains(MasterFeature.NORMALIZE)) {
-                unnormalized = addNormalization(b, false);
-            }
-
-            Label doTryStart = b.createLabel().setLocation();
-
             if (!mFeatures.contains(MasterFeature.UPDATE_FULL)) {
+                // Copy of properties before normalization.
+                List<PropertyCopy> unnormalized = addNormalization(b, true);
+                Label doTryStart = b.createLabel().setLocation();
+
                 // if (!this.doTryUpdateMaster()) {
                 //     goto failed;
                 // }
                 b.loadThis();
                 b.invokeVirtual(DO_TRY_UPDATE_MASTER_METHOD_NAME, TypeDesc.BOOLEAN, null);
+                addNormalizationRollback(b, doTryStart, unnormalized);
                 b.ifZeroComparisonBranch(failed, "==");
             } else {
                 // Storable saved = copy();
@@ -707,6 +734,10 @@ public final class MasterStorableGenerator<S extends Storable> {
                     allowedVersion.setLocation();
                 }
 
+                // Copy of properties before normalization.
+                List<PropertyCopy> unnormalized = addNormalization(b, true);
+                Label doTryStart = b.createLabel().setLocation();
+
                 // this.copyDirtyProperties(saved);
                 // if (version support enabled) {
                 //     saved.setVersionNumber(saved.getVersionNumber() + 1);
@@ -725,6 +756,7 @@ public final class MasterStorableGenerator<S extends Storable> {
                 // }
                 b.loadLocal(savedVar);
                 b.invokeVirtual(DO_TRY_UPDATE_MASTER_METHOD_NAME, TypeDesc.BOOLEAN, null);
+                addNormalizationRollback(b, doTryStart, unnormalized);
                 b.ifZeroComparisonBranch(failed, "==");
 
                 // saved.copyUnequalProperties(this);
@@ -1051,8 +1083,12 @@ public final class MasterStorableGenerator<S extends Storable> {
     private List<PropertyCopy> addNormalization(CodeBuilder b, boolean forUpdate) {
         List<PropertyCopy> unnormalized = null;
 
+        if (!mFeatures.contains(MasterFeature.NORMALIZE)) {
+            return unnormalized;
+        }
+
         for (StorableProperty<S> property : mAllProperties.values()) {
-            if (property.isDerived()) {
+            if (property.isDerived() || property.isJoin()) {
                 continue;
             }
             if (!BigDecimal.class.isAssignableFrom(property.getType())) {
@@ -1068,20 +1104,50 @@ public final class MasterStorableGenerator<S extends Storable> {
 
             copy.makeCopy(b);
 
+            // Skip property if null.
             b.loadLocal(copy.copyVar);
             Label skipNormalize = b.createLabel();
             b.ifNullBranch(skipNormalize, true);
 
             if (forUpdate) {
-                // FIXME: for update, also check if dirty
+                // Also skip property if not dirty.
+
+                String stateFieldName =
+                    StorableGenerator.PROPERTY_STATE_FIELD_NAME + (property.getNumber() >> 4);
+
+                b.loadThis();
+                b.loadField(stateFieldName, TypeDesc.INT);
+                int shift = (property.getNumber() & 0xf) * 2;
+                b.loadConstant(StorableGenerator.PROPERTY_STATE_MASK << shift);
+                b.math(Opcode.IAND);
+                b.loadConstant(StorableGenerator.PROPERTY_STATE_DIRTY << shift);
+
+                b.ifComparisonBranch(skipNormalize, "!=");
             }
 
-            // Normalize by stripping trailing zeros.
-            // FIXME: Workaround BigDecimal.ZERO bug.
+            // Normalize by stripping trailing zeros and also workaround
+            // BigDecimal.ZERO bug when calling stripTrailingZeros. #6480539
+
+            // Load this in preparation for storing to field.
             b.loadThis();
-            b.loadLocal(copy.copyVar);
+
             TypeDesc propertyType = copy.copyVar.getType();
+
+            b.loadStaticField(propertyType, "ZERO", propertyType);
+            b.loadLocal(copy.copyVar);
+            b.invokeVirtual(propertyType, "compareTo", TypeDesc.INT,
+                            new TypeDesc[] {propertyType});
+            Label notZero = b.createLabel();
+            b.ifZeroComparisonBranch(notZero, "!=");
+            b.loadStaticField(propertyType, "ZERO", propertyType);
+            Label storeField = b.createLabel();
+            b.branch(storeField);
+
+            notZero.setLocation();
+            b.loadLocal(copy.copyVar);
             b.invokeVirtual(propertyType, "stripTrailingZeros", propertyType, null);
+
+            storeField.setLocation();
             b.storeField(property.getName(), propertyType);
 
             skipNormalize.setLocation();
@@ -1096,31 +1162,33 @@ public final class MasterStorableGenerator<S extends Storable> {
     private void addNormalizationRollback(CodeBuilder b, Label doTryStart,
                                           List<PropertyCopy> unnormalized)
     {
-        if (unnormalized != null) {
-            Label doTryEnd = b.createLabel().setLocation();
-
-            b.dup();
-            Label success = b.createLabel();
-            b.ifZeroComparisonBranch(success, "!=");
-
-            for (int i=0; i<2; i++) {
-                if (i == 0) {
-                } else {
-                    b.exceptionHandler(doTryStart, doTryEnd, null);
-                }
-                // Rollback normalized properties.
-                for (PropertyCopy copy : unnormalized) {
-                    copy.restore(b);
-                }
-                if (i == 0) {
-                    b.branch(success);
-                } else {
-                    b.throwObject();
-                }
-            }
-
-            success.setLocation();
+        if (unnormalized == null) {
+            return;
         }
+
+        Label doTryEnd = b.createLabel().setLocation();
+
+        b.dup();
+        Label success = b.createLabel();
+        b.ifZeroComparisonBranch(success, "!=");
+
+        for (int i=0; i<2; i++) {
+            if (i == 0) {
+            } else {
+                b.exceptionHandler(doTryStart, doTryEnd, null);
+            }
+            // Rollback normalized properties.
+            for (PropertyCopy copy : unnormalized) {
+                copy.restore(b);
+            }
+            if (i == 0) {
+                b.branch(success);
+            } else {
+                b.throwObject();
+            }
+        }
+
+        success.setLocation();
     }
 
     private static class PropertyCopy<S extends Storable> {

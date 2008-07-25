@@ -25,22 +25,22 @@ package com.amazon.carbonado.gen;
  * @since 1.2
  */
 public enum MasterFeature {
-    /** Insert and update operations implement record versioning, if version property exists */
+    /** Insert and update operations implement record versioning, if version property exists. */
     VERSIONING,
 
-    /** Insert and update operations normalize property types such as BigDecimal */
+    /** Insert and update operations normalize property types such as BigDecimal. */
     NORMALIZE,
 
-    /** Update operations load clean copy first, to prevent destructive update */
+    /** Update operations load clean copy first, to prevent destructive update. */
     UPDATE_FULL,
 
-    /** Ensure update operation always is in a transaction */
+    /** Ensure update operation always is in a transaction. */
     UPDATE_TXN,
 
-    /** Ensure update operation always is in a transaction, "for update" */
+    /** Ensure update operation always is in a transaction, "for update". */
     UPDATE_TXN_FOR_UPDATE,
 
-    /** Insert operation applies any sequences to unset properties */
+    /** Insert operation applies any sequences to unset properties. */
     INSERT_SEQUENCES,
 
     /**
@@ -49,15 +49,15 @@ public enum MasterFeature {
      */
     INSERT_CHECK_REQUIRED,
 
-    /** Ensure insert operation always is in a transaction */
+    /** Ensure insert operation always is in a transaction. */
     INSERT_TXN,
 
-    /** Ensure insert operation always is in a transaction, "for update" */
+    /** Ensure insert operation always is in a transaction, "for update". */
     INSERT_TXN_FOR_UPDATE,
 
-    /** Ensure delete operation always is in a transaction */
+    /** Ensure delete operation always is in a transaction. */
     DELETE_TXN,
 
-    /** Ensure delete operation always is in a transaction, "for update" */
+    /** Ensure delete operation always is in a transaction, "for update". */
     DELETE_TXN_FOR_UPDATE,
 }
