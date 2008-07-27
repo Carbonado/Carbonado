@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.util;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
@@ -49,15 +50,36 @@ import org.cojen.util.SoftValuedHashMap;
  * @since 1.2
  */
 public abstract class Converter {
-    private static final Map<Class, Converter> cCache = new SoftValuedHashMap();
+    private static final Map<Class, Class<? extends Converter>> cCache = new SoftValuedHashMap();
 
-    public static synchronized <C extends Converter> C build(Class<C> converterType) {
-        C converter = (C) cCache.get(converterType);
-        if (converter == null) {
-            converter = new Builder<C>(converterType).build();
-            cCache.put(converterType, converter);
+    /**
+     * @param converterType type of converter to generate
+     * @throws IllegalArgumentException if converter doesn't a no-arg constructor
+     */
+    public static <C extends Converter> C build(Class<C> converterType) {
+        try {
+            return buildClass(converterType).newInstance();
+        } catch (InstantiationException e) {
+            throw new IllegalArgumentException
+                ("TypeConverter must have a public no-arg constructor: " + converterType);
+        } catch (IllegalAccessException e) {
+            // Not expected to happen, since generated constructors are public.
+            throw new IllegalArgumentException(e);
         }
-        return converter;
+    }
+
+    /**
+     * @param converterType type of converter to generate
+     */
+    public static synchronized <C extends Converter> Class<? extends C> buildClass
+        (Class<C> converterType)
+    {
+        Class<? extends C> converterClass = (Class<? extends C>) cCache.get(converterType);
+        if (converterClass == null) {
+            converterClass = new Builder<C>(converterType).buildClass();
+            cCache.put(converterType, converterClass);
+        }
+        return converterClass;
     }
 
     /**
@@ -161,13 +183,6 @@ public abstract class Converter {
                 throw new IllegalArgumentException("Not a TypeConverter: " + converterType);
             }
 
-            try {
-                converterType.getConstructor();
-            } catch (NoSuchMethodException e) {
-                throw new IllegalArgumentException
-                    ("TypeConverter must have a public no-arg constructor: " + converterType);
-            }
-
             mConverterType = converterType;
             mConvertMap = new HashMap<Class, Map<Class, Method>>();
 
@@ -235,7 +250,7 @@ public abstract class Converter {
             */
         }
 
-        C build() {
+        Class<? extends C> buildClass() {
             ClassInjector ci = ClassInjector
                 .create(mConverterType.getName(), mConverterType.getClassLoader());
 
@@ -244,7 +259,36 @@ public abstract class Converter {
             mClassFile.setSourceFile(Converter.class.getName());
             mClassFile.setTarget("1.5");
 
-            mClassFile.addDefaultConstructor();
+            // Add constructors which match superclass.
+            int ctorCount = 0;
+            for (Constructor ctor : mConverterType.getDeclaredConstructors()) {
+                int modifiers = ctor.getModifiers();
+                if (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers)) {
+                    continue;
+                }
+
+                ctorCount++;
+
+                TypeDesc[] params = new TypeDesc[ctor.getParameterTypes().length];
+                for (int i=0; i<params.length; i++) {
+                    params[i] = TypeDesc.forClass(ctor.getParameterTypes()[i]);
+                }
+
+                MethodInfo mi = mClassFile.addConstructor(Modifiers.PUBLIC, params);
+                CodeBuilder b = new CodeBuilder(mi);
+
+                b.loadThis();
+                for (int i=0; i<params.length; i++) {
+                    b.loadLocal(b.getParameter(0));
+                }
+                b.invokeSuperConstructor(params);
+                b.returnVoid();
+            }
+
+            if (ctorCount == 0) {
+                throw new IllegalArgumentException
+                    ("TypeConverter has no public or protected constructors: " + mConverterType);
+            }
 
             addPrimitiveConvertMethod(byte.class);
             addPrimitiveConvertMethod(short.class);
@@ -269,15 +313,7 @@ public abstract class Converter {
                 addConversionSwitch(b, null);
             }
 
-            Class clazz = ci.defineClass(mClassFile);
-
-            try {
-                return (C) clazz.newInstance();
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            } catch (InstantiationException e) {
-                throw new RuntimeException(e);
-            }
+            return ci.defineClass(mClassFile);
         }
 
         private void addPrimitiveConvertMethod(Class fromType) {
@@ -418,7 +454,7 @@ public abstract class Converter {
                             b.convert(fromTypeDesc, TypeDesc.forClass(paramType));
                             b.invoke(convertMethod);
                             TypeDesc retType = TypeDesc.forClass(convertMethod.getReturnType());
-                            b.convert(retType, retType.toObjectType());
+                            b.convert(retType, toTypeDesc.toObjectType());
                         }
 
                         b.returnValue(TypeDesc.OBJECT);
@@ -484,6 +520,34 @@ public abstract class Converter {
         }
 
         private void addAutomaticConversion(Class fromType, Class toType, Method method) {
+            if (method != null) {
+                Class paramType = method.getParameterTypes()[0];
+                if (!paramType.isAssignableFrom(fromType)) {
+                    if (!fromType.isPrimitive() && paramType.isPrimitive()) {
+                        // Reject because unboxing could result in NullPointerException.
+                        return;
+                    }
+                    if (!new ConversionComparator(fromType).isConversionPossible(paramType)) {
+                        // Reject.
+                        return;
+                    }
+                }
+
+                Class returnType = method.getReturnType();
+                if (!toType.isAssignableFrom(returnType)) {
+                    if (!returnType.isPrimitive() && toType.isPrimitive()) {
+                        // Reject because unboxing could result in NullPointerException.
+                        return;
+                    }
+                    if (TypeDesc.forClass(returnType).toObjectType() !=
+                        TypeDesc.forClass(toType).toObjectType())
+                    {
+                        // Reject widening or narrowing return type.
+                        return;
+                    }
+                }
+            }
+
             addConversionIfNotExists(fromType, toType, method);
 
             // Add no-op conversions.
