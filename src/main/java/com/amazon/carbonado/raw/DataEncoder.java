@@ -362,7 +362,7 @@ public class DataEncoder {
      * @param dstOffset offset into destination array
      * @return amount of bytes written
      * @since 1.2
-     */
+     * /
     public static int encode(BigDecimal value, byte[] dst, int dstOffset) {
         if (value == null) {
             dst[dstOffset] = NULL_BYTE_HIGH;
@@ -378,13 +378,14 @@ public class DataEncoder {
      * @param value BigDecimal value to encode, may be null
      * @return amount of bytes needed to encode
      * @since 1.2
-     */
+     * /
     public static int calculateEncodedLength(BigDecimal value) {
         if (value == null) {
             return 1;
         }
         return signedVarIntLength(value.scale()) + calculateEncodedLength(value.unscaledValue());
     }
+    */
 
     /**
      * Encodes the given optional byte array into a variable amount of

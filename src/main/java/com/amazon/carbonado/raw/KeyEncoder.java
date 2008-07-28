@@ -434,7 +434,7 @@ public class KeyEncoder {
      * @param dstOffset offset into destination array
      * @return amount of bytes written
      * @since 1.2
-     */
+     * /
     public static int encode(BigDecimal value, byte[] dst, int dstOffset) {
         /* Encoding of first byte:
 
@@ -450,7 +450,7 @@ public class KeyEncoder {
         0xc0..0xfd: positive signum; positive exponent; 3e range, 0..61
         0xfe:       positive signum; four bytes follow for positive exponent
         0xff:       null high
-        */
+        * /
 
         if (value == null) {
             dst[dstOffset] = NULL_BYTE_HIGH;
@@ -467,6 +467,8 @@ public class KeyEncoder {
 
         int scale = value.scale();
         int exponent = value.precision() - scale;
+        System.out.println("exponent: " + exponent);
+        System.out.println("unscaled: " + value.unscaledValue());
 
         if (signum < 0) {
             if (exponent >= -0x3e && exponent < 0x3e) {
@@ -502,7 +504,7 @@ public class KeyEncoder {
         0x01..0x7f: negative scale; 7f range, -127..-1
         0x80..0xfe: positive scale; 7f range, 0..126
         0xff:       positive scale; four bytes follow for scale
-        */
+        * /
 
         if (signum < 0) {
             scale = ~scale;
@@ -532,7 +534,7 @@ public class KeyEncoder {
      * @param dstOffset offset into destination array
      * @return amount of bytes written
      * @since 1.2
-     */
+     * /
     public static int encodeDesc(BigDecimal value, byte[] dst, int dstOffset) {
         /* Encoding of first byte:
 
@@ -548,7 +550,7 @@ public class KeyEncoder {
         0xc0..0xfd: negative signum; positive exponent; 3e range, 61..0
         0xfe:       negative signum; four bytes follow for positive exponent
         0xff:       null low
-        */
+        * /
 
         if (value == null) {
             dst[dstOffset] = NULL_BYTE_LOW;
@@ -600,7 +602,7 @@ public class KeyEncoder {
         0x01..0x7f: positive scale; 7f range, 0..126
         0x80..0xfe: negative scale; 7f range, -127..-1
         0xff:       negative scale; four bytes follow for scale
-        */
+        * /
 
         if (signum < 0) {
             scale = ~scale;
@@ -625,7 +627,7 @@ public class KeyEncoder {
      * @param value BigDecimal value to encode, may be null
      * @return amount of bytes needed to encode
      * @since 1.2
-     */
+     * /
     public static int calculateEncodedLength(BigDecimal value) {
         if (value == null || value.signum() == 0) {
             return 1;
@@ -639,6 +641,7 @@ public class KeyEncoder {
             
         return headerSize + calculateEncodedLength(value.unscaledValue()) + scaleSize;
     }
+    */
 
     /**
      * Encodes the given optional unsigned byte array into a variable amount of

@@ -47,7 +47,7 @@ Carbonado change history
 - Support fetching slices of queries, which translates to a SQL offset and limit.
 - Added volatile map repository.
 - Added listener callback for replicated repository resync.
-- Added support for BigInteger and BigDecimal property types.
+- Added support for BigInteger property type.
 
 1.1.2 to 1.1.3
 -------------------------------
