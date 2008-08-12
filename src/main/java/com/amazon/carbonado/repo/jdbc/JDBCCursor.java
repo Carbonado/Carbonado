@@ -135,6 +135,8 @@ class JDBCCursor<S extends Storable> extends AbstractCursor<S> {
                 actual++;
                 amount--;
                 mHasNext = false;
+            } else {
+                break;
             }
         }
 

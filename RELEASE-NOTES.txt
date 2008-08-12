@@ -49,6 +49,10 @@ Carbonado change history
 - Added listener callback for replicated repository resync.
 - Added support for BigInteger property type.
 
+1.1.3 to 1.1.4
+-------------------------------
+- Fixed bug in JDBCCursor.skipNext which may loop infinitely.
+
 1.1.2 to 1.1.3
 -------------------------------
 - Reduce creation of unnecessary nested transactions.
