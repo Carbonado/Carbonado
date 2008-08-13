@@ -322,15 +322,15 @@ class MapStorage<S extends Storable>
 
     // Caller must hold upgrade or write lock.
     private boolean doTryInsertNoLock(S storable) {
-        Key<S> key = new Key<S>(storable, mFullComparator);
-        S existing = mMap.get(key);
-        if (existing != null) {
-            return false;
-        }
         // Create a fresh copy to ensure that custom fields are not saved.
         S copy = (S) storable.prepare();
         storable.copyAllProperties(copy);
         copy.markAllPropertiesClean();
+        Key<S> key = new Key<S>(copy, mFullComparator);
+        S existing = mMap.get(key);
+        if (existing != null) {
+            return false;
+        }
         mMap.put(key, copy);
         storable.markAllPropertiesClean();
         return true;
