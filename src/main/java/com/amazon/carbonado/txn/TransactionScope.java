@@ -445,20 +445,7 @@ public class TransactionScope<Txn> {
             if (mTxn != null) {
                 scope.mTxnMgr.reuseTxn(mTxn);
             } else {
-                Txn parentTxn;
-                if (mParent == null || mTop) {
-                    parentTxn = null;
-                } else if ((parentTxn = mParent.mTxn) == null) {
-                    // No point in creating nested transaction if parent
-                    // has never been used. Create parent transaction
-                    // and use it in child transaction, just like a fake
-                    // nested transaction.
-                    if ((parentTxn = mParent.getTxn()) != null) {
-                        return mTxn = parentTxn;
-                    }
-                    // Isolation level of parent is none, so proceed to create
-                    // a real transaction.
-                }
+                Txn parentTxn = (mParent == null || mTop) ? null : mParent.getTxn();
                 if (mTimeoutUnit == null) {
                     mTxn = scope.mTxnMgr.createTxn(parentTxn, mLevel);
                 } else {
