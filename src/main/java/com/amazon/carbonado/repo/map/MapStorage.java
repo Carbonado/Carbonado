@@ -200,15 +200,19 @@ class MapStorage<S extends Storable>
 
     public void truncate() throws PersistException {
         try {
-            Object locker = mRepo.localTransactionScope().getTxn();
-            if (locker == null) {
-                locker = Thread.currentThread();
-            }
-            doLockForWrite(locker);
-            try {
+            TransactionScope<MapTransaction> scope = mRepo.localTransactionScope();
+            MapTransaction txn = scope.getTxn();
+            if (txn == null) {
+                doLockForWrite(scope);
+                try {
+                    mMap.clear();
+                } finally {
+                    mLock.unlockFromWrite(scope);
+                }
+            } else {
+                txn.lockForWrite(mLock);
+                // Non-transactional truncate. (is not added to undo log)
                 mMap.clear();
-            } finally {
-                mLock.unlockFromWrite(locker);
             }
         } catch (PersistException e) {
             throw e;
@@ -537,15 +541,25 @@ class MapStorage<S extends Storable>
 
     public long countAll() throws FetchException {
         try {
-            Object locker = mRepo.localTransactionScope().getTxn();
-            if (locker == null) {
-                locker = Thread.currentThread();
-            }
-            doLockForRead(locker);
-            try {
-                return mMap.size();
-            } finally {
-                mLock.unlockFromRead(locker);
+            TransactionScope<MapTransaction> scope = mRepo.localTransactionScope();
+            MapTransaction txn = scope.getTxn();
+            if (txn == null) {
+                doLockForRead(scope);
+                try {
+                    return mMap.size();
+                } finally {
+                    mLock.unlockFromRead(scope);
+                }
+            } else {
+                // Since lock is so coarse, all reads in transaction scope are
+                // upgrade to avoid deadlocks.
+                final boolean isForUpdate = scope.isForUpdate();
+                txn.lockForUpgrade(mLock, isForUpdate);
+                try {
+                    return mMap.size();
+                } finally {
+                    txn.unlockFromUpgrade(mLock, isForUpdate);
+                }
             }
         } catch (FetchException e) {
             throw e;
