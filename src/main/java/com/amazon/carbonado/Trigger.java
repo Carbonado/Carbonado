@@ -36,7 +36,7 @@ package com.amazon.carbonado;
  * operation. The exact isolation level and update mode is outside the
  * trigger's control. If an explicit isolation level or update mode is
  * required, create a nested transaction within a trigger method. A trigger's
- * nested transaction can also be defined span the entire triggering operation.
+ * nested transaction can also be defined to span the entire triggering operation.
  * To do this, enter the transaction in the "before" method, but return the
  * transaction object without exiting it. The "after" method is responsible for
  * exiting the transaction. It extracts (or simply casts) the transaction from
