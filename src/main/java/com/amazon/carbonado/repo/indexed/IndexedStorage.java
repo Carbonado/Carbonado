@@ -142,20 +142,20 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
             return;
         }
 
-        Transaction txn = mRepository.enterTransaction();
-        try {
-            mMasterStorage.truncate();
+        // Although the master storage and indexes should be truncated
+        // atomically, this cannot be guaranteed due to freedom of truncate
+        // implementation. Also, a transaction can be deadlock prone with
+        // concurrent queries and updates. Instead, truncate the master first,
+        // which may cause warnings to be logged if index entries refer to
+        // missing records. This is harmless.
 
-            // Now truncate the indexes.
-            for (IndexInfo info : mAllIndexInfoMap.values()) {
-                if (info instanceof ManagedIndex) {
-                    ((ManagedIndex) info).getIndexEntryStorage().truncate();
-                }
+        mMasterStorage.truncate();
+
+        // Now truncate the indexes.
+        for (IndexInfo info : mAllIndexInfoMap.values()) {
+            if (info instanceof ManagedIndex) {
+                ((ManagedIndex) info).getIndexEntryStorage().truncate();
             }
-
-            txn.commit();
-        } finally {
-            txn.exit();
         }
     }
 
