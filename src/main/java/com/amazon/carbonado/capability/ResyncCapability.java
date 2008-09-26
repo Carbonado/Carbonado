@@ -18,9 +18,11 @@
 
 package com.amazon.carbonado.capability;
 
+import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.Trigger;
 
 /**
  * Capability of replicating repositories for re-synchronizing to the master
@@ -70,8 +72,8 @@ public interface ResyncCapability extends Capability {
     Repository getMasterRepository();
 
     /**
-     * Defines callbacks which are invoked as storables get re-sync'd. The
-     * callback is invoked in the scope of the resync transaction. If any
+     * Trigger which is invoked as storables get re-sync'd. Callbacks are
+     * invoked in the scope of the resync transaction. If any unchecked
      * exception is thrown, the immediate changes are rolled back and the
      * entire repository resync operation is aborted.
      *
@@ -81,28 +83,18 @@ public interface ResyncCapability extends Capability {
      * queue. A separate thread can then perform the repairs outside the resync
      * transaction.
      */
-    public static interface Listener<S> {
+    public static class Listener<S> extends Trigger<S> {
         /**
-         * Called when a storable was inserted as part of a resync.
+         * Overloaded version of beforeUpdate method which is passed the
+         * storable in it's out-of-sync and sync'd states. The default
+         * implementation calls the inherited beforeUpdate method, only passing
+         * the newly sync'd storable.
          *
-         * @param newStorable storable which was inserted, never null
+         * @param oldStorable storable prior to being sync'd
+         * @param newStorable sync'd storable
          */
-        void inserted(S newStorable);
-
-        /**
-         * Called when a storable was updated as part of a resync. Both old and
-         * new storables have a matching primary key.
-         *
-         * @param oldStorable storable which was deleted, never null
-         * @param newStorable storable which was inserted, never null
-         */
-        void updated(S oldStorable, S newStorable);
-
-        /**
-         * Called when a storable was deleted as part of a resync.
-         *
-         * @param oldStorable storable which was deleted, never null
-         */
-        void deleted(S oldStorable);
+        public Object beforeUpdate(S oldStorable, S newStorable) throws PersistException {
+            return beforeUpdate(newStorable);
+        }
     }
 }

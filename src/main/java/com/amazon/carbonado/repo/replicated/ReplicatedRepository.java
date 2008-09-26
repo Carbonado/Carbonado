@@ -493,6 +493,9 @@ class ReplicatedRepository
                     while (replicaCursor.hasNext()) {
                         try {
                             replicaEntry = replicaCursor.next();
+                            if (listener != null) {
+                                listener.afterLoad(replicaEntry);
+                            }
                             if (skippedCount > 0) {
                                 if (skippedCount == 1) {
                                     log.warn("Skipped corrupt replica entry before this one: " +
@@ -546,6 +549,9 @@ class ReplicatedRepository
                                     if (replicaWithKeyOnly != null) {
                                         // Try to update entry which could not be deleted.
                                         replicaEntry = replicaWithKeyOnly;
+                                        if (listener != null) {
+                                            listener.afterLoad(replicaEntry);
+                                        }
                                         break;
                                     }
                                 } catch (FetchException e2) {

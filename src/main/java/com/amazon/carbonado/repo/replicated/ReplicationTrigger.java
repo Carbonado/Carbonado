@@ -37,6 +37,8 @@ import com.amazon.carbonado.capability.ResyncCapability;
 import com.amazon.carbonado.spi.RepairExecutor;
 import com.amazon.carbonado.spi.TriggerManager;
 
+import com.amazon.carbonado.util.ThrowUnchecked;
+
 /**
  * All inserts/updates/deletes are first committed to the master storage, then
  * duplicated and committed to the replica.
@@ -228,72 +230,111 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         try {
             Transaction txn = mRepository.enterTransaction();
             try {
-                S newReplicaEntry = null;
-
-                // Delete old entry.
-                if (replicaEntry != null) {
-                    if (masterEntry == null) {
-                        log.info("Deleting bogus replica entry: " + replicaEntry);
+                final S newReplicaEntry;
+                if (replicaEntry == null) {
+                    newReplicaEntry = mReplicaStorage.prepare();
+                    masterEntry.copyAllProperties(newReplicaEntry);
+                    log.info("Inserting missing replica entry: " + newReplicaEntry);
+                } else if (masterEntry != null) {
+                    if (replicaEntry.equalProperties(masterEntry)) {
+                        return;
                     }
-                    try {
-                        replicaEntry.tryDelete();
-                    } catch (PersistException e) {
-                        log.error("Unable to delete replica entry: " + replicaEntry, e);
-                        if (masterEntry != null) {
-                            // Try to update instead.
-                            newReplicaEntry = mReplicaStorage.prepare();
-                            transferToReplicaEntry(replicaEntry, masterEntry, newReplicaEntry);
-                            log.info("Replacing corrupt replica entry with: " + newReplicaEntry);
-                            try {
-                                newReplicaEntry.update();
-                                // This disables the insert step, which is not needed now.
-                                masterEntry = null;
-                            } catch (PersistException e2) {
-                                log.error("Unable to update replica entry: " + replicaEntry, e2);
-                                return;
+                    newReplicaEntry = mReplicaStorage.prepare();
+                    transferToReplicaEntry(replicaEntry, masterEntry, newReplicaEntry);
+                    log.info("Updating stale replica entry with: " + newReplicaEntry);
+                } else {
+                    newReplicaEntry = null;
+                    log.info("Deleting bogus replica entry: " + replicaEntry);
+                }
+
+                final Object state;
+                if (listener == null) {
+                    state = null;
+                } else {
+                    if (replicaEntry == null) {
+                        state = listener.beforeInsert(newReplicaEntry);
+                    } else if (masterEntry != null) {
+                        state = listener.beforeUpdate(replicaEntry, newReplicaEntry);
+                    } else {
+                        state = listener.beforeDelete(replicaEntry);
+                    }
+                }
+
+                try {
+                    // Delete old entry.
+                    if (replicaEntry != null) {
+                        try {
+                            replicaEntry.tryDelete();
+                        } catch (PersistException e) {
+                            log.error("Unable to delete replica entry: " + replicaEntry, e);
+                            if (masterEntry != null) {
+                                // Try to update instead.
+                                log.info("Updating corrupt replica entry with: " +
+                                         newReplicaEntry);
+                                try {
+                                    newReplicaEntry.update();
+                                    // This disables the insert step, which is not needed now.
+                                    masterEntry = null;
+                                } catch (PersistException e2) {
+                                    log.error("Unable to update replica entry: " +
+                                              replicaEntry, e2);
+                                    resyncFailed(listener, replicaEntry, masterEntry,
+                                                 newReplicaEntry, state);
+                                    return;
+                                }
                             }
                         }
                     }
-                }
 
-                // Insert new entry.
-                if (masterEntry != null) {
-                    newReplicaEntry = mReplicaStorage.prepare();
-                    if (replicaEntry == null) {
-                        masterEntry.copyAllProperties(newReplicaEntry);
-                        log.info("Adding missing replica entry: " + newReplicaEntry);
-                    } else {
-                        if (replicaEntry.equalProperties(masterEntry)) {
-                            return;
+                    // Insert new entry.
+                    if (masterEntry != null && newReplicaEntry != null) {
+                        if (!newReplicaEntry.tryInsert()) {
+                            // Try to correct bizarre corruption.
+                            newReplicaEntry.tryDelete();
+                            newReplicaEntry.tryInsert();
                         }
-                        transferToReplicaEntry(replicaEntry, masterEntry, newReplicaEntry);
-                        log.info("Replacing stale replica entry with: " + newReplicaEntry);
                     }
-                    if (!newReplicaEntry.tryInsert()) {
-                        // Try to correct bizarre corruption.
-                        newReplicaEntry.tryDelete();
-                        newReplicaEntry.tryInsert();
-                    }
-                }
 
-                if (listener != null) {
-                    if (replicaEntry == null) {
-                        if (newReplicaEntry != null) {
-                            listener.inserted(newReplicaEntry);
+                    if (listener != null) {
+                        if (replicaEntry == null) {
+                            listener.afterInsert(newReplicaEntry, state);
+                        } else if (masterEntry != null) {
+                            listener.afterUpdate(newReplicaEntry, state);
+                        } else {
+                            listener.afterDelete(replicaEntry, state);
                         }
-                    } else if (newReplicaEntry != null) {
-                        listener.updated(replicaEntry, newReplicaEntry);
-                    } else {
-                        listener.deleted(replicaEntry);
                     }
-                }
 
-                txn.commit();
+                    txn.commit();
+                } catch (Throwable e) {
+                    resyncFailed(listener, replicaEntry, masterEntry, newReplicaEntry, state);
+                    ThrowUnchecked.fire(e);
+                }
             } finally {
                 txn.exit();
             }
         } finally {
             setReplicationEnabled();
+        }
+    }
+
+    private void resyncFailed(ResyncCapability.Listener<? super S> listener,
+                              S replicaEntry, S masterEntry,
+                              S newReplicaEntry, Object state)
+    {
+        if (listener != null) {
+            try {
+                if (replicaEntry == null) {
+                    listener.failedInsert(newReplicaEntry, state);
+                } else if (masterEntry != null) {
+                    listener.failedUpdate(newReplicaEntry, state);
+                } else {
+                    listener.failedDelete(replicaEntry, state);
+                }
+            } catch (Throwable e2) {
+                Thread t = Thread.currentThread();
+                t.getUncaughtExceptionHandler().uncaughtException(t, e2);
+            }
         }
     }
 
