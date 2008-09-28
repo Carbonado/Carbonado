@@ -85,16 +85,122 @@ public interface ResyncCapability extends Capability {
      */
     public static class Listener<S> extends Trigger<S> {
         /**
+         * Called before a sync'd storable is to be inserted. Changes can be
+         * made to the storable at this point, possibly to define independent
+         * properties.
+         *
+         * @param newStorable sync'd storable before being inserted
+         * @return arbitrary state object, passed to afterInsert or failedInsert method
+         */
+        @Override
+        public Object beforeInsert(S newStorable) throws PersistException {
+            return null;
+        }
+
+        /**
+         * Called right after a sync'd storable has been successfully inserted.
+         *
+         * @param newStorable sync'd storable after being inserted
+         * @param state object returned by beforeInsert method
+         */
+        @Override
+        public void afterInsert(S newStorable, Object state) throws PersistException {
+        }
+
+        /**
+         * Called when an insert operation failed because an exception was
+         * thrown. The main purpose of this method is to allow any necessary
+         * clean-up to occur on the optional state object.
+         *
+         * @param newStorable sync'd storable which failed to be inserted
+         * @param state object returned by beforeInsert method, but it may be null
+         */
+        @Override
+        public void failedInsert(S newStorable, Object state) {
+        }
+
+        /**
+         * Called before a sync'd storable is to be updated. Changes can be
+         * made to the storable at this point, possibly to update independent
+         * properties.
+         *
+         * @param newStorable sync'd storable before being updated
+         * @return arbitrary state object, passed to afterUpdate or failedUpdate method
+         */
+        @Override
+        public Object beforeUpdate(S newStorable) throws PersistException {
+            return null;
+        }
+
+        /**
          * Overloaded version of beforeUpdate method which is passed the
-         * storable in it's out-of-sync and sync'd states. The default
-         * implementation calls the inherited beforeUpdate method, only passing
-         * the newly sync'd storable.
+         * storable in it's out-of-sync and sync'd states. Changes can be made
+         * to the storable at this point, possibly to update independent
+         * properties.
+         *
+         * <p>The default implementation calls the single argument beforeUpdate
+         * method, only passing the newly sync'd storable.
          *
          * @param oldStorable storable prior to being sync'd
-         * @param newStorable sync'd storable
+         * @param newStorable sync'd storable before being updated
          */
         public Object beforeUpdate(S oldStorable, S newStorable) throws PersistException {
             return beforeUpdate(newStorable);
+        }
+
+        /**
+         * Called right after a sync'd storable has been successfully updated.
+         *
+         * @param newStorable sync'd storable after being updated
+         * @param state optional object returned by beforeUpdate method
+         */
+        @Override
+        public void afterUpdate(S newStorable, Object state) throws PersistException {
+        }
+
+        /**
+         * Called when an update operation failed because an exception was
+         * thrown. The main purpose of this method is to allow any necessary
+         * clean-up to occur on the optional state object.
+         *
+         * @param newStorable sync'd storable which failed to be updated
+         * @param state object returned by beforeUpdate method, but it may be null
+         */
+        @Override
+        public void failedUpdate(S newStorable, Object state) {
+        }
+
+        /**
+         * Called before a bogus storable is to be deleted.
+         *
+         * @param oldStorable bogus storable before being deleted
+         * @return arbitrary state object, passed to afterDelete or failedDelete method
+         */
+        @Override
+        public Object beforeDelete(S oldStorable) throws PersistException {
+            return null;
+        }
+
+        /**
+         * Called right after a bogus storable has been successfully deleted.
+         *
+         * @param oldStorable bogus storable after being deleted
+         * @param state optional object returned by beforeDelete method
+         */
+        @Override
+        public void afterDelete(S oldStorable, Object state) throws PersistException {
+        }
+
+        /**
+         * Called when a delete operation failed because an exception was
+         * thrown. The main purpose of this method is to allow any necessary
+         * clean-up to occur on the optional state object.
+         *
+         * @param oldStorable bogus storable which failed to be deleted
+         * @param state object returned by beforeDelete method, but it may be null
+         */
+        @Override
+        public void failedDelete(S oldStorable, Object state) {
         }
     }
 }
