@@ -72,6 +72,7 @@ import com.amazon.carbonado.info.StorablePropertyConstraint;
  * unless the examination failed.
  *
  * @author Brian S O'Neill
+ * @author Adam D Bradley
  */
 public class JDBCStorableIntrospector extends StorableIntrospector {
     // Maps compound keys to softly referenced JDBCStorableInfo objects.
@@ -97,11 +98,11 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         (Class<S> type, DataSource ds, String catalog, String schema)
         throws SQLException, SupportException
     {
-        return examine(type, ds, catalog, schema, null);
+        return examine(type, ds, catalog, schema, null, false);
     }
 
     static <S extends Storable> JDBCStorableInfo<S> examine
-        (Class<S> type, DataSource ds, String catalog, String schema, SchemaResolver resolver)
+        (Class<S> type, DataSource ds, String catalog, String schema, SchemaResolver resolver, boolean primaryKeyCheckDisabled)
         throws SQLException, SupportException
     {
         Object key = KeyFactory.createKey(new Object[] {type, ds, catalog, schema});
@@ -117,15 +118,15 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             Connection con = ds.getConnection();
             try {
                 try {
-                    jInfo = examine(mainInfo, con, catalog, schema, resolver);
+                    jInfo = examine(mainInfo, con, catalog, schema, resolver, primaryKeyCheckDisabled);
                     if (!jInfo.isSupported() && resolver != null &&
                         resolver.resolve(mainInfo, con, catalog, schema))
                     {
-                        jInfo = examine(mainInfo, con, catalog, schema, resolver);
+                        jInfo = examine(mainInfo, con, catalog, schema, resolver, primaryKeyCheckDisabled);
                     }
                 } catch (SupportException e) {
                     if (resolver != null && resolver.resolve(mainInfo, con, catalog, schema)) {
-                        jInfo = examine(mainInfo, con, catalog, schema, resolver);
+                        jInfo = examine(mainInfo, con, catalog, schema, resolver, primaryKeyCheckDisabled);
                     } else {
                         throw e;
                     }
@@ -161,7 +162,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
     private static <S extends Storable> JDBCStorableInfo<S> examine
         (StorableInfo<S> mainInfo, Connection con,
          final String searchCatalog, final String searchSchema,
-         SchemaResolver resolver)
+         SchemaResolver resolver, boolean primaryKeyCheckDisabled)
         throws SQLException, SupportException
     {
         final DatabaseMetaData meta = con.getMetaData();
@@ -301,7 +302,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         for (StorableProperty<S> mainProperty : mainProperties.values()) {
             if (mainProperty.isDerived() || mainProperty.isJoin() || tableName == null) {
-                jProperties.put(mainProperty.getName(), new JProperty<S>(mainProperty));
+                jProperties.put(mainProperty.getName(), new JProperty<S>(mainProperty, primaryKeyCheckDisabled));
                 continue;
             }
 
@@ -378,7 +379,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                     }
 
                     jProperty = new JProperty<S>(mainProperty, columnInfo,
-                                                 autoIncrement,
+                                                 autoIncrement, primaryKeyCheckDisabled,
                                                  accessInfo.mResultSetGet,
                                                  accessInfo.mPreparedStatementSet,
                                                  accessInfo.getAdapter());
@@ -392,7 +393,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 columnToProperty.put(jProperty.getColumnName(), jProperty.getName());
             } else {
                 if (mainProperty.isIndependent()) {
-                    jProperties.put(mainProperty.getName(), new JProperty<S>(mainProperty));
+                    jProperties.put(mainProperty.getName(), new JProperty<S>(mainProperty, primaryKeyCheckDisabled));
                 } else if (!addedError) {
                     StringBuilder buf = new StringBuilder();
                     buf.append("Unable to find matching database column for property \"");
@@ -490,7 +491,14 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         }
 
         if (errorMessages.size() > 0) {
-            throw new MismatchException(mainInfo.getStorableType(), errorMessages);
+            if (primaryKeyCheckDisabled) {
+                for (String errorMessage:errorMessages) {
+                    getLog().warn("Suppressed error: " + errorMessage);
+                }
+                errorMessages.clear();
+            } else {
+                throw new MismatchException(mainInfo.getStorableType(), errorMessages);
+            }
         }
 
         // IndexInfo is empty, as querying for it tends to cause a table analyze to run.
@@ -1179,6 +1187,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         private final Integer mCharOctetLength;
         private final Integer mOrdinalPosition;
         private final boolean mAutoIncrement;
+        private final boolean mPrimaryKeyCheckDisabled;
 
         private JDBCStorableProperty<S>[] mInternal;
         private JDBCStorableProperty<?>[] mExternal;
@@ -1189,6 +1198,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         JProperty(StorableProperty<S> mainProperty,
                   ColumnInfo columnInfo,
                   boolean autoIncrement,
+                  boolean primaryKeyCheckDisabled,
                   Method resultSetGet,
                   Method preparedStatementSet,
                   StorablePropertyAdapter adapter)
@@ -1206,9 +1216,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             mCharOctetLength = columnInfo.charOctetLength;
             mOrdinalPosition = columnInfo.ordinalPosition;
             mAutoIncrement = autoIncrement;
+            mPrimaryKeyCheckDisabled = primaryKeyCheckDisabled;
         }
 
-        JProperty(StorableProperty<S> mainProperty) {
+        JProperty(StorableProperty<S> mainProperty, boolean primaryKeyCheckDisabled) {
             mMainProperty = mainProperty;
             mColumnName = null;
             mDataType = null;
@@ -1222,6 +1233,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             mCharOctetLength = null;
             mOrdinalPosition = null;
             mAutoIncrement = false;
+            mPrimaryKeyCheckDisabled = primaryKeyCheckDisabled;
         }
 
         public String getName() {
@@ -1458,7 +1470,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 return;
             }
 
-            JDBCStorableInfo<S> info = examine(getEnclosingType(), ds, catalog, schema, resolver);
+            JDBCStorableInfo<S> info = examine(getEnclosingType(), ds, catalog, schema, resolver, mPrimaryKeyCheckDisabled);
 
             JDBCStorableProperty<S>[] internal = new JDBCStorableProperty[mainInternal.length];
             for (int i=mainInternal.length; --i>=0; ) {
@@ -1477,7 +1489,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 return;
             }
 
-            JDBCStorableInfo<?> info = examine(getJoinedType(), ds, catalog, schema, resolver);
+            JDBCStorableInfo<?> info = examine(getJoinedType(), ds, catalog, schema, resolver, mPrimaryKeyCheckDisabled);
 
             JDBCStorableProperty<?>[] external = new JDBCStorableProperty[mainExternal.length];
             for (int i=mainExternal.length; --i>=0; ) {

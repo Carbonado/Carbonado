@@ -57,6 +57,7 @@ import com.amazon.carbonado.spi.AbstractRepositoryBuilder;
  *
  * @author Brian S O'Neill
  * @author bcastill
+ * @author Adam D Bradley
  */
 public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     private String mName;
@@ -75,6 +76,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     private Map<String, Boolean> mSuppressReloadMap;
     private String mSequenceSelectStatement;
     private boolean mForceStoredSequence;
+    private boolean mPrimaryKeyCheckDisabled;
 
     private SchemaResolver mResolver;
 
@@ -90,7 +92,7 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
              mFetchSize,
              getAutoVersioningMap(),
              getSuppressReloadMap(),
-             mSequenceSelectStatement, mForceStoredSequence,
+             mSequenceSelectStatement, mForceStoredSequence, mPrimaryKeyCheckDisabled,
              mResolver);
         rootRef.set(repo);
         return repo;
@@ -393,6 +395,22 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public void setForceStoredSequence(boolean forceStoredSequence) {
         mForceStoredSequence = forceStoredSequence;
+    }
+
+    /**
+     * By default, JDBCRepository makes sure that every declared primary key
+     * in the database table for a Storable lines up with a declared
+     * PrimaryKey or AlternateKey.  This is not always the desired behavior; 
+     * for example, you may have a table which uses a bigint for its actual
+     * primary key but uses another column with a unique index as the
+     * "primary" key from the application's point of view.  Setting this
+     * value to true allows this check to fail gracefully instead of
+     * throwing a {@link com.amazon.carbonado.MismatchException}.
+     * 
+     * @since 1.2
+     */
+    public void setPrimaryKeyCheckDisabled(boolean primaryKeyCheckDisabled) {
+        mPrimaryKeyCheckDisabled = primaryKeyCheckDisabled;
     }
 
     @Override

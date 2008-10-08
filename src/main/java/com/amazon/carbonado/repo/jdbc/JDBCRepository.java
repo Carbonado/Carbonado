@@ -69,6 +69,7 @@ import com.amazon.carbonado.util.ThrowUnchecked;
  *
  * @author Brian S O'Neill
  * @author bcastill
+ * @author Adam D Bradley
  * @see JDBCRepositoryBuilder
  */
 class JDBCRepository extends AbstractRepository<JDBCTransaction>
@@ -173,6 +174,7 @@ class JDBCRepository extends AbstractRepository<JDBCTransaction>
     private final String mCatalog;
     private final String mSchema;
     private final Integer mFetchSize;
+    private final boolean mPrimaryKeyCheckDisabled;
 
     // Maps Storable types which should have automatic version management.
     private Map<String, Boolean> mAutoVersioningMap;
@@ -226,7 +228,7 @@ class JDBCRepository extends AbstractRepository<JDBCTransaction>
                    Integer fetchSize,
                    Map<String, Boolean> autoVersioningMap,
                    Map<String, Boolean> suppressReloadMap,
-                   String sequenceSelectStatement, boolean forceStoredSequence,
+                   String sequenceSelectStatement, boolean forceStoredSequence, boolean primaryKeyCheckDisabled,
                    SchemaResolver resolver)
         throws RepositoryException
     {
@@ -242,6 +244,7 @@ class JDBCRepository extends AbstractRepository<JDBCTransaction>
         mCatalog = catalog;
         mSchema = schema;
         mFetchSize = fetchSize;
+        mPrimaryKeyCheckDisabled = primaryKeyCheckDisabled;
 
         mAutoVersioningMap = autoVersioningMap;
         mSuppressReloadMap = suppressReloadMap;
@@ -351,7 +354,7 @@ class JDBCRepository extends AbstractRepository<JDBCTransaction>
     {
         try {
             return JDBCStorableIntrospector
-                .examine(type, mDataSource, mCatalog, mSchema, mResolver);
+                .examine(type, mDataSource, mCatalog, mSchema, mResolver, mPrimaryKeyCheckDisabled);
         } catch (SQLException e) {
             throw toRepositoryException(e);
         }
