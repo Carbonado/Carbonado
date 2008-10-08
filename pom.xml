@@ -113,6 +113,13 @@
       <email>fangchen@users.sourceforge.net</email>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
+
+    <developer>
+      <name>Adam D Bradley</name>
+      <id>artdodge</id>
+      <email>artdodge@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
   </developers>
 
   <contributors>
