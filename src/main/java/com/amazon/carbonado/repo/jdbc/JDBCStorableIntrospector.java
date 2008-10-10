@@ -645,6 +645,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == byte.class) {
                 actualClass = byte.class;
                 suffix = "Byte";
+            } else if (desiredClass == short.class) {
+                actualClass = short.class;
+                suffix = "Short";
             } else if (desiredClass == String.class) {
                 actualClass = String.class;
                 suffix = "String";
@@ -657,6 +660,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == short.class) {
                 actualClass = short.class;
                 suffix = "Short";
+            } else if (desiredClass == int.class) {
+                actualClass = int.class;
+                suffix = "Int";
             } else if (desiredClass == String.class) {
                 actualClass = String.class;
                 suffix = "String";
@@ -669,6 +675,9 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             if (desiredClass == int.class) {
                 actualClass = int.class;
                 suffix = "Int";
+            } else if (desiredClass == long.class) {
+                actualClass = long.class;
+                suffix = "Long";
             } else if (desiredClass == String.class) {
                 actualClass = String.class;
                 suffix = "String";
