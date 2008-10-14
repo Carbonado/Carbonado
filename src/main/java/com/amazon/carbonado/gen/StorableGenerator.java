@@ -2064,9 +2064,11 @@ public final class StorableGenerator<S extends Storable> {
         int ordinal = 0;
         int andMask = 0;
         int orMask = 0;
+        boolean anyNonDerived = false;
 
         for (StorableProperty property : mAllProperties.values()) {
             if (!property.isDerived()) {
+                anyNonDerived = true;
                 if (property.isQuery()) {
                     // Don't erase cached query.
                     andMask |= PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2);
@@ -2084,23 +2086,27 @@ public final class StorableGenerator<S extends Storable> {
 
             ordinal++;
             if ((ordinal & 0xf) == 0 || ordinal >= count) {
-                String stateFieldName = PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4);
-                b.loadThis();
-                if (andMask == 0) {
-                    b.loadConstant(orMask);
-                } else {
+                if (anyNonDerived) {
+                    String stateFieldName = PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4);
                     b.loadThis();
-                    b.loadField(stateFieldName, TypeDesc.INT);
-                    b.loadConstant(andMask);
-                    b.math(Opcode.IAND);
-                    if (orMask != 0) {
+                    if (andMask == 0) {
                         b.loadConstant(orMask);
-                        b.math(Opcode.IOR);
+                    } else {
+                        b.loadThis();
+                        b.loadField(stateFieldName, TypeDesc.INT);
+                        b.loadConstant(andMask);
+                        b.math(Opcode.IAND);
+                        if (orMask != 0) {
+                            b.loadConstant(orMask);
+                            b.math(Opcode.IOR);
+                        }
                     }
+                    b.storeField(stateFieldName, TypeDesc.INT);
                 }
-                b.storeField(stateFieldName, TypeDesc.INT);
+
                 andMask = 0;
                 orMask = 0;
+                anyNonDerived = false;
             }
         }
 
@@ -2121,9 +2127,11 @@ public final class StorableGenerator<S extends Storable> {
         int ordinal = 0;
         int andMask = 0;
         int orMask = 0;
+        boolean anyNonDerived = false;
 
         for (StorableProperty property : mAllProperties.values()) {
             if (!property.isDerived()) {
+                anyNonDerived = true;
                 if (property.isJoin()) {
                     // Erase cached join properties, but don't erase cached query.
                     if (!property.isQuery()) {
@@ -2137,9 +2145,29 @@ public final class StorableGenerator<S extends Storable> {
 
             ordinal++;
             if ((ordinal & 0xf) == 0 || ordinal >= count) {
-                String stateFieldName = PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4);
-                if (name == MARK_ALL_PROPERTIES_DIRTY) {
-                    if (orMask != 0 || andMask != 0) {
+                if (anyNonDerived) {
+                    String stateFieldName = PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4);
+                    if (name == MARK_ALL_PROPERTIES_DIRTY) {
+                        if (orMask != 0 || andMask != 0) {
+                            b.loadThis(); // [this
+                            b.loadThis(); // [this, this
+                            b.loadField(stateFieldName, TypeDesc.INT); // [this, this.stateField
+                            if (andMask != 0) {
+                                b.loadConstant(~andMask);
+                                b.math(Opcode.IAND);
+                            }
+                            if (orMask != 0) {
+                                b.loadConstant(orMask);
+                                b.math(Opcode.IOR);
+                            }
+                            b.storeField(stateFieldName, TypeDesc.INT);
+                        }
+                    } else {
+                        // This is a great trick to convert all states of value 1
+                        // (clean) into value 3 (dirty). States 0, 2, and 3 stay the
+                        // same. Since joins cannot have state 1, they aren't affected.
+                        // stateField |= ((stateField & 0x55555555) << 1);
+
                         b.loadThis(); // [this
                         b.loadThis(); // [this, this
                         b.loadField(stateFieldName, TypeDesc.INT); // [this, this.stateField
@@ -2147,36 +2175,19 @@ public final class StorableGenerator<S extends Storable> {
                             b.loadConstant(~andMask);
                             b.math(Opcode.IAND);
                         }
-                        if (orMask != 0) {
-                            b.loadConstant(orMask);
-                            b.math(Opcode.IOR);
-                        }
+                        b.dup(); // [this, this.stateField, this.stateField
+                        b.loadConstant(0x55555555);
+                        b.math(Opcode.IAND); // [this, this.stateField, this.stateField &0x55555555
+                        b.loadConstant(1);
+                        b.math(Opcode.ISHL); // [this, this.stateField, orMaskValue
+                        b.math(Opcode.IOR);  // [this, newStateFieldValue
                         b.storeField(stateFieldName, TypeDesc.INT);
                     }
-                } else {
-                    // This is a great trick to convert all states of value 1
-                    // (clean) into value 3 (dirty). States 0, 2, and 3 stay the
-                    // same. Since joins cannot have state 1, they aren't affected.
-                    // stateField |= ((stateField & 0x55555555) << 1);
-
-                    b.loadThis(); // [this
-                    b.loadThis(); // [this, this
-                    b.loadField(stateFieldName, TypeDesc.INT); // [this, this.stateField
-                    if (andMask != 0) {
-                        b.loadConstant(~andMask);
-                        b.math(Opcode.IAND);
-                    }
-                    b.dup(); // [this, this.stateField, this.stateField
-                    b.loadConstant(0x55555555);
-                    b.math(Opcode.IAND); // [this, this.stateField, this.stateField & 0x55555555
-                    b.loadConstant(1);
-                    b.math(Opcode.ISHL); // [this, this.stateField, orMaskValue
-                    b.math(Opcode.IOR);  // [this, newStateFieldValue
-                    b.storeField(stateFieldName, TypeDesc.INT);
                 }
 
                 andMask = 0;
                 orMask = 0;
+                anyNonDerived = false;
             }
         }
 
@@ -2195,8 +2206,11 @@ public final class StorableGenerator<S extends Storable> {
         int ordinal = 0;
         int andMask = 0xffffffff;
         int orMask = 0;
+        boolean anyNonDerived = false;
+
         for (StorableProperty property : mAllProperties.values()) {
             if (!property.isDerived()) {
+                anyNonDerived = true;
                 if (property == ordinaryProperty) {
                     orMask |= PROPERTY_STATE_DIRTY << ((ordinal & 0xf) * 2);
                 } else if (property.isJoin()) {
@@ -2208,9 +2222,10 @@ public final class StorableGenerator<S extends Storable> {
                     }
                 }
             }
+
             ordinal++;
             if ((ordinal & 0xf) == 0 || ordinal >= count) {
-                if (andMask != 0xffffffff || orMask != 0) {
+                if (anyNonDerived && (andMask != 0xffffffff || orMask != 0)) {
                     String stateFieldName = PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4);
                     b.loadThis();
                     b.loadThis();
@@ -2225,8 +2240,10 @@ public final class StorableGenerator<S extends Storable> {
                     }
                     b.storeField(stateFieldName, TypeDesc.INT);
                 }
+
                 andMask = 0xffffffff;
                 orMask = 0;
+                anyNonDerived = false;
             }
         }
     }
@@ -2236,8 +2253,11 @@ public final class StorableGenerator<S extends Storable> {
         int count = mAllProperties.size();
         int ordinal = 0;
         int andMask = 0;
+        boolean anyNonDerived = false;
+
         for (StorableProperty property : mAllProperties.values()) {
             if (!property.isDerived()) {
+                anyNonDerived = true;
                 if (!property.isJoin() && (!property.isPrimaryKeyMember() || includePk)) {
                     // Logical 'and' will convert state 1 (clean) to state 0, so
                     // that it will be ignored. State 3 (dirty) is what we're
@@ -2247,16 +2267,21 @@ public final class StorableGenerator<S extends Storable> {
                     andMask |= 2 << ((ordinal & 0xf) * 2);
                 }
             }
+
             ordinal++;
             if ((ordinal & 0xf) == 0 || ordinal >= count) {
-                String stateFieldName = PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4);
-                b.loadThis();
-                b.loadField(stateFieldName, TypeDesc.INT);
-                b.loadConstant(andMask);
-                b.math(Opcode.IAND);
-                // At least one property is dirty, so short circuit.
-                b.ifZeroComparisonBranch(label, "!=");
+                if (anyNonDerived) {
+                    String stateFieldName = PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4);
+                    b.loadThis();
+                    b.loadField(stateFieldName, TypeDesc.INT);
+                    b.loadConstant(andMask);
+                    b.math(Opcode.IAND);
+                    // At least one property is dirty, so short circuit.
+                    b.ifZeroComparisonBranch(label, "!=");
+                }
+
                 andMask = 0;
+                anyNonDerived = false;
             }
         }
     }
@@ -2305,45 +2330,52 @@ public final class StorableGenerator<S extends Storable> {
 
         int ordinal = 0;
         int mask = 0;
+        boolean anyNonDerived = false;
+
         for (StorableProperty property : mAllProperties.values()) {
             if (!property.isDerived()) {
+                anyNonDerived = true;
                 if (properties.containsKey(property.getName())) {
                     mask |= PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2);
                 }
             }
+
             ordinal++;
-            if (((ordinal & 0xf) == 0 || ordinal >= mAllProperties.size()) && mask != 0) {
-                // This is a great trick to convert all states of value 1
-                // (clean) into value 3 (dirty). States 0, 2, and 3 stay the
-                // same. Since joins cannot have state 1, they aren't affected.
-                // stateField | ((stateField & 0x55555555) << 1);
+            if ((ordinal & 0xf) == 0 || ordinal >= mAllProperties.size()) {
+                if (anyNonDerived && mask != 0) {
+                    // This is a great trick to convert all states of value 1
+                    // (clean) into value 3 (dirty). States 0, 2, and 3 stay the
+                    // same. Since joins cannot have state 1, they aren't affected.
+                    // stateField | ((stateField & 0x55555555) << 1);
 
-                b.loadThis();
-                b.loadField(PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4), TypeDesc.INT);
-                b.dup(); // [this.stateField, this.stateField
-                b.loadConstant(0x55555555);
-                b.math(Opcode.IAND); // [this.stateField, this.stateField & 0x55555555
-                b.loadConstant(1);
-                b.math(Opcode.ISHL); // [this.stateField, orMaskValue
-                b.math(Opcode.IOR);  // [newStateFieldValue
+                    b.loadThis();
+                    b.loadField(PROPERTY_STATE_FIELD_NAME + ((ordinal - 1) >> 4), TypeDesc.INT);
+                    b.dup(); // [this.stateField, this.stateField
+                    b.loadConstant(0x55555555);
+                    b.math(Opcode.IAND); // [this.stateField, this.stateField & 0x55555555
+                    b.loadConstant(1);
+                    b.math(Opcode.ISHL); // [this.stateField, orMaskValue
+                    b.math(Opcode.IOR);  // [newStateFieldValue
 
-                // Flip all bits for property states. If final result is
-                // non-zero, then there were uninitialized properties.
+                    // Flip all bits for property states. If final result is
+                    // non-zero, then there were uninitialized properties.
 
-                b.loadConstant(mask);
-                b.math(Opcode.IXOR);
-                if (mask != 0xffffffff) {
                     b.loadConstant(mask);
-                    b.math(Opcode.IAND);
+                    b.math(Opcode.IXOR);
+                    if (mask != 0xffffffff) {
+                        b.loadConstant(mask);
+                        b.math(Opcode.IAND);
+                    }
+
+                    Label cont = b.createLabel();
+                    b.ifZeroComparisonBranch(cont, "==");
+                    b.loadConstant(false);
+                    b.returnValue(TypeDesc.BOOLEAN);
+                    cont.setLocation();
                 }
 
-                Label cont = b.createLabel();
-                b.ifZeroComparisonBranch(cont, "==");
-                b.loadConstant(false);
-                b.returnValue(TypeDesc.BOOLEAN);
-                cont.setLocation();
-
                 mask = 0;
+                anyNonDerived = false;
             }
         }
 
