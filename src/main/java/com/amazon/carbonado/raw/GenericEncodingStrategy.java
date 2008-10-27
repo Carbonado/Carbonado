@@ -382,8 +382,8 @@ public class GenericEncodingStrategy<S extends Storable> {
         }
         Class clazz = propertyType.toClass();
         if (clazz != null) {
-            return Lob.class.isAssignableFrom(clazz) ||
-                BigInteger.class.isAssignableFrom(clazz);/* ||
+            return Lob.class.isAssignableFrom(clazz);/* ||
+                BigInteger.class.isAssignableFrom(clazz) ||
                 BigDecimal.class.isAssignableFrom(clazz);*/
         }
         return false;
