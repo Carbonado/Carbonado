@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.raw;
 
+import java.math.BigInteger;
+
 /**
  * 
  *
@@ -40,4 +42,7 @@ class EncodingConstants {
 
     /** Byte to terminate variable data encoded for ascending order */
     static final byte TERMINATOR = (byte)1;
+
+    static final BigInteger ONE_HUNDRED = BigInteger.valueOf(100);
+    static final BigInteger ONE_THOUSAND = BigInteger.valueOf(1000);
 }

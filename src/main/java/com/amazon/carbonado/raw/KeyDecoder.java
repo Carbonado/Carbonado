@@ -443,60 +443,11 @@ public class KeyDecoder {
      * @return amount of bytes read from source
      * @throws CorruptEncodingException if source data is corrupt
      * @since 1.2
-     * /
+     */
     public static int decode(byte[] src, int srcOffset, BigDecimal[] valueRef)
         throws CorruptEncodingException
     {
-        final int originalOffset;
-        BigInteger unscaledValue;
-        int scale;
-
-        try {
-            int header = src[srcOffset] & 0xff;
-
-            int headerSize;
-            switch (header) {
-            case (NULL_BYTE_HIGH & 0xff): case (NULL_BYTE_LOW & 0xff):
-                valueRef[0] = null;
-                return 1;
-
-            case 0x7f: case 0x80:
-                valueRef[0] = BigDecimal.ZERO;
-                return 1;
-
-            case 1: case 0x7e: case 0x81: case 0xfe:
-                headerSize = 5;
-                break;
-
-            default:
-                headerSize = 1;
-                break;
-            }
-
-            originalOffset = srcOffset;
-            srcOffset += headerSize;
-
-            BigInteger[] unscaledRef = new BigInteger[1];
-            srcOffset += decode(src, srcOffset, unscaledRef);
-
-            header = src[srcOffset++] & 0xff;
-            if (header > 0 && header < 0xff) {
-                scale = header - 0x80;
-            } else {
-                scale = DataDecoder.decodeInt(src, srcOffset);
-                srcOffset += 4;
-            }
-
-            unscaledValue = unscaledRef[0];
-            if (unscaledValue.signum() < 0) {
-                scale = ~scale;
-            }
-        } catch (IndexOutOfBoundsException e) {
-            throw new CorruptEncodingException(null, e);
-        }
-
-        valueRef[0] = new BigDecimal(unscaledValue, scale);
-        return srcOffset - originalOffset;
+        return decode(src, srcOffset, valueRef, 0);
     }
 
     /**
@@ -508,18 +459,29 @@ public class KeyDecoder {
      * @return amount of bytes read from source
      * @throws CorruptEncodingException if source data is corrupt
      * @since 1.2
-     * /
+     */
     public static int decodeDesc(byte[] src, int srcOffset, BigDecimal[] valueRef)
         throws CorruptEncodingException
     {
-        final int originalOffset;
+        return decode(src, srcOffset, valueRef, -1);
+    }
+
+    /**
+     * @param xorMask 0 for normal decoding, -1 for descending decoding
+     */
+    private static int decode(byte[] src, int srcOffset, BigDecimal[] valueRef, int xorMask)
+        throws CorruptEncodingException
+    {
+        final int originalOffset = srcOffset;
         BigInteger unscaledValue;
         int scale;
 
         try {
-            int header = src[srcOffset] & 0xff;
+            int header = (src[srcOffset] ^ xorMask) & 0xff;
 
-            int headerSize;
+            int digitAdjust;
+            int exponent;
+
             switch (header) {
             case (NULL_BYTE_HIGH & 0xff): case (NULL_BYTE_LOW & 0xff):
                 valueRef[0] = null;
@@ -529,33 +491,92 @@ public class KeyDecoder {
                 valueRef[0] = BigDecimal.ZERO;
                 return 1;
 
-            case 1: case 0x7e: case 0x81: case 0xfe:
-                headerSize = 5;
+            case 1: case 0x7e:
+                digitAdjust = 999 + 12;
+                exponent = (~DataDecoder.decodeInt(src, srcOffset + 1)) ^ xorMask;
+                srcOffset += 5;
+                break;
+
+            case 0x81: case 0xfe:
+                digitAdjust = 12;
+                exponent = DataDecoder.decodeInt(src, srcOffset + 1) ^ xorMask;
+                srcOffset += 5;
                 break;
 
             default:
-                headerSize = 1;
+                exponent = (src[srcOffset++] ^ xorMask) & 0xff;
+                if (exponent >= 0x82) {
+                    digitAdjust = 12;
+                    exponent -= 0xc0;
+                } else {
+                    digitAdjust = 999 + 12;
+                    exponent = 0x3f - exponent;
+                }
                 break;
             }
 
-            originalOffset = srcOffset;
-            srcOffset += headerSize;
+            // Significand is base 1000 encoded, 10 bits per digit.
 
-            BigInteger[] unscaledRef = new BigInteger[1];
-            srcOffset += decodeDesc(src, srcOffset, unscaledRef);
+            unscaledValue = null;
+            int precision = 0;
 
-            header = src[srcOffset++] & 0xff;
-            if (header > 0 && header < 0xff) {
-                scale = 0x7f - header;
-            } else {
-                scale = ~DataDecoder.decodeInt(src, srcOffset);
-                srcOffset += 4;
+            int accum = 0;
+            int bits = 0;
+            BigInteger lastDigit = null;
+
+            loop: while (true) {
+                accum = (accum << 8) | ((src[srcOffset++] ^ xorMask) & 0xff);
+                bits += 8;
+                if (bits >= 10) {
+                    int digit = (accum >> (bits - 10)) & 0x3ff;
+
+                    switch (digit) {
+                    case 0:
+                    case 1023:
+                        lastDigit = lastDigit.divide(ONE_HUNDRED);
+                        if (unscaledValue == null) {
+                            unscaledValue = lastDigit;
+                        } else {
+                            unscaledValue = unscaledValue.multiply(BigInteger.TEN).add(lastDigit);
+                        }
+                        precision += 1;
+                        break loop;
+                    case 1:
+                    case 1022:
+                        lastDigit = lastDigit.divide(BigInteger.TEN);
+                        if (unscaledValue == null) {
+                            unscaledValue = lastDigit;
+                        } else {
+                            unscaledValue = unscaledValue.multiply(ONE_HUNDRED).add(lastDigit);
+                        }
+                        precision += 2;
+                        break loop;
+                    case 2:
+                    case 1021:
+                        if (unscaledValue == null) {
+                            unscaledValue = lastDigit;
+                        } else {
+                            unscaledValue = unscaledValue.multiply(ONE_THOUSAND).add(lastDigit);
+                        }
+                        precision += 3;
+                        break loop;
+
+                    default:
+                        if (unscaledValue == null) {
+                            if ((unscaledValue = lastDigit) != null) {
+                                precision += 3;
+                            }
+                        } else {
+                            unscaledValue = unscaledValue.multiply(ONE_THOUSAND).add(lastDigit);
+                            precision += 3;
+                        }
+                        bits -= 10;
+                        lastDigit = BigInteger.valueOf(digit - digitAdjust);
+                    }
+                }
             }
 
-            unscaledValue = unscaledRef[0];
-            if (unscaledValue.signum() < 0) {
-                scale = ~scale;
-            }
+            scale = precision - exponent;
         } catch (IndexOutOfBoundsException e) {
             throw new CorruptEncodingException(null, e);
         }
@@ -563,7 +584,6 @@ public class KeyDecoder {
         valueRef[0] = new BigDecimal(unscaledValue, scale);
         return srcOffset - originalOffset;
     }
-    */
 
     /**
      * Decodes the given byte array as originally encoded for ascending order.

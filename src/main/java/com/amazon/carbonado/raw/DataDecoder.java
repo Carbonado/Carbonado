@@ -400,7 +400,7 @@ public class DataDecoder {
      * @return amount of bytes read from source
      * @throws CorruptEncodingException if source data is corrupt
      * @since 1.2
-     * /
+     */
     public static int decode(byte[] src, int srcOffset, BigDecimal[] valueRef)
         throws CorruptEncodingException
     {
@@ -446,7 +446,6 @@ public class DataDecoder {
             throw new CorruptEncodingException(null, e);
         }
     }
-    */
 
     /**
      * Decodes the given byte array.
