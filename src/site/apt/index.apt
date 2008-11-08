@@ -70,7 +70,7 @@ generating performance critical code, via the Cojen library.
 
         * Derived properties can be indexed, allowing function and join indexes to be defined.
 
-        * Added support for "where exists" and outer joins in queries via new syntax.
+        * Added support for "where exists" and outer joins in queries via new syntax. This is explained in the "Queries with joins" section of the {{{docs/CarbonadoGuide.pdf}User Guide}}.
 
         * Added convenience method, {{{apidocs/com/amazon/carbonado/Query.html#exists%28%29}Query.exists}}.
 
