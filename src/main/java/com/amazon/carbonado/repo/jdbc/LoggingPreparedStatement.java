@@ -19,6 +19,7 @@
 package com.amazon.carbonado.repo.jdbc;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Calendar;
 import java.sql.*;
 
@@ -32,24 +33,57 @@ import org.apache.commons.logging.Log;
 class LoggingPreparedStatement extends LoggingStatement implements PreparedStatement {
     protected final String mSQL;
 
+    private Object[] mParams;
+    private BigInteger mSetParams = BigInteger.ZERO;
+
     LoggingPreparedStatement(Log log, Connection con, PreparedStatement ps, String sql) {
         super(log, con, ps);
         mSQL = sql;
     }
 
     public ResultSet executeQuery() throws SQLException {
-        mLog.debug(mSQL);
+        logStatement();
         return ps().executeQuery();
     }
 
     public int executeUpdate() throws SQLException {
-        mLog.debug(mSQL);
+        logStatement();
         return ps().executeUpdate();
     }
 
     public boolean execute() throws SQLException {
-        mLog.debug(mSQL);
+        logStatement();
         return ps().execute();
+    }
+
+    private void logStatement() {
+        String statement = mSQL;
+
+        Object[] params;
+        BigInteger setParams;
+        if ((params = mParams) != null && (setParams = mSetParams) != BigInteger.ZERO) {
+            int length = setParams.bitLength();
+            StringBuilder b = new StringBuilder(statement.length() + length * 10);
+            b.append(statement);
+            b.append(" -- ");
+            boolean any = false;
+            for (int i=0; i<length; i++) {
+                if (setParams.testBit(i)) {
+                    if (any) {
+                        b.append(", [");
+                    } else {
+                        b.append('[');
+                        any = true;
+                    }
+                    b.append(i);
+                    b.append("]=");
+                    b.append(params[i]);
+                }
+            }
+            statement = b.toString();
+        }
+
+        mLog.debug(statement);
     }
 
     public void addBatch() throws SQLException {
@@ -58,90 +92,91 @@ class LoggingPreparedStatement extends LoggingStatement implements PreparedState
     }
 
     public void clearParameters() throws SQLException {
-        // TODO: clear locally
+        mParams = null;
+        mSetParams = BigInteger.ZERO;
         ps().clearParameters();
     }
 
     public void setNull(int parameterIndex, int sqlType) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, null);
         ps().setNull(parameterIndex, sqlType);
     }
 
     public void setBoolean(int parameterIndex, boolean x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setBoolean(parameterIndex, x);
     }
 
     public void setByte(int parameterIndex, byte x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setByte(parameterIndex, x);
     }
 
     public void setShort(int parameterIndex, short x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setShort(parameterIndex, x);
     }
 
     public void setInt(int parameterIndex, int x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setInt(parameterIndex, x);
     }
 
     public void setLong(int parameterIndex, long x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setLong(parameterIndex, x);
     }
 
     public void setFloat(int parameterIndex, float x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setFloat(parameterIndex, x);
     }
 
     public void setDouble(int parameterIndex, double x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setDouble(parameterIndex, x);
     }
 
     public void setBigDecimal(int parameterIndex, BigDecimal x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setBigDecimal(parameterIndex, x);
     }
 
     public void setString(int parameterIndex, String x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setString(parameterIndex, x);
     }
 
     public void setBytes(int parameterIndex, byte x[]) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setBytes(parameterIndex, x);
     }
 
     public void setDate(int parameterIndex, java.sql.Date x)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setDate(parameterIndex, x);
     }
 
     public void setTime(int parameterIndex, java.sql.Time x)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setTime(parameterIndex, x);
     }
 
     public void setTimestamp(int parameterIndex, java.sql.Timestamp x)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setTimestamp(parameterIndex, x);
     }
 
     public void setAsciiStream(int parameterIndex, java.io.InputStream x, int length)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, "{asciiStream=" + x + ", length=" + length + '}');
         ps().setAsciiStream(parameterIndex, x, length);
     }
 
@@ -149,33 +184,34 @@ class LoggingPreparedStatement extends LoggingStatement implements PreparedState
     public void setUnicodeStream(int parameterIndex, java.io.InputStream x, int length)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, "{unicodeStream=" + x + ", length=" + length + '}');
         ps().setUnicodeStream(parameterIndex, x, length);
     }
 
     public void setBinaryStream(int parameterIndex, java.io.InputStream x, int length)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, "{binaryStream=" + x + ", length=" + length + '}');
         ps().setBinaryStream(parameterIndex, x, length);
     }
 
     public void setObject(int parameterIndex, Object x, int targetSqlType, int scale)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, "{object=" + x + ", targetSqlType=" + targetSqlType +
+                 ", scale=" + scale + '}');
         ps().setObject(parameterIndex, x, targetSqlType, scale);
     }
 
     public void setObject(int parameterIndex, Object x, int targetSqlType)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, "{object=" + x + ", targetSqlType=" + targetSqlType + '}');
         ps().setObject(parameterIndex, x, targetSqlType);
     }
 
     public void setObject(int parameterIndex, Object x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setObject(parameterIndex, x);
     }
 
@@ -184,60 +220,60 @@ class LoggingPreparedStatement extends LoggingStatement implements PreparedState
                                    int length)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, "{characterStream=" + reader + ", length=" + length + '}');
         ps().setCharacterStream(parameterIndex, reader, length);
     }
 
     public void setRef(int i, Ref x) throws SQLException {
-        // TODO: set locally
+        setParam(i, x);
         ps().setRef(i, x);
     }
 
     public void setBlob(int i, Blob x) throws SQLException {
-        // TODO: set locally
+        setParam(i, x);
         ps().setBlob(i, x);
     }
 
     public void setClob(int i, Clob x) throws SQLException {
-        // TODO: set locally
+        setParam(i, x);
         ps().setClob(i, x);
     }
 
     public void setArray(int i, Array x) throws SQLException {
-        // TODO: set locally
+        setParam(i, x);
         ps().setArray(i, x);
     }
 
     public void setDate(int parameterIndex, java.sql.Date x, Calendar cal)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, "{date=" + x + ", calendar=" + cal + '}');
         ps().setDate(parameterIndex, x, cal);
     }
 
     public void setTime(int parameterIndex, java.sql.Time x, Calendar cal)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, "{time=" + x + ", calendar=" + cal + '}');
         ps().setTime(parameterIndex, x, cal);
     }
 
     public void setTimestamp(int parameterIndex, java.sql.Timestamp x, Calendar cal)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(parameterIndex, "{timestamp=" + x + ", calendar=" + cal + '}');
         ps().setTimestamp(parameterIndex, x, cal);
     }
 
     public void setNull(int paramIndex, int sqlType, String typeName)
         throws SQLException
     {
-        // TODO: set locally
+        setParam(paramIndex, "{null, sqlType=" + sqlType + ", typeName=" + typeName + '}');
         ps().setNull(paramIndex, sqlType, typeName);
     }
 
     public void setURL(int parameterIndex, java.net.URL x) throws SQLException {
-        // TODO: set locally
+        setParam(parameterIndex, x);
         ps().setURL(parameterIndex, x);
     }
 
@@ -391,6 +427,18 @@ class LoggingPreparedStatement extends LoggingStatement implements PreparedState
      */
     public void setNClob(int parameterIndex, java.io.Reader reader) throws SQLException {
         ps().setNClob(parameterIndex, reader);
+    }
+
+    private void setParam(int parameterIndex, Object value) {
+        Object[] params = mParams;
+        if (params == null) {
+            mParams = params = new Object[Math.max(parameterIndex + 1, 10)];
+        } else if (parameterIndex + 1 >= params.length) {
+            Object[] newParams = new Object[Math.max(parameterIndex + 1, params.length * 2)];
+            System.arraycopy(params, 0, newParams, 0, params.length);
+        }
+        params[parameterIndex] = value;
+        mSetParams = mSetParams.setBit(parameterIndex);
     }
 
     private PreparedStatement ps() {
