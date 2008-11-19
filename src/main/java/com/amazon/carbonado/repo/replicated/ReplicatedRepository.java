@@ -470,7 +470,18 @@ class ReplicatedRepository
         Cursor<S> masterCursor = null;
 
         try {
-            replicaCursor = replicaQuery.fetch();
+            while (replicaCursor == null) {
+                try {
+                    replicaCursor = replicaQuery.fetch();
+                } catch (CorruptEncodingException e) {
+                    S replicaWithKeyOnly = recoverReplicaKey(replicaStorage, e);
+                    if (!deleteCorruptEntry(replicationTrigger, replicaWithKeyOnly, e)) {
+                        // Cannot delete it, so just give up.
+                        throw e;
+                    }
+                }
+            }
+
             masterCursor = masterQuery.fetch();
 
             S lastReplicaEntry = null;
@@ -512,29 +523,10 @@ class ReplicatedRepository
                             replicaCursor.close();
                             replicaCursor = null;
 
-                            boolean skip = true;
+                            S replicaWithKeyOnly = recoverReplicaKey(replicaStorage, e);
 
-                            Storable withKey = e.getStorableWithPrimaryKey();
-                            S replicaWithKeyOnly = null;
-
-                            if (withKey != null &&
-                                withKey.storableType() == replicaStorage.getStorableType())
-                            {
-                                replicaWithKeyOnly = (S) withKey;
-                            }
-
-                            if (replicaWithKeyOnly != null) {
-                                // Delete corrupt replica entry.
-                                try {
-                                    replicationTrigger.deleteReplica(replicaWithKeyOnly);
-                                    log.info("Deleted corrupt replica entry: " +
-                                             replicaWithKeyOnly.toStringKeyOnly(), e);
-                                    skip = false;
-                                } catch (PersistException e2) {
-                                    log.warn("Unable to delete corrupt replica entry: " +
-                                             replicaWithKeyOnly.toStringKeyOnly(), e2);
-                                }
-                            }
+                            boolean deleted = deleteCorruptEntry
+                                (replicationTrigger, replicaWithKeyOnly, e);
 
                             // Re-open (if we can)
                             if (lastReplicaEntry == null) {
@@ -542,7 +534,8 @@ class ReplicatedRepository
                             }
                             replicaCursor = replicaQuery.fetchAfter(lastReplicaEntry);
 
-                            if (skip) {
+                            if (deleted) {
+                                // Skip if it cannot be deleted.
                                 try {
                                     skippedCount = replicaCursor.skipNext(++skippedCount);
                                     log.info("Skipped corrupt replica entry", e);
@@ -641,6 +634,41 @@ class ReplicatedRepository
                     replicaCursor.close();
                 }
             }
+        }
+    }
+
+    private <S extends Storable> S recoverReplicaKey(Storage<S> replicaStorage,
+                                                     CorruptEncodingException e)
+    {
+        Storable withKey = e.getStorableWithPrimaryKey();
+        if (withKey != null && withKey.storableType() == replicaStorage.getStorableType()) {
+            return (S) withKey;
+        }
+        return null;
+    }
+
+    private <S extends Storable> boolean deleteCorruptEntry
+                       (ReplicationTrigger<S> replicationTrigger,
+                        S replicaWithKeyOnly,
+                        CorruptEncodingException e)
+        throws RepositoryException
+    {
+        if (replicaWithKeyOnly == null) {
+            return false;
+        }
+
+        final Log log = LogFactory.getLog(ReplicatedRepository.class);
+
+        // Delete corrupt replica entry.
+        try {
+            replicationTrigger.deleteReplica(replicaWithKeyOnly);
+            log.info("Deleted corrupt replica entry: " +
+                     replicaWithKeyOnly.toStringKeyOnly(), e);
+            return true;
+        } catch (PersistException e2) {
+            log.warn("Unable to delete corrupt replica entry: " +
+                     replicaWithKeyOnly.toStringKeyOnly(), e2);
+            return false;
         }
     }
 
