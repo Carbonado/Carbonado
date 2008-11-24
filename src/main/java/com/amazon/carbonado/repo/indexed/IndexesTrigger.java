@@ -18,6 +18,9 @@
 
 package com.amazon.carbonado.repo.indexed;
 
+import org.apache.commons.logging.LogFactory;
+
+import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Storable;
@@ -89,10 +92,19 @@ class IndexesTrigger<S extends Storable> extends Trigger<S> {
         // Delete index entries referenced by existing storable.
         S copy = (S) storable.copy();
         try {
-            if (copy.tryLoad()) {
-                for (ManagedIndex<S> managed : mManagedIndexes) {
-                    managed.deleteIndexEntry(copy);
+            try {
+                if (!copy.tryLoad()) {
+                    return null;
                 }
+            } catch (CorruptEncodingException e) {
+                LogFactory.getLog(IndexedStorage.class)
+                    .warn("Unable to delete index entries because primary record is corrupt: " +
+                          copy.toStringKeyOnly(), e);
+                return null;
+            }
+
+            for (ManagedIndex<S> managed : mManagedIndexes) {
+                managed.deleteIndexEntry(copy);
             }
         } catch (FetchException e) {
             throw e.toPersistException();
