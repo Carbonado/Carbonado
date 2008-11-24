@@ -11,6 +11,10 @@ http://carbonado.sourceforge.net/
 Carbonado change history
 ------------------------
 
+1.2 to 1.2.1
+-------------------------------
+- Fixes in replicated repository resync when encountering corrupt records.
+
 1.1 to 1.2
 -------------------------------
 - Builds using JDK1.6, but targets JDK1.5.
