@@ -40,7 +40,8 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
 
     private static final String TRUNCATE_STATEMENT = "TRUNCATE TABLE %s";
 
-    private static final int LOB_CHUNK_LIMIT = 2000;
+    private static final int BLOB_CHUNK_LIMIT = 2000;
+    private static final int CLOB_CHUNK_LIMIT = 1000;
 
     //private static final String PLAN_TABLE_NAME = "TEMP_CARBONADO_PLAN_TABLE";
 
@@ -152,7 +153,7 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
     {
         try {
             long length = blob.getLength();
-            if (length > LOB_CHUNK_LIMIT || ((long) ((int) length)) != length) {
+            if (length > BLOB_CHUNK_LIMIT || ((long) ((int) length)) != length) {
                 if (mBLOB_empty_lob == null) {
                     return super.setBlobValue(ps, column, blob);
                 }
@@ -191,7 +192,7 @@ class OracleSupportStrategy extends JDBCSupportStrategy {
     {
         try {
             long length = clob.getLength();
-            if (length > LOB_CHUNK_LIMIT || ((long) ((int) length)) != length) {
+            if (length > CLOB_CHUNK_LIMIT || ((long) ((int) length)) != length) {
                 if (mCLOB_empty_lob == null) {
                     return super.setClobValue(ps, column, clob);
                 }
