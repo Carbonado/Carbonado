@@ -469,8 +469,26 @@ class UpgradableLock<L> {
             throw new InterruptedException();
         }
         if (!tryLockForWrite(locker)) {
-            return lockForWriteQueuedInterruptibly(locker, addWriteWaiter(),
-                                                   unit.toNanos(timeout));
+            long start = System.nanoTime();
+            Result upgradeResult = tryLockForUpgrade_(locker, timeout, unit);
+            if (upgradeResult == Result.FAILED) {
+                return false;
+            }
+            if (!tryLockForWrite(locker)) {
+                if ((timeout = unit.toNanos(timeout) - (System.nanoTime() - start)) <= 0) {
+                    return false;
+                }
+                if (!lockForWriteQueuedInterruptibly(locker, addWriteWaiter(), timeout)) {
+                    return false;
+                }
+            }
+            if (upgradeResult == Result.ACQUIRED) {
+                // clear upgrade state bit to indicate automatic upgrade
+                while (!clearUpgradeLock(mState)) {}
+            } else {
+                // undo automatic upgrade count increment
+                mUpgradeCount--;
+            }
         }
         return true;
     }
