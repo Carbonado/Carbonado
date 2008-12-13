@@ -475,6 +475,7 @@ class UpgradableLock<L> {
                 return false;
             }
             if (!tryLockForWrite(locker)) {
+                unlockFromUpgrade(locker);
                 if ((timeout = unit.toNanos(timeout) - (System.nanoTime() - start)) <= 0) {
                     return false;
                 }
