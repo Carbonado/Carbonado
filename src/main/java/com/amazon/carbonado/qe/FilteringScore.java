@@ -767,7 +767,7 @@ public class FilteringScore<S extends Storable> {
     }
 
     private boolean isProvidedByIndex(Filter<S> filter) {
-        return filter.accept(new Visitor<S, Boolean, Object>() {
+        Boolean result = filter.accept(new Visitor<S, Boolean, Object>() {
             @Override
             public Boolean visit(OrFilter<S> filter, Object param) {
                 return filter.getLeftFilter().accept(this, param)
@@ -791,6 +791,8 @@ public class FilteringScore<S extends Storable> {
                 return false;
             }
         }, null);
+
+        return result == null ? false : result;
     }
 
     private static class Range implements Comparator<FilteringScore<?>> {

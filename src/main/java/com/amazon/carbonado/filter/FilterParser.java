@@ -142,8 +142,13 @@ class FilterParser<S extends Storable> {
 
         mPos--;
         ChainedProperty<S> chained = parseChainedProperty();
+
         c = nextCharIgnoreWhitespace();
-        if (c != '(') {
+        if (c == '.') {
+            // Convert chain against a query property into sub filter form.
+            Filter<?> subFilter = parseChainedFilter(chained, true);
+            return ExistsFilter.build(chained, subFilter, false);
+        } else if (c != '(') {
             mPos--;
             return parsePropertyFilter(chained);
         }
@@ -154,7 +159,7 @@ class FilterParser<S extends Storable> {
             subFilter = null;
         } else {
             mPos--;
-            subFilter = parseChainedFilter(chained);
+            subFilter = parseChainedFilter(chained, false);
             c = nextCharIgnoreWhitespace();
             if (c != ')') {
                 mPos--;
@@ -244,10 +249,17 @@ class FilterParser<S extends Storable> {
     }
 
     @SuppressWarnings("unchecked")
-    private Filter<?> parseChainedFilter(ChainedProperty<S> chained) {
+    private Filter<?> parseChainedFilter(ChainedProperty<S> chained, boolean oneEntity) {
         FilterParser<?> chainedParser = new FilterParser
             (chained.getLastProperty().getJoinedType(), mFilter, mPos);
-        Filter<?> chainedFilter = chainedParser.parseFilter();
+
+        Filter<?> chainedFilter;
+        if (oneEntity) {
+            chainedFilter = chainedParser.parseEntityFilter();
+        } else {
+            chainedFilter = chainedParser.parseFilter();
+        }
+
         mPos = chainedParser.mPos;
         return chainedFilter;
     }
@@ -282,19 +294,24 @@ class FilterParser<S extends Storable> {
             }
         }
 
-        if (nextCharIgnoreWhitespace() != '.') {
+        if (nextCharIgnoreWhitespace() != '.' || prime.isQuery()) {
             mPos--;
             if (outerJoinList != null && outerJoinList.get(0)) {
-                if (lastOuterJoinPos >= 0) {
-                    mPos = lastOuterJoinPos;
+                if (prime.isQuery()) {
+                    return ChainedProperty.get(prime, null, new boolean[] {true});
+                } else {
+                    if (lastOuterJoinPos >= 0) {
+                        mPos = lastOuterJoinPos;
+                    }
+                    throw error("Outer join not allowed for non-join property");
                 }
-                throw error("Outer join not allowed for non-chained property");
             }
             return ChainedProperty.get(prime);
         }
 
         List<StorableProperty<?>> chain = new ArrayList<StorableProperty<?>>(4);
-        Class<?> type = prime.getType();
+        StorableProperty<?> prop = prime;
+        Class<?> type = prop.getType();
 
         while (true) {
             lastOuterJoinPos = -1;
@@ -323,14 +340,14 @@ class FilterParser<S extends Storable> {
                 StorableInfo<?> info =
                     StorableIntrospector.examine((Class<? extends Storable>) type);
                 Map<String, ? extends StorableProperty<?>> props = info.getAllProperties();
-                StorableProperty<?> prop = props.get(ident);
+                prop = props.get(ident);
                 if (prop == null) {
                     mPos -= ident.length();
                     throw error("Property \"" + ident + "\" not found for type: \"" +
                                 type.getName() + '"');
                 }
                 chain.add(prop);
-                type = prop.isJoin() ? prop.getJoinedType() : prop.getType();
+                type = prop.getType();
             } else {
                 throw error("Property \"" + ident + "\" not found for type \"" +
                             type.getName() + "\" because it has no properties");
@@ -343,7 +360,7 @@ class FilterParser<S extends Storable> {
                 }
             }
 
-            if (nextCharIgnoreWhitespace() != '.') {
+            if (nextCharIgnoreWhitespace() != '.' || prop.isQuery()) {
                 mPos--;
                 break;
             }
@@ -351,11 +368,11 @@ class FilterParser<S extends Storable> {
 
         boolean[] outerJoin = null;
         if (outerJoinList != null) {
-            if (outerJoinList.get(outerJoinList.size() - 1)) {
+            if (!prop.isQuery() && outerJoinList.get(outerJoinList.size() - 1)) {
                 if (lastOuterJoinPos >= 0) {
                     mPos = lastOuterJoinPos;
                 }
-                throw error("Outer join not allowed for last property in chain");
+                throw error("Outer join not allowed for non-join property");
             }
             outerJoin = new boolean[outerJoinList.size()];
             for (int i=outerJoinList.size(); --i>=0; ) {
