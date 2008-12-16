@@ -436,6 +436,7 @@ class LoggingPreparedStatement extends LoggingStatement implements PreparedState
         } else if (parameterIndex + 1 >= params.length) {
             Object[] newParams = new Object[Math.max(parameterIndex + 1, params.length * 2)];
             System.arraycopy(params, 0, newParams, 0, params.length);
+            mParams = params = newParams;
         }
         params[parameterIndex] = value;
         mSetParams = mSetParams.setBit(parameterIndex);
