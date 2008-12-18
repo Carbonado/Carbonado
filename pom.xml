@@ -120,6 +120,13 @@
       <email>artdodge@users.sourceforge.net</email>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
+
+    <developer>
+      <name>Peter Carbon</name>
+      <id>peter_carbon</id>
+      <email>peter_carbon@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
   </developers>
 
   <contributors>
