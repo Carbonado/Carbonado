@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.raw;
 
+import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.info.StorableIndex;
@@ -132,6 +133,19 @@ public interface StorableCodec<S extends Storable> {
      * prefix. Returned value may be null if no prefix is defined.
      */
     byte[] encodePrimaryKeyPrefix();
+
+    /**
+     * Used for decoding different generations of Storable. If layout
+     * generations are not supported, simply throw a CorruptEncodingException.
+     *
+     * @param dest storable to receive decoded properties
+     * @param int storable layout generation number
+     * @param data decoded into properties, some of which may be dropped if
+     * destination storable doesn't have it
+     * @throws CorruptEncodingException if generation is unknown or if data cannot be decoded
+     * @since 1.2.1
+     */
+    void decode(S dest, int generation, byte[] data) throws CorruptEncodingException;
 
     /**
      * Returns the default {@link RawSupport} object that is supplied to

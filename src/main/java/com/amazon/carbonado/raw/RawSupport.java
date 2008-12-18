@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.raw;
 
+import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Storable;
@@ -102,4 +103,17 @@ public interface RawSupport<S extends Storable> extends MasterSupport<S> {
      * @throws PersistException if blob is unrecognized
      */
     long getLocator(Clob clob) throws PersistException;
+
+    /**
+     * Used for decoding different generations of Storable. If layout
+     * generations are not supported, simply throw a CorruptEncodingException.
+     *
+     * @param dest storable to receive decoded properties
+     * @param int storable layout generation number
+     * @param data decoded into properties, some of which may be dropped if
+     * destination storable doesn't have it
+     * @throws CorruptEncodingException if generation is unknown or if data cannot be decoded
+     * @since 1.2.1
+     */
+    void decode(S dest, int generation, byte[] data) throws CorruptEncodingException;
 }

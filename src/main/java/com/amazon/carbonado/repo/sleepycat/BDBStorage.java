@@ -24,6 +24,7 @@ import java.util.Map;
 
 import org.cojen.classfile.TypeDesc;
 
+import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchDeadlockException;
 import com.amazon.carbonado.FetchException;
@@ -104,7 +105,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     private final Class<S> mType;
 
     /** Does most of the work in generating storables, used for preparing and querying  */
-    private StorableCodec<S> mStorableCodec;
+    StorableCodec<S> mStorableCodec;
 
     /**
      * Reference to an instance of Proxy, defined in this class, which binds
@@ -135,7 +136,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     {
         mRepository = repository;
         mType = type;
-        mRawSupport = new Support<Txn, S>(repository, this);
+        mRawSupport = new Support(repository, this);
         mTriggerManager = new TriggerManager<S>();
         try {
             // Ask if any lobs via static method first, to prevent stack
@@ -1009,7 +1010,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     // Note: BDBStorage could just implement the RawSupport interface, but
     // then these hidden methods would be public. A simple cast of Storage to
     // RawSupport would expose them.
-    private static class Support<Txn, S extends Storable> implements RawSupport<S> {
+    private class Support implements RawSupport<S> {
         private final BDBRepository<Txn> mRepository;
         private final BDBStorage<Txn, S> mStorage;
         private Map<String, ? extends StorableProperty<S>> mProperties;
@@ -1126,6 +1127,10 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
 
         public long getLocator(Clob clob) throws PersistException {
             return mStorage.getLocator(clob);
+        }
+
+        public void decode(S dest, int generation, byte[] data) throws CorruptEncodingException {
+            mStorableCodec.decode(dest, generation, data);
         }
 
         public SequenceValueProducer getSequenceValueProducer(String name)

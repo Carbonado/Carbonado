@@ -28,6 +28,7 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.info.StorableIndex;
 import com.amazon.carbonado.info.StorableProperty;
+import com.amazon.carbonado.synthetic.SyntheticStorableReferenceAccess;
 import com.amazon.carbonado.synthetic.SyntheticStorableReferenceBuilder;
 
 /**
@@ -100,7 +101,7 @@ class IndexEntryGenerator <S extends Storable> {
         }
     }
 
-    private SyntheticStorableReferenceBuilder<S> mBuilder;
+    private SyntheticStorableReferenceAccess<S> mIndexAccess;
 
     /**
      * Convenience class for gluing new "builder" style synthetics to the traditional
@@ -112,13 +113,17 @@ class IndexEntryGenerator <S extends Storable> {
         // but we have nothing better available to us
         Class<S> type = index.getProperty(0).getEnclosingType();
 
-        mBuilder = new SyntheticStorableReferenceBuilder<S>(type, index.isUnique());
+        SyntheticStorableReferenceBuilder<S> builder =
+            new SyntheticStorableReferenceBuilder<S>(type, index.isUnique());
 
         for (int i=0; i<index.getPropertyCount();  i++) {
             StorableProperty source = index.getProperty(i);
-            mBuilder.addKeyProperty(source.getName(), index.getPropertyDirection(i));
+            builder.addKeyProperty(source.getName(), index.getPropertyDirection(i));
         }
-        mBuilder.build();
+
+        builder.build();
+
+        mIndexAccess = builder.getReferenceAccess();
     }
 
     /**
@@ -127,7 +132,7 @@ class IndexEntryGenerator <S extends Storable> {
      * @return class of index entry, which is a custom Storable
      */
     public Class<? extends Storable> getIndexEntryClass() {
-        return mBuilder.getStorableClass();
+        return mIndexAccess.getReferenceClass();
     }
 
     /**
@@ -138,7 +143,7 @@ class IndexEntryGenerator <S extends Storable> {
      * @param master master whose primary key properties will be set
      */
     public void copyToMasterPrimaryKey(Storable indexEntry, S master) {
-        mBuilder.copyToMasterPrimaryKey(indexEntry, master);
+        mIndexAccess.copyToMasterPrimaryKey(indexEntry, master);
     }
 
     /**
@@ -149,7 +154,7 @@ class IndexEntryGenerator <S extends Storable> {
      * @param master source of property values
      */
     public void copyFromMaster(Storable indexEntry, S master) {
-        mBuilder.copyFromMaster(indexEntry, master);
+        mIndexAccess.copyFromMaster(indexEntry, master);
     }
 
     /**
@@ -161,13 +166,13 @@ class IndexEntryGenerator <S extends Storable> {
      * @param master source of property values
      */
     public boolean isConsistent(Storable indexEntry, S master) {
-        return mBuilder.isConsistent(indexEntry, master);
+        return mIndexAccess.isConsistent(indexEntry, master);
     }
 
     /**
      * Returns a comparator for ordering index entries.
      */
     public Comparator<? extends Storable> getComparator() {
-        return mBuilder.getComparator();
+        return mIndexAccess.getComparator();
     }
 }

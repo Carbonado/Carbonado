@@ -394,6 +394,49 @@ public class Layout {
         return reconstructed;
     }
 
+    @Override
+    public int hashCode() {
+        long id = getLayoutID();
+        return ((int) id) ^ (int) (id >> 32);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj instanceof Layout) {
+            Layout other = (Layout) obj;
+            try {
+                return mStoredLayout.equals(other.mStoredLayout) && equalLayouts(other);
+            } catch (FetchException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder b = new StringBuilder();
+        b.append("Layout {type=").append(getStorableTypeName());
+        b.append(", generation=").append(getGeneration());
+        b.append(", properties={");
+        try {
+            List<LayoutProperty> props = getAllProperties();
+            for (int i=0; i<props.size(); i++) {
+                if (i > 0) {
+                    b.append(", ");
+                }
+                b.append(props.get(i));
+            }
+        } catch (FetchException e) {
+            b.append(e.toString());
+        }
+        b.append("}}");
+        return b.toString();
+    }
+
     /**
      * Returns true if the given layout matches this one. Layout ID,
      * generation, and creation info is not considered in the comparison.

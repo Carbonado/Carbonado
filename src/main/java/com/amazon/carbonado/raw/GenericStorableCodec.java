@@ -18,7 +18,6 @@
 
 package com.amazon.carbonado.raw;
 
-import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.Map;
@@ -51,6 +50,8 @@ import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.layout.Layout;
 
 import com.amazon.carbonado.gen.CodeBuilderUtil;
+import com.amazon.carbonado.gen.StorableGenerator;
+import com.amazon.carbonado.gen.TriggerSupport;
 
 import com.amazon.carbonado.util.ThrowUnchecked;
 import com.amazon.carbonado.util.QuickConstructorGenerator;
@@ -64,10 +65,8 @@ import com.amazon.carbonado.util.QuickConstructorGenerator;
  */
 public class GenericStorableCodec<S extends Storable> implements StorableCodec<S> {
     private static final String BLANK_KEY_FIELD_NAME = "blankKey$";
-    private static final String CODEC_FIELD_NAME = "codec$";
-    private static final String ASSIGN_CODEC_METHOD_NAME = "assignCodec$";
 
-    // Maps GenericEncodingStrategy instances to GenericStorableCodec instances.
+    // Maps GenericEncodingStrategy instances to Storable classes.
     private static final Map cCache = new SoftValuedHashMap();
 
     /**
@@ -100,7 +99,8 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
         }
 
         return new GenericStorableCodec<S>
-            (factory,
+            (key,
+             factory,
              encodingStrategy.getType(),
              storableImpl,
              encodingStrategy,
@@ -128,30 +128,10 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
 
         // Declare some types.
         final TypeDesc storableType = TypeDesc.forClass(Storable.class);
+        final TypeDesc triggerSupportType = TypeDesc.forClass(TriggerSupport.class);
         final TypeDesc rawSupportType = TypeDesc.forClass(RawSupport.class);
         final TypeDesc byteArrayType = TypeDesc.forClass(byte[].class);
         final TypeDesc[] byteArrayParam = {byteArrayType};
-        final TypeDesc codecType = TypeDesc.forClass(GenericStorableCodec.class);
-        final TypeDesc decoderType = TypeDesc.forClass(Decoder.class);
-        final TypeDesc weakRefType = TypeDesc.forClass(WeakReference.class);
-
-        // If Layout provided, then keep a (weak) static reference to this
-        // GenericStorableCodec in order to get decoders for different
-        // generations. It is assigned a value after the class is loaded via a
-        // public static method. It can only be assigned once.
-        if (layout != null) {
-            cf.addField(Modifiers.PRIVATE.toStatic(true), CODEC_FIELD_NAME, weakRefType);
-            MethodInfo mi = cf.addMethod(Modifiers.PUBLIC.toStatic(true), ASSIGN_CODEC_METHOD_NAME,
-                                         null, new TypeDesc[] {weakRefType});
-            CodeBuilder b = new CodeBuilder(mi);
-            b.loadStaticField(CODEC_FIELD_NAME, weakRefType);
-            Label done = b.createLabel();
-            b.ifNullBranch(done, false);
-            b.loadLocal(b.getParameter(0));
-            b.storeStaticField(CODEC_FIELD_NAME, weakRefType);
-            done.setLocation();
-            b.returnVoid();
-        }
 
         // Add constructors.
         // 1: Accepts a RawSupport.
@@ -277,26 +257,16 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             LocalVariable actualGeneration = b.createLocalVariable(null, TypeDesc.INT);
             b.storeLocal(actualGeneration);
 
-            b.loadStaticField(CODEC_FIELD_NAME, weakRefType);
-            b.invokeVirtual(weakRefType, "get", TypeDesc.OBJECT, null);
-            b.dup();
-            Label haveCodec = b.createLabel();
-            b.ifNullBranch(haveCodec, false);
-
-            // Codec got reclaimed, which is unlikely to happen during normal
-            // use since it must be referenced by the storage object.
-            b.pop(); // Don't need the duped codec instance.
-            CodeBuilderUtil.throwException(b, IllegalStateException.class, "Codec missing");
-
-            haveCodec.setLocation();
-            b.checkCast(codecType);
-            b.loadLocal(actualGeneration);
-            Label tryStartDecode = b.createLabel().setLocation();
-            b.invokeVirtual(codecType, "getDecoder", decoderType, new TypeDesc[] {TypeDesc.INT});
             b.loadThis();
+            b.loadField(StorableGenerator.SUPPORT_FIELD_NAME, triggerSupportType);
+            b.checkCast(rawSupportType);
+
+            Label tryStartDecode = b.createLabel().setLocation();
+            b.loadThis();
+            b.loadLocal(actualGeneration);
             b.loadLocal(b.getParameter(0));
-            b.invokeInterface(decoderType, "decode", null,
-                              new TypeDesc[] {storableType, byteArrayType});
+            b.invokeInterface(rawSupportType, "decode", null,
+                              new TypeDesc[] {storableType, TypeDesc.INT, byteArrayType});
             Label tryEndDecode = b.createLabel().setLocation();
 
             b.returnVoid();
@@ -318,8 +288,14 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
         return ci.defineClass(cf);
     }
 
-    private final GenericStorableCodecFactory mFactory;
+    // Maps codec key and OrderedProperty[] keys to SearchKeyFactory instances.
+    private static final Map cCodecSearchKeyFactories = new SoftValuedHashMap();
 
+    // Maps codec key and layout generations to Decoders.
+    private static final Map cCodecDecoders = new SoftValuedHashMap();
+
+    private final Object mCodecKey;
+    private final GenericStorableCodecFactory mFactory;
     private final Class<S> mType;
 
     private final Class<? extends S> mStorableClass;
@@ -330,9 +306,6 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
 
     private final SearchKeyFactory<S> mPrimaryKeyFactory;
 
-    // Maps OrderedProperty[] keys to SearchKeyFactory instances.
-    private final Map mSearchKeyFactories = new SoftValuedHashMap();
-
     private final Layout mLayout;
 
     private final RawSupport<S> mSupport;
@@ -340,11 +313,16 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
     // Maps layout generations to Decoders.
     private IntHashMap mDecoders;
 
-    private GenericStorableCodec(GenericStorableCodecFactory factory,
+    /**
+     * @param codecKey cache key for this GenericStorableCodec instance
+     */
+    private GenericStorableCodec(Object codecKey,
+                                 GenericStorableCodecFactory factory,
                                  Class<S> type, Class<? extends S> storableClass,
                                  GenericEncodingStrategy<S> encodingStrategy,
                                  Layout layout, RawSupport<S> support)
     {
+        mCodecKey = codecKey;
         mFactory = factory;
         mType = type;
         mStorableClass = storableClass;
@@ -354,16 +332,6 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
         mPrimaryKeyFactory = getSearchKeyFactory(encodingStrategy.gatherAllKeyProperties());
         mLayout = layout;
         mSupport = support;
-
-        if (layout != null) {
-            try {
-                // Assign static reference back to this codec.
-                Method m = storableClass.getMethod(ASSIGN_CODEC_METHOD_NAME, WeakReference.class);
-                m.invoke(null, new WeakReference(this));
-            } catch (Exception e) {
-                ThrowUnchecked.fireFirstDeclaredCause(e);
-            }
-        }
     }
 
     /**
@@ -498,15 +466,26 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
     @SuppressWarnings("unchecked")
     public SearchKeyFactory<S> getSearchKeyFactory(OrderedProperty<S>[] properties) {
         // This KeyFactory makes arrays work as hashtable keys.
-        Object key = org.cojen.util.KeyFactory.createKey(properties);
+        Object key = KeyFactory.createKey(new Object[] {mCodecKey, properties});
 
-        synchronized (mSearchKeyFactories) {
-            SearchKeyFactory<S> factory = (SearchKeyFactory<S>) mSearchKeyFactories.get(key);
+        synchronized (cCodecSearchKeyFactories) {
+            SearchKeyFactory<S> factory = (SearchKeyFactory<S>) cCodecSearchKeyFactories.get(key);
             if (factory == null) {
                 factory = generateSearchKeyFactory(properties);
-                mSearchKeyFactories.put(key, factory);
+                cCodecSearchKeyFactories.put(key, factory);
             }
             return factory;
+        }
+    }
+
+    @Override
+    public void decode(S dest, int generation, byte[] data) throws CorruptEncodingException {
+        try {
+            getDecoder(generation).decode(dest, data);
+        } catch (CorruptEncodingException e) {
+            throw e;
+        } catch (RepositoryException e) {
+            throw new CorruptEncodingException(e);
         }
     }
 
@@ -514,7 +493,9 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
      * Returns a data decoder for the given generation.
      *
      * @throws FetchNoneException if generation is unknown
+     * @deprecated use direct decode method
      */
+    @Deprecated
     public Decoder<S> getDecoder(int generation) throws FetchNoneException, FetchException {
         try {
             synchronized (mLayout) {
@@ -524,7 +505,22 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                 }
                 Decoder<S> decoder = (Decoder<S>) decoders.get(generation);
                 if (decoder == null) {
-                    decoder = generateDecoder(generation);
+                    synchronized (cCodecDecoders) {
+                        Object key = KeyFactory.createKey(new Object[] {mCodecKey, generation});
+                        decoder = (Decoder<S>) cCodecDecoders.get(key);
+                        if (decoder == null) {
+                            decoder = generateDecoder(generation);
+                            cCodecDecoders.put(key, decoder);
+                        } else {
+                            // Confirm that layout still exists.
+                            try {
+                                mLayout.getGeneration(generation);
+                            } catch (FetchNoneException e) {
+                                cCodecDecoders.remove(key);
+                                throw e;
+                            }
+                        }
+                    }
                     mDecoders.put(generation, decoder);
                 }
                 return decoder;
@@ -915,6 +911,6 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
          * @param data decoded into properties, some of which may be dropped if
          * destination storable doesn't have it
          */
-        void decode(S dest, byte[] data);
+        void decode(S dest, byte[] data) throws CorruptEncodingException;
     }
 }

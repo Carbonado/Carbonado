@@ -18,7 +18,6 @@
 package com.amazon.carbonado.synthetic;
 
 import java.lang.reflect.Method;
-import java.lang.reflect.UndeclaredThrowableException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -29,13 +28,11 @@ import java.util.Set;
 
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
-import com.amazon.carbonado.cursor.SortedCursor;
 import com.amazon.carbonado.info.Direction;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.gen.CodeBuilderUtil;
-import com.amazon.carbonado.util.ThrowUnchecked;
 
 import org.cojen.classfile.ClassFile;
 import org.cojen.classfile.CodeBuilder;
@@ -80,7 +77,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
 
     // Information about the storable from which this one is derived
     // private StorableInfo<S> mBaseStorableInfo;
-    private Class mMasterStorableClass;
+    private Class<S> mMasterStorableClass;
 
     // Stashed copy of the results of calling StorableIntrospector.examine(...)
     // on the master storable class.
@@ -90,7 +87,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
     private SyntheticStorableBuilder mBuilder;
 
     // Primary key of generated storable.
-    private SyntheticKey mPrimaryKey;
+    SyntheticKey mPrimaryKey;
 
     // Elements added to primary key to ensure uniqueness
     private Set<String> mExtraPkProps;
@@ -98,9 +95,6 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
     // True if the specified properties for this derived reference class are sufficient to
     // uniquely identify a unique instance of the referent.
     private boolean mIsUnique = true;
-
-    // The result of building
-    private Class<? extends Storable> mSyntheticClass;
 
     // The list of properties explicitly added to this reference builder
     private List<SyntheticProperty> mUserProps;
@@ -110,16 +104,12 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
     // are retrieved from the master.
     private List<StorableProperty> mCommonProps;
 
-    private String mCopyFromMasterMethodName;
-    private Method mCopyFromMasterMethod;
+    String mCopyFromMasterMethodName;
+    String mIsConsistentMethodName;
+    String mCopyToMasterPkMethodName;
 
-    private String mIsConsistentMethodName;
-    private Method mIsConsistentMethod;
-
-    private String mCopyToMasterPkMethodName;
-    private Method mCopyToMasterPkMethod;
-
-    private Comparator<? extends Storable> mComparator;
+    // The result of building.
+    private SyntheticStorableReferenceAccess mReferenceAccess;
 
     /**
      * @param storableClass
@@ -210,26 +200,27 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
         return cfg;
     }
 
+    /**
+     * Build and return access to the generated storable reference class.
+     *
+     * @since 1.2.1
+     */
+    public SyntheticStorableReferenceAccess getReferenceAccess() {
+        if (mReferenceAccess == null) {
+            Class<? extends Storable> referenceClass = mBuilder.getStorableClass();
+            mReferenceAccess = new SyntheticStorableReferenceAccess
+                (mMasterStorableClass, referenceClass, this);
+        }
+        return mReferenceAccess;
+    }
+
     /*
      * (non-Javadoc)
      *
      * @see com.amazon.carbonado.synthetic.SyntheticBuilder#getStorableClass()
      */
     public Class<? extends Storable> getStorableClass() throws IllegalStateException {
-        if (mSyntheticClass == null) {
-            mSyntheticClass = mBuilder.getStorableClass();
-
-            // We need a comparator which follows the same order as the generated
-            // storable. We can't construct it until we get here.
-            String[] orderBy = new String[mPrimaryKey.getPropertyCount()];
-            int i=0;
-            Iterator<String> it = mPrimaryKey.getProperties();
-            while (it.hasNext()) {
-                orderBy[i++] = it.next();
-            }
-            mComparator = SortedCursor.createComparator(mSyntheticClass, orderBy);
-        }
-        return mSyntheticClass;
+        return getReferenceAccess().getReferenceClass();
     }
 
     /*
@@ -356,22 +347,11 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      *
      * @param indexEntry source of property values
      * @param master master whose primary key properties will be set
+     * @deprecated call getReferenceAccess
      */
+    @Deprecated
     public void copyToMasterPrimaryKey(Storable indexEntry, S master) {
-        if (mCopyToMasterPkMethod == null) {
-            try {
-                mCopyToMasterPkMethod =
-                    mSyntheticClass.getMethod(mCopyToMasterPkMethodName, mMasterStorableClass);
-            } catch (NoSuchMethodException e) {
-                throw new UndeclaredThrowableException(e);
-            }
-        }
-
-        try {
-            mCopyToMasterPkMethod.invoke(indexEntry, master);
-        } catch (Exception e) {
-            ThrowUnchecked.fireFirstDeclaredCause(e);
-        }
+        getReferenceAccess().copyToMasterPrimaryKey(indexEntry, master);
     }
 
     /**
@@ -380,22 +360,11 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      *
      * @param indexEntry index entry whose properties will be set
      * @param master source of property values
+     * @deprecated call getReferenceAccess
      */
+    @Deprecated
     public void copyFromMaster(Storable indexEntry, S master) {
-        if (mCopyFromMasterMethod == null) {
-            try {
-                mCopyFromMasterMethod =
-                    mSyntheticClass.getMethod(mCopyFromMasterMethodName, mMasterStorableClass);
-            } catch (NoSuchMethodException e) {
-                throw new UndeclaredThrowableException(e);
-            }
-        }
-
-        try {
-            mCopyFromMasterMethod.invoke(indexEntry, master);
-        } catch (Exception e) {
-            ThrowUnchecked.fireFirstDeclaredCause(e);
-        }
+        getReferenceAccess().copyFromMaster(indexEntry, master);
     }
 
     /**
@@ -407,31 +376,20 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      *            index entry whose properties will be tested
      * @param master
      *            source of property values
+     * @deprecated call getReferenceAccess
      */
+    @Deprecated
     public boolean isConsistent(Storable indexEntry, S master) {
-        if (mIsConsistentMethod == null) {
-            try {
-                mIsConsistentMethod =
-                    mSyntheticClass.getMethod(mIsConsistentMethodName, mMasterStorableClass);
-            } catch (NoSuchMethodException e) {
-                throw new UndeclaredThrowableException(e);
-            }
-        }
-
-        try {
-            return (Boolean) mIsConsistentMethod.invoke(indexEntry, master);
-        } catch (Exception e) {
-            ThrowUnchecked.fireFirstDeclaredCause(e);
-            // Not reached.
-            return false;
-        }
+        return getReferenceAccess().isConsistent(indexEntry, master);
     }
 
     /**
      * Returns a comparator for ordering index entries.
+     * @deprecated call getReferenceAccess
      */
+    @Deprecated
     public Comparator<? extends Storable> getComparator() {
-        return mComparator;
+        return getReferenceAccess().getComparator();
     }
 
     /**
