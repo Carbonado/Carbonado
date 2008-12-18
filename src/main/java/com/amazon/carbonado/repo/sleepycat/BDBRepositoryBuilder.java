@@ -91,6 +91,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private double mIndexThrottle = 1.0;
     private boolean mReadOnly;
     private Long mCacheSize;
+    private Integer mCachePercent;
     private double mLockTimeout = 0.5;
     private double mTxnTimeout = 300.0;
     private boolean mTxnNoSync;
@@ -434,6 +435,34 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public Long getCacheSize() {
         return mCacheSize;
+    }
+
+    /**
+     * Set the percent of JVM heap used by the repository cache. Actual 
+     * BDB implementation will select a suitable default if this is not 
+     * set. This is overridden by setting an explicit cacheSize.
+     */
+    public void setCachePercent(int cachePercent) {
+        mCachePercent = cachePercent;
+    }
+
+    /**
+     * Set the percent of JVM heap used by the repository cache. Actual 
+     * BDB implementation will select a suitable default if this is not 
+     * set. This is overridden by setting an explicit cacheSize.
+     *
+     * @param cachePercent percent of JVM heap to use, or null for default
+     */
+    public void setCachePercent(Integer cacheSize) {
+        mCachePercent = cacheSize;
+    }
+
+    /**
+     * Returns the percent of JVM heap used by the repository cache, or 
+     * null if default should be selected.
+     */
+    public Integer getCachePercent() {
+        return mCachePercent;
     }
 
     /**
