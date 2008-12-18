@@ -139,7 +139,7 @@ public interface StorableCodec<S extends Storable> {
      * generations are not supported, simply throw a CorruptEncodingException.
      *
      * @param dest storable to receive decoded properties
-     * @param int storable layout generation number
+     * @param generation storable layout generation number
      * @param data decoded into properties, some of which may be dropped if
      * destination storable doesn't have it
      * @throws CorruptEncodingException if generation is unknown or if data cannot be decoded
