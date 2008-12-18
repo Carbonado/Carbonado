@@ -453,8 +453,8 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      *
      * @param cachePercent percent of JVM heap to use, or null for default
      */
-    public void setCachePercent(Integer cacheSize) {
-        mCachePercent = cacheSize;
+    public void setCachePercent(Integer cachePercent) {
+        mCachePercent = cachePercent;
     }
 
     /**
