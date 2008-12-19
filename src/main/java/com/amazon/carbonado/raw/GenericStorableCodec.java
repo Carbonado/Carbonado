@@ -90,7 +90,8 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
          Layout layout, RawSupport support)
         throws SupportException
     {
-        Object key = KeyFactory.createKey(new Object[] {encodingStrategy, isMaster, layout});
+        Object layoutKey = layout == null ? null : new LayoutKey(layout);
+        Object key = KeyFactory.createKey(new Object[] {encodingStrategy, isMaster, layoutKey});
 
         Class<? extends S> storableImpl = (Class<? extends S>) cCache.get(key);
         if (storableImpl == null) {
@@ -912,5 +913,41 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
          * destination storable doesn't have it
          */
         void decode(S dest, byte[] data) throws CorruptEncodingException;
+    }
+
+    /**
+     * Compares layouts for equivalence with respect to class creation and
+     * sharing.
+     */
+    private static class LayoutKey {
+        private final Layout mLayout;
+
+        LayoutKey(Layout layout) {
+            mLayout = layout;
+        }
+
+        @Override
+        public int hashCode() {
+            return mLayout.getStorableTypeName().hashCode() * 7 + mLayout.getGeneration();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj instanceof LayoutKey) {
+                LayoutKey other = (LayoutKey) obj;
+                try {
+                    return mLayout.getStorableTypeName()
+                        .equals(other.mLayout.getStorableTypeName()) &&
+                        mLayout.getGeneration() == other.mLayout.getGeneration() &&
+                        mLayout.equalLayouts(other.mLayout);
+                } catch (FetchException e) {
+                    return false;
+                }
+            }
+            return false;
+        }
     }
 }
