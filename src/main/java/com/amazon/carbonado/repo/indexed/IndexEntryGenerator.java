@@ -41,138 +41,83 @@ import com.amazon.carbonado.synthetic.SyntheticStorableReferenceBuilder;
  */
 class IndexEntryGenerator <S extends Storable> {
 
-    // cache for generators
-    private static Map<StorableIndex, Reference<IndexEntryGenerator>> cCache =
-            new WeakHashMap<StorableIndex, Reference<IndexEntryGenerator>>();
-
+    // cache for access classes
+    private static Map<StorableIndex, Reference<SyntheticStorableReferenceAccess>> cCache =
+        new WeakHashMap<StorableIndex, Reference<SyntheticStorableReferenceAccess>>();
 
     /**
-     * Returns a new or cached generator instance. The caching of generators is
-     * soft, so if no references remain to a given instance it may be garbage
-     * collected. A subsequent call will return a newly created instance.
+     * Returns a new or cached index access instance. The caching of accessors
+     * is soft, so if no references remain to a given instance it may be
+     * garbage collected. A subsequent call will return a newly created
+     * instance.
      *
-     * <p>In addition to generating an index entry storable, this class
+     * <p>In addition to generating an index entry storable, the accessor
      * contains methods to operate on it. Care must be taken to ensure that the
-     * index entry instances are of the same type that the generator expects.
-     * Since the generator may be garbage collected freely of the generated
+     * index entry instances are of the same type that the accessor expects.
+     * Since the accessor may be garbage collected freely of the generated
      * index entry class, it is possible for index entries to be passed to a
-     * generator instance that does not understand it. For example:
+     * accessor instance that does not understand it. For example:
      *
      * <pre>
      * StorableIndex index = ...
-     * Class indexEntryClass = IndexEntryGenerator.getInstance(index).getIndexEntryClass();
+     * Class indexEntryClass = IndexEntryGenerator.getIndexAccess(index).getReferenceClass();
      * ...
      * garbage collection
      * ...
      * Storable indexEntry = instance of indexEntryClass
      * // Might fail because generator instance is new
-     * IndexEntryGenerator.getInstance(index).setAllProperties(indexEntry, source);
+     * IndexEntryGenerator.getIndexAccess(index).copyFromMaster(indexEntry, master);
      * </pre>
      *
-     * The above code can be fixed by saving a local reference to the generator:
+     * The above code can be fixed by saving a local reference to the accessor:
      *
      * <pre>
      * StorableIndex index = ...
-     * IndexEntryGenerator generator = IndexEntryGenerator.getInstance(index);
-     * Class indexEntryClass = generator.getIndexEntryClass();
+     * SyntheticStorableReferenceAccess access = IndexEntryGenerator.getIndexAccess(index);
+     * Class indexEntryClass = access.getReferenceClass();
      * ...
      * Storable indexEntry = instance of indexEntryClass
-     * generator.setAllProperties(indexEntry, source);
+     * access.copyFromMaster(indexEntry, master);
      * </pre>
      *
      * @throws SupportException if any non-primary key property doesn't have a
      * public read method.
      */
-    public static <S extends Storable> IndexEntryGenerator<S>
-            getInstance(StorableIndex<S> index) throws SupportException
+    public static <S extends Storable>
+        SyntheticStorableReferenceAccess<S> getIndexAccess(StorableIndex<S> index)
+        throws SupportException
     {
-        synchronized(cCache) {
-            IndexEntryGenerator<S> generator;
-            Reference<IndexEntryGenerator> ref = cCache.get(index);
+        synchronized (cCache) {
+            SyntheticStorableReferenceAccess<S> access;
+            Reference<SyntheticStorableReferenceAccess> ref = cCache.get(index);
             if (ref != null) {
-                generator = ref.get();
-                if (generator != null) {
-                    return generator;
+                access = ref.get();
+                if (access != null) {
+                    return access;
                 }
             }
-            generator = new IndexEntryGenerator<S>(index);
-            cCache.put(index, new SoftReference<IndexEntryGenerator>(generator));
-            return generator;
+
+            // Need to try to find the base type.  This is an awkward way to do
+            // it, but we have nothing better available to us
+            Class<S> type = index.getProperty(0).getEnclosingType();
+
+            SyntheticStorableReferenceBuilder<S> builder =
+                new SyntheticStorableReferenceBuilder<S>(type, index.isUnique());
+
+            for (int i=0; i<index.getPropertyCount(); i++) {
+                StorableProperty<S> source = index.getProperty(i);
+                builder.addKeyProperty(source.getName(), index.getPropertyDirection(i));
+            }
+
+            builder.build();
+            access = builder.getReferenceAccess();
+
+            cCache.put(index, new SoftReference<SyntheticStorableReferenceAccess>(access));
+
+            return access;
         }
     }
 
-    private SyntheticStorableReferenceAccess<S> mIndexAccess;
-
-    /**
-     * Convenience class for gluing new "builder" style synthetics to the traditional
-     * generator style.
-     * @param index Generator style index specification
-     */
-    public IndexEntryGenerator(StorableIndex<S> index) throws SupportException {
-        // Need to try to find the base type.  This is an awkward way to do it,
-        // but we have nothing better available to us
-        Class<S> type = index.getProperty(0).getEnclosingType();
-
-        SyntheticStorableReferenceBuilder<S> builder =
-            new SyntheticStorableReferenceBuilder<S>(type, index.isUnique());
-
-        for (int i=0; i<index.getPropertyCount();  i++) {
-            StorableProperty source = index.getProperty(i);
-            builder.addKeyProperty(source.getName(), index.getPropertyDirection(i));
-        }
-
-        builder.build();
-
-        mIndexAccess = builder.getReferenceAccess();
-    }
-
-    /**
-     * Returns generated index entry class, which is abstract.
-     *
-     * @return class of index entry, which is a custom Storable
-     */
-    public Class<? extends Storable> getIndexEntryClass() {
-        return mIndexAccess.getReferenceClass();
-    }
-
-    /**
-     * Sets all the primary key properties of the given master, using the
-     * applicable properties of the given index entry.
-     *
-     * @param indexEntry source of property values
-     * @param master master whose primary key properties will be set
-     */
-    public void copyToMasterPrimaryKey(Storable indexEntry, S master) {
-        mIndexAccess.copyToMasterPrimaryKey(indexEntry, master);
-    }
-
-    /**
-     * Sets all the properties of the given index entry, using the applicable
-     * properties of the given master.
-     *
-     * @param indexEntry index entry whose properties will be set
-     * @param master source of property values
-     */
-    public void copyFromMaster(Storable indexEntry, S master) {
-        mIndexAccess.copyFromMaster(indexEntry, master);
-    }
-
-    /**
-     * Returns true if the properties of the given index entry match those
-     * contained in the master. This will always return true after a call to
-     * setAllProperties.
-     *
-     * @param indexEntry index entry whose properties will be tested
-     * @param master source of property values
-     */
-    public boolean isConsistent(Storable indexEntry, S master) {
-        return mIndexAccess.isConsistent(indexEntry, master);
-    }
-
-    /**
-     * Returns a comparator for ordering index entries.
-     */
-    public Comparator<? extends Storable> getComparator() {
-        return mIndexAccess.getComparator();
+    private IndexEntryGenerator() {
     }
 }

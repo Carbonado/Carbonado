@@ -356,7 +356,7 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         }
 
         Class<? extends Storable> indexEntryClass =
-            IndexEntryGenerator.getInstance(index).getIndexEntryClass();
+            IndexEntryGenerator.getIndexAccess(index).getReferenceClass();
 
         Storage<?> indexEntryStorage;
         try {

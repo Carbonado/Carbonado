@@ -34,6 +34,8 @@ import com.amazon.carbonado.cursor.AbstractCursor;
 
 import com.amazon.carbonado.spi.RepairExecutor;
 
+import com.amazon.carbonado.synthetic.SyntheticStorableReferenceAccess;
+
 /**
  * Wraps another cursor which contains index entries and extracts master
  * objects from them.
@@ -43,16 +45,16 @@ import com.amazon.carbonado.spi.RepairExecutor;
 class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
     private final Cursor<? extends Storable> mCursor;
     private final IndexedStorage<S> mStorage;
-    private final IndexEntryGenerator<S> mGenerator;
+    private final SyntheticStorableReferenceAccess<S> mAccessor;
 
     private S mNext;
 
     IndexedCursor(Cursor<? extends Storable> indexEntryCursor,
                   IndexedStorage<S> storage,
-                  IndexEntryGenerator<S> indexEntryGenerator) {
+                  SyntheticStorableReferenceAccess<S> indexAccessor) {
         mCursor = indexEntryCursor;
         mStorage = storage;
-        mGenerator = indexEntryGenerator;
+        mAccessor = indexAccessor;
     }
 
     public void close() throws FetchException {
@@ -68,13 +70,13 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
                 final Storable indexEntry = mCursor.next();
 
                 S master = mStorage.mMasterStorage.prepare();
-                mGenerator.copyToMasterPrimaryKey(indexEntry, master);
+                mAccessor.copyToMasterPrimaryKey(indexEntry, master);
 
                 if (!master.tryLoad()) {
                     LogFactory.getLog(getClass()).warn
                         ("Master is missing for index entry: " + indexEntry);
                 } else {
-                    if (mGenerator.isConsistent(indexEntry, master)) {
+                    if (mAccessor.isConsistent(indexEntry, master)) {
                         mNext = master;
                         return true;
                     }
@@ -85,9 +87,9 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
                     try {
                         final IndexedRepository repo = mStorage.mRepository;
                         final Storage<?> indexEntryStorage =
-                            repo.getIndexEntryStorageFor(mGenerator.getIndexEntryClass());
+                            repo.getIndexEntryStorageFor(mAccessor.getReferenceClass());
                         Storable newIndexEntry = indexEntryStorage.prepare();
-                        mGenerator.copyFromMaster(newIndexEntry, master);
+                        mAccessor.copyFromMaster(newIndexEntry, master);
 
                         if (newIndexEntry.tryLoad()) {
                             // Good, the correct index entry exists. We'll see
@@ -108,11 +110,11 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
                                 try {
                                     // Reload master and verify inconsistency.
                                     S master = mStorage.mMasterStorage.prepare();
-                                    mGenerator.copyToMasterPrimaryKey(indexEntry, master);
+                                    mAccessor.copyToMasterPrimaryKey(indexEntry, master);
 
                                     if (master.tryLoad()) {
                                         Storable newIndexEntry = indexEntryStorage.prepare();
-                                        mGenerator.copyFromMaster(newIndexEntry, master);
+                                        mAccessor.copyFromMaster(newIndexEntry, master);
 
                                         newIndexEntry.tryInsert();
 

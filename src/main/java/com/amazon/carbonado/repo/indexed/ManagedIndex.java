@@ -52,6 +52,8 @@ import com.amazon.carbonado.cursor.MergeSortBuffer;
 
 import com.amazon.carbonado.spi.RepairExecutor;
 
+import com.amazon.carbonado.synthetic.SyntheticStorableReferenceAccess;
+
 import com.amazon.carbonado.util.Throttle;
 
 /**
@@ -85,7 +87,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
     private final IndexedRepository mRepository;
     private final Storage<S> mMasterStorage;
     private final StorableIndex mIndex;
-    private final IndexEntryGenerator<S> mGenerator;
+    private final SyntheticStorableReferenceAccess<S> mAccessor;
     private final Storage<?> mIndexEntryStorage;
 
     private Query<?> mSingleMatchQuery;
@@ -93,14 +95,14 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
     ManagedIndex(IndexedRepository repository,
                  Storage<S> masterStorage,
                  StorableIndex<S> index,
-                 IndexEntryGenerator<S> generator,
+                 SyntheticStorableReferenceAccess<S> accessor,
                  Storage<?> indexEntryStorage)
         throws SupportException
     {
         mRepository = repository;
         mMasterStorage = masterStorage;
         mIndex = index;
-        mGenerator = generator;
+        mAccessor = accessor;
         mIndexEntryStorage = indexEntryStorage;
     }
 
@@ -145,17 +147,17 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
 
     // Required by IndexEntryAccessor interface.
     public void copyToMasterPrimaryKey(Storable indexEntry, S master) {
-        mGenerator.copyToMasterPrimaryKey(indexEntry, master);
+        mAccessor.copyToMasterPrimaryKey(indexEntry, master);
     }
 
     // Required by IndexEntryAccessor interface.
     public void copyFromMaster(Storable indexEntry, S master) {
-        mGenerator.copyFromMaster(indexEntry, master);
+        mAccessor.copyFromMaster(indexEntry, master);
     }
 
     // Required by IndexEntryAccessor interface.
     public boolean isConsistent(Storable indexEntry, S master) {
-        return mGenerator.isConsistent(indexEntry, master);
+        return mAccessor.isConsistent(indexEntry, master);
     }
 
     // Required by IndexEntryAccessor interface.
@@ -165,7 +167,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
 
     // Required by IndexEntryAccessor interface.
     public Comparator<? extends Storable> getComparator() {
-        return mGenerator.getComparator();
+        return mAccessor.getComparator();
     }
 
     Cursor<S> fetchOne(IndexedStorage storage, Object[] identityValues)
@@ -188,7 +190,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
     Cursor<S> fetchFromIndexEntryQuery(IndexedStorage storage, Query<?> indexEntryQuery)
         throws FetchException
     {
-        return new IndexedCursor<S>(indexEntryQuery.fetch(), storage, mGenerator);
+        return new IndexedCursor<S>(indexEntryQuery.fetch(), storage, mAccessor);
     }
 
     @Override
@@ -534,7 +536,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
     private Storable makeIndexEntry(S userStorable) throws PersistException {
         try {
             Storable indexEntry = mIndexEntryStorage.prepare();
-            mGenerator.copyFromMaster(indexEntry, userStorable);
+            mAccessor.copyFromMaster(indexEntry, userStorable);
             return indexEntry;
         } catch (UndeclaredThrowableException e) {
             Throwable cause = e.getCause();
@@ -561,7 +563,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         // If index entry already exists, then index might be corrupt.
         {
             Storable freshEntry = mIndexEntryStorage.prepare();
-            mGenerator.copyFromMaster(freshEntry, userStorable);
+            mAccessor.copyFromMaster(freshEntry, userStorable);
             indexEntry.copyVersionProperty(freshEntry);
             if (freshEntry.equals(indexEntry)) {
                 // Existing entry is exactly what we expect. Return false
@@ -591,7 +593,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                     }
 
                     Storable freshEntry = mIndexEntryStorage.prepare();
-                    mGenerator.copyFromMaster(freshEntry, freshUserStorable);
+                    mAccessor.copyFromMaster(freshEntry, freshUserStorable);
 
                     // Blow it away entry and re-insert. Don't simply update
                     // the entry, since record version number may prevent

@@ -51,6 +51,8 @@ import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.qe.FilteringScore;
 import com.amazon.carbonado.qe.StorableIndexSet;
 
+import com.amazon.carbonado.synthetic.SyntheticStorableReferenceAccess;
+
 /**
  * Builds various sets of indexes for a Storable type.
  *
@@ -275,11 +277,12 @@ class IndexAnalysis<S extends Storable> {
             ManagedIndex<S>[] managedIndexes = new ManagedIndex[managedIndexSet.size()];
             int i = 0;
             for (StorableIndex<S> index : managedIndexSet) {
-                IndexEntryGenerator<S> builder = IndexEntryGenerator.getInstance(index);
-                Class<? extends Storable> indexEntryClass = builder.getIndexEntryClass();
+                SyntheticStorableReferenceAccess<S> accessor =
+                    IndexEntryGenerator.getIndexAccess(index);
+                Class<? extends Storable> indexEntryClass = accessor.getReferenceClass();
                 Storage<?> indexEntryStorage = repository.getIndexEntryStorageFor(indexEntryClass);
                 ManagedIndex managedIndex = new ManagedIndex<S>
-                    (repository, masterStorage, index, builder, indexEntryStorage);
+                    (repository, masterStorage, index, accessor, indexEntryStorage);
 
                 allIndexInfoMap.put(index, managedIndex);
                 managedIndexes[i++] = managedIndex;
