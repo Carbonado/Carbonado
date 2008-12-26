@@ -2569,9 +2569,14 @@ public class StorableIntrospector {
             Set<StorableProperty> primaryKey =
                 new HashSet<StorableProperty>(joinedInfo.getPrimaryKeyProperties().values());
 
-            // Remove external properties from the primary key set.
-            for (int i=0; i<mInternal.length; i++) {
-                primaryKey.remove(getExternalJoinElement(i));
+            if (primaryKey.size() == 0) {
+                // Assume another error prevented primary key from being defined.
+                primaryKey = null;
+            } else {
+                // Remove external properties from the primary key set.
+                for (int i=0; i<mInternal.length; i++) {
+                    primaryKey.remove(getExternalJoinElement(i));
+                }
             }
 
             // Do similar test for alternate keys.
@@ -2593,18 +2598,20 @@ public class StorableIntrospector {
                     altKey.add(chained.getPrimeProperty());
                 }
 
-                altKeys.add(altKey);
+                if (altKey.size() > 0) {
+                    altKeys.add(altKey);
 
-                // Remove external properties from the alternate key set.
-                for (int j=0; j<mInternal.length; j++) {
-                    altKey.remove(getExternalJoinElement(j));
+                    // Remove external properties from the alternate key set.
+                    for (int j=0; j<mInternal.length; j++) {
+                        altKey.remove(getExternalJoinElement(j));
+                    }
                 }
             }
 
             if (isQuery()) {
                 // Key of joined object must not be completely specified.
 
-                if (primaryKey.size() <= 0) {
+                if (primaryKey != null && primaryKey.size() <= 0) {
                     errorMessages.add
                         ("Join property \"" + getName() +
                          "\" completely specifies primary key of joined object; " +
@@ -2627,7 +2634,7 @@ public class StorableIntrospector {
 
                 fullKeyCheck:
                 {
-                    if (primaryKey.size() <= 0) {
+                    if (primaryKey == null || primaryKey.size() <= 0) {
                         break fullKeyCheck;
                     }
 
