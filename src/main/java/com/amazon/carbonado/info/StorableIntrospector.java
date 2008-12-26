@@ -89,6 +89,21 @@ public class StorableIntrospector {
     private static Map<Class<?>, Reference<StorableInfo<?>>> cCache = new WeakIdentityMap();
 
     /**
+     * Test program which examines candidate Storable classes. If any fail, an
+     * exception is thrown.
+     *
+     * @param args names of classes to examine
+     * @throws MalformedTypeException if Storable type is invalid
+     */
+    public static void main(String[] args) throws Exception {
+        for (String arg : args) {
+            Class clazz = Class.forName(arg);
+            System.out.println("Examining " + clazz.getName());
+            examine(clazz);
+        }
+    }
+
+    /**
      * Examines the given class and returns a StorableInfo describing it. A
      * MalformedTypeException is thrown for a variety of reasons if the given
      * class is an invalid Storable type.
