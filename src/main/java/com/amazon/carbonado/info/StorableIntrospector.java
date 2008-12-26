@@ -93,13 +93,20 @@ public class StorableIntrospector {
      * exception is thrown.
      *
      * @param args names of classes to examine
-     * @throws MalformedTypeException if Storable type is invalid
      */
     public static void main(String[] args) throws Exception {
         for (String arg : args) {
             Class clazz = Class.forName(arg);
-            System.out.println("Examining " + clazz.getName());
-            examine(clazz);
+            System.out.println("Examining: " + clazz.getName());
+            try {
+                examine(clazz);
+                System.out.println("Passed");
+            } catch (MalformedTypeException e) {
+                System.out.println("Malformed type: " + e.getMalformedType().getName());
+                for (String message : e.getMessages()) {
+                    System.out.println(message);
+                }
+            }
         }
     }
 
@@ -694,21 +701,24 @@ public class StorableIntrospector {
 
         // Only include errors on unimplementable methods if there are no other
         // errors. This prevents producing errors caused by other errors.
-        Iterator<Method> iter = methods.values().iterator();
-        while (iter.hasNext()) {
-            Method m = iter.next();
-            int methodModifiers = m.getModifiers();
-            if (Modifier.isAbstract(methodModifiers )) {
-                if (!Modifier.isPublic(methodModifiers) && !Modifier.isProtected(methodModifiers))
-                {
-                    errorMessages.add("Abstract method cannot be defined (neither public or " +
-                                      "protected): " + m);
-                } else {
-                    errorMessages.add
-                        ("Abstract method cannot be defined (not a bean property): " + m);
+        if (errorMessages.size() == 0) {
+            Iterator<Method> iter = methods.values().iterator();
+            while (iter.hasNext()) {
+                Method m = iter.next();
+                int methodModifiers = m.getModifiers();
+                if (Modifier.isAbstract(methodModifiers )) {
+                    if (!Modifier.isPublic(methodModifiers) &&
+                        !Modifier.isProtected(methodModifiers))
+                    {
+                        errorMessages.add("Abstract method cannot be defined (neither public or " +
+                                          "protected): " + m);
+                    } else {
+                        errorMessages.add
+                            ("Abstract method cannot be defined (not a bean property): " + m);
+                    }
+                    // We've reported the error, nothing more to say about it
+                    iter.remove();
                 }
-                // We've reported the error, nothing more to say about it
-                iter.remove();
             }
         }
 
