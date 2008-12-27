@@ -91,6 +91,35 @@ public class StorableIntrospector {
     @SuppressWarnings("unchecked")
     private static Map<Class<?>, Reference<StorableInfo<?>>> cCache = new WeakIdentityMap();
 
+    private static final Class[] EMPTY_CLASSES_ARRAY = new Class[0];
+
+    private static final Method cCovariantTypesMethod;
+
+    static {
+        Method method;
+        try {
+            method = BeanProperty.class.getMethod("getCovariantTypes", (Class[]) null);
+        } catch (NoSuchMethodException e) {
+            method = null;
+        }
+        cCovariantTypesMethod = method;
+    }
+
+    private static Class<?>[] getCovariantTypes(BeanProperty property) {
+        // Access via reflection since this is a feature not available in all
+        // versions of Cojen.
+        if (cCovariantTypesMethod != null) {
+            try {
+                return (Class[]) cCovariantTypesMethod.invoke(property, (Object[]) null);
+            } catch (InvocationTargetException e) {
+                ThrowUnchecked.fireDeclaredCause(e);
+            } catch (IllegalAccessException e) {
+                ThrowUnchecked.fireDeclared(e);
+            }
+        }
+        return EMPTY_CLASSES_ARRAY;
+    }
+
     /**
      * Test program which examines candidate Storable classes. If any fail, an
      * exception is thrown.
@@ -770,7 +799,7 @@ public class StorableIntrospector {
     private static boolean isCovariant(Map allProperties, Method m) {
         for (Object obj : allProperties.values()) {
             BeanProperty property = (BeanProperty) obj;
-            Class[] covariantTypes = property.getCovariantTypes();
+            Class[] covariantTypes = getCovariantTypes(property);
             if (covariantTypes == null || covariantTypes.length == 0) {
                 continue;
             }
@@ -1739,19 +1768,6 @@ public class StorableIntrospector {
         private static final long serialVersionUID = 6599542401516624863L;
 
         private static final ChainedProperty[] EMPTY_CHAIN_ARRAY = new ChainedProperty[0];
-        private static final Class[] EMPTY_CLASSES_ARRAY = new Class[0];
-
-        private static final Method cCovariantTypesMethod;
-
-        static {
-            Method method;
-            try {
-                method = BeanProperty.class.getMethod("getCovariantTypes", (Class[]) null);
-            } catch (NoSuchMethodException e) {
-                method = null;
-            }
-            cCovariantTypesMethod = method;
-        }
 
         private final BeanProperty mBeanProperty;
         private final Class<S> mEnclosingType;
@@ -1826,18 +1842,7 @@ public class StorableIntrospector {
         }
 
         public Class<?>[] getCovariantTypes() {
-            // Access via reflection since this is a feature not available in
-            // all versions of Cojen.
-            if (cCovariantTypesMethod != null) {
-                try {
-                    return (Class[]) cCovariantTypesMethod.invoke(mBeanProperty, (Object[]) null);
-                } catch (InvocationTargetException e) {
-                    ThrowUnchecked.fireDeclaredCause(e);
-                } catch (IllegalAccessException e) {
-                    ThrowUnchecked.fireDeclared(e);
-                }
-            }
-            return EMPTY_CLASSES_ARRAY;
+            return StorableIntrospector.getCovariantTypes(mBeanProperty);
         }
 
         public final int getNumber() {
