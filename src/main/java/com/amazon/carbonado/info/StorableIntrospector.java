@@ -26,11 +26,13 @@ import java.lang.annotation.Annotation;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -73,6 +75,7 @@ import com.amazon.carbonado.adapter.AdapterDefinition;
 import com.amazon.carbonado.constraint.ConstraintDefinition;
 import com.amazon.carbonado.lob.Lob;
 import com.amazon.carbonado.util.ConversionComparator;
+import com.amazon.carbonado.util.ThrowUnchecked;
 
 /**
  * Supports examination of {@link Storable} types, returning all metadata
@@ -706,17 +709,26 @@ public class StorableIntrospector {
             while (iter.hasNext()) {
                 Method m = iter.next();
                 int methodModifiers = m.getModifiers();
-                if (Modifier.isAbstract(methodModifiers )) {
+                if (Modifier.isAbstract(methodModifiers)) {
+                    String message;
+
                     if (!Modifier.isPublic(methodModifiers) &&
                         !Modifier.isProtected(methodModifiers))
                     {
-                        errorMessages.add("Abstract method cannot be defined (neither public or " +
-                                          "protected): " + m);
+                        message = "Abstract method cannot be defined " +
+                            "(neither public or protected): ";
+                    } else if (!isCovariant(allProperties, m)) {
+                        message = "Abstract method cannot be defined (not a bean property): ";
                     } else {
-                        errorMessages.add
-                            ("Abstract method cannot be defined (not a bean property): " + m);
+                        message = null;
                     }
-                    // We've reported the error, nothing more to say about it
+
+                    if (message != null) {
+                        errorMessages.add(message + m);
+                    }
+
+                    // We've reported an error or validated method. No need to
+                    // check it again.
                     iter.remove();
                 }
             }
@@ -750,6 +762,51 @@ public class StorableIntrospector {
         }
 
         return Collections.unmodifiableMap(properties);
+    }
+
+    /**
+     * @param allProperties map of BeanProperty instances
+     */
+    private static boolean isCovariant(Map allProperties, Method m) {
+        for (Object obj : allProperties.values()) {
+            BeanProperty property = (BeanProperty) obj;
+            Class[] covariantTypes = property.getCovariantTypes();
+            if (covariantTypes == null || covariantTypes.length == 0) {
+                continue;
+            }
+
+            Class returnType = m.getReturnType();
+            Class[] paramTypes = m.getParameterTypes();
+            Class type;
+
+            if (m.getName().equals(property.getReadMethod().getName())) {
+                if (returnType == null || returnType == void.class) {
+                    continue;
+                }
+                if (paramTypes == null || paramTypes.length > 0) {
+                    continue;
+                }
+                type = returnType;
+            } else if (m.getName().equals(property.getWriteMethod().getName())) {
+                if (returnType != null && returnType != void.class) {
+                    continue;
+                }
+                if (paramTypes == null || paramTypes.length != 1) {
+                    continue;
+                }
+                type = paramTypes[0];
+            } else {
+                continue;
+            }
+
+            for (Class covariantType : covariantTypes) {
+                if (type == covariantType) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1133,9 +1190,22 @@ public class StorableIntrospector {
                         joinedType = Storable.class;
                     } else {
                         Type arg = args[0];
+
+                        if (arg instanceof WildcardType) {
+                            Type[] upper = ((WildcardType) arg).getUpperBounds();
+                            // Length should only be one or zero.
+                            if (upper.length == 1) {
+                                arg = upper[0];
+                            } else {
+                                // Default.
+                                arg = Storable.class;
+                            }
+                        }
+
                         while (arg instanceof ParameterizedType) {
                             arg = ((ParameterizedType)arg).getRawType();
                         }
+
                         if (arg instanceof Class) {
                             joinedType = (Class)arg;
                         }
@@ -1669,6 +1739,19 @@ public class StorableIntrospector {
         private static final long serialVersionUID = 6599542401516624863L;
 
         private static final ChainedProperty[] EMPTY_CHAIN_ARRAY = new ChainedProperty[0];
+        private static final Class[] EMPTY_CLASSES_ARRAY = new Class[0];
+
+        private static final Method cCovariantTypesMethod;
+
+        static {
+            Method method;
+            try {
+                method = BeanProperty.class.getMethod("getCovariantTypes", (Class[]) null);
+            } catch (NoSuchMethodException e) {
+                method = null;
+            }
+            cCovariantTypesMethod = method;
+        }
 
         private final BeanProperty mBeanProperty;
         private final Class<S> mEnclosingType;
@@ -1740,6 +1823,21 @@ public class StorableIntrospector {
 
         public final Class<?> getType() {
             return mBeanProperty.getType();
+        }
+
+        public Class<?>[] getCovariantTypes() {
+            // Access via reflection since this is a feature not available in
+            // all versions of Cojen.
+            if (cCovariantTypesMethod != null) {
+                try {
+                    return (Class[]) cCovariantTypesMethod.invoke(mBeanProperty, (Object[]) null);
+                } catch (InvocationTargetException e) {
+                    ThrowUnchecked.fireDeclaredCause(e);
+                } catch (IllegalAccessException e) {
+                    ThrowUnchecked.fireDeclared(e);
+                }
+            }
+            return EMPTY_CLASSES_ARRAY;
         }
 
         public final int getNumber() {

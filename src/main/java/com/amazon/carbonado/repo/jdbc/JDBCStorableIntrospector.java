@@ -1257,6 +1257,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mMainProperty.getType();
         }
 
+        public Class<?>[] getCovariantTypes() {
+            return mMainProperty.getCovariantTypes();
+        }
+
         public int getNumber() {
             return mMainProperty.getNumber();
         }

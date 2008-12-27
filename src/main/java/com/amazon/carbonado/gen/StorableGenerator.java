@@ -968,6 +968,8 @@ public final class StorableGenerator<S extends Storable> {
                         b.returnVoid();
                     }
                 }
+
+                addPropertyBridges(property);
             }
         }
 
@@ -1757,6 +1759,50 @@ public final class StorableGenerator<S extends Storable> {
             Error error = new NoSuchMethodError();
             error.initCause(e);
             throw error;
+        }
+    }
+
+    private void addPropertyBridges(StorableProperty<S> property) {
+        Class[] covariantTypes = property.getCovariantTypes();
+        if (covariantTypes == null || covariantTypes.length == 0) {
+            return;
+        }
+
+        // Define copy bridges to allow covariant property types.
+
+        for (Class type : covariantTypes) {
+            TypeDesc desc = TypeDesc.forClass(type);
+
+            if (property.getReadMethod() != null &&
+                property.getReadMethod().getReturnType() != type)
+            {
+                MethodInfo mi = addMethodIfNotFinal
+                    (Modifiers.PUBLIC.toBridge(true), property.getReadMethodName(), desc, null);
+
+                if (mi != null) {
+                    CodeBuilder b = new CodeBuilder(mi);
+                    b.loadThis();
+                    b.invoke(property.getReadMethod());
+                    b.returnValue(desc);
+                }
+            }
+
+            if (property.getWriteMethod() != null &&
+                property.getWriteMethod().getParameterTypes()[0] != type)
+            {
+                // Not actually defined as a bridge method since parameter type differs.
+                MethodInfo mi = addMethodIfNotFinal
+                    (Modifiers.PUBLIC, property.getWriteMethodName(), null, new TypeDesc[] {desc});
+
+                if (mi != null) {
+                    CodeBuilder b = new CodeBuilder(mi);
+                    b.loadThis();
+                    b.loadLocal(b.getParameter(0));
+                    b.checkCast(TypeDesc.forClass(property.getType()));
+                    b.invoke(property.getWriteMethod());
+                    b.returnVoid();
+                }
+            }
         }
     }
 

@@ -45,9 +45,17 @@ public interface StorableProperty<S extends Storable> extends Serializable, Appe
     String getBeanName();
 
     /**
-     * Returns the type of this property.
+     * Returns the primary type of this property.
      */
     Class<?> getType();
+
+    /**
+     * Returns additional types of this property, all of which are assignable
+     * by the primary type.
+     *
+     * @since 1.2.1
+     */
+    Class<?>[] getCovariantTypes();
 
     /**
      * Returns the zero-based numerical position of this property within its
