@@ -579,6 +579,42 @@ public class CodeBuilderUtil {
     }
 
     /**
+     * Generates code to push a blank value to the stack. For objects, it is
+     * null, and for primitive types it is zero or false.
+     */
+    public static void blankValue(CodeBuilder b, TypeDesc type) {
+        switch (type.getTypeCode()) {
+        default:
+            b.loadNull();
+            break;
+
+        case TypeDesc.BYTE_CODE:
+        case TypeDesc.CHAR_CODE:
+        case TypeDesc.SHORT_CODE:
+        case TypeDesc.INT_CODE:
+            b.loadConstant(0);
+            break;
+
+        case TypeDesc.BOOLEAN_CODE:
+            b.loadConstant(false);
+            break;
+
+        case TypeDesc.LONG_CODE:
+            b.loadConstant(0L);
+            break;
+
+        case TypeDesc.FLOAT_CODE:
+            b.loadConstant(0.0f);
+            break;
+
+        case TypeDesc.DOUBLE_CODE:
+
+            b.loadConstant(0.0);
+            break;
+        }
+    }
+
+    /**
      * Determines which overloaded "with" method on Query should be bound to.
      */
     public static TypeDesc bindQueryParam(Class clazz) {

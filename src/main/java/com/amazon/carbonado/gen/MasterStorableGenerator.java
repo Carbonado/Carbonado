@@ -403,12 +403,16 @@ public final class MasterStorableGenerator<S extends Storable> {
 
             Label tryStart = addEnterTransaction(b, INSERT_OP, txnVar);
 
+            LocalVariable wasVersionInitVar = null;
             if (mFeatures.contains(MasterFeature.VERSIONING)) {
                 if (!mInfo.getVersionProperty().isDerived()) {
                     // Only set if uninitialized.
                     b.loadThis();
                     b.invokeVirtual(StorableGenerator.IS_VERSION_INITIALIZED_METHOD_NAME,
                                     TypeDesc.BOOLEAN, null);
+                    wasVersionInitVar = b.createLocalVariable(null, TypeDesc.BOOLEAN);
+                    b.storeLocal(wasVersionInitVar);
+                    b.loadLocal(wasVersionInitVar);
                     Label isInitialized = b.createLabel();
                     b.ifZeroComparisonBranch(isInitialized, "!=");
                     addAdjustVersionProperty(b, null, 1);
@@ -535,6 +539,23 @@ public final class MasterStorableGenerator<S extends Storable> {
 
             b.loadThis();
             b.invokeVirtual(DO_TRY_INSERT_MASTER_METHOD_NAME, TypeDesc.BOOLEAN, null);
+
+            if (wasVersionInitVar != null) {
+                // Decide if version property needs to rollback to uninitialized.
+
+                b.dup();
+                Label noRollback = b.createLabel();
+                // Don't rollback if insert succeeded.
+                b.ifZeroComparisonBranch(noRollback, "!=");
+
+                b.loadLocal(wasVersionInitVar);
+                // Rollback only if version was automatically set.
+                b.ifZeroComparisonBranch(noRollback, "!=");
+                unsetVersionProperty(b);
+
+                noRollback.setLocation();
+            }
+
             addNormalizationRollback(b, doTryStart, unnormalized);
 
             if (tryStart == null) {
@@ -1078,6 +1099,32 @@ public final class MasterStorableGenerator<S extends Storable> {
         }
 
         b.invoke(versionProperty.getWriteMethod());
+    }
+
+    /**
+     * Sets the version property to its initial uninitialized state.
+     */
+    private void unsetVersionProperty(CodeBuilder b) throws SupportException {
+        StorableProperty<?> property = mInfo.getVersionProperty();
+
+        // Set the property state to uninitialized.
+        {
+            String stateFieldName =
+                StorableGenerator.PROPERTY_STATE_FIELD_NAME + (property.getNumber() >> 4);
+            b.loadThis();
+            b.loadThis();
+            b.loadField(stateFieldName, TypeDesc.INT);
+            int shift = (property.getNumber() & 0xf) * 2;
+            b.loadConstant(~(StorableGenerator.PROPERTY_STATE_MASK << shift));
+            b.math(Opcode.IAND);
+            b.storeField(stateFieldName, TypeDesc.INT);
+        }
+
+        // Zero the property value.
+        TypeDesc type = TypeDesc.forClass(property.getType());
+        b.loadThis();
+        CodeBuilderUtil.blankValue(b, type);
+        b.storeField(property.getName(), type);
     }
 
     private List<PropertyCopy> addNormalization(CodeBuilder b, boolean forUpdate) {

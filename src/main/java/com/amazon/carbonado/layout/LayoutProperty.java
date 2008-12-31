@@ -20,6 +20,7 @@ package com.amazon.carbonado.layout;
 
 import org.cojen.classfile.TypeDesc;
 
+import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.SupportException;
 
@@ -187,6 +188,13 @@ public class LayoutProperty {
 
     void store() throws PersistException {
         if (!mStoredLayoutProperty.tryInsert()) {
+            StoredLayoutProperty existing = mStoredLayoutProperty.copy();
+            try {
+                existing.load();
+                existing.copyVersionProperty(mStoredLayoutProperty);
+            } catch (FetchException e) {
+                throw e.toPersistException();
+            }
             mStoredLayoutProperty.update();
         }
     }
