@@ -749,10 +749,9 @@ public final class StorableGenerator<S extends Storable> {
                             b.loadLocal(b.getParameter(0));
                             Label notNull = b.createLabel();
                             b.ifNullBranch(notNull, false);
-                            CodeBuilderUtil.throwException
+                            CodeBuilderUtil.throwConcatException
                                 (b, IllegalArgumentException.class,
-                                 "Cannot set property \"" + property.getName() +
-                                 "\" to null");
+                                 "Cannot set property \"", property.getName(), "\" to null");
                             notNull.setLocation();
                         } else {
                             // Don't invoke constraints if value is null.
@@ -816,9 +815,10 @@ public final class StorableGenerator<S extends Storable> {
                         } else {
                             Label notNull = b.createLabel();
                             b.ifNullBranch(notNull, false);
-                            CodeBuilderUtil.throwException
+                            CodeBuilderUtil.throwConcatException
                                 (b, IllegalArgumentException.class,
-                                 "Non-nullable join property cannot be set to null");
+                                 "Non-nullable join property \"", property.getName(),
+                                 "\" cannot be set to null");
                             notNull.setLocation();
                         }
 
