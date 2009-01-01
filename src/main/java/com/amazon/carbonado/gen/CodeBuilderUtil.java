@@ -100,6 +100,40 @@ public class CodeBuilderUtil {
     }
 
     /**
+     * Generate code to throw an exception with a message concatenated at runtime.
+     *
+     * @param b {@link CodeBuilder} to which to add code
+     * @param type type of the object to throw
+     * @param messages messages to concat at runtime
+     */
+    public static void throwConcatException(CodeBuilder b, Class type, String... messages) {
+        if (messages == null || messages.length == 0) {
+            throwException(b, type, null);
+            return;
+        }
+        if (messages.length == 1) {
+            throwException(b, type, messages[0]);
+            return;
+        }
+
+        TypeDesc desc = TypeDesc.forClass(type);
+        b.newObject(desc);
+        b.dup();
+
+        TypeDesc[] params = new TypeDesc[] {TypeDesc.STRING};
+
+        for (int i=0; i<messages.length; i++) {
+            b.loadConstant(String.valueOf(messages[i]));
+            if (i > 0) {
+                b.invokeVirtual(TypeDesc.STRING, "concat", TypeDesc.STRING, params);
+            }
+        }
+
+        b.invokeConstructor(desc, params);
+        b.throwObject();
+    }
+
+    /**
      * Collect a set of all the interfaces and recursively all superclasses for the leaf
      * (genericised class) and root (genericised base class).  Eg, for Object<foo>, all
      * classes and implemented interfaces for every superclass between foo (the leaf) and
