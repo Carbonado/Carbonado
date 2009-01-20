@@ -359,29 +359,48 @@ public class TransactionScope<Txn> {
             scope.mLock.lock();
             try {
                 if (!mExited) {
-                    if (mChild != null) {
-                        mChild.exit();
-                    }
-
-                    closeCursors();
-
-                    if (mTxn != null) {
-                        try {
-                            if (mParent == null || mParent.mTxn != mTxn) {
-                                try {
-                                    scope.mTxnMgr.abortTxn(mTxn);
-                                } catch (Throwable e) {
-                                    throw ExceptionTransformer.getInstance().toPersistException(e);
+                    Exception exception = null;
+                    try {
+                        if (mChild != null) {
+                            try {
+                                mChild.exit();
+                            } catch (Exception e) {
+                                if (exception == null) {
+                                    exception = e;
                                 }
                             }
-                        } finally {
-                            mTxn = null;
+                        }
+
+                        try {
+                            closeCursors();
+                        } catch (Exception e) {
+                            if (exception == null) {
+                                exception = e;
+                            }
+                        }
+
+                        if (mTxn != null) {
+                            try {
+                                if (mParent == null || mParent.mTxn != mTxn) {
+                                    try {
+                                        scope.mTxnMgr.abortTxn(mTxn);
+                                    } catch (Exception e) {
+                                        if (exception == null) {
+                                            exception = e;
+                                        }
+                                    }
+                                }
+                            } finally {
+                                mTxn = null;
+                            }
+                        }
+                    } finally {
+                        scope.mActive = mParent;
+                        mExited = true;
+                        if (exception != null) {
+                            throw ExceptionTransformer.getInstance().toPersistException(exception);
                         }
                     }
-
-                    scope.mActive = mParent;
-
-                    mExited = true;
                 }
             } finally {
                 scope.mLock.unlock();
