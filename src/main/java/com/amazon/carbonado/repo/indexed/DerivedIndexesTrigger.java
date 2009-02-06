@@ -88,7 +88,13 @@ class DerivedIndexesTrigger<S extends Storable, D extends Storable> extends Trig
 
     @Override
     public void afterDelete(S storable, Object state) throws PersistException {
-        updateValues(storable, state);
+        if (state != null) {
+            List<Storable> oldIndexEntries = (List<Storable>) state;
+            int size = oldIndexEntries.size();
+            for (int i=0; i<size; i++) {
+                oldIndexEntries.get(i).delete();
+            }
+        }
     }
 
     @Override

@@ -826,6 +826,9 @@ public final class StorableGenerator<S extends Storable> {
                         int count = property.getJoinElementCount();
                         for (int i=0; i<count; i++) {
                             StorableProperty internal = property.getInternalJoinElement(i);
+                            if (internal.getWriteMethod() == null) {
+                                continue;
+                            }
                             StorableProperty external = property.getExternalJoinElement(i);
 
                             b.loadLocal(b.getParameter(0));
