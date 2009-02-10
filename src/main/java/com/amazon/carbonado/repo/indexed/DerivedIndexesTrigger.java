@@ -88,6 +88,8 @@ class DerivedIndexesTrigger<S extends Storable, D extends Storable> extends Trig
 
     @Override
     public void afterDelete(S storable, Object state) throws PersistException {
+        updateValues(storable, state);
+        /* FIXME: Deleting of derived index entries needs more thought.
         if (state != null) {
             List<Storable> oldIndexEntries = (List<Storable>) state;
             int size = oldIndexEntries.size();
@@ -95,6 +97,7 @@ class DerivedIndexesTrigger<S extends Storable, D extends Storable> extends Trig
                 oldIndexEntries.get(i).delete();
             }
         }
+        */
     }
 
     @Override
