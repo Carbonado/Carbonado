@@ -208,13 +208,24 @@ class WhereBuilder<S extends Storable> extends Visitor<S, FetchException, Object
 
         if (subFilter != null && !subFilter.isOpen()) {
             mStatementBuilder.append(" AND (");
+
             WhereBuilder wb = new WhereBuilder
                 (mStatementBuilder, oneToManyNode, mAliasGenerator);
+
             FetchException e = (FetchException) subFilter.accept(wb, null);
             if (e != null) {
                 return e;
             }
+
             mStatementBuilder.append(')');
+
+            // Transfer property filters from sub-builder as joined from exists filter.
+            int size = wb.mPropertyFilters.size();
+            for (int i=0; i<size; i++) {
+                PropertyFilter propFilter = (PropertyFilter) wb.mPropertyFilters.get(i);
+                mPropertyFilters.add(propFilter.asJoinedFromAny(chained));
+            }
+            mPropertyFilterNullable.addAll(wb.mPropertyFilterNullable);
         }
 
         mStatementBuilder.append(')');

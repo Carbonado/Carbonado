@@ -153,6 +153,8 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
 
     private final Class<S> mType;
 
+    private transient int mHashCode;
+
     // Root FilterValues, built on demand, which is immutable.
     private transient volatile FilterValues<S> mFilterValues;
 
@@ -643,7 +645,8 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
     /**
      * Allows join from any property type, including one-to-many joins.
      */
-    abstract <T extends Storable> Filter<T> asJoinedFromAny(ChainedProperty<T> joinProperty);
+    public abstract <T extends Storable> Filter<T>
+        asJoinedFromAny(ChainedProperty<T> joinProperty);
 
     /**
      * Removes a join property prefix from all applicable properties of this
@@ -766,7 +769,15 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
     abstract void markReduced();
 
     @Override
-    public abstract int hashCode();
+    public final int hashCode() {
+        int hashCode = mHashCode;
+        if (hashCode == 0) {
+            mHashCode = hashCode = generateHashCode();
+        }
+        return hashCode;
+    }
+
+    abstract int generateHashCode();
 
     @Override
     public abstract boolean equals(Object obj);

@@ -197,7 +197,7 @@ public class ExistsFilter<S extends Storable> extends Filter<S> {
     }
 
     @Override
-    <T extends Storable> ExistsFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
+    public <T extends Storable> ExistsFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
         ChainedProperty<T> newProperty = joinProperty.append(getChainedProperty());
         return getCanonical(newProperty, mSubFilter, mNot);
     }
@@ -255,7 +255,7 @@ public class ExistsFilter<S extends Storable> extends Filter<S> {
     }
 
     @Override
-    public int hashCode() {
+    int generateHashCode() {
         int hash = mProperty.hashCode() * 31 + mSubFilter.hashCode();
         return mNot ? ~hash : hash;
     }

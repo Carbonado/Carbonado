@@ -117,7 +117,7 @@ public class OpenFilter<S extends Storable> extends Filter<S> {
     }
 
     @Override
-    <T extends Storable> OpenFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
+    public <T extends Storable> OpenFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
         return getOpenFilter(joinProperty.getPrimeProperty().getEnclosingType());
     }
 
@@ -155,7 +155,7 @@ public class OpenFilter<S extends Storable> extends Filter<S> {
     }
 
     @Override
-    public int hashCode() {
+    int generateHashCode() {
         return getStorableType().hashCode();
     }
 

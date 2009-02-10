@@ -237,7 +237,7 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
     }
 
     @Override
-    <T extends Storable> PropertyFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
+    public <T extends Storable> PropertyFilter<T> asJoinedFromAny(ChainedProperty<T> joinProperty){
         ChainedProperty<T> newProperty = joinProperty.append(getChainedProperty());
 
         if (isConstant()) {
@@ -406,7 +406,7 @@ public class PropertyFilter<S extends Storable> extends Filter<S> {
     }
 
     @Override
-    public int hashCode() {
+    int generateHashCode() {
         return mProperty.hashCode() * 31 + mOp.hashCode() + mBindID;
     }
 

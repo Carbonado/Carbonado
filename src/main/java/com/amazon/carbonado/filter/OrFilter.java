@@ -68,7 +68,7 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
     }
 
     @Override
-    <T extends Storable> Filter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
+    public <T extends Storable> Filter<T> asJoinedFromAny(ChainedProperty<T> joinProperty) {
         return mLeft.asJoinedFromAny(joinProperty).or(mRight.asJoinedFromAny(joinProperty));
     }
 
@@ -132,7 +132,7 @@ public class OrFilter<S extends Storable> extends BinaryOpFilter<S> {
     }
 
     @Override
-    public int hashCode() {
+    int generateHashCode() {
         return mLeft.hashCode() * 31 + mRight.hashCode();
     }
 
