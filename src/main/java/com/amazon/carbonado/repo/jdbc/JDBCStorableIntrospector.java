@@ -621,6 +621,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             }
         }
 
+        if (desiredClass == Object.class) {
+            return new AccessInfo("Object", Object.class);
+        }
+
         Class actualClass;
         String suffix;
 
