@@ -46,6 +46,8 @@ public interface GenericPropertyInfo {
 
     boolean isLob();
 
+    boolean isDerived();
+
     /**
      * Returns the optional method used to adapt the property from the
      * storage supported type to the user visible type.

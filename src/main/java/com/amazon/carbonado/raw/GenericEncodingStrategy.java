@@ -1331,6 +1331,10 @@ public class GenericEncodingStrategy<S extends Storable> {
                                         Class<?> adapterInstanceClass,
                                         LocalVariable partialStartVar)
     {
+        if (info.isDerived()) {
+            useReadMethod = true;
+        }
+
         final TypeDesc type = info.getPropertyType();
         final TypeDesc storageType = info.getStorageType();
 
@@ -2351,6 +2355,10 @@ public class GenericEncodingStrategy<S extends Storable> {
                                       boolean useWriteMethod,
                                       LocalVariable instanceVar,
                                       Class<?> adapterInstanceClass) {
+        if (info.isDerived()) {
+            useWriteMethod = true;
+        }
+
         TypeDesc type = info.getPropertyType();
         TypeDesc storageType = info.getStorageType();
 

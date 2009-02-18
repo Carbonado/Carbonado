@@ -76,6 +76,10 @@ public class StorablePropertyInfo implements GenericPropertyInfo {
         return clazz != null && Lob.class.isAssignableFrom(clazz);
     }
 
+    public boolean isDerived() {
+        return mProp.isDerived();
+    }
+
     public Method getFromStorageAdapter() {
         return mFromStorage;
     }
