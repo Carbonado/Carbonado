@@ -459,9 +459,12 @@ public final class MasterStorableGenerator<S extends Storable> {
                     ordinal++;
 
                     if (property.isDerived()
-                        || property.isJoin() || property.isPrimaryKeyMember()
+                        || property.isIndependent()
+                        || property.isJoin()
+                        || property.isPrimaryKeyMember()
                         || property.isNullable()
-                        || property.isAutomatic() || property.isVersion())
+                        || property.isAutomatic()
+                        || property.isVersion())
                     {
                         continue;
                     }

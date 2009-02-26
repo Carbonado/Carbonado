@@ -2338,11 +2338,11 @@ public final class StorableGenerator<S extends Storable> {
     private void addIsInitializedMethod
         (String name, Map<String, ? extends StorableProperty<S>> properties)
     {
-        // Don't check Automatic properties.
+        // Don't check Automatic, Independent, or Version properties.
         {
             boolean cloned = false;
             for (StorableProperty<S> prop : properties.values()) {
-                if (prop.isAutomatic() || prop.isVersion()) {
+                if (prop.isAutomatic() || prop.isIndependent() || prop.isVersion()) {
                     if (!cloned) {
                         properties = new LinkedHashMap<String, StorableProperty<S>>(properties);
                         cloned = true;
