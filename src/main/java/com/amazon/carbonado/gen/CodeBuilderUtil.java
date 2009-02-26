@@ -445,16 +445,48 @@ public class CodeBuilderUtil {
         Label cont = b.createLabel();
         b.branch(cont);
 
-        // First value popped off stack is not null, but second one might
-        // be. Call equals method, but swap values so that the second value is
-        // an argument into the equals method.
+        // First value popped off stack is not null, but second one might be.
         isNotNull.setLocation();
-        b.loadLocal(value);
-        b.swap();
+        if (compareToType(valueType) == null) {
+            // Call equals method, but swap values so that the second value is
+            // an argument into the equals method.
+            b.loadLocal(value);
+            b.swap();
+        } else {
+            // Need to test for second argument too, since compareTo method
+            // cannot cope with null.
+            LocalVariable value2 = b.createLocalVariable(null, valueType);
+            b.storeLocal(value2);
+            b.loadLocal(value2);
+            b.ifNullBranch(label, !choice);
+            // Load both values in preparation for calling compareTo method.
+            b.loadLocal(value);
+            b.loadLocal(value2);
+        }
+ 
         String op = addEqualsCallTo(b, valueType, choice);
         b.ifZeroComparisonBranch(label, op);
-
+ 
         cont.setLocation();
+    }
+ 
+    /**
+     * @param fieldType must be an object type
+     * @return null if compareTo should not be called
+     */
+    private static TypeDesc compareToType(TypeDesc fieldType) {
+        if (fieldType.toPrimitiveType() == TypeDesc.FLOAT) {
+            // Special treatment to handle NaN.
+            return TypeDesc.FLOAT.toObjectType();
+        } else if (fieldType.toPrimitiveType() == TypeDesc.DOUBLE) {
+            // Special treatment to handle NaN.
+            return TypeDesc.DOUBLE.toObjectType();
+        } else if (BigDecimal.class.isAssignableFrom(fieldType.toClass())) {
+            // Call compareTo to disregard scale.
+            return TypeDesc.forClass(BigDecimal.class);
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -473,20 +505,12 @@ public class CodeBuilderUtil {
                                TypeDesc.BOOLEAN, new TypeDesc[] {fieldType, fieldType});
             }
             return choice ? "!=" : "==";
-        } else if (fieldType.toPrimitiveType() == TypeDesc.FLOAT) {
-            // Special treatment to handle NaN.
-            b.invokeVirtual(TypeDesc.FLOAT.toObjectType(), "compareTo", TypeDesc.INT,
-                            new TypeDesc[] {TypeDesc.FLOAT.toObjectType()});
-            return choice ? "==" : "!=";
-        } else if (fieldType.toPrimitiveType() == TypeDesc.DOUBLE) {
-            // Special treatment to handle NaN.
-            b.invokeVirtual(TypeDesc.DOUBLE.toObjectType(), "compareTo", TypeDesc.INT,
-                            new TypeDesc[] {TypeDesc.DOUBLE.toObjectType()});
-            return choice ? "==" : "!=";
-        } else if (BigDecimal.class.isAssignableFrom(fieldType.toClass())) {
-            // Call compareTo to disregard scale.
-            TypeDesc bdType = TypeDesc.forClass(BigDecimal.class);
-            b.invokeVirtual(bdType, "compareTo", TypeDesc.INT, new TypeDesc[] {bdType});
+        }
+
+        TypeDesc compareToType = compareToType(fieldType);
+        if (compareToType != null) {
+            b.invokeVirtual(compareToType, "compareTo",
+                            TypeDesc.INT, new TypeDesc[] {compareToType});
             return choice ? "==" : "!=";
         } else {
             TypeDesc[] params = {TypeDesc.OBJECT};
