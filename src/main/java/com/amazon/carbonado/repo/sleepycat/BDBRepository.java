@@ -83,6 +83,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     implements Repository,
                RepositoryAccess,
                IndexInfoCapability,
+               HotBackupCapability,
                CheckpointCapability,
                EnvironmentCapability,
                ShutdownCapability,
@@ -115,6 +116,9 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     final File mEnvHome;
     final String mSingleFileName;
     final Map<String, String> mFileNameMap;
+
+    final Object mBackupLock = new Object();
+    int mBackupCount = 0;
 
     private LayoutFactory mLayoutFactory;
 
@@ -219,6 +223,63 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
             return false;
         }
         return StorableIntrospector.examine(type).getAllProperties().get(name) != null;
+    }
+
+    @Override
+    public Backup startBackup() throws RepositoryException {
+        synchronized (mBackupLock) {
+            int count = mBackupCount;
+            if (count == 0) {
+                try {
+                    enterBackupMode();
+                } catch (Exception e) {
+                    throw mExTransformer.toRepositoryException(e);
+                }
+            }
+            mBackupCount = count + 1;
+
+            return new Backup() {
+                private boolean mDone;
+
+                @Override
+                public void endBackup() throws RepositoryException {
+                    synchronized (mBackupLock) {
+                        if (mDone) {
+                            return;
+                        }
+                        mDone = true;
+
+                        int count = mBackupCount - 1;
+                        try {
+                            if (count == 0) {
+                                try {
+                                    exitBackupMode();
+                                } catch (Exception e) {
+                                    throw mExTransformer.toRepositoryException(e);
+                                }
+                            }
+                        } finally {
+                            mBackupCount = count;
+                        }
+                    }
+                }
+
+                @Override
+                public File[] getFiles() throws RepositoryException {
+                    synchronized (mBackupLock) {
+                        if (mDone) {
+                            throw new IllegalStateException("Backup has ended");
+                        }
+
+                        try {
+                            return backupFiles();
+                        } catch (Exception e) {
+                            throw mExTransformer.toRepositoryException(e);
+                        }
+                    }
+                }
+            };
+        }
     }
 
     /**
@@ -363,6 +424,28 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
      */
     boolean isMaster() {
         return mIsMaster;
+    }
+
+    String[] getAllDatabaseNames() throws RepositoryException {
+        Repository metaRepo = getRootRepository();
+
+        Cursor<StoredDatabaseInfo> cursor =
+            metaRepo.storageFor(StoredDatabaseInfo.class)
+            .query().orderBy("databaseName").fetch();
+
+        ArrayList<String> names = new ArrayList<String>();
+        // This one needs to manually added since it is the metadata db itself.
+        names.add(StoredDatabaseInfo.class.getName());
+
+        try {
+            while (cursor.hasNext()) {
+                names.add(cursor.next().getDatabaseName());
+            }
+        } finally {
+            cursor.close();
+        }
+
+        return names.toArray(new String[names.size()]);
     }
 
     String getDatabaseFileName(final String dbName) {
@@ -526,6 +609,21 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
 
     abstract <S extends Storable> BDBStorage<Txn, S> createBDBStorage(Class<S> type)
         throws Exception;
+
+    /**
+     * Called only the first time a backup is started.
+     */
+    abstract void enterBackupMode() throws Exception;
+
+    /**
+     * Called only after the last backup ends.
+     */
+    abstract void exitBackupMode() throws Exception;
+
+    /**
+     * Called only if in backup mode.
+     */
+    abstract File[] backupFiles() throws Exception;
 
     FetchException toFetchException(Throwable e) {
         return mExTransformer.toFetchException(e);

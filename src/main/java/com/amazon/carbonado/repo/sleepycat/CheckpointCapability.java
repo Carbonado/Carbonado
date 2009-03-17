@@ -22,9 +22,10 @@ import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.capability.Capability;
 
 /**
- * Capability to control BDB checkpointing. Useful when performing hot backups.
+ * Capability to control BDB checkpointing.
  *
  * @author Brian S O'Neill
+ * @see HotBackupCapability
  */
 public interface CheckpointCapability extends Capability {
     /**
@@ -33,9 +34,7 @@ public interface CheckpointCapability extends Capability {
      * until it is finished. If checkpointing is disabled, calling this method
      * has no effect.
      *
-     * <p>Calling this method repeatedly resets the suspension time. This
-     * technique should be used by hot backup processes to ensure that its
-     * failure does not leave the checkpointer permanently suspended. Each
+     * <p>Calling this method repeatedly resets the suspension time. Each
      * invocation of suspendCheckpointer is like a lease renewal or heartbeat.
      *
      * @param suspensionTime minimum length of suspension, in milliseconds,
