@@ -101,6 +101,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private boolean mPrivate;
     private boolean mMultiversion;
     private boolean mLogInMemory;
+    private boolean mRunFullRecovery;
     private boolean mRunCheckpointer = true;
     private int mCheckpointInterval = DEFAULT_CHECKPOINT_INTERVAL;
     private boolean mRunDeadlockDetector = true;
@@ -623,6 +624,22 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public boolean getLogInMemory() {
         return mLogInMemory;
+    }
+
+    /**
+     * Pass true to override the default and run a full (catastrophic) recovery
+     * when environment is opened. This setting has no effect for BDB-JE.
+     */
+    public void setRunFullRecovery(boolean runRecovery) {
+        mRunFullRecovery = runRecovery;
+    }
+
+    /**
+     * Returns true if a full (catastrophic) recovery should be performed when
+     * environment is opened.
+     */
+    public boolean getRunFullRecovery() {
+        return mRunFullRecovery;
     }
 
     /**
