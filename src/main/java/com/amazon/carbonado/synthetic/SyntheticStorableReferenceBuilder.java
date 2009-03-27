@@ -26,6 +26,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.info.Direction;
@@ -350,7 +351,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      * @deprecated call getReferenceAccess
      */
     @Deprecated
-    public void copyToMasterPrimaryKey(Storable indexEntry, S master) {
+    public void copyToMasterPrimaryKey(Storable indexEntry, S master) throws FetchException {
         getReferenceAccess().copyToMasterPrimaryKey(indexEntry, master);
     }
 
@@ -363,7 +364,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      * @deprecated call getReferenceAccess
      */
     @Deprecated
-    public void copyFromMaster(Storable indexEntry, S master) {
+    public void copyFromMaster(Storable indexEntry, S master) throws FetchException {
         getReferenceAccess().copyFromMaster(indexEntry, master);
     }
 
@@ -379,7 +380,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      * @deprecated call getReferenceAccess
      */
     @Deprecated
-    public boolean isConsistent(Storable indexEntry, S master) {
+    public boolean isConsistent(Storable indexEntry, S master) throws FetchException {
         return getReferenceAccess().isConsistent(indexEntry, master);
     }
 

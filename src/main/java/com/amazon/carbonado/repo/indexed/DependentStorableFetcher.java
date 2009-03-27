@@ -132,7 +132,7 @@ class DependentStorableFetcher<S extends Storable, D extends Storable> {
     /**
      * @return amount added to list
      */
-    public int createIndexEntries(D master, List<Storable> indexEntries) {
+    public int createIndexEntries(D master, List<Storable> indexEntries) throws FetchException {
         IndexEntryAccessor[] accessors = mIndexEntryAccessors;
         int length = accessors.length;
         for (int i=0; i<length; i++) {

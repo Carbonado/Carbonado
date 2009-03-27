@@ -20,6 +20,7 @@ package com.amazon.carbonado.repo.indexed;
 
 import java.util.Comparator;
 
+import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
@@ -46,7 +47,7 @@ public interface IndexEntryAccessor<S extends Storable> extends IndexInfo {
      * @param indexEntry source of property values
      * @param master master whose primary key properties will be set
      */
-    void copyToMasterPrimaryKey(Storable indexEntry, S master);
+    void copyToMasterPrimaryKey(Storable indexEntry, S master) throws FetchException;
 
     /**
      * Sets all the properties of the given index entry, using the applicable
@@ -55,7 +56,7 @@ public interface IndexEntryAccessor<S extends Storable> extends IndexInfo {
      * @param indexEntry index entry whose properties will be set
      * @param master source of property values
      */
-    void copyFromMaster(Storable indexEntry, S master);
+    void copyFromMaster(Storable indexEntry, S master) throws FetchException;
 
     /**
      * Returns true if the properties of the given index entry match those
@@ -65,7 +66,7 @@ public interface IndexEntryAccessor<S extends Storable> extends IndexInfo {
      * @param indexEntry index entry whose properties will be tested
      * @param master source of property values
      */
-    boolean isConsistent(Storable indexEntry, S master);
+    boolean isConsistent(Storable indexEntry, S master) throws FetchException;
 
     /**
      * Repairs the index by inserting missing entries and fixing

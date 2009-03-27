@@ -146,17 +146,17 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
     }
 
     // Required by IndexEntryAccessor interface.
-    public void copyToMasterPrimaryKey(Storable indexEntry, S master) {
+    public void copyToMasterPrimaryKey(Storable indexEntry, S master) throws FetchException {
         mAccessor.copyToMasterPrimaryKey(indexEntry, master);
     }
 
     // Required by IndexEntryAccessor interface.
-    public void copyFromMaster(Storable indexEntry, S master) {
+    public void copyFromMaster(Storable indexEntry, S master) throws FetchException {
         mAccessor.copyFromMaster(indexEntry, master);
     }
 
     // Required by IndexEntryAccessor interface.
-    public boolean isConsistent(Storable indexEntry, S master) {
+    public boolean isConsistent(Storable indexEntry, S master) throws FetchException {
         return mAccessor.isConsistent(indexEntry, master);
     }
 
@@ -561,7 +561,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
         }
 
         // If index entry already exists, then index might be corrupt.
-        {
+        try {
             Storable freshEntry = mIndexEntryStorage.prepare();
             mAccessor.copyFromMaster(freshEntry, userStorable);
             indexEntry.copyVersionProperty(freshEntry);
@@ -571,6 +571,8 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                 // user error.
                 return !isUnique();
             }
+        } catch (FetchException e) {
+            throw e.toPersistException();
         }
 
         // Run the repair outside a transaction.

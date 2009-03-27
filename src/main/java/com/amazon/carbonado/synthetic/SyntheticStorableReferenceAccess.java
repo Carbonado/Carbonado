@@ -24,6 +24,7 @@ import java.lang.reflect.UndeclaredThrowableException;
 import java.util.Comparator;
 import java.util.Iterator;
 
+import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.cursor.SortedCursor;
@@ -109,11 +110,11 @@ public class SyntheticStorableReferenceAccess<S extends Storable> {
      * @param reference source of property values
      * @param master master whose primary key properties will be set
      */
-    public void copyToMasterPrimaryKey(Storable reference, S master) {
+    public void copyToMasterPrimaryKey(Storable reference, S master) throws FetchException {
         try {
             mCopyToMasterPkMethod.invoke(reference, master);
         } catch (Exception e) {
-            ThrowUnchecked.fireFirstDeclaredCause(e);
+            ThrowUnchecked.fireFirstDeclaredCause(e, FetchException.class);
         }
     }
 
@@ -124,11 +125,11 @@ public class SyntheticStorableReferenceAccess<S extends Storable> {
      * @param reference reference whose properties will be set
      * @param master source of property values
      */
-    public void copyFromMaster(Storable reference, S master) {
+    public void copyFromMaster(Storable reference, S master) throws FetchException {
         try {
             mCopyFromMasterMethod.invoke(reference, master);
         } catch (Exception e) {
-            ThrowUnchecked.fireFirstDeclaredCause(e);
+            ThrowUnchecked.fireFirstDeclaredCause(e, FetchException.class);
         }
     }
 
@@ -140,11 +141,11 @@ public class SyntheticStorableReferenceAccess<S extends Storable> {
      * @param reference reference whose properties will be tested
      * @param master source of property values
      */
-    public boolean isConsistent(Storable reference, S master) {
+    public boolean isConsistent(Storable reference, S master) throws FetchException {
         try {
             return (Boolean) mIsConsistentMethod.invoke(reference, master);
         } catch (Exception e) {
-            ThrowUnchecked.fireFirstDeclaredCause(e);
+            ThrowUnchecked.fireFirstDeclaredCause(e, FetchException.class);
             // Not reached.
             return false;
         }
