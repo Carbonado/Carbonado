@@ -184,6 +184,16 @@ public final class StorableGenerator<S extends Storable> {
         cAbstractCache = new WeakIdentityMap();
     }
 
+    // When true, calls to get uninitialized properties throw an
+    // IllegalStateException. By default it is false, but the default will
+    // change to true when query projection is supported.
+    private static final boolean cStrictAccess;
+
+    static {
+        String value = System.getProperty(StorableGenerator.class.getName() + ".strictAccess");
+        cStrictAccess = value != null && value.equals("true");
+    }
+
     // There are three flavors of equals methods, used by addEqualsMethod.
     private static final int EQUAL_KEYS = 0;
     private static final int EQUAL_PROPERTIES = 1;
@@ -468,8 +478,10 @@ public final class StorableGenerator<S extends Storable> {
                         requireStateField = true;
                     } else {
                         // Double words are volatile to prevent word tearing
-                        // without explicit synchronization.
-                        mClassFile.addField(Modifiers.PROTECTED.toVolatile(type.isDoubleWord()),
+                        // without explicit synchronization. When strict access
+                        // is enabled, all access methods are synchronized anyhow.
+                        boolean isVolatile = (!cStrictAccess) && type.isDoubleWord();
+                        mClassFile.addField(Modifiers.PROTECTED.toVolatile(isVolatile),
                                             name, type);
                         requireStateField = true;
                     }
@@ -501,16 +513,31 @@ public final class StorableGenerator<S extends Storable> {
                         }
                     }
 
-                    if (property.isJoin()) {
+                    if (cStrictAccess || property.isJoin()) {
                         // Synchronization is required for join property
-                        // accessors, as they may alter bit masks.
+                        // accessors, as they may alter bit masks. Synchronization is
+                        // also required when strict access is enabled.
                         mi.setModifiers(mi.getModifiers().toSynchronized(true));
                     }
 
                     // Now add code that actually gets the property value.
                     CodeBuilder b = new CodeBuilder(mi);
 
-                    if (property.isJoin()) {
+                    if (!property.isJoin()) {
+                        if (cStrictAccess) {
+                            // Make sure property state allows access.
+                            b.loadThis();
+                            b.loadField(stateFieldName, TypeDesc.INT);
+                            b.loadConstant(PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2));
+                            b.math(Opcode.IAND);
+                            Label isValid = b.createLabel();
+                            b.ifZeroComparisonBranch(isValid, "!=");
+                            CodeBuilderUtil.throwConcatException
+                                (b, IllegalStateException.class,
+                                 "Cannot access uninitialized property: ", name);
+                            isValid.setLocation();
+                        }
+                    } else {
                         // Join properties support on-demand loading.
 
                         // Check if property has been loaded.
