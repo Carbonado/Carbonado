@@ -738,8 +738,10 @@ public class GenericEncodingStrategy<S extends Storable> {
             }
         }
 
-        boolean doPartial = mode == Mode.SERIAL
-            || mode == Mode.KEY && (partialStartVar != null || partialEndVar != null);
+        boolean doPartial =
+            mode == Mode.SERIAL ||
+            (mode == Mode.KEY && partialStartVar != null) ||
+            (mode == Mode.KEY && (properties.length == 0 || partialEndVar != null));
 
         // Calculate exactly how many bytes are needed to encode. The length
         // is composed of a static and a variable amount. The variable amount
@@ -751,7 +753,7 @@ public class GenericEncodingStrategy<S extends Storable> {
             // against runtime partial start value.
             staticLength += prefix + generationPrefix;
         }
-        if (mode != Mode.KEY || partialEndVar == null) {
+        if (mode != Mode.KEY || (properties.length != 0 && partialEndVar == null)) {
             // Only include suffix as static if no runtime check is needed
             // against runtime partial end value.
             staticLength += suffix;

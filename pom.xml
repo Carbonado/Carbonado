@@ -127,6 +127,13 @@
       <email>peter_carbon@users.sourceforge.net</email>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
+
+    <developer>
+      <name>Tobias Holgers</name>
+      <id>tholgers</id>
+      <email>tholgers@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
   </developers>
 
   <contributors>
