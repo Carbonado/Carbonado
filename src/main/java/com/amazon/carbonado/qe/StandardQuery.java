@@ -163,9 +163,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
             if (getBlankParameterCount() > 0) {
                 throw new IllegalStateException("Blank parameters exist in query: " + this);
             }
-            // Unbind is required to ensure sub-filters with common elements
-            // don't share values.
-            newFilter = mFilter.unbind().and(filter);
+            newFilter = mFilter.and(filter);
             newValues = newFilter.initialFilterValues();
             if (mValues != null) {
                 newValues = newValues.withValues(mValues.getSuppliedValues());
@@ -181,9 +179,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         if (getBlankParameterCount() > 0) {
             throw new IllegalStateException("Blank parameters exist in query: " + this);
         }
-        // Unbind is required to ensure sub-filters with common elements don't
-        // share values.
-        Filter<S> newFilter = mFilter.unbind().or(filter);
+        Filter<S> newFilter = mFilter.or(filter);
         FilterValues<S> newValues = newFilter.initialFilterValues();
         if (mValues != null) {
             newValues = newValues.withValues(mValues.getSuppliedValues());
