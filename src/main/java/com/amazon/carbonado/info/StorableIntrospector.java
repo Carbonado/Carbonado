@@ -85,6 +85,7 @@ import com.amazon.carbonado.util.ThrowUnchecked;
  *
  * @author Brian S O'Neill
  * @author Fang Chen
+ * @author Tobias Holgers
  */
 public class StorableIntrospector {
     // Weakly maps Class objects to softly referenced StorableInfo objects.
@@ -1038,6 +1039,10 @@ public class StorableIntrospector {
                 errorMessages.add("Derived properties cannot be abstract: " +
                                   propertyName);
             }
+            if (writeMethod == null && derived.shouldCopy()) {
+                errorMessages.add("Derived properties which should be copied " +
+                                  "must have a write method: " + propertyName);
+            }
             if (pk) {
                 errorMessages.add("Derived properties cannot be a member of primary key: " +
                                   propertyName);
@@ -1782,6 +1787,7 @@ public class StorableIntrospector {
         private final boolean mIndependent;
         private final boolean mAutomatic;
         private final boolean mIsDerived;
+        private final boolean mShouldCopyDerived;
         private final String mName;
         private final String mBeanName;
 
@@ -1824,6 +1830,7 @@ public class StorableIntrospector {
             mIndependent = independent;
             mAutomatic = automatic;
             mIsDerived = derived != null;
+            mShouldCopyDerived = (mIsDerived ? derived.shouldCopy() : false);
             mDerived = derived;
             mBeanName = mBeanProperty.getName();
             mName = name == null ? mBeanName : name;
@@ -1960,6 +1967,10 @@ public class StorableIntrospector {
             }
 
             return mDerivedTo.clone();
+        }
+
+        public final boolean shouldCopyDerived() {
+            return mShouldCopyDerived;
         }
 
         public boolean isJoin() {

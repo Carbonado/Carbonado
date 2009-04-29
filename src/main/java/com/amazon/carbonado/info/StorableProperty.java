@@ -27,6 +27,7 @@ import com.amazon.carbonado.util.Appender;
  * Contains all the metadata describing a property of a specific {@link Storable} type.
  *
  * @author Brian S O'Neill
+ * @author Tobias Holgers
  * @see StorableIntrospector
  */
 public interface StorableProperty<S extends Storable> extends Serializable, Appender {
@@ -277,6 +278,15 @@ public interface StorableProperty<S extends Storable> extends Serializable, Appe
      * @since 1.2
      */
     ChainedProperty<?>[] getDerivedToProperties();
+
+    /**
+     * Returns true if this derived property should be included when copying a
+     * storable. Copying of a derived property uses the "get" and "set" methods
+     * and requires the "set" method to be defined.
+     *
+     * @since 1.2
+     */
+    boolean shouldCopyDerived();
 
     String toString();
 }

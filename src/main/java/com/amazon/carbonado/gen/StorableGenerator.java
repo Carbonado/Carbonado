@@ -82,6 +82,7 @@ import static com.amazon.carbonado.gen.CommonMethodNames.*;
  *
  * @author Brian S O'Neill
  * @author Don Schneider
+ * @author Tobias Holgers
  * @see MasterStorableGenerator
  * @see DelegateStorableGenerator
  * @since 1.2
@@ -1874,7 +1875,9 @@ public final class StorableGenerator<S extends Storable> {
 
         for (StorableProperty property : mAllProperties.values()) {
             // Decide if property should be part of the copy.
-            boolean shouldCopy = !property.isDerived() && !property.isJoin() &&
+            boolean shouldCopy =
+                (!property.isDerived() || property.shouldCopyDerived()) &&
+                !property.isJoin() &&
                 (property.isPrimaryKeyMember() && pkProperties ||
                  property.isVersion() && versionProperty ||
                  !property.isPrimaryKeyMember() && dataProperties);
@@ -1882,7 +1885,7 @@ public final class StorableGenerator<S extends Storable> {
             if (shouldCopy) {
                 int ordinal = property.getNumber();
 
-                if (stateBits == null) {
+                if (stateBits == null && !property.isDerived()) {
                     // Load state bits into local for quick retrieval.
                     stateBits = b.createLocalVariable(null, TypeDesc.INT);
                     String stateFieldName =
@@ -1899,36 +1902,36 @@ public final class StorableGenerator<S extends Storable> {
                     addSkipIndependent(b, target, property, skipCopy);
                 }
 
-                // Skip property if uninitialized.
-                b.loadLocal(stateBits);
-                b.loadConstant(mask);
-                b.math(Opcode.IAND);
-                b.ifZeroComparisonBranch(skipCopy, "==");
-
-                if (dirtyOnly) {
-                    // Add code to find out if property has been dirty.
+                if (stateBits != null) {
+                    // Skip property if uninitialized.
                     b.loadLocal(stateBits);
                     b.loadConstant(mask);
                     b.math(Opcode.IAND);
-                    b.loadConstant(PROPERTY_STATE_DIRTY << ((ordinal & 0xf) * 2));
-                    b.ifComparisonBranch(skipCopy, "!=");
+                    b.ifZeroComparisonBranch(skipCopy, "==");
+
+                    if (dirtyOnly) {
+                        // Add code to find out if property has been dirty.
+                        b.loadLocal(stateBits);
+                        b.loadConstant(mask);
+                        b.math(Opcode.IAND);
+                        b.loadConstant(PROPERTY_STATE_DIRTY << ((ordinal & 0xf) * 2));
+                        b.ifComparisonBranch(skipCopy, "!=");
+                    }
                 }
 
                 TypeDesc type = TypeDesc.forClass(property.getType());
 
                 if (unequalOnly) {
                     // Add code to find out if they're equal.
-                    b.loadThis();
-                    b.loadField(property.getName(), type); // [this.propValue
-                    b.loadLocal(target);                   // [this.propValue, target
-                    b.invoke(property.getReadMethod());    // [this.propValue, target.propValue
+                    loadThisProperty(b, property, type);  // [this.propValue
+                    b.loadLocal(target);                  // [this.propValue, target
+                    b.invoke(property.getReadMethod());   // [this.propValue, target.propValue
                     CodeBuilderUtil.addValuesEqualCall
                         (b, TypeDesc.forClass(property.getType()), true, skipCopy, true);
                 }
 
-                b.loadLocal(target);                    // [target
-                b.loadThis();                           // [target, this
-                b.loadField(property.getName(), type);  // [target, this.propValue
+                b.loadLocal(target);                  // [target
+                loadThisProperty(b, property, type);  // [target, this.propValue
                 mutateProperty(b, property, type);
 
                 skipCopy.setLocation();
@@ -1967,6 +1970,27 @@ public final class StorableGenerator<S extends Storable> {
                           TypeDesc.BOOLEAN,
                           new TypeDesc[] {TypeDesc.STRING});
         b.ifZeroComparisonBranch(skipCopy, "==");
+    }
+
+    /**
+     * Loads the property value of the current storable onto the stack. If the
+     * property is derived the read method is used, otherwise it just loads the
+     * value from the appropriate field.
+     *
+     * entry stack: [
+     * exit stack: [value
+     *
+     * @param b - {@link CodeBuilder} to which to add the load code
+     * @param property - property to load
+     * @param type - type of the property
+     */
+    private void loadThisProperty(CodeBuilder b, StorableProperty property, TypeDesc type) {
+        b.loadThis();
+        if (property.isDerived()) {
+            b.invoke(property.getReadMethod());
+        } else {
+            b.loadField(property.getName(), type);
+        }
     }
 
     /**

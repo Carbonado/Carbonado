@@ -50,6 +50,7 @@ import java.lang.annotation.*;
  * </pre>
  *
  * @author Brian S O'Neill
+ * @author Tobias Holgers
  * @since 1.2
  */
 @Documented
@@ -60,4 +61,11 @@ public @interface Derived {
      * List of properties that this property is derived from.
      */
     String[] from() default {};
+
+    /**
+     * Returns whether this property should be included when copying a
+     * storable. Copying of a derived property uses the "get" and "set" methods
+     * and requires the "set" method to be defined. Default false.
+     */
+    boolean shouldCopy() default false;
 }

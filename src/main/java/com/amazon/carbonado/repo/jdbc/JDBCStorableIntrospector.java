@@ -73,6 +73,7 @@ import com.amazon.carbonado.info.StorablePropertyConstraint;
  *
  * @author Brian S O'Neill
  * @author Adam D Bradley
+ * @author Tobias Holgers
  */
 public class JDBCStorableIntrospector extends StorableIntrospector {
     // Maps compound keys to softly referenced JDBCStorableInfo objects.
@@ -1375,6 +1376,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         public ChainedProperty<?>[] getDerivedToProperties() {
             return mMainProperty.getDerivedToProperties();
+        }
+
+        public boolean shouldCopyDerived() {
+            return mMainProperty.shouldCopyDerived();
         }
 
         public boolean isSupported() {
