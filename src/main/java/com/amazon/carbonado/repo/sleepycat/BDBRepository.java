@@ -109,9 +109,6 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     private final BDBRepositoryBuilder.DatabaseHook mDatabaseHook;
     private final Map<Class<?>, Integer> mDatabasePageSizes;
 
-    final boolean mRunCheckpointer;
-    final boolean mRunDeadlockDetector;
-
     final File mDataHome;
     final File mEnvHome;
     final String mSingleFileName;
@@ -152,8 +149,6 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         mExTransformer = exTransformer;
         mTxnMgr = new BDBTransactionManager<Txn>(mExTransformer, this);
 
-        mRunCheckpointer = !builder.getReadOnly() && builder.getRunCheckpointer();
-        mRunDeadlockDetector = builder.getRunDeadlockDetector();
         mStorableCodecFactory = builder.getStorableCodecFactory();
         mPreShutdownHook = builder.getPreShutdownHook();
         mPostShutdownHook = builder.getShutdownHook();
@@ -545,22 +540,31 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     }
 
     /**
+     * Start background tasks and enable auto shutdown.
+     *
      * @param checkpointInterval how often to run checkpoints, in milliseconds,
-     * or zero if never. Ignored if builder has checkpoints disabled.
+     * or zero if never. Ignored if repository is read only or builder has
+     * checkpoints disabled.
      * @param deadlockDetectorInterval how often to run deadlock detector, in
-     * milliseconds, or zero if never.
+     * milliseconds, or zero if never. Ignored if builder has deadlock detector
+     * disabled.
+     * @param builder containing additonal background task properties.
      */
-    void start(long checkpointInterval, long deadlockDetectorInterval) {
+    void start(long checkpointInterval, long deadlockDetectorInterval,
+               BDBRepositoryBuilder builder) {
         getLog().info("Opened repository \"" + getName() + '"');
 
-        if (mRunCheckpointer && checkpointInterval > 0) {
-            mCheckpointer = new Checkpointer(this, checkpointInterval);
+        if (!builder.getReadOnly() && builder.getRunCheckpointer()
+            && checkpointInterval > 0) {
+            mCheckpointer = new Checkpointer(this, checkpointInterval,
+                                             builder.getCheckpointThresholdKB(),
+                                             builder.getCheckpointThresholdMinutes());
             mCheckpointer.start();
         } else {
             mCheckpointer = null;
         }
 
-        if (mRunDeadlockDetector && deadlockDetectorInterval > 0) {
+        if (builder.getRunDeadlockDetector() && deadlockDetectorInterval > 0) {
             mDeadlockDetector = new DeadlockDetector(this, deadlockDetectorInterval);
             mDeadlockDetector.start();
         } else {
@@ -658,15 +662,6 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
 
         private boolean mInProgress;
         private long mSuspendUntil = Long.MIN_VALUE;
-
-        /**
-         *
-         * @param repository outer class
-         * @param sleepInterval milliseconds to sleep before running checkpoint
-         */
-        Checkpointer(BDBRepository repository, long sleepInterval) {
-            this(repository, sleepInterval, 1024, 5);
-        }
 
         /**
          *

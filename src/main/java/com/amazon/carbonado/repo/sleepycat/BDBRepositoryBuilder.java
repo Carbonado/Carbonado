@@ -104,7 +104,10 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private boolean mRunFullRecovery;
     private boolean mRunCheckpointer = true;
     private int mCheckpointInterval = DEFAULT_CHECKPOINT_INTERVAL;
+    private int mCheckpointThresholdKB = 1024;
+    private int mCheckpointThresholdMinutes = 5;
     private boolean mRunDeadlockDetector = true;
+    private Boolean mChecksumEnabled;
     private Object mInitialEnvConfig = null;
     private Object mInitialDBConfig = null;
     private StorableCodecFactory mStorableCodecFactory = new GenericStorableCodecFactory();
@@ -439,8 +442,8 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     }
 
     /**
-     * Set the percent of JVM heap used by the repository cache. Actual 
-     * BDB implementation will select a suitable default if this is not 
+     * Set the percent of JVM heap used by the repository cache. Actual
+     * BDB implementation will select a suitable default if this is not
      * set. This is overridden by setting an explicit cacheSize.
      */
     public void setCachePercent(int cachePercent) {
@@ -448,8 +451,8 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     }
 
     /**
-     * Set the percent of JVM heap used by the repository cache. Actual 
-     * BDB implementation will select a suitable default if this is not 
+     * Set the percent of JVM heap used by the repository cache. Actual
+     * BDB implementation will select a suitable default if this is not
      * set. This is overridden by setting an explicit cacheSize.
      *
      * @param cachePercent percent of JVM heap to use, or null for default
@@ -459,7 +462,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     }
 
     /**
-     * Returns the percent of JVM heap used by the repository cache, or 
+     * Returns the percent of JVM heap used by the repository cache, or
      * null if default should be selected.
      */
     public Integer getCachePercent() {
@@ -676,6 +679,48 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     }
 
     /**
+     * Set the size threshold to run checkpoints. This setting is ignored if
+     * the checkpointer is not configured to run.
+     *
+     * <p>Checkpoint threshold is only used by Carbonado's built-in
+     * checkpointer, and is ignored when using BDB-JE.
+     *
+     * @param thresholdKB run checkpoint if at least this many kilobytes in log
+     */
+    public void setCheckpointThresholdKB(int thresholdKB) {
+        mCheckpointThresholdKB = thresholdKB;
+    }
+
+    /**
+     * @return run checkpoint if at least this many kilobytes in log
+     */
+    public int getCheckpointThresholdKB() {
+        return mCheckpointThresholdKB;
+    }
+
+    /**
+     * Set the time threshold to run checkpoints. This setting is ignored if
+     * the checkpointer is not configured to run.
+     *
+     * <p>Checkpoint threshold is only used by Carbonado's built-in
+     * checkpointer, and is ignored when using BDB-JE.
+     *
+     * @param thresholdMinutes run checkpoint if at least this many minutes
+     * passed since last checkpoint
+     */
+    public void setCheckpointThresholdMinutes(int thresholdMinutes) {
+        mCheckpointThresholdMinutes = thresholdMinutes;
+    }
+
+    /**
+     * @return run checkpoint if at least this many minutes passed since last
+     * checkpoint
+     */
+    public int getCheckpointThresholdMinutes() {
+        return mCheckpointThresholdMinutes;
+    }
+
+    /**
      * Disable automatic deadlock detection of database if another thread is
      * responsible for that.
      */
@@ -688,6 +733,23 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public boolean getRunDeadlockDetector() {
         return mRunDeadlockDetector;
+    }
+
+    /**
+     * When true, enable checksum verification of pages read into the cache
+     * from the backing filestore. By default checksum is enabled for BDB-JE,
+     * and disabled for BDB-C.
+     */
+    public void setChecksumEnabled(Boolean checksumEnabled) {
+        mChecksumEnabled = checksumEnabled;
+    }
+
+    /**
+     * Returns true if checksum verification is enabled. Returns null if the
+     * BDB default is used.
+     */
+    public Boolean getChecksumEnabled() {
+        return mChecksumEnabled;
     }
 
     /**
