@@ -2866,6 +2866,8 @@ public final class StorableGenerator<S extends Storable> {
         try {
             encodedVar = encoder.buildSerialEncoding(b, null);
         } catch (SupportException e) {
+            // Wipe out any code generated so far.
+            b = new CodeBuilder(mi);
             CodeBuilderUtil.throwException(b, SupportException.class, e.getMessage());
             return;
         }
@@ -2914,6 +2916,8 @@ public final class StorableGenerator<S extends Storable> {
         try {
             encoder.buildSerialDecoding(b, null, encodedVar);
         } catch (SupportException e) {
+            // Wipe out any code generated so far.
+            b = new CodeBuilder(mi);
             CodeBuilderUtil.throwException(b, SupportException.class, e.getMessage());
             return;
         }

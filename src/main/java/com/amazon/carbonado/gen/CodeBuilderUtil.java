@@ -311,6 +311,9 @@ public class CodeBuilderUtil {
             try {
                 Method existing = clazz.getMethod(name, paramClasses);
                 if (Modifier.isFinal(existing.getModifiers())) {
+                    if (retType == null) {
+                        retType = TypeDesc.forClass(void.class);
+                    }
                     if (TypeDesc.forClass(existing.getReturnType()) == retType) {
                         // Method is already implemented and is final.
                         return true;
