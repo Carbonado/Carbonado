@@ -680,7 +680,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
 
     /**
      * Set the size threshold to run checkpoints. This setting is ignored if
-     * the checkpointer is not configured to run.
+     * the checkpointer is not configured to run. Default value is 1024 KB.
      *
      * <p>Checkpoint threshold is only used by Carbonado's built-in
      * checkpointer, and is ignored when using BDB-JE.
@@ -700,7 +700,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
 
     /**
      * Set the time threshold to run checkpoints. This setting is ignored if
-     * the checkpointer is not configured to run.
+     * the checkpointer is not configured to run. Default value is 5 minutes.
      *
      * <p>Checkpoint threshold is only used by Carbonado's built-in
      * checkpointer, and is ignored when using BDB-JE.
