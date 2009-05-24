@@ -31,34 +31,43 @@ import com.amazon.carbonado.Storable;
  */
 class Group<S extends Storable> {
     final boolean mForAnd;
-    Set<Filter<S>> mChildren;
+    Set<Filter<S>> mElements;
 
     Group(boolean forAnd) {
         mForAnd = forAnd;
     }
 
-    boolean add(Filter<S> child) {
-        if (mChildren == null) {
-            mChildren = new LinkedHashSet<Filter<S>>(20);
+    boolean add(Filter<S> element) {
+        if (mElements == null) {
+            // Use LinkedHashSet to best preserve original ordering of
+            // elements. It also tends to be faster when performing complex
+            // dnf/cnf transformations because the reduction step doesn't have
+            // to work as hard rearranging elements.
+            mElements = new LinkedHashSet<Filter<S>>(20);
         }
-        return mChildren.add(child);
+        return mElements.add(element);
     }
 
     /**
-     * Reduce the group set by eliminating redundant children. The
+     * Reduce the group set by eliminating redundant elements. These
      * transformations applied are:
      *
      * ((a & b) | b) => b
      * ((a | b) & b) => b
      */
     void reduce() {
-        Iterator<Filter<S>> it = mChildren.iterator();
+        // Note that the scanner choice is opposite of our type. This is
+        // because a group of 'and's has children which are 'or's and vice
+        // versa.
+        Scanner<S> scanner = mForAnd ? OrChildScanner.THE : AndChildScanner.THE;
+
+        Iterator<Filter<S>> it = mElements.iterator();
         aLoop:
         while (it.hasNext()) {
             Filter<S> a = it.next();
-            for (Filter<S> b : mChildren) {
+            for (Filter<S> b : mElements) {
                 if (a != b) {
-                    if (a.accept(new Scanner<S>(!mForAnd), b)) {
+                    if (a.accept(scanner, b)) {
                         it.remove();
                         continue aLoop;
                     }
@@ -69,14 +78,14 @@ class Group<S extends Storable> {
 
     Filter<S> merge() {
         Filter<S> filter = null;
-        if (mChildren != null) {
-            for (Filter<S> child : mChildren) {
+        if (mElements != null) {
+            for (Filter<S> element : mElements) {
                 if (filter == null) {
-                    filter = child;
+                    filter = element;
                 } else if (mForAnd) {
-                    filter = filter.and(child);
+                    filter = filter.and(element);
                 } else {
-                    filter = filter.or(child);
+                    filter = filter.or(element);
                 }
             }
         }
@@ -84,59 +93,122 @@ class Group<S extends Storable> {
     }
 
     /**
-     * Does the work of reducing a group
+     * Base class for finding filters inside other filters.
      */
-    private static class Scanner<S extends Storable> extends Visitor<S, Boolean, Filter<S>>{
-        private final boolean mForAnd;
-
-        Scanner(boolean forAnd) {
-            mForAnd = forAnd;
+    private static abstract class Scanner<S extends Storable>
+        extends Visitor<S, Boolean, Filter<S>>
+    {
+        @Override
+        public Boolean visit(PropertyFilter<S> filter, Filter<S> search) {
+            return filter == search;
         }
 
-        /**
-         * @return TRUE if overlap was found
-         */
         @Override
-        public Boolean visit(OrFilter<S> filter, Filter<S> child) {
-            if (mForAnd) {
-                return false;
-            }
-            if (filter == child) {
+        public Boolean visit(ExistsFilter<S> filter, Filter<S> search) {
+            return filter == search;
+        }
+    }
+
+    /**
+     * Searches for the existence of a child filter composed of 'or's as a
+     * sub-filter of another filter composed of 'or's, returning true if found.
+     */
+    private static class OrChildScanner<S extends Storable> extends Scanner<S> {
+        static final OrChildScanner THE = new OrChildScanner();
+
+        @Override
+        public Boolean visit(OrFilter<S> parent, Filter<S> child) {
+            if (parent == child) {
                 return true;
             }
-            return filter.getLeftFilter().accept(this, child) ||
-                filter.getRightFilter().accept(this, child);
-        }
-
-        /**
-         * @return TRUE if overlap was found
-         */
-        @Override
-        public Boolean visit(AndFilter<S> filter, Filter<S> child) {
-            if (!mForAnd) {
-                return false;
-            }
-            if (filter == child) {
+            if (parent.getLeftFilter().accept(this, child) ||
+                parent.getRightFilter().accept(this, child))
+            {
                 return true;
             }
-            return filter.getLeftFilter().accept(this, child) ||
-                filter.getRightFilter().accept(this, child);
+            Scanner<S> scanner = OrParentScanner.THE;
+            return child.accept(scanner, parent);
         }
 
-        /**
-         * @return TRUE if overlap was found
-         */
         @Override
-        public Boolean visit(PropertyFilter<S> filter, Filter<S> child) {
-            return filter == child;
+        public Boolean visit(AndFilter<S> parent, Filter<S> child) {
+            return false;
+        }
+    }
+
+    /**
+     * Searches for the existence of a child filter composed of 'and's as a
+     * sub-filter of another filter composed of 'and's, returning true if
+     * found.
+     */
+    private static class AndChildScanner<S extends Storable> extends Scanner<S> {
+        static final AndChildScanner THE = new AndChildScanner();
+
+        @Override
+        public Boolean visit(OrFilter<S> parent, Filter<S> child) {
+            return false;
         }
 
-        /**
-         * @return TRUE if overlap was found
-         */
         @Override
-        public Boolean visit(ExistsFilter<S> filter, Filter<S> child) {
-            return filter == child;
+        public Boolean visit(AndFilter<S> parent, Filter<S> child) {
+            if (parent == child) {
+                return true;
+            }
+            if (parent.getLeftFilter().accept(this, child) ||
+                parent.getRightFilter().accept(this, child))
+            {
+                return true;
+            }
+            Scanner<S> scanner = AndParentScanner.THE;
+            return child.accept(scanner, parent);
+        }
+    }
+
+    /**
+     * Searches for the existence of a parent filter composed of 'or's as a
+     * super-filter of another filter composed of 'or's, returning true if
+     * found.
+     */
+    private static class OrParentScanner<S extends Storable> extends Scanner<S> {
+        static final OrParentScanner THE = new OrParentScanner();
+
+        @Override
+        public Boolean visit(AndFilter<S> child, Filter<S> parent) {
+            return false;
+        }
+
+        @Override
+        public Boolean visit(OrFilter<S> child, Filter<S> parent) {
+            if (child == parent) {
+                return true;
+            }
+            Scanner<S> scanner = OrChildScanner.THE;
+            return parent.accept(scanner, child.getLeftFilter()) &&
+                parent.accept(scanner, child.getRightFilter());
+        }
+    }
+
+    /**
+     * Searches for the existence of a parent filter composed of 'and's as a
+     * super-filter of another filter composed of 'and's, returning true if
+     * found.
+     */
+    private static class AndParentScanner<S extends Storable> extends Scanner<S> {
+        static final AndParentScanner THE = new AndParentScanner();
+
+        @Override
+        public Boolean visit(AndFilter<S> child, Filter<S> parent) {
+            if (child == parent) {
+                return true;
+            }
+            Scanner<S> scanner = AndChildScanner.THE;
+            return parent.accept(scanner, child.getLeftFilter()) &&
+                parent.accept(scanner, child.getRightFilter());
+        }
+
+        @Override
+        public Boolean visit(OrFilter<S> child, Filter<S> parent) {
+            return false;
         }
     }
 }
