@@ -530,10 +530,16 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
 
         mInnerLoopFilterValues = innerLoopExecutorFilter.initialFilterValues();
 
-        // Only perform requested ordering if it index provides it for free.
+        // Only perform requested ordering if inner loop index provides it for
+        // free. This optimization is only valid if outer loop matches at most
+        // one record.
         if (targetOrdering != null) {
-            targetOrdering =
-                expectedOrdering(targetAccess, innerLoopExecutorFilter, targetOrdering);
+            if (outerLoopExecutor instanceof KeyQueryExecutor) {
+                targetOrdering =
+                    expectedOrdering(targetAccess, innerLoopExecutorFilter, targetOrdering);
+            } else {
+                targetOrdering = null;
+            }
         }
 
         mInnerLoopExecutor = innerLoopExecutorFactory
