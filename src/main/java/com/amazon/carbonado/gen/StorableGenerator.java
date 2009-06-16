@@ -1871,7 +1871,7 @@ public final class StorableGenerator<S extends Storable> {
         LocalVariable target = CodeBuilderUtil.uneraseGenericParameter(b, storableTypeDesc, 0);
 
         LocalVariable stateBits = null;
-        int mask = PROPERTY_STATE_DIRTY;
+        int mask = PROPERTY_STATE_MASK;
 
         for (StorableProperty property : mAllProperties.values()) {
             // Decide if property should be part of the copy.
@@ -1902,7 +1902,7 @@ public final class StorableGenerator<S extends Storable> {
                     addSkipIndependent(b, target, property, skipCopy);
                 }
 
-                if (stateBits != null) {
+                if (stateBits != null && !property.isDerived()) {
                     // Skip property if uninitialized.
                     b.loadLocal(stateBits);
                     b.loadConstant(mask);
@@ -1938,7 +1938,7 @@ public final class StorableGenerator<S extends Storable> {
             }
 
             if ((mask <<= 2) == 0) {
-                mask = 3;
+                mask = PROPERTY_STATE_MASK;
                 stateBits = null;
             }
         }
