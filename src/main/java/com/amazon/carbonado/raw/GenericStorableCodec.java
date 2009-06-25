@@ -237,6 +237,8 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                                          RawStorableGenerator.DECODE_DATA_METHOD_NAME,
                                          null, byteArrayParam);
             CodeBuilder b = new CodeBuilder(mi);
+            Label tryStartDecode = b.createLabel().setLocation();
+
             Label altGenerationHandler = b.createLabel();
 
             // assembler            = b
@@ -262,15 +264,14 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
             b.loadField(StorableGenerator.SUPPORT_FIELD_NAME, triggerSupportType);
             b.checkCast(rawSupportType);
 
-            Label tryStartDecode = b.createLabel().setLocation();
             b.loadThis();
             b.loadLocal(actualGeneration);
             b.loadLocal(b.getParameter(0));
             b.invokeInterface(rawSupportType, "decode", null,
                               new TypeDesc[] {storableType, TypeDesc.INT, byteArrayType});
-            Label tryEndDecode = b.createLabel().setLocation();
-
             b.returnVoid();
+
+            Label tryEndDecode = b.createLabel().setLocation();
 
             // If unable to decode, fill out exception.
             b.exceptionHandler(tryStartDecode, tryEndDecode,
