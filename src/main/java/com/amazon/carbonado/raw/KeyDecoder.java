@@ -830,7 +830,7 @@ public class KeyDecoder {
 
     /**
      * Decodes the given byte array which was encoded by {@link
-     * KeyEncoder#encodeSingleDesc}.
+     * KeyEncoder#encodeSingleDesc}. Always returns a new byte array instance.
      */
     public static byte[] decodeSingleDesc(byte[] src) throws CorruptEncodingException {
         return decodeSingleDesc(src, 0, 0);
@@ -838,7 +838,7 @@ public class KeyDecoder {
 
     /**
      * Decodes the given byte array which was encoded by {@link
-     * KeyEncoder#encodeSingleDesc}.
+     * KeyEncoder#encodeSingleDesc}. Always returns a new byte array instance.
      *
      * @param prefixPadding amount of extra bytes to skip from start of encoded byte array
      * @param suffixPadding amount of extra bytes to skip at end of encoded byte array
@@ -863,7 +863,8 @@ public class KeyDecoder {
 
     /**
      * Decodes the given byte array which was encoded by {@link
-     * KeyEncoder#encodeSingleNullableDesc}.
+     * KeyEncoder#encodeSingleNullableDesc}. Always returns a new byte array
+     * instance.
      */
     public static byte[] decodeSingleNullableDesc(byte[] src) throws CorruptEncodingException {
         return decodeSingleNullableDesc(src, 0, 0);
@@ -871,7 +872,8 @@ public class KeyDecoder {
 
     /**
      * Decodes the given byte array which was encoded by {@link
-     * KeyEncoder#encodeSingleNullableDesc}.
+     * KeyEncoder#encodeSingleNullableDesc}. Always returns a new byte array
+     * instance.
      *
      * @param prefixPadding amount of extra bytes to skip from start of encoded byte array
      * @param suffixPadding amount of extra bytes to skip at end of encoded byte array

@@ -1906,7 +1906,10 @@ public class GenericEncodingStrategy<S extends Storable> {
                     a.invokeStatic(DataDecoder.class.getName(), "decodeSingle",
                                    byteArrayType, params);
                 } else {
-                    // Just store raw property value.
+                    // Always clone the byte array as some implementations
+                    // reuse the byte array (e.g. iterating using a cursor).
+                    a.invokeVirtual(TypeDesc.OBJECT, "clone", TypeDesc.OBJECT, null);
+                    a.checkCast(byteArrayType);
                 }
 
                 storePropertyValue(a, info, useWriteMethods, instanceVar, adapterInstanceClass);

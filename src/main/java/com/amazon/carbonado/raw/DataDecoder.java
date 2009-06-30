@@ -648,7 +648,7 @@ public class DataDecoder {
 
     /**
      * Decodes the given byte array which was encoded by {@link
-     * DataEncoder#encodeSingle}.
+     * DataEncoder#encodeSingle}. Always returns a new byte array instance.
      *
      * @param prefixPadding amount of extra bytes to skip from start of encoded byte array
      * @param suffixPadding amount of extra bytes to skip at end of encoded byte array
@@ -662,7 +662,8 @@ public class DataDecoder {
                 return EMPTY_BYTE_ARRAY;
             }
             if (prefixPadding <= 0 && suffixPadding <= 0) {
-                return src;
+                // Always return a new byte array instance
+                return src.clone();
             }
             byte[] dst = new byte[length];
             System.arraycopy(src, prefixPadding, dst, 0, length);
@@ -674,7 +675,8 @@ public class DataDecoder {
 
     /**
      * Decodes the given byte array which was encoded by {@link
-     * DataEncoder#encodeSingleNullable}.
+     * DataEncoder#encodeSingleNullable}. Always returns a new byte array
+     * instance.
      */
     public static byte[] decodeSingleNullable(byte[] src) throws CorruptEncodingException {
         return decodeSingleNullable(src, 0, 0);
@@ -682,7 +684,8 @@ public class DataDecoder {
 
     /**
      * Decodes the given byte array which was encoded by {@link
-     * DataEncoder#encodeSingleNullable}.
+     * DataEncoder#encodeSingleNullable}. Always returns a new byte array
+     * instance.
      *
      * @param prefixPadding amount of extra bytes to skip from start of encoded byte array
      * @param suffixPadding amount of extra bytes to skip at end of encoded byte array
