@@ -81,6 +81,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
         mOrdering = OrderingList.emptyList();
     }
 
+    @Override
     public Class<S> getStorableType() {
         return mFactory.getStorableType();
     }
@@ -88,6 +89,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always returns a {@link com.amazon.carbonado.filter.ClosedFilter ClosedFilter}.
      */
+    @Override
     public Filter<S> getFilter() {
         return Filter.getClosedFilter(getStorableType());
     }
@@ -95,6 +97,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always returns null.
      */
+    @Override
     public FilterValues<S> getFilterValues() {
         return null;
     }
@@ -102,6 +105,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always returns zero.
      */
+    @Override
     public int getBlankParameterCount() {
         return 0;
     }
@@ -109,6 +113,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws an IllegalStateException.
      */
+    @Override
     public Query<S> with(int value) {
         throw error();
     }
@@ -116,6 +121,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws an IllegalStateException.
      */
+    @Override
     public Query<S> with(long value) {
         throw error();
     }
@@ -123,6 +129,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws an IllegalStateException.
      */
+    @Override
     public Query<S> with(float value) {
         throw error();
     }
@@ -130,6 +137,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws an IllegalStateException.
      */
+    @Override
     public Query<S> with(double value) {
         throw error();
     }
@@ -137,6 +145,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws an IllegalStateException.
      */
+    @Override
     public Query<S> with(boolean value) {
         throw error();
     }
@@ -144,6 +153,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws an IllegalStateException.
      */
+    @Override
     public Query<S> with(char value) {
         throw error();
     }
@@ -151,6 +161,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws an IllegalStateException.
      */
+    @Override
     public Query<S> with(byte value) {
         throw error();
     }
@@ -158,6 +169,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws an IllegalStateException.
      */
+    @Override
     public Query<S> with(short value) {
         throw error();
     }
@@ -165,6 +177,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws an IllegalStateException.
      */
+    @Override
     public Query<S> with(Object value) {
         throw error();
     }
@@ -172,6 +185,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Throws an IllegalStateException unless no values passed in.
      */
+    @Override
     public Query<S> withValues(Object... values) {
         if (values == null || values.length == 0) {
             return this;
@@ -182,10 +196,12 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always throws an IllegalStateException.
      */
+    @Override
     public Query<S> and(Filter<S> filter) {
         throw new IllegalStateException("Query is already guaranteed to fetch nothing");
     }
 
+    @Override
     public Query<S> or(Filter<S> filter) throws FetchException {
         return mFactory.query(filter, null, mOrdering, null);
     }
@@ -193,25 +209,30 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Returns a query that fetches everything, possibly in a specified order.
      */
+    @Override
     public Query<S> not() throws FetchException {
         return mFactory.query(null, null, mOrdering, null);
     }
 
+    @Override
     public Query<S> orderBy(String property) throws FetchException {
         return new EmptyQuery<S>(mFactory, property);
     }
 
+    @Override
     public Query<S> orderBy(String... properties) throws FetchException {
         return new EmptyQuery<S>(mFactory, properties);
     }
 
-    public Query<S> after(S start) {
+    @Override
+    public <T extends S> Query<S> after(T start) {
         return this;
     }
 
     /**
      * Always returns an {@link EmptyCursor}.
      */
+    @Override
     public Cursor<S> fetch() {
         return EmptyCursor.the();
     }
@@ -219,6 +240,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always returns an {@link EmptyCursor}.
      */
+    @Override
     public Cursor<S> fetchSlice(long from, Long to) {
         checkSliceArguments(from, to);
         return EmptyCursor.the();
@@ -235,6 +257,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always returns false.
      */
+    @Override
     public boolean tryDeleteOne() {
         return false;
     }
@@ -242,12 +265,14 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Does nothing.
      */
+    @Override
     public void deleteAll() {
     }
 
     /**
      * Always returns zero.
      */
+    @Override
     public long count() {
         return 0;
     }
@@ -255,10 +280,12 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always returns false.
      */
+    @Override
     public boolean exists() {
         return false;
     }
 
+    @Override
     public void appendTo(Appendable app) throws IOException {
         app.append("Query {type=");
         app.append(getStorableType().getName());
@@ -282,6 +309,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always returns false.
      */
+    @Override
     public boolean printNative(Appendable app, int indentLevel) {
         return false;
     }
@@ -289,6 +317,7 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     /**
      * Always returns false.
      */
+    @Override
     public boolean printPlan(Appendable app, int indentLevel) {
         return false;
     }

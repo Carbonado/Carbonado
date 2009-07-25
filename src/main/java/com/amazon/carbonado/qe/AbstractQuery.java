@@ -45,18 +45,22 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
     protected AbstractQuery() {
     }
 
+    @Override
     public Query<S> and(String filter) throws FetchException {
         return and(Filter.filterFor(getStorableType(), filter));
     }
 
+    @Override
     public Query<S> or(String filter) throws FetchException {
         return or(Filter.filterFor(getStorableType(), filter));
     }
 
-    public Cursor<S> fetchAfter(S start) throws FetchException {
+    @Override
+    public <T extends S> Cursor<S> fetchAfter(T start) throws FetchException {
         return after(start).fetch();
     }
 
+    @Override
     public S loadOne() throws FetchException {
         S obj = tryLoadOne();
         if (obj == null) {
@@ -65,6 +69,7 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
         return obj;
     }
 
+    @Override
     public S tryLoadOne() throws FetchException {
         Cursor<S> cursor = fetch();
         try {
@@ -82,12 +87,14 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
         }
     }
 
+    @Override
     public void deleteOne() throws PersistException {
         if (!tryDeleteOne()) {
             throw new PersistNoneException(toString());
         }
     }
 
+    @Override
     public boolean printNative() {
         try {
             return printNative(System.out);
@@ -97,10 +104,12 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
         }
     }
 
+    @Override
     public boolean printNative(Appendable app) throws IOException {
         return printNative(app, 0);
     }
 
+    @Override
     public boolean printPlan() {
         try {
             return printPlan(System.out);
@@ -110,6 +119,7 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
         }
     }
 
+    @Override
     public boolean printPlan(Appendable app) throws IOException {
         return printPlan(app, 0);
     }

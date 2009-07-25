@@ -43,96 +43,119 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         mQuery = query;
     }
 
+    @Override
     public Class<S> getStorableType() {
         return mQuery.getStorableType();
     }
 
+    @Override
     public Filter<S> getFilter() {
         return mQuery.getFilter();
     }
 
+    @Override
     public FilterValues<S> getFilterValues() {
         return mQuery.getFilterValues();
     }
 
+    @Override
     public int getBlankParameterCount() {
         return mQuery.getBlankParameterCount();
     }
 
+    @Override
     public Query<S> with(int value) {
         return newInstance(mQuery.with(value));
     }
 
+    @Override
     public Query<S> with(long value) {
         return newInstance(mQuery.with(value));
     }
 
+    @Override
     public Query<S> with(float value) {
         return newInstance(mQuery.with(value));
     }
 
+    @Override
     public Query<S> with(double value) {
         return newInstance(mQuery.with(value));
     }
 
+    @Override
     public Query<S> with(boolean value) {
         return newInstance(mQuery.with(value));
     }
 
+    @Override
     public Query<S> with(char value) {
         return newInstance(mQuery.with(value));
     }
 
+    @Override
     public Query<S> with(byte value) {
         return newInstance(mQuery.with(value));
     }
 
+    @Override
     public Query<S> with(short value) {
         return newInstance(mQuery.with(value));
     }
 
+    @Override
     public Query<S> with(Object value) {
         return newInstance(mQuery.with(value));
     }
 
+    @Override
     public Query<S> withValues(Object... objects) {
         return newInstance(mQuery.withValues(objects));
     }
 
+    @Override
     public Query<S> and(String filter) throws FetchException {
         return newInstance(mQuery.and(filter));
     }
 
+    @Override
     public Query<S> and(Filter<S> filter) throws FetchException {
         return newInstance(mQuery.and(filter));
     }
 
+    @Override
     public Query<S> or(String filter) throws FetchException {
         return newInstance(mQuery.or(filter));
     }
 
+    @Override
     public Query<S> or(Filter<S> filter) throws FetchException {
         return newInstance(mQuery.or(filter));
     }
 
+    @Override
     public Query<S> not() throws FetchException {
         return newInstance(mQuery.not());
     }
 
+    @Override
     public Query<S> orderBy(String property) throws FetchException, UnsupportedOperationException {
         return newInstance(mQuery.orderBy(property));
     }
 
+    @Override
     public Query<S> orderBy(String... strings)
         throws FetchException, UnsupportedOperationException
     {
         return newInstance(mQuery.orderBy(strings));
     }
 
-    public Query<S> after(S start) throws FetchException {
+    @Override
+    public <T extends S> Query<S> after(T start) throws FetchException {
         return newInstance(mQuery.after(start));
     }
 
+    @Override
     public Cursor<S> fetch() throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -141,6 +164,7 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         return mQuery.fetch();
     }
 
+    @Override
     public Cursor<S> fetchSlice(long from, Long to) throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -150,7 +174,8 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         return mQuery.fetchSlice(from, to);
     }
 
-    public Cursor<S> fetchAfter(S start) throws FetchException {
+    @Override
+    public <T extends S> Cursor<S> fetchAfter(T start) throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.fetchAfter(start) on " + this + ", start: " + start);
@@ -158,6 +183,7 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         return mQuery.fetchAfter(start);
     }
 
+    @Override
     public S loadOne() throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -166,6 +192,7 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         return mQuery.loadOne();
     }
 
+    @Override
     public S tryLoadOne() throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -174,6 +201,7 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         return mQuery.tryLoadOne();
     }
 
+    @Override
     public void deleteOne() throws PersistException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -182,6 +210,7 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         mQuery.deleteOne();
     }
 
+    @Override
     public boolean tryDeleteOne() throws PersistException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -190,6 +219,7 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         return mQuery.tryDeleteOne();
     }
 
+    @Override
     public void deleteAll() throws PersistException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -198,6 +228,7 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         mQuery.deleteAll();
     }
 
+    @Override
     public long count() throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -206,6 +237,7 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         return mQuery.count();
     }
 
+    @Override
     public boolean exists() throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -214,32 +246,34 @@ class LoggingQuery<S extends Storable> implements Query<S> {
         return mQuery.exists();
     }
 
+    @Override
     public boolean printNative() {
         return mQuery.printNative();
     }
 
+    @Override
     public boolean printNative(Appendable app) throws IOException {
         return mQuery.printNative(app);
     }
 
+    @Override
     public boolean printNative(Appendable app, int indentLevel) throws IOException {
         return mQuery.printNative(app, indentLevel);
     }
 
+    @Override
     public boolean printPlan() {
         return mQuery.printPlan();
     }
 
+    @Override
     public boolean printPlan(Appendable app) throws IOException {
         return mQuery.printPlan(app);
     }
 
+    @Override
     public boolean printPlan(Appendable app, int indentLevel) throws IOException {
         return mQuery.printPlan(app, indentLevel);
-    }
-
-    public void appendTo(Appendable appendable) throws IOException {
-        appendable.append(mQuery.toString());
     }
 
     @Override

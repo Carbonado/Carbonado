@@ -271,7 +271,7 @@ public interface Query<S extends Storable> {
      * @throws FetchException if storage layer throws an exception
      * @since 1.2
      */
-    Query<S> after(S start) throws FetchException;
+    <T extends S> Query<S> after(T start) throws FetchException;
 
     /**
      * Fetches results for this query. If any updates or deletes might be
@@ -323,7 +323,7 @@ public interface Query<S extends Storable> {
      * @see Repository#enterTransaction(IsolationLevel)
      * @see #after
      */
-    Cursor<S> fetchAfter(S start) throws FetchException;
+    <T extends S> Cursor<S> fetchAfter(T start) throws FetchException;
 
     /**
      * Attempts to load exactly one matching object. If the number of matching

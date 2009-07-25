@@ -90,10 +90,12 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         mHints = hints;
     }
 
+    @Override
     public Class<S> getStorableType() {
         return queryFactory().getStorableType();
     }
 
+    @Override
     public Filter<S> getFilter() {
         Filter<S> filter = mFilter;
         if (filter == null) {
@@ -102,50 +104,62 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return filter;
     }
 
+    @Override
     public FilterValues<S> getFilterValues() {
         return mValues;
     }
 
+    @Override
     public int getBlankParameterCount() {
         return mValues == null ? 0 : mValues.getBlankParameterCount();
     }
 
+    @Override
     public Query<S> with(int value) {
         return newInstance(requireValues().with(value));
     }
 
+    @Override
     public Query<S> with(long value) {
         return newInstance(requireValues().with(value));
     }
 
+    @Override
     public Query<S> with(float value) {
         return newInstance(requireValues().with(value));
     }
 
+    @Override
     public Query<S> with(double value) {
         return newInstance(requireValues().with(value));
     }
 
+    @Override
     public Query<S> with(boolean value) {
         return newInstance(requireValues().with(value));
     }
 
+    @Override
     public Query<S> with(char value) {
         return newInstance(requireValues().with(value));
     }
 
+    @Override
     public Query<S> with(byte value) {
         return newInstance(requireValues().with(value));
     }
 
+    @Override
     public Query<S> with(short value) {
         return newInstance(requireValues().with(value));
     }
 
+    @Override
     public Query<S> with(Object value) {
         return newInstance(requireValues().with(value));
     }
 
+    @Override
     public Query<S> withValues(Object... values) {
         if (values == null || values.length == 0) {
             return this;
@@ -153,6 +167,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return newInstance(requireValues().withValues(values));
     }
 
+    @Override
     public Query<S> and(Filter<S> filter) throws FetchException {
         Filter<S> newFilter;
         FilterValues<S> newValues;
@@ -172,6 +187,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return createQuery(newFilter, newValues, mOrdering, mHints);
     }
 
+    @Override
     public Query<S> or(Filter<S> filter) throws FetchException {
         if (mFilter == null) {
             throw new IllegalStateException("Query is already guaranteed to fetch everything");
@@ -187,6 +203,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return createQuery(newFilter, newValues, mOrdering, mHints);
     }
 
+    @Override
     public Query<S> not() throws FetchException {
         if (mFilter == null) {
             return new EmptyQuery<S>(queryFactory(), mOrdering);
@@ -199,17 +216,20 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return createQuery(newFilter, newValues, mOrdering, mHints);
     }
 
+    @Override
     public Query<S> orderBy(String property) throws FetchException {
         return createQuery(mFilter, mValues,
                            OrderingList.get(getStorableType(), property), mHints);
     }
 
+    @Override
     public Query<S> orderBy(String... properties) throws FetchException {
         return createQuery(mFilter, mValues,
                            OrderingList.get(getStorableType(), properties), mHints);
     }
 
-    public Query<S> after(S start) throws FetchException {
+    @Override
+    public <T extends S> Query<S> after(T start) throws FetchException {
         OrderingList<S> orderings;
         if (start == null || (orderings = mOrdering).size() == 0) {
             return this;
@@ -217,7 +237,9 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return buildAfter(start, orderings);
     }
 
-    private Query<S> buildAfter(S start, OrderingList<S> orderings) throws FetchException {
+    private <T extends S> Query<S> buildAfter(T start, OrderingList<S> orderings)
+        throws FetchException
+    {
         Class<S> storableType = getStorableType();
         Filter<S> orderFilter = Filter.getClosedFilter(storableType);
         Filter<S> openFilter = Filter.getOpenFilter(storableType);
@@ -256,6 +278,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return query;
     }
 
+    @Override
     public Cursor<S> fetch() throws FetchException {
         try {
             return executor().fetch(mValues);
@@ -264,6 +287,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
+    @Override
     public Cursor<S> fetchSlice(long from, Long to) throws FetchException {
         if (!checkSliceArguments(from, to)) {
             return fetch();
@@ -277,6 +301,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
+    @Override
     public boolean tryDeleteOne() throws PersistException {
         Transaction txn = enterTransaction(IsolationLevel.READ_COMMITTED);
         try {
@@ -308,6 +333,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
+    @Override
     public void deleteAll() throws PersistException {
         Transaction txn = enterTransaction(IsolationLevel.READ_COMMITTED);
         try {
@@ -331,6 +357,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
+    @Override
     public long count() throws FetchException {
         try {
             return executor().count(mValues);
@@ -339,6 +366,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
+    @Override
     public boolean exists() throws FetchException {
         Cursor<S> cursor = fetchSlice(0L, 1L);
         try {
@@ -348,6 +376,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
+    @Override
     public boolean printNative(Appendable app, int indentLevel) throws IOException {
         try {
             return executor().printNative(app, indentLevel, mValues);
@@ -356,6 +385,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         }
     }
 
+    @Override
     public boolean printPlan(Appendable app, int indentLevel) throws IOException {
         try {
             return executor().printPlan(app, indentLevel, mValues);
@@ -394,6 +424,7 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
         return false;
     }
 
+    @Override
     public void appendTo(Appendable app) throws IOException {
         app.append("Query {type=");
         app.append(getStorableType().getName());
