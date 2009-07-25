@@ -108,6 +108,8 @@ public class DifferenceCursor<S> extends AbstractCursor<S> {
                     }
                 }
             }
+        } catch (NoSuchElementException e) {
+            return false;
         } catch (FetchException e) {
             try {
                 close();

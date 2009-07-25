@@ -50,11 +50,14 @@ public class LimitCursor<S> extends AbstractCursor<S> {
     }
 
     public boolean hasNext() throws FetchException {
-        if (mSource.hasNext()) {
-            if (mRemaining > 0) {
-                return true;
+        try {
+            if (mSource.hasNext()) {
+                if (mRemaining > 0) {
+                    return true;
+                }
+                mSource.close();
             }
-            mSource.close();
+        } catch (NoSuchElementException e) {
         }
         return false;
     }

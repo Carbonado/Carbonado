@@ -113,6 +113,8 @@ public class SymmetricDifferenceCursor<S> extends AbstractCursor<S> {
                     return mCompareResult;
                 }
             }
+        } catch (NoSuchElementException e) {
+            return 0;
         } catch (FetchException e) {
             try {
                 close();

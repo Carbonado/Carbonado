@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.cursor;
 
+import java.util.NoSuchElementException;
+
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 
@@ -48,8 +50,12 @@ public class SkipCursor<S> extends AbstractCursor<S> {
     }
 
     public boolean hasNext() throws FetchException {
-        doSkip();
-        return mSource.hasNext();
+        try {
+            doSkip();
+            return mSource.hasNext();
+        } catch (NoSuchElementException e) {
+            return false;
+        }
     }
 
     public S next() throws FetchException {

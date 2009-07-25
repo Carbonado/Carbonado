@@ -306,6 +306,7 @@ public class SortedCursor<S> extends AbstractCursor<S> {
             } catch (UndeclaredThrowableException e) {
                 throw toFetchException(e);
             }
+        } catch (NoSuchElementException e) {
         } catch (FetchException e) {
             try {
                 close();

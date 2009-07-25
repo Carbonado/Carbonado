@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.cursor;
 
+import java.util.NoSuchElementException;
+
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchInterruptedException;
@@ -63,6 +65,8 @@ public class ThrottledCursor<S> extends AbstractCursor<S> {
     public boolean hasNext() throws FetchException {
         try {
             return mCursor.hasNext();
+        } catch (NoSuchElementException e) {
+            return false;
         } catch (FetchException e) {
             try {
                 close();

@@ -152,6 +152,7 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
                     }
                 }
             }
+        } catch (NoSuchElementException e) {
         } catch (FetchException e) {
             try {
                 close();

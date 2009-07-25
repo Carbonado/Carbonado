@@ -106,6 +106,8 @@ public class IntersectionCursor<S> extends AbstractCursor<S> {
                     return true;
                 }
             }
+        } catch (NoSuchElementException e) {
+            return false;
         } catch (FetchException e) {
             try {
                 close();

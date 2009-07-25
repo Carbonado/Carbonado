@@ -72,21 +72,19 @@ public abstract class MultiTransformedCursor<S, T> extends AbstractCursor<T> {
                 mNextCursor.close();
                 mNextCursor = null;
             }
-            try {
-                int count = 0;
-                while (mCursor.hasNext()) {
-                    Cursor<T> nextCursor = transform(mCursor.next());
-                    if (nextCursor != null) {
-                        if (nextCursor.hasNext()) {
-                            mNextCursor = nextCursor;
-                            return true;
-                        }
-                        nextCursor.close();
+            int count = 0;
+            while (mCursor.hasNext()) {
+                Cursor<T> nextCursor = transform(mCursor.next());
+                if (nextCursor != null) {
+                    if (nextCursor.hasNext()) {
+                        mNextCursor = nextCursor;
+                        return true;
                     }
-                    interruptCheck(++count);
+                    nextCursor.close();
                 }
-            } catch (NoSuchElementException e) {
+                interruptCheck(++count);
             }
+        } catch (NoSuchElementException e) {
         } catch (FetchException e) {
             try {
                 close();

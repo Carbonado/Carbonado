@@ -74,6 +74,8 @@ public class UnionCursor<S> extends AbstractCursor<S> {
             if (mNextRight == null && mRightCursor.hasNext()) {
                 mNextRight = mRightCursor.next();
             }
+        } catch (NoSuchElementException e) {
+            return false;
         } catch (FetchException e) {
             try {
                 close();
