@@ -187,7 +187,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                 try {
                     Cursor<S> cursor = query().fetch();
                     if (!cursor.hasNext()) {
-                        break;
+                        return;
                     }
                     int count = 0;
                     do {
@@ -199,8 +199,6 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                 } finally {
                     txn.exit();
                 }
-
-                return;
             }
         }
 
