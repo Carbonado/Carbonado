@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.repo.sleepycat;
 
+import com.amazon.carbonado.PersistDeniedException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.capability.Capability;
 
@@ -53,6 +54,8 @@ public interface CheckpointCapability extends Capability {
      * disabled. If a checkpoint is in progress, then this method will block
      * until it is finished, and then run another checkpoint. This method does
      * not return until the requested checkpoint has finished.
+     *
+     * @throws PersistDeniedException if disabled during a hot backup
      */
     void forceCheckpoint() throws PersistException;
 }
