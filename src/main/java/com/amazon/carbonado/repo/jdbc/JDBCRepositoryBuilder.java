@@ -115,8 +115,15 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
     }
 
     /**
-     * Set the source of JDBC connections, overriding all other database
-     * connectivity configuration in this object.
+     * Set the source of JDBC connections, overriding any configuration
+     * supported by these methods:
+     *
+     * <ul>
+     * <li>{@link #setDriverClassName}
+     * <li>{@link #setDriverURL}
+     * <li>{@link #setUserName}
+     * <li>{@link #setPassword}
+     * </ul>
      */
     public void setDataSource(DataSource dataSource) {
         mDataSource = dataSource;
