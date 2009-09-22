@@ -576,10 +576,7 @@ public final class StorableGenerator<S extends Storable> {
                                 StorableProperty internal = property.getInternalJoinElement(i);
                                 StorableProperty external = property.getExternalJoinElement(i);
                                 if (internal.isNullable() && !external.isNullable()) {
-                                    b.loadThis();
-                                    b.loadField(internal.getName(),
-                                                TypeDesc.forClass(internal.getType()));
-
+                                    loadThisProperty(b, internal);
                                     Label notNull = b.createLabel();
                                     b.ifNullBranch(notNull, false);
                                     b.loadNull();
@@ -630,9 +627,7 @@ public final class StorableGenerator<S extends Storable> {
                                 b.loadLocal(join);
                                 StorableProperty internal = property.getInternalJoinElement(i);
                                 StorableProperty external = property.getExternalJoinElement(i);
-                                b.loadThis();
-                                b.loadField(internal.getName(),
-                                            TypeDesc.forClass(internal.getType()));
+                                loadThisProperty(b, internal);
                                 CodeBuilderUtil.convertValue
                                     (b, internal.getType(), external.getType());
                                 b.invoke(external.getWriteMethod());
@@ -675,9 +670,7 @@ public final class StorableGenerator<S extends Storable> {
                             // Now fill in the parameters of the query.
                             for (int i=0; i<count; i++) {
                                 StorableProperty<S> internal = property.getInternalJoinElement(i);
-                                b.loadThis();
-                                b.loadField(internal.getName(),
-                                            TypeDesc.forClass(internal.getType()));
+                                loadThisProperty(b, internal);
                                 TypeDesc bindType =
                                     CodeBuilderUtil.bindQueryParam(internal.getType());
                                 CodeBuilderUtil.convertValue
@@ -725,8 +718,7 @@ public final class StorableGenerator<S extends Storable> {
 
                     // Load property value and return it.
 
-                    b.loadThis();
-                    b.loadField(property.getName(), type);
+                    loadThisProperty(b, property);
                     b.returnValue(type);
                 }
 
@@ -821,8 +813,7 @@ public final class StorableGenerator<S extends Storable> {
                             b.loadLocal(b.getParameter(0));
                             b.ifNullBranch(markDirty, true);
 
-                            b.loadThis();
-                            b.loadField(property.getName(), type);
+                            loadThisProperty(b, property);
                             LocalVariable tempProp = b.createLocalVariable(null, type);
                             b.storeLocal(tempProp);
                             b.loadLocal(tempProp);
@@ -953,8 +944,7 @@ public final class StorableGenerator<S extends Storable> {
                         b.loadStaticField(fieldName, adapterType);
 
                         // Load property value.
-                        b.loadThis();
-                        b.loadField(property.getName(), type);
+                        loadThisProperty(b, property);
 
                         b.invoke(adaptMethod);
                         b.returnValue(toType);
@@ -966,7 +956,9 @@ public final class StorableGenerator<S extends Storable> {
                 // Note: Calling these methods does not affect any state bits.
                 // They are only intended to be used by subclasses during loading.
 
-                if (property.getAdapter() != null) {
+                if (property.getAdapter() != null &&
+                    (!property.isDerived() || (property.getWriteMethod() != null)))
+                {
                     // End name with '$' to prevent any possible collisions.
                     String writeName = property.getWriteMethodName() + '$';
 
@@ -994,7 +986,7 @@ public final class StorableGenerator<S extends Storable> {
 
                         b.loadLocal(b.getParameter(0));
                         b.invoke(adaptMethod);
-                        b.storeField(property.getName(), type);
+                        storeProperty(b, property, type);
 
                         b.returnVoid();
                     }
@@ -1067,9 +1059,7 @@ public final class StorableGenerator<S extends Storable> {
                     // Now fill in the parameters of the query.
                     for (OrderedProperty<S> op : altKey.getProperties()) {
                         StorableProperty<S> prop = op.getChainedProperty().getPrimeProperty();
-                        b.loadThis();
-                        TypeDesc propType = TypeDesc.forClass(prop.getType());
-                        b.loadField(prop.getName(), propType);
+                        loadThisProperty(b, prop);
                         TypeDesc bindType = CodeBuilderUtil.bindQueryParam(prop.getType());
                         CodeBuilderUtil.convertValue(b, prop.getType(), bindType.toClass());
                         b.invokeInterface(queryType, WITH_METHOD_NAME, queryType,
@@ -1932,7 +1922,7 @@ public final class StorableGenerator<S extends Storable> {
 
                 b.loadLocal(target);                  // [target
                 loadThisProperty(b, property, type);  // [target, this.propValue
-                mutateProperty(b, property, type);
+                storeProperty(b, property, type);
 
                 skipCopy.setLocation();
             }
@@ -1982,6 +1972,21 @@ public final class StorableGenerator<S extends Storable> {
      *
      * @param b - {@link CodeBuilder} to which to add the load code
      * @param property - property to load
+     */
+    private void loadThisProperty(CodeBuilder b, StorableProperty property) {
+        loadThisProperty(b, property, TypeDesc.forClass(property.getType()));
+    }
+
+    /**
+     * Loads the property value of the current storable onto the stack. If the
+     * property is derived the read method is used, otherwise it just loads the
+     * value from the appropriate field.
+     *
+     * entry stack: [
+     * exit stack: [value
+     *
+     * @param b - {@link CodeBuilder} to which to add the load code
+     * @param property - property to load
      * @param type - type of the property
      */
     private void loadThisProperty(CodeBuilder b, StorableProperty property, TypeDesc type) {
@@ -1994,8 +1999,9 @@ public final class StorableGenerator<S extends Storable> {
     }
 
     /**
-     * Puts the value on the stack into the specified storable.  If a write method is defined
-     * uses it, otherwise just shoves the value into the appropriate field.
+     * Puts the value on the stack into the specified storable.  If a write
+     * method is defined, use it. Otherwise, just shove the value into the
+     * appropriate field.
      *
      * entry stack: [storable, value
      * exit stack: [
@@ -2004,8 +2010,8 @@ public final class StorableGenerator<S extends Storable> {
      * @param property - property to mutate
      * @param type - type of the property
      */
-    private void mutateProperty(CodeBuilder b, StorableProperty property, TypeDesc type) {
-        if (property.getWriteMethod() == null) {
+    private void storeProperty(CodeBuilder b, StorableProperty property, TypeDesc type) {
+        if (property.getWriteMethod() == null && !property.isDerived()) {
             b.storeField(property.getName(), type);
         } else {
             b.invoke(property.getWriteMethod());
@@ -3119,8 +3125,7 @@ public final class StorableGenerator<S extends Storable> {
             }
 
             TypeDesc fieldType = TypeDesc.forClass(property.getType());
-            b.loadThis();
-            b.loadField(property.getName(), fieldType);
+            loadThisProperty(b, property);
 
             b.loadLocal(other);
             b.invoke(property.getReadMethod());
@@ -3270,9 +3275,8 @@ public final class StorableGenerator<S extends Storable> {
         invokeAppend(b, TypeDesc.STRING);
         b.loadConstant('=');
         invokeAppend(b, TypeDesc.CHAR);
-        b.loadThis();
+        loadThisProperty(b, property);
         TypeDesc type = TypeDesc.forClass(property.getType());
-        b.loadField(property.getName(), type);
         if (type.isPrimitive()) {
             if (type == TypeDesc.BYTE || type == TypeDesc.SHORT) {
                 type = TypeDesc.INT;
