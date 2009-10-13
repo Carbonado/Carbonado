@@ -569,7 +569,6 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                 // Existing entry is exactly what we expect. Return false
                 // exception if alternate key constraint, since this is
                 // user error.
-                // FIXME: The isUnique method always returns true.
                 return !isUnique();
             }
         } catch (FetchException e) {
