@@ -1929,8 +1929,11 @@ public class GenericEncodingStrategy<S extends Storable> {
         LocalVariable[] bigDecimalRefRef = new LocalVariable[1];
         LocalVariable[] valueRefRef = new LocalVariable[1];
 
+        // Used by SERIAL mode.
+        LocalVariable[] stateVars = null;
+
         if (mode == Mode.SERIAL) {
-            decodePropertyStates(a, encodedVar, constantOffset, properties);
+            stateVars = decodePropertyStates(a, encodedVar, constantOffset, properties);
             constantOffset += (properties.length + 3) / 4;
 
             // Some properties are skipped at runtime, so offset variable is required.
@@ -1980,14 +1983,6 @@ public class GenericEncodingStrategy<S extends Storable> {
             }
         }
 
-        LocalVariable stateFieldVar;
-        if (mode != Mode.SERIAL) {
-            stateFieldVar = null;
-        } else {
-            stateFieldVar = a.createLocalVariable(null, TypeDesc.INT);
-        }
-        int lastFieldOrdinal = -1;
-
         for (int i=0; i<properties.length; i++) {
             StorableProperty<S> property = properties[i];
             StorablePropertyInfo info = infos[i];
@@ -2001,18 +1996,7 @@ public class GenericEncodingStrategy<S extends Storable> {
             if (mode == Mode.SERIAL) {
                 // Load property if initialized, else reset it.
 
-                int fieldOrdinal = property.getNumber() >> 4;
-
-                if (fieldOrdinal == lastFieldOrdinal) {
-                    a.loadLocal(stateFieldVar);
-                } else {
-                    a.loadThis();
-                    a.loadField(PROPERTY_STATE_FIELD_NAME + fieldOrdinal, TypeDesc.INT);
-                    a.storeLocal(stateFieldVar);
-                    a.loadLocal(stateFieldVar);
-                    lastFieldOrdinal = fieldOrdinal;
-                }
-
+                a.loadLocal(stateVars[property.getNumber() >> 4]);
                 a.loadConstant(PROPERTY_STATE_MASK << ((property.getNumber() & 0xf) * 2));
                 a.math(Opcode.IAND);
                 Label isInitialized = a.createLabel();
@@ -2130,6 +2114,14 @@ public class GenericEncodingStrategy<S extends Storable> {
             storePropertyValue(a, info, useWriteMethods, instanceVar, adapterInstanceClass);
 
             nextPropertyLocation.setLocation();
+        }
+
+        if (stateVars != null) {
+            for (int i=0; i<stateVars.length; i++) {
+                a.loadThis();
+                a.loadLocal(stateVars[i]);
+                a.storeField(PROPERTY_STATE_FIELD_NAME + i, TypeDesc.INT);
+            }
         }
     }
 
@@ -2582,32 +2574,25 @@ public class GenericEncodingStrategy<S extends Storable> {
      *
      * @param encodedVar references a byte array
      * @param offset offset into byte array
+     * @return local variables with state values
      */
-    private void decodePropertyStates(CodeAssembler a, LocalVariable encodedVar,
-                                      int offset, StorableProperty<S>[] properties)
+    private LocalVariable[] decodePropertyStates(CodeAssembler a, LocalVariable encodedVar,
+                                                 int offset, StorableProperty<S>[] properties)
     {
-        LocalVariable stateFieldVar = a.createLocalVariable(null, TypeDesc.INT);
-        int lastFieldOrdinal = -1;
-
+        LocalVariable[] stateVars = new LocalVariable[(properties.length + 15) >> 4];
         LocalVariable accumVar = a.createLocalVariable(null, TypeDesc.INT);
         int accumShift = 8;
 
         for (int i=0; i<properties.length; i++) {
             StorableProperty<S> property = properties[i];
 
-            int fieldOrdinal = property.getNumber() >> 4;
+            int stateVarOrdinal = property.getNumber() >> 4;
 
-            if (fieldOrdinal != lastFieldOrdinal) {
-                if (lastFieldOrdinal >= 0) {
-                    // Copy states to field.
-                    a.loadThis();
-                    a.loadLocal(stateFieldVar);
-                    a.storeField(PROPERTY_STATE_FIELD_NAME + lastFieldOrdinal, TypeDesc.INT);
-                }
+            if (stateVars[stateVarOrdinal] == null) {
+                stateVars[stateVarOrdinal] = a.createLocalVariable(null, TypeDesc.INT);
                 a.loadThis();
-                a.loadField(PROPERTY_STATE_FIELD_NAME + fieldOrdinal, TypeDesc.INT);
-                a.storeLocal(stateFieldVar);
-                lastFieldOrdinal = fieldOrdinal;
+                a.loadField(PROPERTY_STATE_FIELD_NAME + stateVarOrdinal, TypeDesc.INT);
+                a.storeLocal(stateVars[stateVarOrdinal]);
             }
 
             if (accumShift >= 8) {
@@ -2637,7 +2622,7 @@ public class GenericEncodingStrategy<S extends Storable> {
                     // Properties are not consecutive.
                     break;
                 }
-                if (fieldOrdinal != (nextProperty.getNumber() >> 4)) {
+                if (stateVarOrdinal != (nextProperty.getNumber() >> 4)) {
                     // Property states are stored in different fields.
                     break;
                 }
@@ -2659,20 +2644,15 @@ public class GenericEncodingStrategy<S extends Storable> {
 
             a.loadConstant(mask);
             a.math(Opcode.IAND);
-            a.loadLocal(stateFieldVar);
+            a.loadLocal(stateVars[stateVarOrdinal]);
             a.loadConstant(~mask);
             a.math(Opcode.IAND);
             a.math(Opcode.IOR);
-            a.storeLocal(stateFieldVar);
+            a.storeLocal(stateVars[stateVarOrdinal]);
 
             accumShift += accumPack;
         }
 
-        if (lastFieldOrdinal >= 0) {
-            // Copy remaining states to last state field.
-            a.loadThis();
-            a.loadLocal(stateFieldVar);
-            a.storeField(PROPERTY_STATE_FIELD_NAME + lastFieldOrdinal, TypeDesc.INT);
-        }
+        return stateVars;
     }
 }

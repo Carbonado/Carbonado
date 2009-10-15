@@ -99,7 +99,7 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
                             // the risk of seeing it multiple times. This is
                             // better than seeing it never.
                             LogFactory.getLog(getClass()).warn
-                                ("Inconsistent index entry: " + indexEntry);
+                                ("Inconsistent index entry: " + indexEntry + ", " + master);
                             mNext = master;
                         }
 

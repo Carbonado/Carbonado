@@ -418,7 +418,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
         TypeDesc masterStorableType = TypeDesc.forClass(mMasterStorableClass);
 
         // Add a method which tests all properties of index entry object
-        // against master object, excluding the version property.
+        // against master object, excluding version and derived properties.
         {
             TypeDesc[] params = new TypeDesc[] {masterStorableType};
             MethodInfo mi = cf.addMethod
@@ -426,7 +426,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
             CodeBuilder b = new CodeBuilder(mi);
 
             for (StorableProperty prop : mCommonProps) {
-                if (prop.isVersion()) {
+                if (prop.isVersion() || prop.isDerived()) {
                     continue;
                 }
                 Label propsAreEqual = b.createLabel();
