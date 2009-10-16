@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Vector;
 
 import org.cojen.classfile.CodeAssembler;
 import org.cojen.classfile.Label;
@@ -1930,7 +1931,7 @@ public class GenericEncodingStrategy<S extends Storable> {
         LocalVariable[] valueRefRef = new LocalVariable[1];
 
         // Used by SERIAL mode.
-        LocalVariable[] stateVars = null;
+        List<LocalVariable> stateVars = null;
 
         if (mode == Mode.SERIAL) {
             stateVars = decodePropertyStates(a, encodedVar, constantOffset, properties);
@@ -1996,7 +1997,7 @@ public class GenericEncodingStrategy<S extends Storable> {
             if (mode == Mode.SERIAL) {
                 // Load property if initialized, else reset it.
 
-                a.loadLocal(stateVars[property.getNumber() >> 4]);
+                a.loadLocal(stateVars.get(property.getNumber() >> 4));
                 a.loadConstant(PROPERTY_STATE_MASK << ((property.getNumber() & 0xf) * 2));
                 a.math(Opcode.IAND);
                 Label isInitialized = a.createLabel();
@@ -2117,10 +2118,13 @@ public class GenericEncodingStrategy<S extends Storable> {
         }
 
         if (stateVars != null) {
-            for (int i=0; i<stateVars.length; i++) {
-                a.loadThis();
-                a.loadLocal(stateVars[i]);
-                a.storeField(PROPERTY_STATE_FIELD_NAME + i, TypeDesc.INT);
+            for (int i=0; i<stateVars.size(); i++) {
+                LocalVariable stateVar = stateVars.get(i);
+                if (stateVar != null) {
+                    a.loadThis();
+                    a.loadLocal(stateVar);
+                    a.storeField(PROPERTY_STATE_FIELD_NAME + i, TypeDesc.INT);
+                }
             }
         }
     }
@@ -2576,10 +2580,10 @@ public class GenericEncodingStrategy<S extends Storable> {
      * @param offset offset into byte array
      * @return local variables with state values
      */
-    private LocalVariable[] decodePropertyStates(CodeAssembler a, LocalVariable encodedVar,
-                                                 int offset, StorableProperty<S>[] properties)
+    private List<LocalVariable> decodePropertyStates(CodeAssembler a, LocalVariable encodedVar,
+                                                     int offset, StorableProperty<S>[] properties)
     {
-        LocalVariable[] stateVars = new LocalVariable[(properties.length + 15) >> 4];
+        Vector<LocalVariable> stateVars = new Vector<LocalVariable>();
         LocalVariable accumVar = a.createLocalVariable(null, TypeDesc.INT);
         int accumShift = 8;
 
@@ -2587,12 +2591,13 @@ public class GenericEncodingStrategy<S extends Storable> {
             StorableProperty<S> property = properties[i];
 
             int stateVarOrdinal = property.getNumber() >> 4;
+            stateVars.setSize(Math.max(stateVars.size(), stateVarOrdinal + 1));
 
-            if (stateVars[stateVarOrdinal] == null) {
-                stateVars[stateVarOrdinal] = a.createLocalVariable(null, TypeDesc.INT);
+            if (stateVars.get(stateVarOrdinal) == null) {
+                stateVars.set(stateVarOrdinal, a.createLocalVariable(null, TypeDesc.INT));
                 a.loadThis();
                 a.loadField(PROPERTY_STATE_FIELD_NAME + stateVarOrdinal, TypeDesc.INT);
-                a.storeLocal(stateVars[stateVarOrdinal]);
+                a.storeLocal(stateVars.get(stateVarOrdinal));
             }
 
             if (accumShift >= 8) {
@@ -2644,11 +2649,11 @@ public class GenericEncodingStrategy<S extends Storable> {
 
             a.loadConstant(mask);
             a.math(Opcode.IAND);
-            a.loadLocal(stateVars[stateVarOrdinal]);
+            a.loadLocal(stateVars.get(stateVarOrdinal));
             a.loadConstant(~mask);
             a.math(Opcode.IAND);
             a.math(Opcode.IOR);
-            a.storeLocal(stateVars[stateVarOrdinal]);
+            a.storeLocal(stateVars.get(stateVarOrdinal));
 
             accumShift += accumPack;
         }
