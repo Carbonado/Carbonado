@@ -199,6 +199,16 @@ public abstract class TransactionManager<Txn> {
     }
 
     /**
+     * Called when the Transaction.setForUpdate method is called. The default
+     * implementation of this method does nothing. Override if internal
+     * transaction needs to switch modes.
+     *
+     * @since 1.2.1
+     */
+    protected void setForUpdate(Txn txn, boolean forUpdate) {
+    }
+
+    /**
      * Commits and closes the given internal transaction.
      *
      * @return true if transaction object is still valid

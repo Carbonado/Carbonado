@@ -408,7 +408,11 @@ public class TransactionScope<Txn> {
         }
 
         public void setForUpdate(boolean forUpdate) {
-            mForUpdate = forUpdate && mScope.mTxnMgr.supportsForUpdate();
+            mForUpdate = (forUpdate &= mScope.mTxnMgr.supportsForUpdate());
+            Txn txn = mTxn;
+            if (txn != null) {
+                mScope.mTxnMgr.setForUpdate(txn, forUpdate);
+            }
         }
 
         public boolean isForUpdate() {
@@ -471,6 +475,9 @@ public class TransactionScope<Txn> {
                     mTxn = scope.mTxnMgr.createTxn(parentTxn, mLevel,
                                                    mDesiredLockTimeout, mTimeoutUnit);
                 }
+            }
+            if (mForUpdate) {
+                scope.mTxnMgr.setForUpdate(mTxn, true);
             }
             return mTxn;
         }
