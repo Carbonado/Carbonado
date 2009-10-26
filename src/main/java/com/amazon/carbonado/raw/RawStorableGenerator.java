@@ -308,12 +308,14 @@ public class RawStorableGenerator {
             mi.addException(TypeDesc.forClass(FetchException.class));
             CodeBuilder b = new CodeBuilder(mi);
 
+            // return rawSupport.tryLoad(this, this.encodeKey$());
             b.loadThis();
             b.loadField(StorableGenerator.SUPPORT_FIELD_NAME, triggerSupportType);
             b.checkCast(rawSupportType);
+            b.loadThis(); // pass this to load method
             b.loadThis();
             b.invokeVirtual(ENCODE_KEY_METHOD_NAME, byteArrayType, null);
-            TypeDesc[] params = {byteArrayType};
+            TypeDesc[] params = {storableType, byteArrayType};
             b.invokeInterface(rawSupportType, "tryLoad", byteArrayType, params);
             LocalVariable encodedDataVar = b.createLocalVariable(null, byteArrayType);
             b.storeLocal(encodedDataVar);
@@ -385,14 +387,15 @@ public class RawStorableGenerator {
             mi.addException(TypeDesc.forClass(PersistException.class));
             CodeBuilder b = new CodeBuilder(mi);
 
-            // return rawSupport.tryDelete(this.encodeKey$());
+            // return rawSupport.tryDelete(this, this.encodeKey$());
             b.loadThis();
             b.loadField(StorableGenerator.SUPPORT_FIELD_NAME, triggerSupportType);
             b.checkCast(rawSupportType);
+            b.loadThis(); // pass this to delete method
             b.loadThis();
             b.invokeVirtual(ENCODE_KEY_METHOD_NAME, byteArrayType, null);
 
-            TypeDesc[] params = {byteArrayType};
+            TypeDesc[] params = {storableType, byteArrayType};
             b.invokeInterface(rawSupportType, "tryDelete", TypeDesc.BOOLEAN, params);
             b.returnValue(TypeDesc.BOOLEAN);
         }

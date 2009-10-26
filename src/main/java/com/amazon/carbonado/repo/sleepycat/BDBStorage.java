@@ -279,7 +279,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         throws FetchException
     {
         byte[] key = mStorableCodec.encodePrimaryKey(identityValues);
-        byte[] value = mRawSupport.tryLoad(key);
+        byte[] value = mRawSupport.tryLoad(null, key);
         if (value == null) {
             return EmptyCursor.the();
         }
@@ -1033,7 +1033,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             return mProperties.containsKey(name);
         }
 
-        public byte[] tryLoad(byte[] key) throws FetchException {
+        public byte[] tryLoad(S storable, byte[] key) throws FetchException {
             TransactionScope<Txn> scope = mStorage.localTransactionScope();
             byte[] result;
             // Lock out shutdown task.
@@ -1096,7 +1096,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             }
         }
 
-        public boolean tryDelete(byte[] key) throws PersistException {
+        public boolean tryDelete(S storable, byte[] key) throws PersistException {
             TransactionScope<Txn> scope = mStorage.localTransactionScope();
             // Lock out shutdown task.
             scope.getLock().lock();

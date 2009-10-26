@@ -38,16 +38,17 @@ public interface RawSupport<S extends Storable> extends MasterSupport<S> {
      * Try to load the entry referenced by the given key, but return null
      * if not found.
      *
+     * @param storable user storable which will have its properties set
      * @param key non-null key to search for
      * @return non-null value that was found, or null if not found
      */
-    byte[] tryLoad(byte[] key) throws FetchException;
+    byte[] tryLoad(S storable, byte[] key) throws FetchException;
 
     /**
      * Try to insert the entry referenced by the given key with the given
      * value.
      *
-     * @param storable storable object that key and value were derived from
+     * @param storable user storable that key and value were derived from
      * @param key non-null key to insert
      * @param value non-null value to insert
      * @return false if unique constraint prevents insert
@@ -58,7 +59,7 @@ public interface RawSupport<S extends Storable> extends MasterSupport<S> {
      * Try to store the entry referenced by the given key with the given
      * value. If the entry does not exist, insert it. Otherwise, update it.
      *
-     * @param storable storable object that key and value were derived from
+     * @param storable user storable that key and value were derived from
      * @param key non-null key to store
      * @param value non-null value to store
      */
@@ -67,10 +68,11 @@ public interface RawSupport<S extends Storable> extends MasterSupport<S> {
     /**
      * Try to delete the entry referenced by the given key.
      *
+     * @param storable user supplied storable object
      * @param key non-null key to delete
      * @return true if entry existed and is now deleted
      */
-    boolean tryDelete(byte[] key) throws PersistException;
+    boolean tryDelete(S storable, byte[] key) throws PersistException;
 
     /**
      * Returns the Blob for the given locator, returning null if not found.
