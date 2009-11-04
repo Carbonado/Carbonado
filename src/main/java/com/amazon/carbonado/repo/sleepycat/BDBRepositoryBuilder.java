@@ -630,6 +630,20 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     }
 
     /**
+     * Set the maximum transaction log file size for the BDB environment.
+     */
+    public void setLogFileMaxSize(Integer sizeInBytes) {
+        mLogFileMaxSize = sizeInBytes;
+    }
+
+    /**
+     * Returns null if default size will be used.
+     */
+    public Integer getLogFileMaxSize() {
+        return mLogFileMaxSize;
+    }
+
+    /**
      * Pass true to override the default and run a full (catastrophic) recovery
      * when environment is opened. This setting has no effect for BDB-JE.
      */
