@@ -23,6 +23,7 @@ import com.amazon.carbonado.SupportException;
 
 import com.amazon.carbonado.info.StorableIndex;
 import com.amazon.carbonado.layout.Layout;
+import com.amazon.carbonado.layout.LayoutOptions;
 
 /**
  * Factory for creating instances of {@link StorableCodec}.
@@ -37,6 +38,13 @@ public interface StorableCodecFactory {
      * @throws SupportException if type is not supported
      */
     String getStorageName(Class<? extends Storable> type) throws SupportException;
+
+    /**
+     * Optionally return additional information regarding storable encoding.
+     *
+     * @since 1.2.1
+     */
+    LayoutOptions getLayoutOptions(Class<? extends Storable> type);
 
     /**
      * @param type type of storable to create codec for

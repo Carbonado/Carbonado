@@ -744,9 +744,9 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
         Class<? extends Storable> altStorable;
         GenericEncodingStrategy<? extends Storable> altStrategy;
         try {
-            altStorable = mLayout.getGeneration(generation)
-                .reconstruct(mStorableClass.getClassLoader());
-            altStrategy = mFactory.createStrategy(altStorable, null);
+            Layout altLayout = mLayout.getGeneration(generation);
+            altStorable = altLayout.reconstruct(mStorableClass.getClassLoader());
+            altStrategy = mFactory.createStrategy(altStorable, null, altLayout.getOptions());
         } catch (RepositoryException e) {
             throw new CorruptEncodingException(e);
         }

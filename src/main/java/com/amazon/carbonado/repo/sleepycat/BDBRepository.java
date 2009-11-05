@@ -49,6 +49,7 @@ import com.amazon.carbonado.capability.StorableInfoCapability;
 
 import com.amazon.carbonado.info.StorableIntrospector;
 
+import com.amazon.carbonado.layout.Layout;
 import com.amazon.carbonado.layout.LayoutCapability;
 import com.amazon.carbonado.layout.LayoutFactory;
 
@@ -88,7 +89,8 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
                EnvironmentCapability,
                ShutdownCapability,
                StorableInfoCapability,
-               SequenceCapability
+               SequenceCapability,
+               LayoutCapability
 {
     private final Log mLog = LogFactory.getLog(getClass());
 
@@ -166,19 +168,6 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         mFileNameMap = builder.getFileNameMap();
 
         getLog().info("Opening repository \"" + getName() + '"');
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public <C extends Capability> C getCapability(Class<C> capabilityType) {
-        C cap = super.getCapability(capabilityType);
-        if (cap != null) {
-            return cap;
-        }
-        if (capabilityType == LayoutCapability.class) {
-            return (C) mLayoutFactory;
-        }
-        return null;
     }
 
     public <S extends Storable> IndexInfo[] getIndexInfo(Class<S> storableType)
@@ -338,6 +327,26 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         throws RepositoryException
     {
         return (BDBStorage<Txn, S>) storageFor(type);
+    }
+
+    @Override
+    public Layout layoutFor(Class<? extends Storable> type)
+        throws FetchException, PersistException
+    {
+        try {
+            return ((BDBStorage) storageFor(type)).getLayout(mStorableCodecFactory);
+        } catch (PersistException e) {
+            throw e;
+        } catch (RepositoryException e) {
+            throw e.toFetchException();
+        }
+    }
+
+    @Override
+    public Layout layoutFor(Class<? extends Storable> type, int generation)
+        throws FetchException
+    {
+        return mLayoutFactory.layoutFor(type, generation);
     }
 
     @Override

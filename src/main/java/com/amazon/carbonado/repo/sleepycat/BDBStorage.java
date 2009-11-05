@@ -60,6 +60,7 @@ import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.layout.Layout;
 import com.amazon.carbonado.layout.LayoutFactory;
+import com.amazon.carbonado.layout.LayoutOptions;
 import com.amazon.carbonado.layout.Unevolvable;
 
 import com.amazon.carbonado.lob.Blob;
@@ -416,11 +417,9 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     protected void open(boolean readOnly, Txn openTxn, boolean installTriggers)
         throws RepositoryException
     {
-        final Layout layout = getLayout();
-
         StorableInfo<S> info = StorableIntrospector.examine(getStorableType());
-
         StorableCodecFactory codecFactory = mRepository.getStorableCodecFactory();
+        final Layout layout = getLayout(codecFactory);
 
         // Open primary database.
         Object primaryDatabase;
@@ -767,7 +766,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
     }
 
-    private Layout getLayout() throws RepositoryException {
+    Layout getLayout(StorableCodecFactory codecFactory) throws RepositoryException {
         if (Unevolvable.class.isAssignableFrom(getStorableType())) {
             // Don't record generation for storables marked as unevolvable.
             return null;
@@ -782,7 +781,8 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
             return null;
         }
 
-        return factory.layoutFor(getStorableType());
+        Class<S> type = getStorableType();
+        return factory.layoutFor(type, codecFactory.getLayoutOptions(type));
     }
 
     /**

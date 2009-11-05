@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.layout;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ import org.apache.commons.logging.LogFactory;
 
 import org.cojen.util.SoftValuedHashMap;
 
+import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchNoneException;
@@ -131,22 +133,36 @@ public class Layout {
 
     private final LayoutFactory mLayoutFactory;
     private final StoredLayout mStoredLayout;
+    private final LayoutOptions mOptions;
 
     private transient List<LayoutProperty> mAllProperties;
 
     /**
      * Creates a Layout around an existing storable.
      */
-    Layout(LayoutFactory factory, StoredLayout storedLayout) {
+    Layout(LayoutFactory factory, StoredLayout storedLayout) throws CorruptEncodingException {
         mLayoutFactory = factory;
         mStoredLayout = storedLayout;
+
+        byte[] extra = storedLayout.getExtraData();
+        if (extra == null) {
+            mOptions = null;
+        } else {
+            mOptions = new LayoutOptions();
+            try {
+                mOptions.decode(extra);
+            } catch (IOException e) {
+                throw new CorruptEncodingException(e);
+            }
+            mOptions.readOnly();
+        }
     }
 
     /**
      * Copies layout information into freshly prepared storables. Call insert
      * (on this class) to persist them.
      */
-    Layout(LayoutFactory factory, StorableInfo<?> info, long layoutID) {
+    Layout(LayoutFactory factory, StorableInfo<?> info, LayoutOptions options, long layoutID) {
         mLayoutFactory = factory;
 
         StoredLayout storedLayout = factory.mLayoutStorage.prepare();
@@ -166,6 +182,14 @@ public class Layout {
             // Can't get host, no big deal.
         } catch (SecurityException e) {
             // Can't get host, no big deal.
+        }
+
+        if (options == null) {
+            mOptions = null;
+        } else {
+            options.readOnly();
+            storedLayout.setExtraData(options.encode());
+            mOptions = options;
         }
 
         Collection<? extends StorableProperty<?>> properties = info.getAllProperties().values();
@@ -266,6 +290,15 @@ public class Layout {
      */
     public String getCreationHost() {
         return mStoredLayout.getCreationHost();
+    }
+
+    /**
+     * Returns additional options, or null if none.
+     *
+     * @return read-only object or null
+     */
+    public LayoutOptions getOptions() {
+        return mOptions;
     }
 
     /**

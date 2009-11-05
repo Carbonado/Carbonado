@@ -534,6 +534,28 @@ public class GenericEncodingStrategy<S extends Storable> {
         return infos;
     }
 
+    /**
+     * Second phase encoding, which does nothing by default.
+     *
+     * @param dataVar local variable referencing a byte array with data
+     * @param prefix prefix of byte array to preserve
+     * @param suffix suffix of byte array to preserve
+     */
+    protected void extraDataEncoding(CodeAssembler a,
+                                     LocalVariable dataVar, int prefix, int suffix)
+    {
+    }
+
+    /**
+     * Second phase decoding, which does nothing by default.
+     *
+     * @param dataVar local variable referencing a byte array with data
+     */
+    protected void extraDataDecoding(CodeAssembler a,
+                                     LocalVariable dataVar, int prefix, int suffix)
+    {
+    }
+
     private SupportException notSupported(StorableProperty<S> property) {
         return notSupported(property.getName(),
                             TypeDesc.forClass(property.getType()).getFullName());
@@ -734,6 +756,10 @@ public class GenericEncodingStrategy<S extends Storable> {
                 a.storeLocal(encodedVar);
 
                 encodeGeneration(a, encodedVar, prefix, generation);
+
+                if (mode == Mode.DATA) {
+                    extraDataEncoding(a, encodedVar, prefix + generationPrefix, suffix);
+                }
 
                 return encodedVar;
             }
@@ -1251,6 +1277,10 @@ public class GenericEncodingStrategy<S extends Storable> {
         }
 
         exitPoint.setLocation();
+
+        if (mode == Mode.DATA) {
+            extraDataEncoding(a, encodedVar, prefix + generationPrefix, suffix);
+        }
 
         return encodedVar;
     }
@@ -1839,6 +1869,8 @@ public class GenericEncodingStrategy<S extends Storable> {
             break;
         }
 
+        decodeGeneration(a, encodedVar, prefix, generation, altGenerationHandler);
+
         final int generationPrefix;
         if (generation < 0) {
             generationPrefix = 0;
@@ -1858,14 +1890,13 @@ public class GenericEncodingStrategy<S extends Storable> {
             break;
         case DATA:
             suffix = mDataSuffixPadding;
+            extraDataDecoding(a, encodedVar, prefix + generationPrefix, suffix);
             break;
         }
 
         final TypeDesc byteArrayType = TypeDesc.forClass(byte[].class);
 
         StorablePropertyInfo[] infos = checkSupport(properties);
-
-        decodeGeneration(a, encodedVar, prefix, generation, altGenerationHandler);
 
         if (properties.length == 1) {
             StorableProperty<S> property = properties[0];

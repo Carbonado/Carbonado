@@ -22,7 +22,9 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
 
 import com.amazon.carbonado.info.StorableIndex;
+
 import com.amazon.carbonado.layout.Layout;
+import com.amazon.carbonado.layout.LayoutOptions;
 
 /**
  * Factory for generic codec that supports any kind of storable by
@@ -38,6 +40,14 @@ public class GenericStorableCodecFactory implements StorableCodecFactory {
      * Returns null to let repository decide what the name should be.
      */
     public String getStorageName(Class<? extends Storable> type) throws SupportException {
+        return null;
+    }
+
+    /**
+     * Returns null.
+     */
+    @Override
+    public LayoutOptions getLayoutOptions(Class<? extends Storable> type) {
         return null;
     }
 
@@ -80,7 +90,7 @@ public class GenericStorableCodecFactory implements StorableCodecFactory {
         throws SupportException
     {
         return GenericStorableCodec.getInstance
-            (this, createStrategy(type, pkIndex), isMaster, layout, support);
+            (this, createStrategy(type, pkIndex, null), isMaster, layout, support);
     }
 
     /**
@@ -94,5 +104,21 @@ public class GenericStorableCodecFactory implements StorableCodecFactory {
         throws SupportException
     {
         return new GenericEncodingStrategy<S>(type, pkIndex);
+    }
+
+    /**
+     * Override to return a different EncodingStrategy.
+     *
+     * @param type type of Storable to generate code for
+     * @param pkIndex specifies sequence and ordering of key properties (optional)
+     * @param options additional layout options (optional)
+     * @since 1.2.1
+     */
+    protected <S extends Storable> GenericEncodingStrategy<S> createStrategy
+        (Class<S> type, StorableIndex<S> pkIndex, LayoutOptions options)
+        throws SupportException
+    {
+        // Call into original method for backwards compatibility.
+        return createStrategy(type, pkIndex);
     }
 }

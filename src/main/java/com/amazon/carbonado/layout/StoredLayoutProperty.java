@@ -42,7 +42,6 @@ import com.amazon.carbonado.Version;
 @Alias("CARBONADO_LAYOUT_PROPERTY")
 public interface StoredLayoutProperty extends Storable<StoredLayoutProperty>, Unevolvable {
     long getLayoutID();
-
     void setLayoutID(long typeID);
 
     /**
@@ -50,32 +49,27 @@ public interface StoredLayoutProperty extends Storable<StoredLayoutProperty>, Un
      * layout.
      */
     int getOrdinal();
-
     void setOrdinal(int ordinal);
 
     String getPropertyName();
-
     void setPropertyName(String name);
 
     /**
      * Property type descriptor is a Java type descriptor.
      */
     String getPropertyTypeDescriptor();
-
     void setPropertyTypeDescriptor(String type);
 
     /**
      * Returns true of property value can be set to null.
      */
     boolean isNullable();
-
     void setNullable(boolean nullable);
 
     /**
      * Returns true if property is a member of the primary key.
      */
     boolean isPrimaryKeyMember();
-
     void setPrimaryKeyMember(boolean pk);
 
     /**
@@ -83,7 +77,6 @@ public interface StoredLayoutProperty extends Storable<StoredLayoutProperty>, Un
      * Storable.
      */
     boolean isVersion();
-
     void setVersion(boolean version);
 
     /**
@@ -92,7 +85,6 @@ public interface StoredLayoutProperty extends Storable<StoredLayoutProperty>, Un
      */
     @Nullable
     String getAdapterTypeName();
-
     void setAdapterTypeName(String name);
 
     /**
@@ -100,7 +92,6 @@ public interface StoredLayoutProperty extends Storable<StoredLayoutProperty>, Un
      */
     @Nullable
     String getAdapterParams();
-
     void setAdapterParams(String params);
 
     /**
@@ -109,7 +100,6 @@ public interface StoredLayoutProperty extends Storable<StoredLayoutProperty>, Un
      */
     @Version
     int getVersionNumber();
-
     void setVersionNumber(int version);
 
     /**
@@ -120,6 +110,5 @@ public interface StoredLayoutProperty extends Storable<StoredLayoutProperty>, Un
      */
     @Nullable
     byte[] getExtraData();
-
     void setExtraData(byte[] data);
 }

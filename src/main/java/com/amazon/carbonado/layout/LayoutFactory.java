@@ -87,6 +87,23 @@ public class LayoutFactory implements LayoutCapability {
     public Layout layoutFor(Class<? extends Storable> type)
         throws FetchException, PersistException
     {
+        return layoutFor(type, null);
+    }
+
+    /**
+     * Returns the layout matching the current definition of the given type.
+     *
+     * @throws PersistException if type represents a new generation, but
+     * persisting this information failed
+     */
+    public Layout layoutFor(Class<? extends Storable> type, LayoutOptions options)
+        throws FetchException, PersistException
+    {
+        if (options != null) {
+            // Make side-effect consistently applied.
+            options.readOnly();
+        }
+
         synchronized (this) {
             if (mReconstructed != null) {
                 Layout layout = mReconstructed.get(type);
@@ -120,10 +137,10 @@ public class LayoutFactory implements LayoutCapability {
 
                     for (int i=0; i<HASH_MULTIPLIERS.length; i++) {
                         // Generate an identifier which has a high likelyhood of being unique.
-                        long layoutID = mixInHash(0L, info, HASH_MULTIPLIERS[i]);
+                        long layoutID = mixInHash(0L, info, options, HASH_MULTIPLIERS[i]);
 
                         // Initially use for comparison purposes.
-                        newLayout = new Layout(this, info, layoutID);
+                        newLayout = new Layout(this, info, options, layoutID);
 
                         StoredLayout storedLayout = mLayoutStorage.prepare();
                         storedLayout.setLayoutID(layoutID);
@@ -262,8 +279,10 @@ public class LayoutFactory implements LayoutCapability {
      * Creates a long hash code that attempts to mix in all relevant layout
      * elements.
      */
-    private long mixInHash(long hash, StorableInfo<?> info, int multiplier) {
+    private long mixInHash(long hash, StorableInfo<?> info, LayoutOptions options, int multiplier)
+    {
         hash = mixInHash(hash, info.getStorableType().getName(), multiplier);
+        hash = mixInHash(hash, options, multiplier);
 
         for (StorableProperty<?> property : info.getAllProperties().values()) {
             if (!property.isJoin()) {
@@ -310,6 +329,18 @@ public class LayoutFactory implements LayoutCapability {
     private long mixInHash(long hash, CharSequence value, int multiplier) {
         for (int i=value.length(); --i>=0; ) {
             hash = hash * multiplier + value.charAt(i);
+        }
+        return hash;
+    }
+
+    private long mixInHash(long hash, LayoutOptions options, int multiplier) {
+        if (options != null) {
+            byte[] data = options.encode();
+            if (data != null) {
+                for (int b : data) {
+                    hash = hash * multiplier + (b & 0xff);
+                }
+            }
         }
         return hash;
     }

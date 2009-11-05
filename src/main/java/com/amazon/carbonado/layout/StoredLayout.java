@@ -42,21 +42,18 @@ import com.amazon.carbonado.Version;
 @Alias("CARBONADO_LAYOUT")
 public interface StoredLayout extends Storable<StoredLayout>, Unevolvable {
     long getLayoutID();
-
     void setLayoutID(long typeID);
 
     /**
      * Storable type name is a fully qualified Java class name.
      */
     String getStorableTypeName();
-
     void setStorableTypeName(String typeName);
 
     /**
      * Generation of storable, where 0 represents the first generation.
      */
     int getGeneration();
-
     void setGeneration(int generation);
 
     /**
@@ -64,7 +61,6 @@ public interface StoredLayout extends Storable<StoredLayout>, Unevolvable {
      * created.
      */
     long getCreationTimestamp();
-
     void setCreationTimestamp(long timestamp);
 
     /**
@@ -72,7 +68,6 @@ public interface StoredLayout extends Storable<StoredLayout>, Unevolvable {
      */
     @Nullable
     String getCreationUser();
-
     void setCreationUser(String user);
 
     /**
@@ -80,7 +75,6 @@ public interface StoredLayout extends Storable<StoredLayout>, Unevolvable {
      */
     @Nullable
     String getCreationHost();
-
     void setCreationHost(String host);
 
     /**
@@ -89,7 +83,6 @@ public interface StoredLayout extends Storable<StoredLayout>, Unevolvable {
      */
     @Version
     int getVersionNumber();
-
     void setVersionNumber(int version);
 
     /**
@@ -100,6 +93,5 @@ public interface StoredLayout extends Storable<StoredLayout>, Unevolvable {
      */
     @Nullable
     byte[] getExtraData();
-
     void setExtraData(byte[] data);
 }

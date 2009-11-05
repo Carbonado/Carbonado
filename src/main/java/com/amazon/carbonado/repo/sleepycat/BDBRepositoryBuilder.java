@@ -34,7 +34,8 @@ import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.repo.indexed.IndexedRepositoryBuilder;
 
-import com.amazon.carbonado.raw.GenericStorableCodecFactory;
+import com.amazon.carbonado.raw.CompressionType;
+import com.amazon.carbonado.raw.CompressedStorableCodecFactory;
 import com.amazon.carbonado.raw.StorableCodecFactory;
 
 import com.amazon.carbonado.spi.AbstractRepositoryBuilder;
@@ -101,6 +102,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private boolean mPrivate;
     private boolean mMultiversion;
     private boolean mLogInMemory;
+    private Integer mLogFileMaxSize;
     private boolean mRunFullRecovery;
     private boolean mRunCheckpointer = true;
     private int mCheckpointInterval = DEFAULT_CHECKPOINT_INTERVAL;
@@ -110,10 +112,11 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private Boolean mChecksumEnabled;
     private Object mInitialEnvConfig = null;
     private Object mInitialDBConfig = null;
-    private StorableCodecFactory mStorableCodecFactory = new GenericStorableCodecFactory();
+    private StorableCodecFactory mStorableCodecFactory;
     private Runnable mPreShutdownHook;
     private Runnable mPostShutdownHook;
     private DatabaseHook mDatabaseHook;
+    private Map<String, CompressionType> mCompressionMap;
 
     public BDBRepositoryBuilder() {
     }
@@ -134,6 +137,10 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
             } finally {
                 mIndexSupport = true;
             }
+        }
+
+        if (mStorableCodecFactory == null) {
+            mStorableCodecFactory = new CompressedStorableCodecFactory(mCompressionMap);
         }
 
         assertReady();
@@ -858,6 +865,40 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public DatabaseHook getDatabaseHook() {
         return mDatabaseHook;
+    }
+
+    /**
+     * Set the compressor for the given class, overriding a custom StorableCodecFactory.
+
+     * @param type Storable to compress. 
+     * @param compressionType String representation of type of
+     * compression. Available options are "NONE" for no compression or "GZIP"
+     * for gzip compression
+     */
+    public void setCompressor(String type, String compressionType) {
+        mStorableCodecFactory = null;
+        compressionType = compressionType.toUpperCase();
+        if (mCompressionMap == null) {
+            mCompressionMap = new HashMap<String, CompressionType>();
+        }
+        CompressionType compressionEnum = CompressionType.valueOf(compressionType);
+        if (compressionEnum != null) {
+            mCompressionMap.put(type, compressionEnum);
+        }
+    }
+
+    /**
+     * Return the compressor used for the given storable.
+     * @param type Storable to compress
+     * @return String representation of the type of compression used. Available options are "NONE"
+     * for no compression and "GZIP" for gzip compression.
+     */
+    public String getCompressor(String type) {
+        if (mCompressionMap == null) {
+            return null;
+        }
+
+        return mCompressionMap.get(type).toString();
     }
 
     private long inMicros(double seconds) {
