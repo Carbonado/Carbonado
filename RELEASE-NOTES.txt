@@ -1,5 +1,5 @@
-Carbonado version 1.2
----------------------
+Carbonado version 1.2.1
+-----------------------
 
 Carbonado is an extensible, high performance persistence abstraction layer for
 Java applications with a relational view to the underlying persistence
@@ -14,6 +14,17 @@ Carbonado change history
 1.2 to 1.2.1
 -------------------------------
 - Fixes in replicated repository resync when encountering corrupt records.
+- Fixes for derived properties.
+- Added option to allow derived properties to be copied to other Storables.
+- Added record compression support for BDB repositories.
+- Added hot backup capability for BDB repositories.
+- Added nested rollback support for BDB-JE.
+- More BDB options exposed.
+- JDBC logging includes bind variable values.
+- Fixes for JDBC CLOB updates.
+- Fixes for excessive class generation.
+- Query.after and Query.fetchAfter support subclass parameter.
+- Support covariant storable properties when subclassed.
 
 1.1 to 1.2
 -------------------------------
