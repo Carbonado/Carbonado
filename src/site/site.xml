@@ -35,7 +35,7 @@
     <menu name="Documentation">
       <item name="User Guide (pdf)" href="docs/CarbonadoGuide.pdf"/>
       <item name="API Javadoc" href="apidocs/index.html"/>
-      <item name="FAQ" href="http://carbonado.wiki.sourceforge.net/Technical+FAQ"/>
+      <item name="FAQ" href="http://sourceforge.net/apps/mediawiki/carbonado/index.php?title=Technical_FAQ"/>
     </menu>
 
     <menu name="Project Documentation">
