@@ -258,6 +258,16 @@ public class TransactionScope<Txn> {
         }
     }
 
+    // Called by TransactionManager.
+    boolean isInactive() {
+        mLock.lock();
+        try {
+            return mActive == null;
+        } finally {
+            mLock.unlock();
+        }
+    }
+
     /**
      * Exits all transactions and closes all cursors. Should be called only
      * when repository is closed.
