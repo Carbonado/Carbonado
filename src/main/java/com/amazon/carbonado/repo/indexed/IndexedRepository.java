@@ -227,9 +227,11 @@ class IndexedRepository implements Repository,
         mRepository.close();
     }
 
+    /*
     public boolean isClosed() {
         return mRepository.isClosed();
     }
+    */
 
     public Repository getRootRepository() {
         return mRootRef.get();

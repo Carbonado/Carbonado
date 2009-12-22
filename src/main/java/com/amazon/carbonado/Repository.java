@@ -157,8 +157,6 @@ public interface Repository {
 
     /**
      * Returns true if repository was explicitly closed or shutdown.
-     *
-     * @since 1.2.2
      */
-    boolean isClosed();
+    //boolean isClosed();
 }

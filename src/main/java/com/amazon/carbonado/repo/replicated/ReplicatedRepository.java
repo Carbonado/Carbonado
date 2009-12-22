@@ -266,9 +266,11 @@ class ReplicatedRepository
         mMasterRepository.close();
     }
 
+    /*
     public boolean isClosed() {
         return mReplicaRepository.isClosed() || mMasterRepository.isClosed();
     }
+    */
 
     public String[] getUserStorableTypeNames() throws RepositoryException {
         StorableInfoCapability replicaCap =

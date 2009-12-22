@@ -144,7 +144,6 @@ public abstract class AbstractRepository<Txn>
         shutdown(false);
     }
 
-    @Override
     public boolean isClosed() {
         return transactionManager().isClosed();
     }

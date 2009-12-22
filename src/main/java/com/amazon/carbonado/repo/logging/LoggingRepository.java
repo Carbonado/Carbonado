@@ -106,10 +106,12 @@ class LoggingRepository implements Repository, LogAccessCapability {
     public void close() {
         mRepo.close();
     }
-    
+
+    /*
     public boolean isClosed() {
         return mRepo.isClosed();
     }
+    */
 
     public Log getLog() {
         return mLog;
