@@ -154,4 +154,11 @@ public interface Repository {
      * @throws SecurityException if caller does not have permission
      */
     void close();
+
+    /**
+     * Returns true if repository was explicitly closed or shutdown.
+     *
+     * @since 1.2.2
+     */
+    boolean isClosed();
 }

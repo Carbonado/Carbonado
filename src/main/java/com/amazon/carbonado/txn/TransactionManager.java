@@ -134,6 +134,10 @@ public abstract class TransactionManager<Txn> {
         }
     }
 
+    public synchronized boolean isClosed() {
+        return mState != OPEN;
+    }
+
     /**
      * Returns supported isolation level, which may be higher. If isolation
      * level cannot go higher (or lower than parent) then return null.

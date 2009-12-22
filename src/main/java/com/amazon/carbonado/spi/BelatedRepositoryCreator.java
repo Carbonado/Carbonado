@@ -145,6 +145,10 @@ public class BelatedRepositoryCreator extends BelatedCreator<Repository, Support
         public void close() {
         }
 
+        public boolean isClosed() {
+            return false;
+        }
+
         private IllegalStateException error() {
             return new IllegalStateException
                 ("Creation of Repository \"" + mBuilder.getName() + "\" is delayed");

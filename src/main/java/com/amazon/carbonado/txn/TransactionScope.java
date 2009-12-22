@@ -57,6 +57,14 @@ public class TransactionScope<Txn> {
     TransactionScope(TransactionManager<Txn> txnMgr, boolean closed) {
         mTxnMgr = txnMgr;
         mLock = new ReentrantLock(true);
+        if (closed) {
+            mLock.lock();
+            try {
+                mClosed = true;
+            } finally {
+                mLock.unlock();
+            }
+        }
     }
 
     /**

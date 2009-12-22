@@ -139,8 +139,14 @@ public abstract class AbstractRepository<Txn>
         return null;
     }
 
+    @Override
     public void close() {
         shutdown(false);
+    }
+
+    @Override
+    public boolean isClosed() {
+        return transactionManager().isClosed();
     }
 
     // Required by ShutdownCapability.
