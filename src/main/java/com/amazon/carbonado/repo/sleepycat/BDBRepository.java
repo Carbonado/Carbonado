@@ -112,6 +112,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     private final Map<Class<?>, Integer> mDatabasePageSizes;
 
     final boolean mRunCheckpointer;
+    final boolean mKeepOldLogFiles;
     final boolean mRunDeadlockDetector;
 
     final File mDataHome;
@@ -155,6 +156,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         mTxnMgr = new BDBTransactionManager<Txn>(mExTransformer, this);
 
         mRunCheckpointer = !builder.getReadOnly() && builder.getRunCheckpointer();
+        mKeepOldLogFiles = builder.getKeepOldLogFiles();
         mRunDeadlockDetector = builder.getRunDeadlockDetector();
         mStorableCodecFactory = builder.getStorableCodecFactory();
         mPreShutdownHook = builder.getPreShutdownHook();

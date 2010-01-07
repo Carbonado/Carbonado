@@ -108,6 +108,7 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private int mCheckpointInterval = DEFAULT_CHECKPOINT_INTERVAL;
     private int mCheckpointThresholdKB = 1024;
     private int mCheckpointThresholdMinutes = 5;
+    private boolean mKeepOldLogFiles;
     private boolean mRunDeadlockDetector = true;
     private Boolean mChecksumEnabled;
     private Object mInitialEnvConfig = null;
@@ -739,6 +740,24 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public int getCheckpointThresholdMinutes() {
         return mCheckpointThresholdMinutes;
+    }
+
+    /**
+     * By default, transaction log files are deleted when no longer needed.
+     * Keeping log files can be used for incremental backups or for diagnosing
+     * problems. If using BDB-JE, old log files are renamed with a ".del"
+     * extension. If using BDB-core, the db_archive utility is required for
+     * identifying old log files.
+     */
+    public void setKeepOldLogFiles(boolean keep) {
+        mKeepOldLogFiles = keep;
+    }
+
+    /**
+     * Returns false by default.
+     */
+    public boolean getKeepOldLogFiles() {
+        return mKeepOldLogFiles;
     }
 
     /**
