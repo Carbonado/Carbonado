@@ -193,6 +193,19 @@ public class TransactionScope<Txn> {
             mLock.unlock();
         }
     }
+    
+    /**
+     * Returns the implementation for the active transaction, only if it exists.
+     */
+    Txn getActiveTxn() {
+        mLock.lock();
+        try {
+            checkClosed();
+            return mActive == null ? null : mActive.getActiveTxn();
+        } finally {
+            mLock.unlock();
+        }
+    }
 
     /**
      * Returns true if an active transaction exists and it is for update.
@@ -497,6 +510,11 @@ public class TransactionScope<Txn> {
             if (mForUpdate) {
                 scope.mTxnMgr.setForUpdate(mTxn, true);
             }
+            return mTxn;
+        }
+
+        // Caller must hold mLock.
+        Txn getActiveTxn() {
             return mTxn;
         }
 

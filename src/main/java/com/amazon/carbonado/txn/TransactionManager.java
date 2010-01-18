@@ -80,6 +80,7 @@ public abstract class TransactionManager<Txn> {
         TransactionScope<Txn> scope = mLocalScope.get();
         if (scope != null) {
             scope.markDetached();
+            detachNotification(scope.getActiveTxn());
             mLocalScope.remove();
         }
         return scope;
@@ -89,6 +90,7 @@ public abstract class TransactionManager<Txn> {
     boolean removeLocalScope(TransactionScope<Txn> scope) {
         TransactionScope<Txn> existing = mLocalScope.get();
         if (existing == scope) {
+            detachNotification(scope.getActiveTxn());
             mLocalScope.remove();
             return true;
         }
@@ -99,6 +101,7 @@ public abstract class TransactionManager<Txn> {
     boolean setLocalScope(TransactionScope<Txn> scope, boolean detached) {
         TransactionScope<Txn> existing = mLocalScope.get();
         if (((existing == null || existing.isInactive()) && detached) || existing == scope) {
+            attachNotification(scope.getActiveTxn());
             mLocalScope.set(scope);
             return true;
         }
@@ -210,6 +213,28 @@ public abstract class TransactionManager<Txn> {
      * @since 1.2.1
      */
     protected void setForUpdate(Txn txn, boolean forUpdate) {
+    }
+
+    /**
+     * Called to notify internal method that transaction is attached.
+     * The default implementation of this method does nothing. Override if
+     * using remote transactions.
+     *
+     * @param txn transaction that is attached, could be null if none exists
+     * @since 1.2.2
+     */
+    protected void attachNotification(Txn txn) {
+    }
+
+    /**
+     * Called to notify internal method that transaction is detached.
+     * The default implementation of this method does nothing. Override if
+     * using remote transactions.
+     *
+     * @param txn transaction that is dettached, could be null if none exists
+     * @since 1.2.2
+     */
+    protected void detachNotification(Txn txn) {
     }
 
     /**
