@@ -739,7 +739,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         scope.getLock().lock();
         try {
             if (mPrimaryDatabase == null) {
-                // If shuting down, this will force us to block forever.
+                // If shutting down, this will force us to block forever.
                 try {
                     scope.getTxn();
                 } catch (Exception e) {
