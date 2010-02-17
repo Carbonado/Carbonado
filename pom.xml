@@ -5,7 +5,7 @@
   <artifactId>carbonado</artifactId>
   <packaging>jar</packaging>
   <name>Carbonado</name>
-  <version>1.2.1</version>
+  <version>1.2.2</version>
   <description>
     Extensible, high performance persistence abstraction layer for Java applications with a relational view to the underlying persistence technology.
   </description>
@@ -139,6 +139,11 @@
       <name>Olga Kuznetsova</name>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
+
+    <developer>
+      <name>Archit Shivaprakash</name>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
   </developers>
 
   <contributors>
@@ -172,6 +177,12 @@
       <groupId>commons-logging</groupId>
       <artifactId>commons-logging</artifactId>
       <version>[1.0,)</version>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.7</version>
     </dependency>
   </dependencies>
 
