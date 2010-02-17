@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2006-2010 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -28,6 +28,7 @@ import com.amazon.carbonado.util.Appender;
  *
  * @author Brian S O'Neill
  * @author Tobias Holgers
+ * @author Archit Shivaprakash
  * @see StorableIntrospector
  */
 public interface StorableProperty<S extends Storable> extends Serializable, Appender {
@@ -119,6 +120,13 @@ public interface StorableProperty<S extends Storable> extends Serializable, Appe
      * @see com.amazon.carbonado.AlternateKeys
      */
     boolean isAlternateKeyMember();
+
+    /**
+     * Returns true if this property is a member of a partition key.
+     *
+     * @see com.amazon.carbonado.PartitionKey
+     */
+    boolean isPartitionKeyMember();
 
    /**
      * Returns the count of aliases for this property.

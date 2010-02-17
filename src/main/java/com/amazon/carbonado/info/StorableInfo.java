@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2006-2010 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -26,6 +26,7 @@ import com.amazon.carbonado.Storable;
  * Contains all the metadata describing a specific {@link Storable} type.
  *
  * @author Brian S O'Neill
+ * @author Archit Shivaprakash
  * @see StorableIntrospector
  */
 public interface StorableInfo<S extends Storable> {
@@ -91,6 +92,11 @@ public interface StorableInfo<S extends Storable> {
      * Returns a new array with all the alternate keys in it.
      */
     StorableKey<S>[] getAlternateKeys();
+
+    /**
+     * Returns the partition key for the Storable, or null if none exists.
+     */
+    StorableKey<S> getPartitionKey();
 
     /**
      * Returns the count of aliases for the Storable.

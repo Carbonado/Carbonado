@@ -110,7 +110,7 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
     String mCopyToMasterPkMethodName;
 
     // The result of building.
-    private SyntheticStorableReferenceAccess mReferenceAccess;
+    private SyntheticStorableReferenceAccess<S> mReferenceAccess;
 
     /**
      * @param storableClass
@@ -206,10 +206,10 @@ public class SyntheticStorableReferenceBuilder<S extends Storable>
      *
      * @since 1.2.1
      */
-    public SyntheticStorableReferenceAccess getReferenceAccess() {
+    public SyntheticStorableReferenceAccess<S> getReferenceAccess() {
         if (mReferenceAccess == null) {
             Class<? extends Storable> referenceClass = mBuilder.getStorableClass();
-            mReferenceAccess = new SyntheticStorableReferenceAccess
+            mReferenceAccess = new SyntheticStorableReferenceAccess<S>
                 (mMasterStorableClass, referenceClass, this);
         }
         return mReferenceAccess;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2006-2010 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -74,6 +74,7 @@ import com.amazon.carbonado.info.StorablePropertyConstraint;
  * @author Brian S O'Neill
  * @author Adam D Bradley
  * @author Tobias Holgers
+ * @author Archit Shivaprakash
  */
 public class JDBCStorableIntrospector extends StorableIntrospector {
     // Maps compound keys to softly referenced JDBCStorableInfo objects.
@@ -1061,6 +1062,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return mMainInfo.getAlternateKeys();
         }
 
+        public StorableKey<S> getPartitionKey() {
+            return mMainInfo.getPartitionKey();
+        }
+
         public int getAliasCount() {
             return mMainInfo.getAliasCount();
         }
@@ -1300,6 +1305,10 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         public boolean isAlternateKeyMember() {
             return mMainProperty.isAlternateKeyMember();
+        }
+
+        public boolean isPartitionKeyMember() {
+            return mMainProperty.isPartitionKeyMember();
         }
 
         public int getAliasCount() {

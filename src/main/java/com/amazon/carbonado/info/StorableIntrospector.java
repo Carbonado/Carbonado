@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2006-2010 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -66,6 +66,7 @@ import com.amazon.carbonado.MalformedTypeException;
 import com.amazon.carbonado.Name;
 import com.amazon.carbonado.Nullable;
 import com.amazon.carbonado.Independent;
+import com.amazon.carbonado.PartitionKey;
 import com.amazon.carbonado.PrimaryKey;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Sequence;
@@ -86,6 +87,7 @@ import com.amazon.carbonado.util.ThrowUnchecked;
  * @author Brian S O'Neill
  * @author Fang Chen
  * @author Tobias Holgers
+ * @author Archit Shivaprakash
  */
 public class StorableIntrospector {
     // Weakly maps Class objects to softly referenced StorableInfo objects.
@@ -173,24 +175,30 @@ public class StorableIntrospector {
             List<NameAndDirection> primaryKeyProps;
             List<List<NameAndDirection>> alternateKeyProps;
             List<List<NameAndDirection>> indexProps;
+            List<NameAndDirection> partitionKeyProps;
 
             {
                 try {
-                    primaryKeyProps = gatherListProperties
-                        (errorMessages, null, null, type.getAnnotation(PrimaryKey.class)).get(0);
+                    primaryKeyProps = gatherListProperties(errorMessages,
+                                                           type.getAnnotation(PrimaryKey.class));
                 } catch (IndexOutOfBoundsException e) {
                     errorMessages.add("No primary key defined");
                     primaryKeyProps = Collections.emptyList();
                 }
-                alternateKeyProps = gatherListProperties
-                    (errorMessages, null, type.getAnnotation(AlternateKeys.class), null);
-                indexProps = gatherListProperties
-                    (errorMessages, type.getAnnotation(Indexes.class), null, null);
+
+                alternateKeyProps = gatherListProperties(errorMessages,
+                                                         type.getAnnotation(AlternateKeys.class));
+
+                indexProps = gatherListProperties(errorMessages,
+                                                  type.getAnnotation(Indexes.class));
+
+                partitionKeyProps = gatherListProperties(errorMessages,
+                                                         type.getAnnotation(PartitionKey.class));
             }
 
             // Get all the properties.
             Map<String, StorableProperty<S>> properties =
-                examineProperties(type, primaryKeyProps, alternateKeyProps);
+                examineProperties(type, primaryKeyProps, alternateKeyProps, partitionKeyProps);
 
             // Resolve keys and indexes.
 
@@ -210,6 +218,13 @@ public class StorableIntrospector {
                         resolveKey(errorMessages, type, properties, "alternate key", nameAndDirs);
                     alternateKeys[i++] = new SKey<S>(false, propSet);
                 }
+            }
+
+            StorableKey<S> partitionKey = null;
+            if (partitionKeyProps != null) {
+                Set<OrderedProperty<S>> propSet =
+                    resolveKey(errorMessages, type, properties, "partition key", partitionKeyProps);
+                partitionKey = new SKey<S>(false, propSet);
             }
 
             StorableIndex<S>[] indexes;
@@ -281,7 +296,7 @@ public class StorableIntrospector {
             }
 
             info = new Info<S>(type, aliases, indexes, properties,
-                               primaryKey, alternateKeys,
+                               primaryKey, alternateKeys, partitionKey,
                                type.getAnnotation(Independent.class) != null,
                                type.getAnnotation(Authoritative.class) != null);
 
@@ -426,21 +441,17 @@ public class StorableIntrospector {
     }
 
     /**
-     * @param indexes pass in just this for gathering index properties
-     * @param keys pass in just this for gathering alternate key properties
-     * @param primaryKey pass in just this for gathering primary key properties
+     * @param indexes pass in for gathering index properties
      */
     private static List<List<NameAndDirection>> gatherListProperties(List<String> errorMessages,
-                                                                     Indexes indexes,
-                                                                     AlternateKeys keys,
-                                                                     PrimaryKey primaryKey)
+                                                                     Indexes indexes)
     {
         List<List<NameAndDirection>> listlist = new ArrayList<List<NameAndDirection>>();
 
         if (indexes != null) {
             Index[] ixs = indexes.value();
             if (ixs != null && ixs.length > 0) {
-                for (int i=0; i < ixs.length; i++) {
+                for (int i=0; i<ixs.length; i++) {
                     String[] propNames = ixs[i].value();
                     if (propNames == null || propNames.length == 0) {
                         errorMessages.add("Empty index defined");
@@ -449,11 +460,24 @@ public class StorableIntrospector {
                     gatherListProperties(errorMessages, "index", propNames, listlist);
                 }
             }
-        } else if (keys != null) {
-            Key[] ixs = keys.value();
-            if (ixs != null && ixs.length > 0) {
-                for (int i=0; i < ixs.length; i++) {
-                    String[] propNames = ixs[i].value();
+        }
+
+        return listlist;
+    }
+
+    /**
+     * @param alternateKeys pass in for gathering alternate key properties
+     */
+    private static List<List<NameAndDirection>> gatherListProperties(List<String> errorMessages,
+                                                                     AlternateKeys alternateKeys)
+    {
+        List<List<NameAndDirection>> listlist = new ArrayList<List<NameAndDirection>>();
+
+        if (alternateKeys != null) {
+            Key[] keys = alternateKeys.value();
+            if (keys != null && keys.length > 0) {
+                for (int i=0; i<keys.length; i++) {
+                    String[] propNames = keys[i].value();
                     if (propNames == null || propNames.length == 0) {
                         errorMessages.add("Empty alternate key defined");
                         continue;
@@ -461,7 +485,20 @@ public class StorableIntrospector {
                     gatherListProperties(errorMessages, "alternate key", propNames, listlist);
                 }
             }
-        } else if (primaryKey != null) {
+        }
+
+        return listlist;
+    }
+
+    /**
+     * @param primaryKey pass in for gathering primary key properties
+     */
+    private static List<NameAndDirection> gatherListProperties(List<String> errorMessages,
+                                                               PrimaryKey primaryKey)
+    {
+        List<List<NameAndDirection>> listlist = new ArrayList<List<NameAndDirection>>();
+
+        if (primaryKey != null) {
             String[] propNames = primaryKey.value();
             if (propNames == null || propNames.length == 0) {
                 errorMessages.add("Empty primary key defined");
@@ -470,7 +507,27 @@ public class StorableIntrospector {
             }
         }
 
-        return listlist;
+        return listlist.get(0);
+    }
+
+    /**
+     * @param partitionKey pass in for gathering partition key properties
+     */
+    private static List<NameAndDirection> gatherListProperties(List<String> errorMessages,
+                                                               PartitionKey partitionKey)
+    {
+        List<List<NameAndDirection>> listlist = new ArrayList<List<NameAndDirection>>();
+
+        if (partitionKey != null) {
+            String[] propNames = partitionKey.value();
+            if (propNames == null || propNames.length == 0) {
+                errorMessages.add("Empty partition key defined");
+            } else {
+                gatherListProperties(errorMessages, "partition key", propNames, listlist);
+            }
+        }
+
+        return listlist.size() > 0 ? listlist.get(0) : null;
     }
 
     private static void gatherListProperties(List<String> errorMessages,
@@ -569,7 +626,8 @@ public class StorableIntrospector {
     private static <S extends Storable> Map<String, StorableProperty<S>>
         examineProperties(Class<S> type,
                           List<NameAndDirection> primaryKeyProps,
-                          List<List<NameAndDirection>> alternateKeyProps)
+                          List<List<NameAndDirection>> alternateKeyProps,
+                          List<NameAndDirection> partitionKeyProps)
         throws MalformedTypeException
     {
         if (Storable.class.isAssignableFrom(type)) {
@@ -654,17 +712,23 @@ public class StorableIntrospector {
             }
         }
 
-        // Identify which properties are members of a primary or alternate key.
-        Set<String> pkPropertyNames, altKeyPropertyNames;
+        // Identify which properties are members of a primary, alternate or partition key.
+        Set<String> pkPropertyNames, altKeyPropertyNames, parKeyPropertyNames;
         {
             pkPropertyNames = new HashSet<String>();
             altKeyPropertyNames = new HashSet<String>();
+            parKeyPropertyNames = new HashSet<String>();
             for (NameAndDirection nameAndDir : primaryKeyProps) {
                 pkPropertyNames.add(nameAndDir.name);
             }
             for (List<NameAndDirection> list : alternateKeyProps) {
                 for (NameAndDirection nameAndDir : list) {
                     altKeyPropertyNames.add(nameAndDir.name);
+                }
+            }
+            if (partitionKeyProps != null) {
+                for (NameAndDirection nameAndDir : partitionKeyProps) {
+                    parKeyPropertyNames.add(nameAndDir.name);
                 }
             }
         }
@@ -698,8 +762,9 @@ public class StorableIntrospector {
                 continue;
             }
 
-            StorableProperty<S> storableProp = makeStorableProperty
-                (errorMessages, property, type, pkPropertyNames, altKeyPropertyNames);
+            StorableProperty<S> storableProp
+                = makeStorableProperty(errorMessages, property, type,
+                                       pkPropertyNames, altKeyPropertyNames, parKeyPropertyNames);
 
             if (storableProp == null) {
                 // Errors.
@@ -911,8 +976,9 @@ public class StorableIntrospector {
      * @param errorMessages error messages go here
      * @param property property to examine
      * @param enclosing enclosing class
-     * @param pk true if member of primary key
-     * @param altKey true if member of alternate key
+     * @param pkPropertyNames primary key property names
+     * @param altKeyPropertyNames alternate key property names
+     * @param parKeyPropertyNames partition key property names
      */
     @SuppressWarnings("unchecked")
     private static <S extends Storable> StorableProperty<S> makeStorableProperty
@@ -920,7 +986,8 @@ public class StorableIntrospector {
                                BeanProperty property,
                                Class<S> enclosing,
                                Set<String> pkPropertyNames,
-                               Set<String> altKeyPropertyNames)
+                               Set<String> altKeyPropertyNames,
+                               Set<String> parKeyPropertyNames)
     {
         Nullable nullable = null;
         Alias alias = null;
@@ -981,6 +1048,7 @@ public class StorableIntrospector {
 
         boolean pk = pkPropertyNames.contains(propertyName);
         boolean altKey = altKeyPropertyNames.contains(propertyName);
+        boolean parKey = parKeyPropertyNames.contains(propertyName);
 
         if (writeMethod == null) {
             if (readMethod == null || Modifier.isAbstract(readMethod.getModifiers())) {
@@ -1045,6 +1113,10 @@ public class StorableIntrospector {
             }
             if (pk) {
                 errorMessages.add("Derived properties cannot be a member of primary key: " +
+                                  propertyName);
+            }
+            if (parKey) {
+                errorMessages.add("Derived properties cannot be a member of partition key: " +
                                   propertyName);
             }
             if (sequence != null) {
@@ -1165,7 +1237,7 @@ public class StorableIntrospector {
                 return null;
             }
             return new SimpleProperty<S>
-                (property, enclosing, nullable != null, pk, altKey,
+                (property, enclosing, nullable != null, pk, altKey, parKey,
                  aliases, constraints, adapters == null ? null : adapters[0],
                  version != null, sequenceName,
                  independent != null, automatic != null, derived, propertyName);
@@ -1530,6 +1602,7 @@ public class StorableIntrospector {
         private final Map<String, StorableProperty<S>> mAllProperties;
         private final StorableKey<S> mPrimaryKey;
         private final StorableKey<S>[] mAltKeys;
+        private final StorableKey<S> mPartitionKey;
         private final boolean mIndependent;
         private final boolean mAuthoritative;
 
@@ -1542,6 +1615,7 @@ public class StorableIntrospector {
              Map<String, StorableProperty<S>> properties,
              StorableKey<S> primaryKey,
              StorableKey<S>[] altKeys,
+             StorableKey<S> partitionKey,
              boolean independent,
              boolean authoritative)
         {
@@ -1551,6 +1625,7 @@ public class StorableIntrospector {
             mAllProperties = properties;
             mPrimaryKey = primaryKey;
             mAltKeys = altKeys;
+            mPartitionKey = partitionKey;
             mIndependent = independent;
             mAuthoritative = authoritative;
         }
@@ -1692,6 +1767,10 @@ public class StorableIntrospector {
             }
         }
 
+        public StorableKey<S> getPartitionKey() {
+            return mPartitionKey;
+        }
+
         public final boolean isIndependent() {
             return mIndependent;
         }
@@ -1779,6 +1858,7 @@ public class StorableIntrospector {
         private final boolean mNullable;
         private final boolean mPrimaryKey;
         private final boolean mAlternateKey;
+        private final boolean mPartitionKey;
         private final String[] mAliases;
         private final StorablePropertyConstraint[] mConstraints;
         private final StorablePropertyAdapter mAdapter;
@@ -1808,8 +1888,8 @@ public class StorableIntrospector {
         // reference from a property exists.
         protected StorableInfo<S> mEnclosingInfo;
 
-        SimpleProperty(BeanProperty property, Class<S> enclosing,
-                       boolean nullable, boolean primaryKey, boolean alternateKey,
+        SimpleProperty(BeanProperty property, Class<S> enclosing, boolean nullable,
+                       boolean primaryKey, boolean alternateKey, boolean partitionKey,
                        String[] aliases, StorablePropertyConstraint[] constraints,
                        StorablePropertyAdapter adapter,
                        boolean isVersion, String sequence,
@@ -1822,6 +1902,7 @@ public class StorableIntrospector {
             mNullable = property.getType().isPrimitive() ? false : nullable;
             mPrimaryKey = primaryKey;
             mAlternateKey = alternateKey;
+            mPartitionKey = partitionKey;
             mAliases = aliases;
             mConstraints = constraints;
             mAdapter = adapter;
@@ -1897,6 +1978,10 @@ public class StorableIntrospector {
 
         public final boolean isAlternateKeyMember() {
             return mAlternateKey;
+        }
+
+        public final boolean isPartitionKeyMember() {
+            return mPartitionKey;
         }
 
         public final int getAliasCount() {
@@ -2359,8 +2444,9 @@ public class StorableIntrospector {
                      Class<? extends Storable> joinedType,
                      String[] internal, String[] external, String name)
         {
-            super(property, enclosing, nullable, false, false,
-                  aliases, constraints, adapter, false, sequence, independent, automatic, derived, name);
+            super(property, enclosing, nullable, false, false, false,
+                  aliases, constraints, adapter,
+                  false, sequence, independent, automatic, derived, name);
             mJoinedType = joinedType;
 
             int length = internal.length;

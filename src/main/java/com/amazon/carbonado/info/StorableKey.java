@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2006-2010 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -24,14 +24,14 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.util.Appender;
 
 /**
- * Represents a primary or alternate key of a specific {@link Storable} type.
+ * Represents a primary, alternate or partition key of a specific {@link Storable} type.
  *
  * @author Brian S O'Neill
  * @see StorableIntrospector
  */
 public interface StorableKey<S extends Storable> extends Appender {
     /**
-     * Returns true if this key is primary, false if an alternate.
+     * Returns true if this key is primary, false otherwise.
      */
     boolean isPrimary();
 
