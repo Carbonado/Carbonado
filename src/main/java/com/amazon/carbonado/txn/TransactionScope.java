@@ -196,6 +196,7 @@ public class TransactionScope<Txn> {
     
     /**
      * Returns the implementation for the active transaction, only if it exists.
+     * (does not create a transaction like getTxn()
      */
     Txn getActiveTxn() {
         mLock.lock();
@@ -371,6 +372,11 @@ public class TransactionScope<Txn> {
                                     mTxn = null;
                                 }
                             } catch (Throwable e) {
+                                try {
+                                    scope.mTxnMgr.abortTxn(mTxn);
+                                } catch (Throwable e2) {
+                                    // Ignore. At least we tried to clean up.
+                                }
                                 mTxn = null;
                                 throw ExceptionTransformer.getInstance().toPersistException(e);
                             }
