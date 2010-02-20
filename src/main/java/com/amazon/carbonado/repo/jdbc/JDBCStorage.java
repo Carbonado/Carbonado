@@ -395,13 +395,21 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             SQLStatementBuilder<S> fromWhereBuilder = new SQLStatementBuilder<S>(mRepository);
             fromWhereBuilder.append(" FROM");
 
+            SQLStatementBuilder<S> deleteFromWhereBuilder;
+
             if (alias == null) {
                 // Don't bother defining a table alias for one table.
                 jn.appendTableNameTo(selectBuilder);
                 jn.appendTableNameTo(fromWhereBuilder);
+                deleteFromWhereBuilder = null;
             } else {
                 jn.appendFullJoinTo(selectBuilder);
                 jn.appendFullJoinTo(fromWhereBuilder);
+                // Since the delete is operating with joins, need to generate
+                // a special form that uses WHERE EXISTS.
+                deleteFromWhereBuilder = new SQLStatementBuilder<S>(mRepository);
+                deleteFromWhereBuilder.append(" FROM");
+                jn.appendTableNameAndAliasTo(deleteFromWhereBuilder);
             }
 
             // Appending where clause. Remainder filter is required if a
@@ -435,24 +443,20 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                     remainderFilter = filter;
                 } else {
                     // Build the WHERE clause only if anything to filter on.
-                    selectBuilder.append(" WHERE ");
-                    fromWhereBuilder.append(" WHERE ");
-
                     WhereBuilder<S> wb = new WhereBuilder<S>
                         (selectBuilder, alias == null ? null : jn, aliasGenerator);
-                    FetchException e = sqlFilter.accept(wb, null);
-                    if (e != null) {
-                        throw e;
-                    }
+                    wb.append(sqlFilter);
 
                     propertyFilters = wb.getPropertyFilters();
                     propertyFilterNullable = wb.getPropertyFilterNullable();
 
                     wb = new WhereBuilder<S>
                         (fromWhereBuilder, alias == null ? null : jn, aliasGenerator);
-                    e = sqlFilter.accept(wb, null);
-                    if (e != null) {
-                        throw e;
+                    wb.append(sqlFilter);
+
+                    if (deleteFromWhereBuilder != null) {
+                        wb = new WhereBuilder<S>(deleteFromWhereBuilder, jn, aliasGenerator);
+                        wb.appendExists(sqlFilter);
                     }
                 }
             }
@@ -491,10 +495,18 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 }
             }
 
+            SQLStatement<S> selectStatement, fromWhere, deleteFromWhere;
+
+            selectStatement = selectBuilder.build();
+            fromWhere = fromWhereBuilder.build();
+            deleteFromWhere = deleteFromWhereBuilder == null ? null
+                : deleteFromWhereBuilder.build();
+
             QueryExecutor<S> executor = new Executor(filter,
                                                      sqlOrdering,
-                                                     selectBuilder.build(),
-                                                     fromWhereBuilder.build(),
+                                                     selectStatement,
+                                                     fromWhere,
+                                                     deleteFromWhere,
                                                      propertyFilters,
                                                      propertyFilterNullable);
 
@@ -559,8 +571,10 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         private final SQLStatement<S> mSelectStatement;
         private final int mMaxSelectStatementLength;
-        private final SQLStatement<S> mFromWhereStatement;
-        private final int mMaxFromWhereStatementLength;
+        private final SQLStatement<S> mFromWhere;
+        private final int mMaxFromWhereLength;
+        private final SQLStatement<S> mDeleteFromWhere;
+        private final int mMaxDeleteFromWhereLength;
 
         // The following arrays all have the same length, or they may all be null.
 
@@ -578,7 +592,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         Executor(Filter<S> filter,
                  OrderingList<S> ordering,
                  SQLStatement<S> selectStatement,
-                 SQLStatement<S> fromWhereStatement,
+                 SQLStatement<S> fromWhere,
+                 SQLStatement<S> deleteFromWhere,
                  PropertyFilter<S>[] propertyFilters,
                  boolean[] propertyFilterNullable)
             throws RepositoryException
@@ -588,8 +603,17 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
             mSelectStatement = selectStatement;
             mMaxSelectStatementLength = selectStatement.maxLength();
-            mFromWhereStatement = fromWhereStatement;
-            mMaxFromWhereStatementLength = fromWhereStatement.maxLength();
+
+            mFromWhere = fromWhere;
+            mMaxFromWhereLength = fromWhere.maxLength();
+
+            if (deleteFromWhere == null) {
+                mDeleteFromWhere = mFromWhere;
+                mMaxDeleteFromWhereLength = mMaxFromWhereLength;
+            } else {
+                mDeleteFromWhere = deleteFromWhere;
+                mMaxDeleteFromWhereLength = deleteFromWhere.maxLength();
+            }
 
             if (propertyFilters == null) {
                 mPropertyFilters = null;
@@ -876,19 +900,19 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return b.toString();
         }
 
-        private String prepareDelete(FilterValues<S> filterValues) {
-            // Allocate with extra room for "DELETE"
-            StringBuilder b = new StringBuilder(6 + mMaxFromWhereStatementLength);
-            b.append("DELETE");
-            mFromWhereStatement.appendTo(b, filterValues);
+        private String prepareCount(FilterValues<S> filterValues) {
+            // Allocate with extra room for "SELECT COUNT(*)"
+            StringBuilder b = new StringBuilder(15 + mMaxFromWhereLength);
+            b.append("SELECT COUNT(*)");
+            mFromWhere.appendTo(b, filterValues);
             return b.toString();
         }
 
-        private String prepareCount(FilterValues<S> filterValues) {
-            // Allocate with extra room for "SELECT COUNT(*)"
-            StringBuilder b = new StringBuilder(15 + mMaxFromWhereStatementLength);
-            b.append("SELECT COUNT(*)");
-            mFromWhereStatement.appendTo(b, filterValues);
+        private String prepareDelete(FilterValues<S> filterValues) {
+            // Allocate with extra room for "DELETE"
+            StringBuilder b = new StringBuilder(6 + mMaxDeleteFromWhereLength);
+            b.append("DELETE");
+            mDeleteFromWhere.appendTo(b, filterValues);
             return b.toString();
         }
 

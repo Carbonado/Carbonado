@@ -53,6 +53,8 @@ class WhereBuilder<S extends Storable> extends Visitor<S, FetchException, Object
     private List<Boolean> mPropertyFilterNullable;
 
     /**
+     * @param statementBuilder destination for WHERE statement
+     * @param jn pass null if no alias is to be used
      * @param aliasGenerator used for supporting "EXISTS" filter
      */
     WhereBuilder(SQLStatementBuilder statementBuilder, JoinNode jn,
@@ -63,6 +65,79 @@ class WhereBuilder<S extends Storable> extends Visitor<S, FetchException, Object
         mAliasGenerator = aliasGenerator;
         mPropertyFilters = new ArrayList<PropertyFilter<S>>();
         mPropertyFilterNullable = new ArrayList<Boolean>();
+    }
+
+    public void append(Filter<S> filter) throws FetchException {
+        mStatementBuilder.append(" WHERE ");
+        FetchException e = filter.accept(this, null);
+        if (e != null) {
+            throw e;
+        }
+    }
+
+    /**
+     * Generate SQL of the form "WHERE EXISTS (SELECT * FROM ...)"  This is
+     * necessary for DELETE statements which operate against joined tables.
+     */
+    public void appendExists(Filter<S> filter) throws FetchException {
+        mStatementBuilder.append(" WHERE ");
+        mStatementBuilder.append("EXISTS (SELECT * FROM");
+
+        JDBCStorableInfo<S> info;
+
+        final JDBCRepository repo = mStatementBuilder.getRepository();
+        try {
+            info = repo.examineStorable(filter.getStorableType());
+        } catch (RepositoryException e) {
+            throw repo.toFetchException(e);
+        }
+
+        JoinNode jn;
+        try {
+            JoinNodeBuilder jnb =
+                new JoinNodeBuilder(repo, info, mAliasGenerator);
+            filter.accept(jnb, null);
+            jn = jnb.getRootJoinNode();
+        } catch (UndeclaredThrowableException e) {
+            throw repo.toFetchException(e);
+        }
+
+        jn.appendFullJoinTo(mStatementBuilder);
+
+        mStatementBuilder.append(" WHERE ");
+
+        {
+            int i = 0;
+            for (JDBCStorableProperty<S> property : info.getPrimaryKeyProperties().values()) {
+                if (i > 0) {
+                    mStatementBuilder.append(" AND ");
+                }
+                mStatementBuilder.append(mJoinNode.getAlias());
+                mStatementBuilder.append('.');
+                mStatementBuilder.append(property.getColumnName());
+                mStatementBuilder.append('=');
+                mStatementBuilder.append(jn.getAlias());
+                mStatementBuilder.append('.');
+                mStatementBuilder.append(property.getColumnName());
+                i++;
+            }
+        }
+
+        mStatementBuilder.append(" AND (");
+
+        WhereBuilder<S> wb = new WhereBuilder<S>(mStatementBuilder, jn, mAliasGenerator);
+
+        FetchException e = filter.accept(wb, null);
+        if (e != null) {
+            throw e;
+        }
+
+        // Transfer property filters so that the values are extracted properly.
+        mPropertyFilters.addAll(wb.mPropertyFilters);
+        mPropertyFilterNullable.addAll(wb.mPropertyFilterNullable);
+
+        mStatementBuilder.append(')');
+        mStatementBuilder.append(')');
     }
 
     @SuppressWarnings("unchecked")
@@ -192,18 +267,21 @@ class WhereBuilder<S extends Storable> extends Visitor<S, FetchException, Object
 
         mStatementBuilder.append(" WHERE ");
 
-        int count = oneToMany.getJoinElementCount();
-        for (int i=0; i<count; i++) {
-            if (i > 0) {
-                mStatementBuilder.append(" AND ");
+        {
+            String alias = mJoinNode.findAliasFor(chained);
+            int count = oneToMany.getJoinElementCount();
+            for (int i=0; i<count; i++) {
+                if (i > 0) {
+                    mStatementBuilder.append(" AND ");
+                }
+                mStatementBuilder.append(oneToManyNode.getAlias());
+                mStatementBuilder.append('.');
+                mStatementBuilder.append(oneToMany.getInternalJoinElement(i).getColumnName());
+                mStatementBuilder.append('=');
+                mStatementBuilder.append(alias);
+                mStatementBuilder.append('.');
+                mStatementBuilder.append(oneToMany.getExternalJoinElement(i).getColumnName());
             }
-            mStatementBuilder.append(oneToManyNode.getAlias());
-            mStatementBuilder.append('.');
-            mStatementBuilder.append(oneToMany.getInternalJoinElement(i).getColumnName());
-            mStatementBuilder.append('=');
-            mStatementBuilder.append(mJoinNode.findAliasFor(chained));
-            mStatementBuilder.append('.');
-            mStatementBuilder.append(oneToMany.getExternalJoinElement(i).getColumnName());
         }
 
         if (subFilter != null && !subFilter.isOpen()) {
