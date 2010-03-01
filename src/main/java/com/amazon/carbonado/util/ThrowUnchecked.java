@@ -18,14 +18,6 @@
 
 package com.amazon.carbonado.util;
 
-import java.lang.reflect.UndeclaredThrowableException;
-
-import org.cojen.classfile.ClassFile;
-import org.cojen.classfile.CodeBuilder;
-import org.cojen.classfile.Modifiers;
-import org.cojen.classfile.TypeDesc;
-import org.cojen.util.ClassInjector;
-
 /**
  * Allows exceptions to be thrown which aren't declared to be thrown. Use of
  * this technique can cause confusion since it violates the Java language rules
@@ -51,6 +43,7 @@ import org.cojen.util.ClassInjector;
  * </pre>
  *
  * @author Brian S O'Neill
+ * @deprecated use {@link org.cojen.util.ThrowUnchecked} instead
  */
 public abstract class ThrowUnchecked {
     private static volatile ThrowUnchecked cImpl;
@@ -62,27 +55,7 @@ public abstract class ThrowUnchecked {
      * @param t exception to throw
      */
     public static void fire(Throwable t) {
-        if (t != null) {
-            // Don't need to do anything special for unchecked exceptions.
-            if (t instanceof RuntimeException) {
-                throw (RuntimeException) t;
-            }
-            if (t instanceof Error) {
-                throw (Error) t;
-            }
-
-            ThrowUnchecked impl = cImpl;
-            if (impl == null) {
-                synchronized (ThrowUnchecked.class) {
-                    impl = cImpl;
-                    if (impl == null) {
-                        cImpl = impl = generateImpl();
-                    }
-                }
-            }
-
-            impl.doFire(t);
-        }
+        org.cojen.util.ThrowUnchecked.fire(t);
     }
 
     /**
@@ -97,22 +70,7 @@ public abstract class ThrowUnchecked {
      * UndeclaredThrowableException.
      */
     public static void fireDeclared(Throwable t, Class... declaredTypes) {
-        if (t != null) {
-            if (declaredTypes != null) {
-                for (Class declaredType : declaredTypes) {
-                    if (declaredType.isInstance(t)) {
-                        fire(t);
-                    }
-                }
-            }
-            if (t instanceof RuntimeException) {
-                throw (RuntimeException) t;
-            }
-            if (t instanceof Error) {
-                throw (Error) t;
-            }
-            throw new UndeclaredThrowableException(t);
-        }
+        org.cojen.util.ThrowUnchecked.fireDeclared(t, declaredTypes);
     }
 
     /**
@@ -127,27 +85,7 @@ public abstract class ThrowUnchecked {
      * UndeclaredThrowableException.
      */
     public static void fireFirstDeclared(Throwable t, Class... declaredTypes) {
-        Throwable cause = t;
-        while (cause != null) {
-            cause = cause.getCause();
-            if (cause == null) {
-                break;
-            }
-            if (declaredTypes != null) {
-                for (Class declaredType : declaredTypes) {
-                    if (declaredType.isInstance(cause)) {
-                        fire(cause);
-                    }
-                }
-            }
-            if (cause instanceof RuntimeException) {
-                throw (RuntimeException) cause;
-            }
-            if (cause instanceof Error) {
-                throw (Error) cause;
-            }
-        }
-        throw new UndeclaredThrowableException(t);
+        org.cojen.util.ThrowUnchecked.fireFirstDeclared(t, declaredTypes);
     }
 
     /**
@@ -158,13 +96,7 @@ public abstract class ThrowUnchecked {
      * @param t exception whose cause is to be thrown
      */
     public static void fireCause(Throwable t) {
-        if (t != null) {
-            Throwable cause = t.getCause();
-            if (cause == null) {
-                cause = t;
-            }
-            fire(cause);
-        }
+        org.cojen.util.ThrowUnchecked.fireCause(t);
     }
 
     /**
@@ -180,13 +112,7 @@ public abstract class ThrowUnchecked {
      * UndeclaredThrowableException.
      */
     public static void fireDeclaredCause(Throwable t, Class... declaredTypes) {
-        if (t != null) {
-            Throwable cause = t.getCause();
-            if (cause == null) {
-                cause = t;
-            }
-            fireDeclared(cause, declaredTypes);
-        }
+        org.cojen.util.ThrowUnchecked.fireDeclaredCause(t, declaredTypes);
     }
 
     /**
@@ -202,27 +128,7 @@ public abstract class ThrowUnchecked {
      * UndeclaredThrowableException.
      */
     public static void fireFirstDeclaredCause(Throwable t, Class... declaredTypes) {
-        Throwable cause = t;
-        while (cause != null) {
-            cause = cause.getCause();
-            if (cause == null) {
-                break;
-            }
-            if (declaredTypes != null) {
-                for (Class declaredType : declaredTypes) {
-                    if (declaredType.isInstance(cause)) {
-                        fire(cause);
-                    }
-                }
-            }
-            if (cause instanceof RuntimeException) {
-                throw (RuntimeException) cause;
-            }
-            if (cause instanceof Error) {
-                throw (Error) cause;
-            }
-        }
-        fireDeclaredCause(t, declaredTypes);
+        org.cojen.util.ThrowUnchecked.fireFirstDeclaredCause(t, declaredTypes);
     }
 
     /**
@@ -233,15 +139,7 @@ public abstract class ThrowUnchecked {
      * @param t exception whose root cause is to be thrown
      */
     public static void fireRootCause(Throwable t) {
-        Throwable root = t;
-        while (root != null) {
-            Throwable cause = root.getCause();
-            if (cause == null) {
-                break;
-            }
-            root = cause;
-        }
-        fire(root);
+        org.cojen.util.ThrowUnchecked.fireRootCause(t);
     }
 
     /**
@@ -257,31 +155,7 @@ public abstract class ThrowUnchecked {
      * UndeclaredThrowableException.
      */
     public static void fireDeclaredRootCause(Throwable t, Class... declaredTypes) {
-        Throwable root = t;
-        while (root != null) {
-            Throwable cause = root.getCause();
-            if (cause == null) {
-                break;
-            }
-            root = cause;
-        }
-        fireDeclared(root, declaredTypes);
-    }
-
-    private static ThrowUnchecked generateImpl() {
-        ClassInjector ci = ClassInjector.create();
-        ClassFile cf = new ClassFile(ci.getClassName(), ThrowUnchecked.class);
-        cf.addDefaultConstructor();
-        CodeBuilder b = new CodeBuilder
-            (cf.addMethod(Modifiers.PROTECTED, "doFire",
-                          null, new TypeDesc[] {TypeDesc.forClass(Throwable.class)}));
-        b.loadLocal(b.getParameter(0));
-        b.throwObject();
-        try {
-            return (ThrowUnchecked) ci.defineClass(cf).newInstance();
-        } catch (Exception e) {
-            throw new Error(e);
-        }
+        org.cojen.util.ThrowUnchecked.fireDeclaredRootCause(t, declaredTypes);
     }
 
     protected ThrowUnchecked() {

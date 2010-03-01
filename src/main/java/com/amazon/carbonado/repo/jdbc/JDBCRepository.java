@@ -35,6 +35,8 @@ import javax.sql.DataSource;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.cojen.util.ThrowUnchecked;
+
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.MalformedTypeException;
@@ -58,7 +60,6 @@ import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.spi.AbstractRepository;
 import com.amazon.carbonado.txn.TransactionManager;
 import com.amazon.carbonado.txn.TransactionScope;
-import com.amazon.carbonado.util.ThrowUnchecked;
 
 /**
  * Repository implementation backed by a JDBC accessible database.

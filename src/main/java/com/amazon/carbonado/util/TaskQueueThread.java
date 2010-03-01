@@ -167,7 +167,7 @@ public class TaskQueueThread extends Thread implements Executor {
                         t.getUncaughtExceptionHandler().uncaughtException(t, e);
                     } catch (Throwable e2) {
                         // If there is an exception reporting the exception, throw the original.
-                        ThrowUnchecked.fire(e);
+                        org.cojen.util.ThrowUnchecked.fire(e);
                     }
                 }
             }

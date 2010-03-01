@@ -24,12 +24,12 @@ import java.lang.reflect.UndeclaredThrowableException;
 import java.util.Comparator;
 import java.util.Iterator;
 
+import org.cojen.util.ThrowUnchecked;
+
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.cursor.SortedCursor;
-
-import com.amazon.carbonado.util.ThrowUnchecked;
 
 /**
  * Provides access to the generated storable reference class and utility

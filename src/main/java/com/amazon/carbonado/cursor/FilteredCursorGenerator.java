@@ -40,6 +40,7 @@ import org.cojen.classfile.TypeDesc;
 import static org.cojen.classfile.TypeDesc.*;
 
 import org.cojen.util.ClassInjector;
+import org.cojen.util.ThrowUnchecked;
 import org.cojen.util.WeakIdentityMap;
 
 import com.amazon.carbonado.Cursor;
@@ -57,7 +58,6 @@ import com.amazon.carbonado.filter.Visitor;
 import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.StorableProperty;
 
-import com.amazon.carbonado.util.ThrowUnchecked;
 import com.amazon.carbonado.util.QuickConstructorGenerator;
 
 import com.amazon.carbonado.gen.CodeBuilderUtil;

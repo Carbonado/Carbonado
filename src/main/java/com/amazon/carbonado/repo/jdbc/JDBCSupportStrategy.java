@@ -27,6 +27,8 @@ import java.io.Writer;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
+import org.cojen.util.ThrowUnchecked;
+
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.RepositoryException;
@@ -35,8 +37,6 @@ import com.amazon.carbonado.UnsupportedTypeException;
 import com.amazon.carbonado.sequence.SequenceValueGenerator;
 import com.amazon.carbonado.sequence.SequenceValueProducer;
 import com.amazon.carbonado.sequence.StoredSequence;
-
-import com.amazon.carbonado.util.ThrowUnchecked;
 
 /**
  * Allows database product specific features to be abstracted.

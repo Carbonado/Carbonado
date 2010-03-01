@@ -92,7 +92,7 @@ public class AnnotationVisitor<R, P> {
             try {
                 propValue = m.invoke(value);
             } catch (Exception e) {
-                ThrowUnchecked.fireRootCause(e);
+                org.cojen.util.ThrowUnchecked.fireRootCause(e);
                 return null;
             }
 

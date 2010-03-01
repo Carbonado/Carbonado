@@ -29,6 +29,8 @@ import java.util.Map;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.cojen.util.ThrowUnchecked;
+
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
@@ -39,8 +41,6 @@ import com.amazon.carbonado.raw.CompressedStorableCodecFactory;
 import com.amazon.carbonado.raw.StorableCodecFactory;
 
 import com.amazon.carbonado.spi.AbstractRepositoryBuilder;
-
-import com.amazon.carbonado.util.ThrowUnchecked;
 
 import com.amazon.carbonado.ConfigurationException;
 

@@ -50,6 +50,7 @@ import org.cojen.classfile.TypeDesc;
 import org.cojen.util.BeanComparator;
 import org.cojen.util.BeanProperty;
 import org.cojen.util.BeanIntrospector;
+import org.cojen.util.ThrowUnchecked;
 import org.cojen.util.WeakIdentityMap;
 
 import com.amazon.carbonado.Alias;
@@ -76,7 +77,6 @@ import com.amazon.carbonado.adapter.AdapterDefinition;
 import com.amazon.carbonado.constraint.ConstraintDefinition;
 import com.amazon.carbonado.lob.Lob;
 import com.amazon.carbonado.util.ConversionComparator;
-import com.amazon.carbonado.util.ThrowUnchecked;
 
 /**
  * Supports examination of {@link Storable} types, returning all metadata

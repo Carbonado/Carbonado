@@ -21,6 +21,8 @@ package com.amazon.carbonado.repo.replicated;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.cojen.util.ThrowUnchecked;
+
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.OptimisticLockException;
 import com.amazon.carbonado.PersistException;
@@ -36,8 +38,6 @@ import com.amazon.carbonado.capability.ResyncCapability;
 
 import com.amazon.carbonado.spi.RepairExecutor;
 import com.amazon.carbonado.spi.TriggerManager;
-
-import com.amazon.carbonado.util.ThrowUnchecked;
 
 /**
  * All inserts/updates/deletes are first committed to the master storage, then

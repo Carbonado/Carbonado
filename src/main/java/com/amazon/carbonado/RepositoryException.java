@@ -73,7 +73,7 @@ public class RepositoryException extends Exception {
     {
         if (retryCount <= 0) {
             // Workaround apparent compiler bug.
-            com.amazon.carbonado.util.ThrowUnchecked.fire(e);
+            org.cojen.util.ThrowUnchecked.fire(e);
         }
         if (milliseconds > 0) {
             Random rnd = cRandom;

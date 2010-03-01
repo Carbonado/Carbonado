@@ -167,7 +167,7 @@ public abstract class BelatedCreator<T, E extends Exception> {
             System.arraycopy(localTrace, 0, completeTrace, trace.length, localTrace.length);
             error.setStackTrace(completeTrace);
 
-            ThrowUnchecked.fire(error);
+            org.cojen.util.ThrowUnchecked.fire(error);
         }
 
         if (mBogus == null) {
@@ -175,7 +175,7 @@ public abstract class BelatedCreator<T, E extends Exception> {
             try {
                 mBogus = getWrapper().newInstance(mRef);
             } catch (Exception e) {
-                ThrowUnchecked.fire(e);
+                org.cojen.util.ThrowUnchecked.fire(e);
             }
         }
 
@@ -267,7 +267,7 @@ public abstract class BelatedCreator<T, E extends Exception> {
         try {
             return clazz.getConstructor(AtomicReference.class);
         } catch (NoSuchMethodException e) {
-            ThrowUnchecked.fire(e);
+            org.cojen.util.ThrowUnchecked.fire(e);
             return null;
         }
     }

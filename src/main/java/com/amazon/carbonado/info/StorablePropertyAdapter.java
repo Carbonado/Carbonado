@@ -27,9 +27,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.cojen.util.BeanProperty;
+import org.cojen.util.ThrowUnchecked;
 
 import com.amazon.carbonado.adapter.AdapterDefinition;
-import com.amazon.carbonado.util.ThrowUnchecked;
 
 /**
  * Information about an {@link com.amazon.carbonado.adapter.AdapterDefinition

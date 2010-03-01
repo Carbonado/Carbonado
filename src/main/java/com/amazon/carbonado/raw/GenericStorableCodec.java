@@ -33,6 +33,7 @@ import org.cojen.util.ClassInjector;
 import org.cojen.util.IntHashMap;
 import org.cojen.util.KeyFactory;
 import org.cojen.util.SoftValuedHashMap;
+import org.cojen.util.ThrowUnchecked;
 
 import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.FetchException;
@@ -53,7 +54,6 @@ import com.amazon.carbonado.gen.CodeBuilderUtil;
 import com.amazon.carbonado.gen.StorableGenerator;
 import com.amazon.carbonado.gen.TriggerSupport;
 
-import com.amazon.carbonado.util.ThrowUnchecked;
 import com.amazon.carbonado.util.QuickConstructorGenerator;
 
 /**

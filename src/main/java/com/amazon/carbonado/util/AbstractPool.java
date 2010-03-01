@@ -64,7 +64,7 @@ public abstract class AbstractPool<K, V, E extends Exception> {
                     mValues.put(key, value);
                 } catch (Exception e) {
                     // Workaround compiler bug.
-                    ThrowUnchecked.fire(e);
+                    org.cojen.util.ThrowUnchecked.fire(e);
                 }
             }
         } finally {

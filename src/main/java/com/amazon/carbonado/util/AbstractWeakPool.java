@@ -72,7 +72,7 @@ abstract class AbstractWeakPool<K, V, E extends Exception> {
                 value = create(key);
             } catch (Exception e) {
                 // Workaround compiler bug.
-                ThrowUnchecked.fire(e);
+                org.cojen.util.ThrowUnchecked.fire(e);
                 return null;
             }
             valueRef = new ValueRef<K, V>(value, mValueRefQueue, key);
