@@ -137,11 +137,18 @@
 
     <developer>
       <name>Olga Kuznetsova</name>
+      <email>okuznetsova@users.sourceforge.net</email>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
 
     <developer>
       <name>Archit Shivaprakash</name>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
+
+    <developer>
+      <name>Vishal Parakh</name>
+      <email>vishalparakh@users.sourceforge.net</email>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
   </developers>
