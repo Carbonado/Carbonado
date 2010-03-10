@@ -41,7 +41,7 @@ public class DetachedStorableFactory {
     private DetachedStorableFactory() {
     }
 
-    public static <S extends Storable> S newInstance(Class<S> type)
+    public static <S extends Storable> S create(Class<S> type)
         throws SupportException
     {
         return (S) QuickConstructorGenerator
