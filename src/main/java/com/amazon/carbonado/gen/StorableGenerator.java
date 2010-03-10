@@ -109,13 +109,20 @@ public final class StorableGenerator<S extends Storable> {
     public static final String
         CHECK_PK_FOR_INSERT_METHOD_NAME = "checkPkForInsert$",
         CHECK_PK_FOR_UPDATE_METHOD_NAME = "checkPkForUpdate$",
-        CHECK_PK_FOR_DELETE_METHOD_NAME = "checkPkForDelete$";
+        CHECK_PK_FOR_DELETE_METHOD_NAME = "checkPkForDelete$",
+        CHECK_PK_FOR_LOAD_METHOD_NAME = "checkPkForLoad$";
 
     /**
      * Name of protected method in generated storable that returns false if any
      * primary keys are uninitialized.
      */
     public static final String IS_PK_INITIALIZED_METHOD_NAME = "isPkInitialized$";
+
+   /**
+     * Name of protected method in generated storable that returns false if any
+     * partition keys are uninitialized.
+     */
+    public static final String IS_PARTITION_KEY_INITIALIZED_METHOD_NAME = "isPartitionKeyInitialized$";
 
     /**
      * Name prefix of protected method in generated storable that returns false
@@ -278,6 +285,9 @@ public final class StorableGenerator<S extends Storable> {
      * <pre>
      * // Returns true if all primary key properties have been set.
      * protected boolean isPkInitialized();
+     *
+     * // Returns true if all partition key properties have been set.
+     * protected boolean isPartitionKeyInitialized();
      *
      * // Returns true if all required data properties are set.
      * // A required data property is a non-nullable, non-primary key.
@@ -1011,6 +1021,13 @@ public final class StorableGenerator<S extends Storable> {
 
             CodeBuilder b = new CodeBuilder(mi);
 
+            // Add empty method that will be overrriden if there is a partition key to check that it is initialized
+            b.loadThis();
+	    b.invokeVirtual(CHECK_PK_FOR_LOAD_METHOD_NAME, null, null);
+	    CodeBuilder b1 = new CodeBuilder(mClassFile.addMethod(Modifiers.PROTECTED, CHECK_PK_FOR_LOAD_METHOD_NAME, null, null));
+	    b1.loadThis();
+	    b1.returnVoid();
+
             // Check that primary key is initialized.
             b.loadThis();
             b.invokeVirtual(IS_PK_INITIALIZED_METHOD_NAME, TypeDesc.BOOLEAN, null);
@@ -1696,6 +1713,20 @@ public final class StorableGenerator<S extends Storable> {
             // Define protected isPkInitialized method.
             addIsInitializedMethod
                 (IS_PK_INITIALIZED_METHOD_NAME, mInfo.getPrimaryKeyProperties());
+
+	    {
+		// Define protected isPartitionKeyInitialized method
+		// It will return true if there are no Partition keys
+		final Map<String, StorableProperty<S>> partitionProperties = new LinkedHashMap<String, StorableProperty<S>>();
+		for (StorableProperty<S> property : mAllProperties.values()) {
+		    if (!property.isDerived() && property.isPartitionKeyMember()) {
+			partitionProperties.put(property.getName(), property);
+		    }
+		}
+		
+		// Add methods to check that the partition key is defined 
+		addIsInitializedMethod(IS_PARTITION_KEY_INITIALIZED_METHOD_NAME, partitionProperties);
+	    }
 
             // Define protected methods to check if alternate key is initialized.
             addAltKeyMethods:

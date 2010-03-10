@@ -60,4 +60,7 @@ public enum MasterFeature {
 
     /** Ensure delete operation always is in a transaction, "for update". */
     DELETE_TXN_FOR_UPDATE,
+
+    /** Enforce rules for Storables which have a partition key */
+    PARTITIONING
 }

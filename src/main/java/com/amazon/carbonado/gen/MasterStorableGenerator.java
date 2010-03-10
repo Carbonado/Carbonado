@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2006-2010 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
@@ -64,6 +64,7 @@ import static com.amazon.carbonado.gen.CommonMethodNames.*;
  * transactions since this class takes care of that.
  *
  * @author Brian S O'Neill
+ * @author Olga Kuznetsova
  * @since 1.2
  */
 public final class MasterStorableGenerator<S extends Storable> {
@@ -174,6 +175,10 @@ public final class MasterStorableGenerator<S extends Storable> {
 
             if (info.getVersionProperty() == null) {
                 features.remove(MasterFeature.VERSIONING);
+            }
+            
+            if (info.getPartitionKey() == null || info.getPartitionKey().getProperties().size() == 0) {
+                features.remove(MasterFeature.PARTITIONING);
             }
         }
 
@@ -293,99 +298,151 @@ public final class MasterStorableGenerator<S extends Storable> {
             mi.addException(persistExceptionType);
         }
 
+        // Add features pertaining to partitioning
+        {
+            if (mFeatures.contains(MasterFeature.PARTITIONING)) {
+
+                // Overwrite write function for each property if Partitioning is enabled to check
+                // that properties that are part of the Partition key are not overwritten when clean
+                for (StorableProperty<S> property : mAllProperties.values()) {
+                    if (!property.isDerived() && property.isPartitionKeyMember()) {
+                        Method writeMethod = property.getWriteMethod();
+                        MethodInfo mi;
+                        String writeName = property.getWriteMethodName();
+                        final TypeDesc type = TypeDesc.forClass(property.getType());
+                        if (writeMethod != null) {
+                            mi = mClassFile.addMethod(writeMethod);
+                        } else {
+                            continue;
+                        }
+                        CodeBuilder b = new CodeBuilder(mi);
+                        String stateFieldName =
+                            StorableGenerator.PROPERTY_STATE_FIELD_NAME + (property.getNumber() >> 4);
+                        b.loadThis();
+                        b.loadField(stateFieldName, TypeDesc.INT);
+                        b.loadConstant(StorableGenerator.PROPERTY_STATE_MASK << ((property.getNumber() & 0xf) * 2));
+                        b.math(Opcode.IAND);
+                        b.loadConstant(StorableGenerator.PROPERTY_STATE_CLEAN << ((property.getNumber() & 0xf) * 2));
+                        Label isMutable = b.createLabel();
+                        b.ifComparisonBranch(isMutable, "!=");
+                        CodeBuilderUtil.throwException
+                            (b, IllegalStateException.class, "Cannot alter partition key");
+                        isMutable.setLocation();
+                        b.loadThis();
+                        b.loadLocal(b.getParameter(0));
+                        b.invokeSuper(mClassFile.getSuperClassName(),
+                                      writeName,
+                                      null, new TypeDesc[]{type});
+                        b.returnVoid();
+                    }
+                }
+            }
+        }
+   
         // Add required protected doTryInsert method.
         {
-            // If sequence support requested, implement special insert hook to
-            // call sequences for properties which are UNINITIALIZED. User may
-            // provide explicit values for properties with sequences.
+            if (mFeatures.contains(MasterFeature.PARTITIONING) ||
+                mFeatures.contains(MasterFeature.INSERT_SEQUENCES)) {
 
-            if (mFeatures.contains(MasterFeature.INSERT_SEQUENCES)) {
                 MethodInfo mi = mClassFile.addMethod
                     (Modifiers.PROTECTED,
                      StorableGenerator.CHECK_PK_FOR_INSERT_METHOD_NAME,
                      null, null);
-                CodeBuilder b = new CodeBuilder(mi);
+                CodeBuilder b = new CodeBuilder(mi);    
+                
+                if (mFeatures.contains(MasterFeature.PARTITIONING)) {
+                    // Check that partition key exists in insert operation 
+                    checkIfPartitionKeyPresent(b);
+                }
+                        
+                // If sequence support requested, implement special insert hook to
+                // call sequences for properties which are UNINITIALIZED. User may
+                // provide explicit values for properties with sequences.
+                
+                if (mFeatures.contains(MasterFeature.INSERT_SEQUENCES)) {
 
-                int ordinal = 0;
-                for (StorableProperty<S> property : mAllProperties.values()) {
-                    if (!property.isDerived() && property.getSequenceName() != null) {
-                        // Check the state of this property, to see if it is
-                        // uninitialized. Uninitialized state has value zero.
+                    int ordinal = 0;
+                    for (StorableProperty<S> property : mAllProperties.values()) {
+                        if (!property.isDerived() && property.getSequenceName() != null) {
+                            // Check the state of this property, to see if it is
+                            // uninitialized. Uninitialized state has value zero.
+                            
+                            String stateFieldName =
+                                StorableGenerator.PROPERTY_STATE_FIELD_NAME + (ordinal >> 4);
 
-                        String stateFieldName =
-                            StorableGenerator.PROPERTY_STATE_FIELD_NAME + (ordinal >> 4);
-
-                        b.loadThis();
-                        b.loadField(stateFieldName, TypeDesc.INT);
-                        int shift = (ordinal & 0xf) * 2;
-                        b.loadConstant(StorableGenerator.PROPERTY_STATE_MASK << shift);
-                        b.math(Opcode.IAND);
-
-                        Label isInitialized = b.createLabel();
-                        b.ifZeroComparisonBranch(isInitialized, "!=");
-
-                        // Load this in preparation for storing value to property.
-                        b.loadThis();
-
-                        // Call MasterSupport.getSequenceValueProducer(String).
-                        TypeDesc seqValueProdType = TypeDesc.forClass(SequenceValueProducer.class);
-                        b.loadThis();
-                        b.loadField(StorableGenerator.SUPPORT_FIELD_NAME, triggerSupportType);
-                        b.checkCast(masterSupportType);
-                        b.loadConstant(property.getSequenceName());
-                        b.invokeInterface
-                            (masterSupportType, "getSequenceValueProducer",
-                             seqValueProdType, new TypeDesc[] {TypeDesc.STRING});
-
-                        // Find appropriate method to call for getting next sequence value.
-                        TypeDesc propertyType = TypeDesc.forClass(property.getType());
-                        TypeDesc propertyObjType = propertyType.toObjectType();
-                        Method method;
-
-                        try {
-                            if (propertyObjType == TypeDesc.LONG.toObjectType()) {
-                                method = SequenceValueProducer.class
-                                    .getMethod("nextLongValue", (Class[]) null);
-                            } else if (propertyObjType == TypeDesc.INT.toObjectType()) {
-                                method = SequenceValueProducer.class
-                                    .getMethod("nextIntValue", (Class[]) null);
-                            } else if (propertyObjType == TypeDesc.STRING) {
-                                method = SequenceValueProducer.class
-                                    .getMethod("nextDecimalValue", (Class[]) null);
-                            } else {
-                                throw new SupportException
-                                    ("Unable to support sequence of type \"" +
-                                     TypeDesc.forClass(property.getType()).getFullName() +
-                                     "\" for property: " + property.getName());
+                            b.loadThis();
+                            b.loadField(stateFieldName, TypeDesc.INT);
+                            int shift = (ordinal & 0xf) * 2;
+                            b.loadConstant(StorableGenerator.PROPERTY_STATE_MASK << shift);
+                            b.math(Opcode.IAND);
+                            
+                            Label isInitialized = b.createLabel();
+                            b.ifZeroComparisonBranch(isInitialized, "!=");
+                            
+                            // Load this in preparation for storing value to property.
+                            b.loadThis();
+                            
+                            // Call MasterSupport.getSequenceValueProducer(String).
+                            TypeDesc seqValueProdType = TypeDesc.forClass(SequenceValueProducer.class);
+                            b.loadThis();
+                            b.loadField(StorableGenerator.SUPPORT_FIELD_NAME, triggerSupportType);
+                            b.checkCast(masterSupportType);
+                            b.loadConstant(property.getSequenceName());
+                            b.invokeInterface
+                                (masterSupportType, "getSequenceValueProducer",
+                                 seqValueProdType, new TypeDesc[] {TypeDesc.STRING});
+                            
+                            // Find appropriate method to call for getting next sequence value.
+                            TypeDesc propertyType = TypeDesc.forClass(property.getType());
+                            TypeDesc propertyObjType = propertyType.toObjectType();
+                            Method method;
+                            
+                            try {
+                                if (propertyObjType == TypeDesc.LONG.toObjectType()) {
+                                    method = SequenceValueProducer.class
+                                        .getMethod("nextLongValue", (Class[]) null);
+                                } else if (propertyObjType == TypeDesc.INT.toObjectType()) {
+                                    method = SequenceValueProducer.class
+                                        .getMethod("nextIntValue", (Class[]) null);
+                                } else if (propertyObjType == TypeDesc.STRING) {
+                                    method = SequenceValueProducer.class
+                                        .getMethod("nextDecimalValue", (Class[]) null);
+                                } else {
+                                    throw new SupportException
+                                        ("Unable to support sequence of type \"" +
+                                         TypeDesc.forClass(property.getType()).getFullName() +
+                                         "\" for property: " + property.getName());
+                                }
+                            } catch (NoSuchMethodException e) {
+                                Error err = new NoSuchMethodError();
+                                err.initCause(e);
+                                throw err;
                             }
-                        } catch (NoSuchMethodException e) {
-                            Error err = new NoSuchMethodError();
-                            err.initCause(e);
-                            throw err;
+                            
+                            b.invoke(method);
+                            b.convert(TypeDesc.forClass(method.getReturnType()), propertyType);
+                            
+                            // Store property
+                            b.storeField(property.getName(), propertyType);
+                            
+                            // Set state to dirty.
+                            b.loadThis();
+                            b.loadThis();
+                            b.loadField(stateFieldName, TypeDesc.INT);
+                            b.loadConstant(StorableGenerator.PROPERTY_STATE_DIRTY << shift);
+                            b.math(Opcode.IOR);
+                            b.storeField(stateFieldName, TypeDesc.INT);
+                            
+                            isInitialized.setLocation();
                         }
-
-                        b.invoke(method);
-                        b.convert(TypeDesc.forClass(method.getReturnType()), propertyType);
-
-                        // Store property
-                        b.storeField(property.getName(), propertyType);
-
-                        // Set state to dirty.
-                        b.loadThis();
-                        b.loadThis();
-                        b.loadField(stateFieldName, TypeDesc.INT);
-                        b.loadConstant(StorableGenerator.PROPERTY_STATE_DIRTY << shift);
-                        b.math(Opcode.IOR);
-                        b.storeField(stateFieldName, TypeDesc.INT);
-
-                        isInitialized.setLocation();
+                        
+                        ordinal++;
                     }
-
-                    ordinal++;
+                    
+                    // We've tried our best to fill in missing values, now run the
+                    // original check method.
                 }
 
-                // We've tried our best to fill in missing values, now run the
-                // original check method.
                 b.loadThis();
                 b.invokeSuper(mClassFile.getSuperClassName(),
                               StorableGenerator.CHECK_PK_FOR_INSERT_METHOD_NAME,
@@ -579,9 +636,27 @@ public final class MasterStorableGenerator<S extends Storable> {
                 addExitTransaction(b, INSERT_OP, txnVar, tryStart);
             }
         }
-
+        
         // Add required protected doTryUpdate method.
         addDoTryUpdate: {
+            if (mFeatures.contains(MasterFeature.PARTITIONING)) {
+                // Check that partition key exists in update operation
+                
+                MethodInfo mi = mClassFile.addMethod
+                    (Modifiers.PROTECTED,
+                     StorableGenerator.CHECK_PK_FOR_UPDATE_METHOD_NAME,
+                     null, null);
+                CodeBuilder b = new CodeBuilder(mi);    
+                
+                checkIfPartitionKeyPresent(b);
+                
+                b.loadThis();
+                b.invokeSuper(mClassFile.getSuperClassName(),
+                              StorableGenerator.CHECK_PK_FOR_UPDATE_METHOD_NAME,
+                              null, null);
+                b.returnVoid();
+            }
+
             MethodInfo mi = mClassFile.addMethod
                 (Modifiers.PROTECTED.toFinal(true),
                  StorableGenerator.DO_TRY_UPDATE_METHOD_NAME, TypeDesc.BOOLEAN, null);
@@ -818,6 +893,23 @@ public final class MasterStorableGenerator<S extends Storable> {
 
         // Add required protected doTryDelete method.
         {
+            if (mFeatures.contains(MasterFeature.PARTITIONING)) {
+                // Check that partition key exists in delete operation
+                MethodInfo mi = mClassFile.addMethod
+                    (Modifiers.PROTECTED,
+                     StorableGenerator.CHECK_PK_FOR_DELETE_METHOD_NAME,
+                     null, null);
+                CodeBuilder b = new CodeBuilder(mi);    
+                
+                checkIfPartitionKeyPresent(b);
+                
+                b.loadThis();
+                b.invokeSuper(mClassFile.getSuperClassName(),
+                              StorableGenerator.CHECK_PK_FOR_DELETE_METHOD_NAME,
+                              null, null);
+                b.returnVoid();
+            }    
+
             MethodInfo mi = mClassFile.addMethod
                 (Modifiers.PROTECTED.toFinal(true),
                  StorableGenerator.DO_TRY_DELETE_METHOD_NAME, TypeDesc.BOOLEAN, null);
@@ -847,6 +939,25 @@ public final class MasterStorableGenerator<S extends Storable> {
 
                 addExitTransaction(b, DELETE_OP, txnVar, tryStart);
             }
+        }
+
+        // Check that partition key exists for Load
+        {               
+            if (mFeatures.contains(MasterFeature.PARTITIONING)) {
+                MethodInfo mi = mClassFile.addMethod
+                    (Modifiers.PROTECTED,
+                     StorableGenerator.CHECK_PK_FOR_LOAD_METHOD_NAME,
+                     null, null);
+                CodeBuilder b = new CodeBuilder(mi);    
+                
+                checkIfPartitionKeyPresent(b);
+                
+                b.loadThis();
+                b.invokeSuper(mClassFile.getSuperClassName(),
+                              StorableGenerator.CHECK_PK_FOR_LOAD_METHOD_NAME,
+                              null, null);
+                b.returnVoid();
+            }                
         }
     }
 
@@ -1241,6 +1352,22 @@ public final class MasterStorableGenerator<S extends Storable> {
         success.setLocation();
     }
 
+    private void checkIfPartitionKeyPresent(CodeBuilder b) {
+        b.loadThis();
+        b.invokeVirtual(StorableGenerator.IS_PARTITION_KEY_INITIALIZED_METHOD_NAME, TypeDesc.BOOLEAN, null);
+        Label ptnkInitialized = b.createLabel();
+        b.ifZeroComparisonBranch(ptnkInitialized, "!=");
+        
+        TypeDesc exType = TypeDesc.forClass(IllegalStateException.class);
+        b.newObject(exType);
+        b.dup();
+        b.loadConstant("Partition key not fully specified");
+        b.invokeConstructor(exType, new TypeDesc[] {TypeDesc.STRING});
+        b.throwObject();
+        
+        ptnkInitialized.setLocation();
+    }
+   
     private static class PropertyCopy<S extends Storable> {
         final StorableProperty<S> property;
         final LocalVariable copyVar;
