@@ -62,6 +62,10 @@ public class DelegateStorableGenerator<S extends Storable> {
         getDelegateClass(Class<S> type, EnumSet<MasterFeature> features)
         throws SupportException
     {
+        if (features == null) {
+            features = EnumSet.noneOf(MasterFeature.class);
+        }
+
         Object key = KeyFactory.createKey(new Object[] {type, features});
 
         synchronized (cCache) {
