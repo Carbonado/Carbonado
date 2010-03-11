@@ -1021,12 +1021,15 @@ public final class StorableGenerator<S extends Storable> {
 
             CodeBuilder b = new CodeBuilder(mi);
 
-            // Add empty method that will be overrriden if there is a partition key to check that it is initialized
+            // Add empty method that will be overrriden if there is a partition
+            // key to check that it is initialized
             b.loadThis();
-	    b.invokeVirtual(CHECK_PK_FOR_LOAD_METHOD_NAME, null, null);
-	    CodeBuilder b1 = new CodeBuilder(mClassFile.addMethod(Modifiers.PROTECTED, CHECK_PK_FOR_LOAD_METHOD_NAME, null, null));
-	    b1.loadThis();
-	    b1.returnVoid();
+            b.invokeVirtual(CHECK_PK_FOR_LOAD_METHOD_NAME, null, null);
+            CodeBuilder b1 = new CodeBuilder
+                (mClassFile.addMethod
+                 (Modifiers.PROTECTED, CHECK_PK_FOR_LOAD_METHOD_NAME, null, null));
+            b1.loadThis();
+            b1.returnVoid();
 
             // Check that primary key is initialized.
             b.loadThis();
@@ -1081,6 +1084,41 @@ public final class StorableGenerator<S extends Storable> {
                         CodeBuilderUtil.convertValue(b, prop.getType(), bindType.toClass());
                         b.invokeInterface(queryType, WITH_METHOD_NAME, queryType,
                                           new TypeDesc[]{bindType});
+                    }
+
+                    StorableKey<S> parKey = mInfo.getPartitionKey();
+                    if (parKey != null) {
+                        // Transfer set partition key properties to query.
+                        for (OrderedProperty<S> op : parKey.getProperties()) {
+                            if (altKey.getProperties().contains(op)) {
+                                // Was already supplied to query.
+                                continue;
+                            }
+
+                            StorableProperty<S> prop = op.getChainedProperty().getPrimeProperty();
+
+                            Label skip = b.createLabel();
+
+                            if (!prop.isDerived()) {
+                                int num = prop.getNumber();
+                                b.loadThis();
+                                b.loadField(PROPERTY_STATE_FIELD_NAME + (num >> 4), TypeDesc.INT);
+                                b.loadConstant(PROPERTY_STATE_MASK << ((num & 0xf) * 2));
+                                b.math(Opcode.IAND);
+                                b.ifZeroComparisonBranch(skip, "==");
+                            }
+
+                            b.loadConstant(prop.getName() + " = ?");
+                            b.invokeInterface(queryType, AND_METHOD_NAME, queryType,
+                                              new TypeDesc[]{TypeDesc.STRING});
+                            loadThisProperty(b, prop);
+                            TypeDesc bindType = CodeBuilderUtil.bindQueryParam(prop.getType());
+                            CodeBuilderUtil.convertValue(b, prop.getType(), bindType.toClass());
+                            b.invokeInterface(queryType, WITH_METHOD_NAME, queryType,
+                                              new TypeDesc[]{bindType});
+
+                            skip.setLocation();
+                        }
                     }
 
                     b.branch(runQuery);
@@ -1714,19 +1752,19 @@ public final class StorableGenerator<S extends Storable> {
             addIsInitializedMethod
                 (IS_PK_INITIALIZED_METHOD_NAME, mInfo.getPrimaryKeyProperties());
 
-	    {
-		// Define protected isPartitionKeyInitialized method
-		// It will return true if there are no Partition keys
-		final Map<String, StorableProperty<S>> partitionProperties = new LinkedHashMap<String, StorableProperty<S>>();
-		for (StorableProperty<S> property : mAllProperties.values()) {
-		    if (!property.isDerived() && property.isPartitionKeyMember()) {
-			partitionProperties.put(property.getName(), property);
-		    }
-		}
-		
-		// Add methods to check that the partition key is defined 
-		addIsInitializedMethod(IS_PARTITION_KEY_INITIALIZED_METHOD_NAME, partitionProperties);
-	    }
+            {
+                // Define protected isPartitionKeyInitialized method
+                // It will return true if there are no Partition keys
+                final Map<String, StorableProperty<S>> partitionProperties = new LinkedHashMap<String, StorableProperty<S>>();
+                for (StorableProperty<S> property : mAllProperties.values()) {
+                    if (!property.isDerived() && property.isPartitionKeyMember()) {
+                        partitionProperties.put(property.getName(), property);
+                    }
+                }
+                
+                // Add methods to check that the partition key is defined 
+                addIsInitializedMethod(IS_PARTITION_KEY_INITIALIZED_METHOD_NAME, partitionProperties);
+            }
 
             // Define protected methods to check if alternate key is initialized.
             addAltKeyMethods:

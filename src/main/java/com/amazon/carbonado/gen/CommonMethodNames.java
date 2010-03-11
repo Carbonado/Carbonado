@@ -73,6 +73,7 @@ public class CommonMethodNames {
     public static final String
         LOAD_ONE_METHOD_NAME     = "loadOne",
         TRY_LOAD_ONE_METHOD_NAME = "tryLoadOne",
+        AND_METHOD_NAME          = "and",
         WITH_METHOD_NAME         = "with",
         FETCH_METHOD_NAME        = "fetch";
 
