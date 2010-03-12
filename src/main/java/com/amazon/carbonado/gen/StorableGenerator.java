@@ -3018,109 +3018,14 @@ public final class StorableGenerator<S extends Storable> {
             if (property.isDerived() || property.isJoin()) {
                 continue;
             }
-            addHashCodeCall(b, property.getName(),
-                            TypeDesc.forClass(property.getType()), true, mixIn);
+            TypeDesc fieldType = TypeDesc.forClass(property.getType());
+            b.loadThis();
+            b.loadField(property.getName(), fieldType);
+            CodeBuilderUtil.addValueHashCodeCall(b, fieldType, true, mixIn);
             mixIn = true;
         }
 
         b.returnValue(TypeDesc.INT);
-    }
-
-    private void addHashCodeCall(CodeBuilder b, String fieldName,
-                                 TypeDesc fieldType, boolean testForNull,
-                                 boolean mixIn)
-    {
-        if (mixIn) {
-            // Multiply current hashcode by 31 before adding more to it.
-            b.loadConstant(5);
-            b.math(Opcode.ISHL);
-            b.loadConstant(1);
-            b.math(Opcode.ISUB);
-        }
-
-        b.loadThis();
-        b.loadField(fieldName, fieldType);
-
-        switch (fieldType.getTypeCode()) {
-        case TypeDesc.FLOAT_CODE:
-            b.invokeStatic(TypeDesc.FLOAT.toObjectType(), "floatToIntBits",
-                           TypeDesc.INT, new TypeDesc[]{TypeDesc.FLOAT});
-            // Fall through
-        case TypeDesc.INT_CODE:
-        case TypeDesc.CHAR_CODE:
-        case TypeDesc.SHORT_CODE:
-        case TypeDesc.BYTE_CODE:
-        case TypeDesc.BOOLEAN_CODE:
-            if (mixIn) {
-                b.math(Opcode.IADD);
-            }
-            break;
-
-        case TypeDesc.DOUBLE_CODE:
-            b.invokeStatic(TypeDesc.DOUBLE.toObjectType(), "doubleToLongBits",
-                           TypeDesc.LONG, new TypeDesc[]{TypeDesc.DOUBLE});
-            // Fall through
-        case TypeDesc.LONG_CODE:
-            b.dup2();
-            b.loadConstant(32);
-            b.math(Opcode.LUSHR);
-            b.math(Opcode.LXOR);
-            b.convert(TypeDesc.LONG, TypeDesc.INT);
-            if (mixIn) {
-                b.math(Opcode.IADD);
-            }
-            break;
-
-        case TypeDesc.OBJECT_CODE:
-        default:
-            LocalVariable value = null;
-            if (testForNull) {
-                value = b.createLocalVariable(null, fieldType);
-                b.storeLocal(value);
-                b.loadLocal(value);
-            }
-            if (mixIn) {
-                Label isNull = b.createLabel();
-                if (testForNull) {
-                    b.ifNullBranch(isNull, true);
-                    b.loadLocal(value);
-                }
-                addHashCodeCallTo(b, fieldType);
-                b.math(Opcode.IADD);
-                if (testForNull) {
-                    isNull.setLocation();
-                }
-            } else {
-                Label cont = b.createLabel();
-                if (testForNull) {
-                    Label notNull = b.createLabel();
-                    b.ifNullBranch(notNull, false);
-                    b.loadConstant(0);
-                    b.branch(cont);
-                    notNull.setLocation();
-                    b.loadLocal(value);
-                }
-                addHashCodeCallTo(b, fieldType);
-                if (testForNull) {
-                    cont.setLocation();
-                }
-            }
-            break;
-        }
-    }
-
-    private void addHashCodeCallTo(CodeBuilder b, TypeDesc fieldType) {
-        if (fieldType.isArray()) {
-            if (!fieldType.getComponentType().isPrimitive()) {
-                b.invokeStatic("java.util.Arrays", "deepHashCode",
-                               TypeDesc.INT, new TypeDesc[] {TypeDesc.forClass(Object[].class)});
-            } else {
-                b.invokeStatic("java.util.Arrays", "hashCode",
-                               TypeDesc.INT, new TypeDesc[] {fieldType});
-            }
-        } else {
-            b.invokeVirtual(TypeDesc.OBJECT, "hashCode", TypeDesc.INT, null);
-        }
     }
 
     /**

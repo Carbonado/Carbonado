@@ -365,6 +365,116 @@ public class CodeBuilderUtil {
     }
 
     /**
+     * Generates code to compute a hashcode for a value on the stack, consuming
+     * the value. After the code executes, the stack contains an int hashcode.
+     *
+     * @param b {@link CodeBuilder} to which to add the code
+     * @param valueType the type of the value
+     * @param testForNull if true and the value is a reference and might be null
+     * @param mixIn if true, stack has an existing hashcode followed by a value
+     * @since 1.2.2
+     */
+    public static void addValueHashCodeCall(CodeBuilder b,
+                                            TypeDesc valueType,
+                                            boolean testForNull,
+                                            boolean mixIn) 
+    {
+        LocalVariable value = null;
+        if (mixIn) {
+            value = b.createLocalVariable(null, valueType);
+            b.storeLocal(value);
+
+            // Multiply current hashcode by 31 before adding more to it.
+            b.loadConstant(31);
+            b.math(Opcode.IMUL);
+
+            b.loadLocal(value);
+        }
+
+        switch (valueType.getTypeCode()) {
+        case TypeDesc.FLOAT_CODE:
+            b.invokeStatic(TypeDesc.FLOAT.toObjectType(), "floatToIntBits",
+                           TypeDesc.INT, new TypeDesc[]{TypeDesc.FLOAT});
+            // Fall through
+        case TypeDesc.INT_CODE:
+        case TypeDesc.CHAR_CODE:
+        case TypeDesc.SHORT_CODE:
+        case TypeDesc.BYTE_CODE:
+        case TypeDesc.BOOLEAN_CODE:
+            if (mixIn) {
+                b.math(Opcode.IADD);
+            }
+            break;
+
+        case TypeDesc.DOUBLE_CODE:
+            b.invokeStatic(TypeDesc.DOUBLE.toObjectType(), "doubleToLongBits",
+                           TypeDesc.LONG, new TypeDesc[]{TypeDesc.DOUBLE});
+            // Fall through
+        case TypeDesc.LONG_CODE:
+            b.dup2();
+            b.loadConstant(32);
+            b.math(Opcode.LUSHR);
+            b.math(Opcode.LXOR);
+            b.convert(TypeDesc.LONG, TypeDesc.INT);
+            if (mixIn) {
+                b.math(Opcode.IADD);
+            }
+            break;
+
+        case TypeDesc.OBJECT_CODE:
+        default:
+            if (testForNull) {
+                if (value == null) {
+                    value = b.createLocalVariable(null, valueType);
+                    b.storeLocal(value);
+                    b.loadLocal(value);
+                }
+            }
+            if (mixIn) {
+                Label isNull = b.createLabel();
+                if (testForNull) {
+                    b.ifNullBranch(isNull, true);
+                    b.loadLocal(value);
+                }
+                addValueHashCodeCallTo(b, valueType);
+                b.math(Opcode.IADD);
+                if (testForNull) {
+                    isNull.setLocation();
+                }
+            } else {
+                Label cont = b.createLabel();
+                if (testForNull) {
+                    Label notNull = b.createLabel();
+                    b.ifNullBranch(notNull, false);
+                    b.loadConstant(0);
+                    b.branch(cont);
+                    notNull.setLocation();
+                    b.loadLocal(value);
+                }
+                addValueHashCodeCallTo(b, valueType);
+                if (testForNull) {
+                    cont.setLocation();
+                }
+            }
+            break;
+        }
+    }
+
+    private static void addValueHashCodeCallTo(CodeBuilder b, TypeDesc valueType) {
+        if (valueType.isArray()) {
+            if (!valueType.getComponentType().isPrimitive()) {
+                b.invokeStatic("java.util.Arrays", "deepHashCode",
+                               TypeDesc.INT, new TypeDesc[] {TypeDesc.forClass(Object[].class)});
+            } else {
+                b.invokeStatic("java.util.Arrays", "hashCode",
+                               TypeDesc.INT, new TypeDesc[] {valueType});
+            }
+        } else {
+            b.invokeVirtual(TypeDesc.OBJECT, "hashCode", TypeDesc.INT, null);
+        }
+    }
+
+    /**
      * Generates code to compare a field in this object against the same one in a
      * different instance. Branch to the provided Label if they are not equal.
      *
