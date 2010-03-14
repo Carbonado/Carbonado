@@ -18,6 +18,9 @@
 
 package com.amazon.carbonado.layout;
 
+import java.io.InputStream;
+import java.io.IOException;
+
 import java.lang.annotation.Annotation;
 
 import java.lang.reflect.InvocationTargetException;
@@ -264,6 +267,51 @@ public class LayoutFactory implements LayoutCapability {
             .with(type.getName()).with(generation)
             .loadOne();
         return new Layout(this, storedLayout);
+    }
+
+    /**
+     * Read a layout as written by {@link Layout#writeTo}.
+     *
+     * @since 1.2.2
+     */
+    public Layout readLayoutFrom(InputStream in) throws IOException, RepositoryException {
+        Transaction txn = mRepository.enterTransaction();
+        try {
+            txn.setForUpdate(true);
+            StoredLayout storedLayout = mLayoutStorage.prepare();
+            storedLayout.readFrom(in);
+            try {
+                storedLayout.insert();
+            } catch (UniqueConstraintException e) {
+                StoredLayout existing = mLayoutStorage.prepare();
+                storedLayout.copyPrimaryKeyProperties(existing);
+                if (!existing.tryLoad() || !existing.equalProperties(storedLayout)) {
+                    throw e;
+                }
+            }
+
+            int op;
+            while ((op = in.read()) != 0) {
+                StoredLayoutProperty storedProperty = mPropertyStorage.prepare();
+                storedProperty.readFrom(in);
+                try {
+                    storedProperty.insert();
+                } catch (UniqueConstraintException e) {
+                    StoredLayoutProperty existing = mPropertyStorage.prepare();
+                    storedProperty.copyPrimaryKeyProperties(existing);
+                    existing.load();
+                    if (!existing.tryLoad() || !existing.equalProperties(storedProperty)) {
+                        throw e;
+                    }
+                }
+            }
+
+            txn.commit();
+
+            return new Layout(this, storedLayout);
+        } finally {
+            txn.exit();
+        }
     }
 
     synchronized void registerReconstructed

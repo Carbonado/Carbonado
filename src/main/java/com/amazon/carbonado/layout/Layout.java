@@ -19,8 +19,11 @@
 package com.amazon.carbonado.layout;
 
 import java.io.IOException;
+import java.io.OutputStream;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -135,7 +138,7 @@ public class Layout {
     private final StoredLayout mStoredLayout;
     private final LayoutOptions mOptions;
 
-    private transient List<LayoutProperty> mAllProperties;
+    private volatile List<LayoutProperty> mAllProperties;
 
     /**
      * Creates a Layout around an existing storable.
@@ -248,7 +251,9 @@ public class Layout {
      * Returns all the properties of this layout, in their proper order.
      */
     public List<LayoutProperty> getAllProperties() throws FetchException {
-        if (mAllProperties == null) {
+        List<LayoutProperty> all = mAllProperties;
+
+        if (all == null) {
             Cursor <StoredLayoutProperty> cursor = mLayoutFactory.mPropertyStorage
                 .query("layoutID = ?")
                 .with(mStoredLayout.getLayoutID())
@@ -262,13 +267,13 @@ public class Layout {
                     list.add(new LayoutProperty(cursor.next()));
                 }
 
-                mAllProperties = Collections.unmodifiableList(list);
+                mAllProperties = all = Collections.unmodifiableList(list);
             } finally {
                 cursor.close();
             }
         }
 
-        return mAllProperties;
+        return all;
     }
 
     /**
@@ -480,6 +485,32 @@ public class Layout {
         }
         return getStorableTypeName().equals(layout.getStorableTypeName())
             && getAllProperties().equals(layout.getAllProperties());
+    }
+
+    /**
+     * Write a layout to be read by {@link LayoutFactory#readLayoutFrom}.
+     *
+     * @since 1.2.2
+     */
+    public void writeTo(OutputStream out) throws IOException, RepositoryException {
+        mStoredLayout.writeTo(out);
+
+        Cursor <StoredLayoutProperty> cursor = mLayoutFactory.mPropertyStorage
+            .query("layoutID = ?")
+            .with(mStoredLayout.getLayoutID())
+            .fetch();
+
+        try {
+            while (cursor.hasNext()) {
+                StoredLayoutProperty prop = cursor.next();
+                out.write(1);
+                prop.writeTo(out);
+            }
+        } finally {
+            cursor.close();
+        }
+
+        out.write(0);
     }
 
     // Assumes caller is in a transaction.

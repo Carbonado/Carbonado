@@ -37,17 +37,17 @@ import org.cojen.util.ThrowUnchecked;
  * @author Brian S O'Neill
  * @since 1.2.2
  */
-public class DetachedStorableFactory {
-    private DetachedStorableFactory() {
+public class DetachedStorableFactory<S extends Storable> {
+    private final NoSupport.Factory mFactory;
+
+    public DetachedStorableFactory(Class<S> type) throws SupportException {
+        mFactory = QuickConstructorGenerator
+            .getInstance(DelegateStorableGenerator.getDelegateClass(type, null),
+                         NoSupport.Factory.class);
     }
 
-    public static <S extends Storable> S create(Class<S> type)
-        throws SupportException
-    {
-        return (S) QuickConstructorGenerator
-            .getInstance(DelegateStorableGenerator.getDelegateClass(type, null),
-                         NoSupport.Factory.class)
-            .newInstance(NoSupport.THE);
+    public <S extends Storable> S newInstance() {
+        return (S) mFactory.newInstance(NoSupport.THE);
     }
 
     private static class NoSupport implements DelegateSupport<Storable> {
