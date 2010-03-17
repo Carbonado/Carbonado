@@ -503,6 +503,7 @@ public class Layout {
         try {
             while (cursor.hasNext()) {
                 StoredLayoutProperty prop = cursor.next();
+                // Write 1 to indicate that this was not the last property.
                 out.write(1);
                 prop.writeTo(out);
             }
