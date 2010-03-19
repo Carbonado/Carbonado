@@ -967,8 +967,12 @@ public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private Constructor<BDBRepository> getRepositoryConstructor()
         throws ClassCastException, ClassNotFoundException, NoSuchMethodException
     {
-        String className = getClass().getPackage().getName() + '.' +
-            getBDBProduct().name() + "_Repository";
+        String packageName;
+        {
+            String thisClassName = getClass().getName();
+            packageName = thisClassName.substring(0, thisClassName.lastIndexOf('.'));
+        }
+        String className = packageName + '.' + getBDBProduct().name() + "_Repository";
         Class repoClass = Class.forName(className);
         if (BDBRepository.class.isAssignableFrom(repoClass)) {
             return repoClass.getDeclaredConstructor
