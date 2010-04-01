@@ -302,8 +302,15 @@ public class TransactionScope<Txn> {
                     mActive.exit();
                 }
                 if (mCursors != null) {
-                    for (CursorList<TransactionImpl<Txn>> cursorList : mCursors.values()) {
-                        cursorList.closeCursors();
+                    try {
+                        for (CursorList<TransactionImpl<Txn>> cursorList : mCursors.values()) {
+                            cursorList.closeCursors();
+                        }
+                    } finally {
+                        // Ensure that map is freed promptly. Thread-local
+                        // reference to this scope otherwise keeps map and its
+                        // contents lingering around for a very long time.
+                        mCursors = null;
                     }
                 }
             }
