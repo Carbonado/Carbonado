@@ -23,6 +23,7 @@ import org.cojen.classfile.TypeDesc;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.SupportException;
+import com.amazon.carbonado.UniqueConstraintException;
 
 import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.info.StorablePropertyAdapter;
@@ -186,15 +187,22 @@ public class LayoutProperty {
         return mStoredLayoutProperty.toString();
     }
 
-    void store() throws PersistException {
-        if (!mStoredLayoutProperty.tryInsert()) {
-            StoredLayoutProperty existing = mStoredLayoutProperty.copy();
+    void insert() throws PersistException {
+        try {
+            mStoredLayoutProperty.insert();
+        } catch (UniqueConstraintException e) {
+            // If existing record logically matches, update to allow replication.
+            StoredLayoutProperty existing = mStoredLayoutProperty.prepare();
+            mStoredLayoutProperty.copyPrimaryKeyProperties(existing);
             try {
                 existing.load();
-                existing.copyVersionProperty(mStoredLayoutProperty);
-            } catch (FetchException e) {
-                throw e.toPersistException();
+            } catch (FetchException e2) {
+                throw e2.toPersistException();
             }
+            if (!equals(new LayoutProperty(existing))) {
+                throw e;
+            }
+            mStoredLayoutProperty.setVersionNumber(existing.getVersionNumber());
             mStoredLayoutProperty.update();
         }
     }

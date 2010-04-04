@@ -184,6 +184,12 @@ public class LayoutFactory implements LayoutCapability {
                     // If this point is reached, then type represents a new
                     // generation. Calculate next generation value and insert.
 
+                    // Note: The following query might find a record that
+                    // didn't exist just a moment ago. This will cause a new
+                    // generation value to be calculated, which is incorrect.
+                    // Inserting the layout causes a unique constraint
+                    // exception, which prevents the mistake from persisting.
+
                     assert(newLayout != null);
                     int generation = 0;
 

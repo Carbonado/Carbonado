@@ -25,6 +25,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -45,6 +46,7 @@ import com.amazon.carbonado.Query;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
+import com.amazon.carbonado.UniqueConstraintException;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.synthetic.SyntheticKey;
@@ -484,7 +486,8 @@ public class Layout {
             return true;
         }
         return getStorableTypeName().equals(layout.getStorableTypeName())
-            && getAllProperties().equals(layout.getAllProperties());
+            && getAllProperties().equals(layout.getAllProperties())
+            && Arrays.equals(mStoredLayout.getExtraData(), layout.mStoredLayout.getExtraData());
     }
 
     /**
@@ -519,20 +522,32 @@ public class Layout {
         if (mAllProperties == null) {
             throw new IllegalStateException();
         }
+
         mStoredLayout.setGeneration(generation);
-        if (!mStoredLayout.tryInsert()) {
-            StoredLayout existing = mLayoutFactory.mLayoutStorage.prepare();
+
+        try {
+            mStoredLayout.insert();
+        } catch (UniqueConstraintException e) {
+            // If existing record logically matches, update to allow replication.
+            StoredLayout existing = mStoredLayout.prepare();
             mStoredLayout.copyPrimaryKeyProperties(existing);
             try {
                 existing.load();
-            } catch (FetchException e) {
-                throw e.toPersistException();
+            } catch (FetchException e2) {
+                throw e2.toPersistException();
+            }
+            if (existing.getGeneration() != generation ||
+                !existing.getStorableTypeName().equals(getStorableTypeName()) ||
+                !Arrays.equals(existing.getExtraData(), mStoredLayout.getExtraData()))
+            {
+                throw e;
             }
             mStoredLayout.setVersionNumber(existing.getVersionNumber());
             mStoredLayout.update();
         }
+
         for (LayoutProperty property : mAllProperties) {
-            property.store();
+            property.insert();
         }
     }
 }
