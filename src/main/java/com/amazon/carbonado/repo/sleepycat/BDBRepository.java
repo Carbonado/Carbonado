@@ -113,6 +113,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
 
     final boolean mRunCheckpointer;
     final boolean mKeepOldLogFiles;
+    final boolean mLogInMemory;
     final boolean mRunDeadlockDetector;
 
     final File mDataHome;
@@ -122,6 +123,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
 
     final Object mBackupLock = new Object();
     int mBackupCount = 0;
+    int mIncrementalBackupCount = 0;
 
     private LayoutFactory mLayoutFactory;
 
@@ -157,6 +159,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
 
         mRunCheckpointer = !builder.getReadOnly() && builder.getRunCheckpointer();
         mKeepOldLogFiles = builder.getKeepOldLogFiles();
+	mLogInMemory = builder.getLogInMemory();
         mRunDeadlockDetector = builder.getRunDeadlockDetector();
         mStorableCodecFactory = builder.getStorableCodecFactory();
         mPreShutdownHook = builder.getPreShutdownHook();
@@ -215,62 +218,60 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         }
         return StorableIntrospector.examine(type).getAllProperties().get(name) != null;
     }
+    
+    @Override 
+    public Backup startBackup() throws RepositoryException {
+	return startBackup(false);
+    }
 
     @Override
-    public Backup startBackup() throws RepositoryException {
+    public Backup startBackup(boolean deleteOldLogFiles) throws RepositoryException {
+	if (mLogInMemory) {
+	    throw new IllegalStateException("Log files are only kept in memory and backups cannot be performed");
+	}
+
         synchronized (mBackupLock) {
             int count = mBackupCount;
             if (count == 0) {
                 try {
-                    enterBackupMode();
+                    enterBackupMode(deleteOldLogFiles);
                 } catch (Exception e) {
                     throw mExTransformer.toRepositoryException(e);
                 }
             }
             mBackupCount = count + 1;
 
-            return new Backup() {
-                private boolean mDone;
-
-                @Override
-                public void endBackup() throws RepositoryException {
-                    synchronized (mBackupLock) {
-                        if (mDone) {
-                            return;
-                        }
-                        mDone = true;
-
-                        int count = mBackupCount - 1;
-                        try {
-                            if (count == 0) {
-                                try {
-                                    exitBackupMode();
-                                } catch (Exception e) {
-                                    throw mExTransformer.toRepositoryException(e);
-                                }
-                            }
-                        } finally {
-                            mBackupCount = count;
-                        }
-                    }
-                }
-
-                @Override
-                public File[] getFiles() throws RepositoryException {
-                    synchronized (mBackupLock) {
-                        if (mDone) {
-                            throw new IllegalStateException("Backup has ended");
-                        }
-
-                        try {
-                            return backupFiles();
-                        } catch (Exception e) {
-                            throw mExTransformer.toRepositoryException(e);
-                        }
-                    }
-                }
-            };
+	    return new FullBackup();
         }
+    }
+
+    @Override 
+    public Backup startIncrementalBackup(long lastLogNumber) 
+	throws RepositoryException
+    {
+	return startIncrementalBackup(lastLogNumber, false);
+    }
+
+    @Override
+    public Backup startIncrementalBackup(long lastLogNumber, boolean deleteOldLogFiles) 
+	throws RepositoryException
+    {
+	if (mLogInMemory) {
+	    throw new IllegalStateException("Log files are only kept in memory and incremental backup cannot be performed");
+	}
+
+	if (lastLogNumber < 0) {
+	    throw new IllegalArgumentException("The number of the last backup cannot be negative");
+	}
+	synchronized (mBackupLock) {
+	    try {
+		enterIncrementalBackupMode(lastLogNumber, deleteOldLogFiles);
+		++mIncrementalBackupCount;
+	    } catch (Exception e) {
+		throw mExTransformer.toRepositoryException(e);
+	    }
+	}
+	return new IncrementalBackup(lastLogNumber);
     }
 
     /**
@@ -665,7 +666,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     /**
      * Called only the first time a backup is started.
      */
-    abstract void enterBackupMode() throws Exception;
+    abstract void enterBackupMode(boolean deleteOldLogFiles) throws Exception;
 
     /**
      * Called only after the last backup ends.
@@ -673,9 +674,28 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     abstract void exitBackupMode() throws Exception;
 
     /**
-     * Called only if in backup mode.
+     * Called only when an incremental backup is started.
      */
-    abstract File[] backupFiles() throws Exception;
+    abstract void enterIncrementalBackupMode(long lastLogNumber, boolean deleteOldLogFiles) throws Exception;
+
+    /**
+     * Called only after incremental backup ends.
+     */
+    abstract void exitIncrementalBackupMode() throws Exception;
+
+    /**
+     * Called only if in backup mode.
+     *
+     * @param newLastLogNum reference to last log number at [0]
+     */
+    abstract File[] backupFiles(long[] newLastLogNum) throws Exception;
+
+    /**
+     * Called only if in incremental backup mode.
+     *
+     * @param newLastLogNum reference to last log number at [0]
+     */
+    abstract File[] incrementalBackup(long lastLogNumber, long[] newLastLogNum) throws Exception;
 
     FetchException toFetchException(Throwable e) {
         return mExTransformer.toFetchException(e);
@@ -891,5 +911,103 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
                 }
             }
         }
+    }
+
+    abstract class AbstractBackup implements Backup {
+	boolean mDone;
+	long mFinalLogNumber;
+
+	AbstractBackup() {
+	    mFinalLogNumber = -1;
+	}
+
+	@Override 
+	public void endBackup() throws RepositoryException {
+	    synchronized (mBackupLock) {
+		if (mDone) {
+		    return;
+		}
+		mDone = true;
+		finishBackup();
+	    }
+	}
+
+	@Override
+	public File[] getFiles() throws RepositoryException {
+	    synchronized (mBackupLock) {
+		if (mDone) {
+		    throw new IllegalStateException("Backup has ended");
+		}
+		
+		try {
+		    long[] newLastLogNum = {-1}; 
+		    File[] toReturn =  getBackupFiles(newLastLogNum);
+		    mFinalLogNumber = newLastLogNum[0];
+		    return toReturn;
+		} catch (Exception e) {
+		    throw mExTransformer.toRepositoryException(e);
+		}
+	    }
+	}
+	
+	@Override
+	public long getLastLogNumber() throws RepositoryException {
+	    if (mFinalLogNumber < 0) {
+		throw new IllegalStateException("Must get files prior to retrieving the last log number");
+	    }
+	    return mFinalLogNumber;
+	}	
+	
+	abstract void finishBackup() throws RepositoryException;
+
+	abstract File[] getBackupFiles(long[] newLastLogNum) throws Exception;
+    }
+
+    class IncrementalBackup extends AbstractBackup {
+	private final long mLastLogNumber;
+	
+	IncrementalBackup(long lastLogNumber) {
+	    super();
+	    mLastLogNumber = lastLogNumber;
+	}
+
+	@Override
+	public void finishBackup() throws RepositoryException {
+	    --mIncrementalBackupCount;
+	    
+	    try {
+		exitIncrementalBackupMode();
+	    } catch (Exception e) {
+		throw mExTransformer.toRepositoryException(e);
+	    }
+	}
+	
+	@Override
+	public File[] getBackupFiles(long[] newLastLogNum) throws Exception {
+	    return incrementalBackup(mLastLogNumber, newLastLogNum);
+	}
+    }
+
+    class FullBackup extends AbstractBackup {
+	@Override
+	void finishBackup() throws RepositoryException {
+	    int count = mBackupCount - 1;
+	    try {
+		if (count == 0) {
+		    try {
+			exitBackupMode();
+		    } catch (Exception e) {
+			throw mExTransformer.toRepositoryException(e);
+		    }
+		}
+	    } finally {
+		mBackupCount = count;
+	    }
+	}
+	
+	@Override
+	public File[] getBackupFiles(long[] newLastLogNum) throws Exception {
+	    return backupFiles(newLastLogNum);
+	}
     }
 }
