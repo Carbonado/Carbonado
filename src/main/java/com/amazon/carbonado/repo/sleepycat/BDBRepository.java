@@ -159,7 +159,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
 
         mRunCheckpointer = !builder.getReadOnly() && builder.getRunCheckpointer();
         mKeepOldLogFiles = builder.getKeepOldLogFiles();
-	mLogInMemory = builder.getLogInMemory();
+        mLogInMemory = builder.getLogInMemory();
         mRunDeadlockDetector = builder.getRunDeadlockDetector();
         mStorableCodecFactory = builder.getStorableCodecFactory();
         mPreShutdownHook = builder.getPreShutdownHook();
@@ -221,57 +221,66 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     
     @Override 
     public Backup startBackup() throws RepositoryException {
-	return startBackup(false);
+        return startBackup(false);
     }
 
     @Override
     public Backup startBackup(boolean deleteOldLogFiles) throws RepositoryException {
-	if (mLogInMemory) {
-	    throw new IllegalStateException("Log files are only kept in memory and backups cannot be performed");
-	}
+        if (mLogInMemory) {
+            throw new IllegalStateException
+                ("Log files are only kept in memory and backups cannot be performed");
+        }
 
         synchronized (mBackupLock) {
             int count = mBackupCount;
             if (count == 0) {
                 try {
-                    enterBackupMode(deleteOldLogFiles);
+                    if (deleteOldLogFiles) {
+                        // TODO: If backup rejects log deletion, queue up for later.
+                        enterBackupMode(true);
+                    } else {
+                        // Call old API for backwards compatibility.
+                        enterBackupMode();
+                    }
                 } catch (Exception e) {
                     throw mExTransformer.toRepositoryException(e);
                 }
             }
             mBackupCount = count + 1;
 
-	    return new FullBackup();
+            return new FullBackup();
         }
     }
 
     @Override 
     public Backup startIncrementalBackup(long lastLogNumber) 
-	throws RepositoryException
+        throws RepositoryException
     {
-	return startIncrementalBackup(lastLogNumber, false);
+        return startIncrementalBackup(lastLogNumber, false);
     }
 
     @Override
     public Backup startIncrementalBackup(long lastLogNumber, boolean deleteOldLogFiles) 
-	throws RepositoryException
+        throws RepositoryException
     {
-	if (mLogInMemory) {
-	    throw new IllegalStateException("Log files are only kept in memory and incremental backup cannot be performed");
-	}
+        if (mLogInMemory) {
+            throw new IllegalStateException
+                ("Log files are only kept in memory and incremental backup cannot be performed");
+        }
 
-	if (lastLogNumber < 0) {
-	    throw new IllegalArgumentException("The number of the last backup cannot be negative");
-	}
-	synchronized (mBackupLock) {
-	    try {
-		enterIncrementalBackupMode(lastLogNumber, deleteOldLogFiles);
-		++mIncrementalBackupCount;
-	    } catch (Exception e) {
-		throw mExTransformer.toRepositoryException(e);
-	    }
-	}
-	return new IncrementalBackup(lastLogNumber);
+        if (lastLogNumber < 0) {
+            throw new IllegalArgumentException
+                ("The number of the last backup cannot be negative: " + lastLogNumber);
+        }
+        synchronized (mBackupLock) {
+            try {
+                enterIncrementalBackupMode(lastLogNumber, deleteOldLogFiles);
+                ++mIncrementalBackupCount;
+            } catch (Exception e) {
+                throw mExTransformer.toRepositoryException(e);
+            }
+        }
+        return new IncrementalBackup(lastLogNumber);
     }
 
     /**
@@ -664,6 +673,14 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         throws Exception;
 
     /**
+     * Called only the first time a backup is started. Old API is kept for
+     * backwards compatibility.
+     */
+    void enterBackupMode() throws Exception {
+        enterBackupMode(false);
+    }
+
+    /**
      * Called only the first time a backup is started.
      */
     abstract void enterBackupMode(boolean deleteOldLogFiles) throws Exception;
@@ -676,12 +693,21 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     /**
      * Called only when an incremental backup is started.
      */
-    abstract void enterIncrementalBackupMode(long lastLogNumber, boolean deleteOldLogFiles) throws Exception;
+    abstract void enterIncrementalBackupMode(long lastLogNumber, boolean deleteOldLogFiles)
+        throws Exception;
 
     /**
      * Called only after incremental backup ends.
      */
     abstract void exitIncrementalBackupMode() throws Exception;
+
+    /**
+     * Called only if in backup mode. Old API is kept for backwards
+     * compatibility.
+     */
+    File[] backupFiles() throws Exception {
+        return backupFiles(new long[1]);
+    }
 
     /**
      * Called only if in backup mode.
@@ -914,100 +940,106 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
     }
 
     abstract class AbstractBackup implements Backup {
-	boolean mDone;
-	long mFinalLogNumber;
+        boolean mDone;
+        long mFinalLogNumber;
 
-	AbstractBackup() {
-	    mFinalLogNumber = -1;
-	}
+        AbstractBackup() {
+            mFinalLogNumber = -1;
+        }
 
-	@Override 
-	public void endBackup() throws RepositoryException {
-	    synchronized (mBackupLock) {
-		if (mDone) {
-		    return;
-		}
-		mDone = true;
-		finishBackup();
-	    }
-	}
+        @Override 
+        public void endBackup() throws RepositoryException {
+            synchronized (mBackupLock) {
+                if (mDone) {
+                    return;
+                }
+                mDone = true;
+                finishBackup();
+            }
+        }
 
-	@Override
-	public File[] getFiles() throws RepositoryException {
-	    synchronized (mBackupLock) {
-		if (mDone) {
-		    throw new IllegalStateException("Backup has ended");
-		}
-		
-		try {
-		    long[] newLastLogNum = {-1}; 
-		    File[] toReturn =  getBackupFiles(newLastLogNum);
-		    mFinalLogNumber = newLastLogNum[0];
-		    return toReturn;
-		} catch (Exception e) {
-		    throw mExTransformer.toRepositoryException(e);
-		}
-	    }
-	}
-	
-	@Override
-	public long getLastLogNumber() throws RepositoryException {
-	    if (mFinalLogNumber < 0) {
-		throw new IllegalStateException("Must get files prior to retrieving the last log number");
-	    }
-	    return mFinalLogNumber;
-	}	
-	
-	abstract void finishBackup() throws RepositoryException;
+        @Override
+        public File[] getFiles() throws RepositoryException {
+            synchronized (mBackupLock) {
+                if (mDone) {
+                    throw new IllegalStateException("Backup has ended");
+                }
+                
+                try {
+                    long[] newLastLogNum = {-1}; 
+                    File[] toReturn = getBackupFiles(newLastLogNum);
+                    mFinalLogNumber = newLastLogNum[0];
+                    return toReturn;
+                } catch (Exception e) {
+                    throw mExTransformer.toRepositoryException(e);
+                }
+            }
+        }
+        
+        @Override
+        public long getLastLogNumber() throws RepositoryException {
+            if (mFinalLogNumber < 0) {
+                throw new IllegalStateException
+                    ("Must get files prior to retrieving the last log number");
+            }
+            return mFinalLogNumber;
+        }       
+        
+        abstract void finishBackup() throws RepositoryException;
 
-	abstract File[] getBackupFiles(long[] newLastLogNum) throws Exception;
+        abstract File[] getBackupFiles(long[] newLastLogNum) throws Exception;
     }
 
     class IncrementalBackup extends AbstractBackup {
-	private final long mLastLogNumber;
-	
-	IncrementalBackup(long lastLogNumber) {
-	    super();
-	    mLastLogNumber = lastLogNumber;
-	}
+        private final long mLastLogNumber;
+        
+        IncrementalBackup(long lastLogNumber) {
+            super();
+            mLastLogNumber = lastLogNumber;
+        }
 
-	@Override
-	public void finishBackup() throws RepositoryException {
-	    --mIncrementalBackupCount;
-	    
-	    try {
-		exitIncrementalBackupMode();
-	    } catch (Exception e) {
-		throw mExTransformer.toRepositoryException(e);
-	    }
-	}
-	
-	@Override
-	public File[] getBackupFiles(long[] newLastLogNum) throws Exception {
-	    return incrementalBackup(mLastLogNumber, newLastLogNum);
-	}
+        @Override
+        void finishBackup() throws RepositoryException {
+            --mIncrementalBackupCount;
+            
+            try {
+                exitIncrementalBackupMode();
+            } catch (Exception e) {
+                throw mExTransformer.toRepositoryException(e);
+            }
+        }
+        
+        @Override
+        File[] getBackupFiles(long[] newLastLogNum) throws Exception {
+            return incrementalBackup(mLastLogNumber, newLastLogNum);
+        }
     }
 
     class FullBackup extends AbstractBackup {
-	@Override
-	void finishBackup() throws RepositoryException {
-	    int count = mBackupCount - 1;
-	    try {
-		if (count == 0) {
-		    try {
-			exitBackupMode();
-		    } catch (Exception e) {
-			throw mExTransformer.toRepositoryException(e);
-		    }
-		}
-	    } finally {
-		mBackupCount = count;
-	    }
-	}
-	
-	@Override
-	public File[] getBackupFiles(long[] newLastLogNum) throws Exception {
-	    return backupFiles(newLastLogNum);
-	}
+        @Override
+        void finishBackup() throws RepositoryException {
+            int count = mBackupCount - 1;
+            try {
+                if (count == 0) {
+                    try {
+                        exitBackupMode();
+                    } catch (Exception e) {
+                        throw mExTransformer.toRepositoryException(e);
+                    }
+                }
+            } finally {
+                mBackupCount = count;
+            }
+        }
+        
+        @Override
+        File[] getBackupFiles(long[] newLastLogNum) throws Exception {
+            try {
+                return backupFiles(newLastLogNum);
+            } catch (AbstractMethodError e) {
+                // Call old API for backwards compatibility.
+                return backupFiles();
+            }
+        }
     }
 }
