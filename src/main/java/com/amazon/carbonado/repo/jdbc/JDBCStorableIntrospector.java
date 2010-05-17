@@ -47,6 +47,7 @@ import org.apache.commons.logging.LogFactory;
 import org.cojen.classfile.TypeDesc;
 import org.cojen.util.KeyFactory;
 import org.cojen.util.SoftValuedHashMap;
+import org.cojen.util.ThrowUnchecked;
 
 import com.amazon.carbonado.capability.IndexInfo;
 import com.amazon.carbonado.MalformedTypeException;
@@ -104,7 +105,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
     }
 
     static <S extends Storable> JDBCStorableInfo<S> examine
-        (Class<S> type, DataSource ds, String catalog, String schema, SchemaResolver resolver, boolean primaryKeyCheckDisabled)
+        (Class<S> type, DataSource ds, String catalog, String schema,
+         SchemaResolver resolver, boolean primaryKeyCheckDisabled)
         throws SQLException, SupportException
     {
         Object key = KeyFactory.createKey(new Object[] {type, ds, catalog, schema});
@@ -120,15 +122,18 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             Connection con = ds.getConnection();
             try {
                 try {
-                    jInfo = examine(mainInfo, con, catalog, schema, resolver, primaryKeyCheckDisabled);
+                    jInfo = examine
+                        (mainInfo, con, catalog, schema, resolver, primaryKeyCheckDisabled);
                     if (!jInfo.isSupported() && resolver != null &&
                         resolver.resolve(mainInfo, con, catalog, schema))
                     {
-                        jInfo = examine(mainInfo, con, catalog, schema, resolver, primaryKeyCheckDisabled);
+                        jInfo = examine
+                            (mainInfo, con, catalog, schema, resolver, primaryKeyCheckDisabled);
                     }
                 } catch (SupportException e) {
                     if (resolver != null && resolver.resolve(mainInfo, con, catalog, schema)) {
-                        jInfo = examine(mainInfo, con, catalog, schema, resolver, primaryKeyCheckDisabled);
+                        jInfo = examine
+                            (mainInfo, con, catalog, schema, resolver, primaryKeyCheckDisabled);
                     } else {
                         throw e;
                     }
@@ -146,9 +151,15 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             // Finish resolving join properties, after properties have been
             // added to cache. This makes it possible for joins to (directly or
             // indirectly) reference their own enclosing type.
-            for (JDBCStorableProperty<S> jProperty : jInfo.getAllProperties().values()) {
-                ((JProperty<S>) jProperty).fillInternalJoinElements(ds, catalog, schema, resolver);
-                ((JProperty<S>) jProperty).fillExternalJoinElements(ds, catalog, schema, resolver);
+            try {
+                for (JDBCStorableProperty<S> jProperty : jInfo.getAllProperties().values()) {
+                    JProperty<S> jp = (JProperty<S>) jProperty;
+                    jp.fillInternalJoinElements(ds, catalog, schema, resolver);
+                    jp.fillExternalJoinElements(ds, catalog, schema, resolver);
+                }
+            } catch (Throwable e) {
+                cCache.remove(key);
+                ThrowUnchecked.fire(e);
             }
 
             return jInfo;
@@ -304,7 +315,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
         for (StorableProperty<S> mainProperty : mainProperties.values()) {
             if (mainProperty.isDerived() || mainProperty.isJoin() || tableName == null) {
-                jProperties.put(mainProperty.getName(), new JProperty<S>(mainProperty, primaryKeyCheckDisabled));
+                jProperties.put(mainProperty.getName(),
+                                new JProperty<S>(mainProperty, primaryKeyCheckDisabled));
                 continue;
             }
 
@@ -395,7 +407,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 columnToProperty.put(jProperty.getColumnName(), jProperty.getName());
             } else {
                 if (mainProperty.isIndependent()) {
-                    jProperties.put(mainProperty.getName(), new JProperty<S>(mainProperty, primaryKeyCheckDisabled));
+                    jProperties.put(mainProperty.getName(),
+                                    new JProperty<S>(mainProperty, primaryKeyCheckDisabled));
                 } else if (!addedError) {
                     StringBuilder buf = new StringBuilder();
                     buf.append("Unable to find matching database column for property \"");
@@ -1501,7 +1514,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 return;
             }
 
-            JDBCStorableInfo<S> info = examine(getEnclosingType(), ds, catalog, schema, resolver, mPrimaryKeyCheckDisabled);
+            JDBCStorableInfo<S> info = examine
+                (getEnclosingType(), ds, catalog, schema, resolver, mPrimaryKeyCheckDisabled);
 
             JDBCStorableProperty<S>[] internal = new JDBCStorableProperty[mainInternal.length];
             for (int i=mainInternal.length; --i>=0; ) {
@@ -1520,7 +1534,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 return;
             }
 
-            JDBCStorableInfo<?> info = examine(getJoinedType(), ds, catalog, schema, resolver, mPrimaryKeyCheckDisabled);
+            JDBCStorableInfo<?> info = examine
+                (getJoinedType(), ds, catalog, schema, resolver, mPrimaryKeyCheckDisabled);
 
             JDBCStorableProperty<?>[] external = new JDBCStorableProperty[mainExternal.length];
             for (int i=mainExternal.length; --i>=0; ) {
