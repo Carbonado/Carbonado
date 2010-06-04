@@ -21,6 +21,9 @@ package com.amazon.carbonado.repo.jdbc;
 import java.sql.SQLException;
 
 import com.amazon.carbonado.ConstraintException;
+import com.amazon.carbonado.FetchDeadlockException;
+import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.PersistDeadlockException;
 import com.amazon.carbonado.PersistDeniedException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.UniqueConstraintException;
@@ -49,6 +52,12 @@ class JDBCExceptionTransformer extends ExceptionTransformer {
      * unique index or a unique constraint occurred"
      */
     public static String SQLSTATE_UNIQUE_CONSTRAINT_VIOLATION = "23505";
+
+    /**
+     * Five digit SQLSTATE code for "Deadlock or timeout with automatic
+     * rollback occurred"
+     */
+    public static String SQLSTATE_DEADLOCK_WITH_ROLLBACK = "40001";
 
     /**
      * Examines the SQLSTATE code of the given SQL exception and determines if
@@ -84,7 +93,32 @@ class JDBCExceptionTransformer extends ExceptionTransformer {
         return false;
     }
 
+    public boolean isDeadlockError(SQLException e) {
+        if (e != null) {
+            String sqlstate = e.getSQLState();
+            if (sqlstate != null) {
+                return sqlstate.startsWith(SQLSTATE_DEADLOCK_WITH_ROLLBACK);
+            }
+        }
+        return false;
+    }
+
     JDBCExceptionTransformer() {
+    }
+
+    @Override
+    protected FetchException transformIntoFetchException(Throwable e) {
+        FetchException fe = super.transformIntoFetchException(e);
+        if (fe != null) {
+            return fe;
+        }
+        if (e instanceof SQLException) {
+            SQLException se = (SQLException) e;
+            if (isDeadlockError(se)) {
+                return new FetchDeadlockException(e);
+            }
+        }
+        return null;
     }
 
     @Override
@@ -103,6 +137,9 @@ class JDBCExceptionTransformer extends ExceptionTransformer {
             }
             if (isInsufficientPrivilegesError(se)) {
                 return new PersistDeniedException(e);
+            }
+            if (isDeadlockError(se)) {
+                return new PersistDeadlockException(e);
             }
         }
         return null;

@@ -30,6 +30,8 @@ class OracleExceptionTransformer extends JDBCExceptionTransformer {
 
     public static int INSUFFICIENT_PRIVILEGES = 1031;
 
+    public static int DEADLOCK_DETECTED = 60;
+
     @Override
     public boolean isUniqueConstraintError(SQLException e) {
         if (isConstraintError(e)) {
@@ -46,6 +48,18 @@ class OracleExceptionTransformer extends JDBCExceptionTransformer {
         if (e != null) {
             int errorCode = e.getErrorCode();
             return INSUFFICIENT_PRIVILEGES == errorCode;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean isDeadlockError(SQLException e) {
+        if (super.isDeadlockError(e)) {
+            return true;
+        }
+        if (e != null) {
+            int errorCode = e.getErrorCode();
+            return DEADLOCK_DETECTED == errorCode;
         }
         return false;
     }
