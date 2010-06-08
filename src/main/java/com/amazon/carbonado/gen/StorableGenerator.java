@@ -966,9 +966,7 @@ public final class StorableGenerator<S extends Storable> {
                 // Note: Calling these methods does not affect any state bits.
                 // They are only intended to be used by subclasses during loading.
 
-                if (property.getAdapter() != null &&
-                    (!property.isDerived() || (property.getWriteMethod() != null)))
-                {
+                if (property.getAdapter() != null && !property.isDerived()) {
                     // End name with '$' to prevent any possible collisions.
                     String writeName = property.getWriteMethodName() + '$';
 
@@ -996,7 +994,9 @@ public final class StorableGenerator<S extends Storable> {
 
                         b.loadLocal(b.getParameter(0));
                         b.invoke(adaptMethod);
-                        storeProperty(b, property, type);
+                        // Always store to field directly, to prevent state
+                        // bits from changing.
+                        b.storeField(property.getName(), type);
 
                         b.returnVoid();
                     }
@@ -1991,7 +1991,12 @@ public final class StorableGenerator<S extends Storable> {
 
                 b.loadLocal(target);                  // [target
                 loadThisProperty(b, property, type);  // [target, this.propValue
-                storeProperty(b, property, type);
+                if (property.getWriteMethod() != null) {
+                    // Favor the write method, if it exists.
+                    b.invoke(property.getWriteMethod());
+                } else {
+                    b.storeField(property.getName(), type);
+                }
 
                 skipCopy.setLocation();
             }
@@ -2064,26 +2069,6 @@ public final class StorableGenerator<S extends Storable> {
             b.invoke(property.getReadMethod());
         } else {
             b.loadField(property.getName(), type);
-        }
-    }
-
-    /**
-     * Puts the value on the stack into the specified storable.  If a write
-     * method is defined, use it. Otherwise, just shove the value into the
-     * appropriate field.
-     *
-     * entry stack: [storable, value
-     * exit stack: [
-     *
-     * @param b - {@link CodeBuilder} to which to add the mutation code
-     * @param property - property to mutate
-     * @param type - type of the property
-     */
-    private void storeProperty(CodeBuilder b, StorableProperty property, TypeDesc type) {
-        if (property.getWriteMethod() == null && !property.isDerived()) {
-            b.storeField(property.getName(), type);
-        } else {
-            b.invoke(property.getWriteMethod());
         }
     }
 
