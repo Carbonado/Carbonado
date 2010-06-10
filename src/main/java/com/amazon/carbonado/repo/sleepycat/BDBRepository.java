@@ -705,16 +705,27 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
      * Called only if in backup mode. Old API is kept for backwards
      * compatibility.
      */
+    @Deprecated
     File[] backupFiles() throws Exception {
         return backupFiles(new long[1]);
     }
+
+    @Deprecated
+    File[] backupFiles(long[] newLastLogNum) throws Exception {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Called only if in backup mode.
+     */
+    abstract File[] backupDataFiles() throws Exception;
 
     /**
      * Called only if in backup mode.
      *
      * @param newLastLogNum reference to last log number at [0]
      */
-    abstract File[] backupFiles(long[] newLastLogNum) throws Exception;
+    abstract File[] backupLogFiles(long[] newLastLogNum) throws Exception;
 
     /**
      * Called only if in incremental backup mode.
@@ -959,7 +970,35 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         }
 
         @Override
+        @Deprecated
         public File[] getFiles() throws RepositoryException {
+            synchronized (mBackupLock) {
+                File[] data = getDataFiles();
+                File[] logs = getLogFiles();
+                File[] all = new File[data.length + logs.length];
+                System.arraycopy(data, 0, all, 0, data.length);
+                System.arraycopy(logs, 0, all, data.length, logs.length);
+                return all;
+            }
+        }
+        
+        @Override
+        public File[] getDataFiles() throws RepositoryException {
+            synchronized (mBackupLock) {
+                if (mDone) {
+                    throw new IllegalStateException("Backup has ended");
+                }
+                
+                try {
+                    return getDataBackupFiles();
+                } catch (Exception e) {
+                    throw mExTransformer.toRepositoryException(e);
+                }
+            }
+        }
+
+        @Override
+        public File[] getLogFiles() throws RepositoryException {
             synchronized (mBackupLock) {
                 if (mDone) {
                     throw new IllegalStateException("Backup has ended");
@@ -967,7 +1006,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
                 
                 try {
                     long[] newLastLogNum = {-1}; 
-                    File[] toReturn = getBackupFiles(newLastLogNum);
+                    File[] toReturn = getLogBackupFiles(newLastLogNum);
                     mFinalLogNumber = newLastLogNum[0];
                     return toReturn;
                 } catch (Exception e) {
@@ -975,7 +1014,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
                 }
             }
         }
-        
+
         @Override
         public long getLastLogNumber() throws RepositoryException {
             if (mFinalLogNumber < 0) {
@@ -987,7 +1026,9 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         
         abstract void finishBackup() throws RepositoryException;
 
-        abstract File[] getBackupFiles(long[] newLastLogNum) throws Exception;
+        abstract File[] getDataBackupFiles() throws Exception;
+
+        abstract File[] getLogBackupFiles(long[] newLastLogNum) throws Exception;
     }
 
     class IncrementalBackup extends AbstractBackup {
@@ -1010,7 +1051,12 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         }
         
         @Override
-        File[] getBackupFiles(long[] newLastLogNum) throws Exception {
+        File[] getDataBackupFiles() throws Exception {
+            return new File[0];
+        }
+
+        @Override
+        File[] getLogBackupFiles(long[] newLastLogNum) throws Exception {
             return incrementalBackup(mLastLogNumber, newLastLogNum);
         }
     }
@@ -1033,12 +1079,28 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         }
         
         @Override
-        File[] getBackupFiles(long[] newLastLogNum) throws Exception {
+        File[] getDataBackupFiles() throws Exception {
             try {
-                return backupFiles(newLastLogNum);
+                return backupDataFiles();
+            } catch (AbstractMethodError e) {
+                // Old API will be called for backwards compatibility in the
+                // getLogBackupFiles method.
+                return new File[0];
+            }
+        }
+
+        @Override
+        File[] getLogBackupFiles(long[] newLastLogNum) throws Exception {
+            try {
+                return backupLogFiles(newLastLogNum);
             } catch (AbstractMethodError e) {
                 // Call old API for backwards compatibility.
-                return backupFiles();
+                try {
+                    return backupFiles(newLastLogNum);
+                } catch (AbstractMethodError e2) {
+                    // Call even older API for backwards compatibility.
+                    return backupFiles();
+                }
             }
         }
     }

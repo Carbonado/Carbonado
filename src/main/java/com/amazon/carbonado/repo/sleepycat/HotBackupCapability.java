@@ -99,15 +99,28 @@ public interface HotBackupCapability extends Capability {
         void endBackup() throws RepositoryException;
 
         /**
-         * Returns all the files to be copied, in the exact order in which they
-         * must be copied.
-         *
-         * <p>These files must be durably copied prior to calling {@link #endBackup()}.
-         *
-         * @return ordered array of absolute files
-         * @throws IllegalStateException if backup has ended
+         * @deprecated use getDataFiles and getLogFiles
          */
+        @Deprecated
         File[] getFiles() throws RepositoryException;
+
+        /**
+         * Returns all the data files to be copied. After these files are
+         * durably copied, call {@link #getLogFiles()} and copy the log files
+         * which were created while the data files were copied.
+         *
+         * @return array of data files, which might be empty
+         */
+        File[] getDataFiles() throws RepositoryException;
+
+        /**
+         * Returns all the transaction log files to be copied, in the exact
+         * order in which they must be copied. After these files are durably
+         * copied, call {@link #endBackup()}.
+         *
+         * @return array of transaction log files, never empty
+         */
+        File[] getLogFiles() throws RepositoryException;
 
         /**
          * Can be called after a backup has been performed to find the last log file
