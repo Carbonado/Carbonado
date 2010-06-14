@@ -331,6 +331,14 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         }
     }
 
+    public void sync() throws PersistException {
+        try {
+            env_sync();
+        } catch (Exception e) {
+            throw toPersistException(e);
+        }
+    }
+
     public Repository getRootRepository() {
         return mRootRef.get();
     }
@@ -651,6 +659,11 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
      * Force a checkpoint to run.
      */
     abstract void env_checkpoint() throws Exception;
+
+    /**
+     * Synchronously flush changes to stable storage.
+     */
+    abstract void env_sync() throws Exception;
 
     /**
      * @param kBytes run checkpoint if at least this many kilobytes in log
