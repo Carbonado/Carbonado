@@ -518,12 +518,16 @@ public class Layout {
     }
 
     // Assumes caller is in a transaction.
-    void insert(int generation) throws PersistException {
+    void insert(boolean readOnly, int generation) throws PersistException {
         if (mAllProperties == null) {
             throw new IllegalStateException();
         }
 
         mStoredLayout.setGeneration(generation);
+
+        if (readOnly) {
+            return;
+        }
 
         try {
             mStoredLayout.insert();

@@ -102,6 +102,21 @@ public class LayoutFactory implements LayoutCapability {
     public Layout layoutFor(Class<? extends Storable> type, LayoutOptions options)
         throws FetchException, PersistException
     {
+        return layoutFor(false, type, options);
+    }
+
+    /**
+     * Returns the layout matching the current definition of the given type.
+     *
+     * @param readOnly if true, don't attempt to persist new generation because
+     * underlying repository is read-only
+     * @throws PersistException if type represents a new generation, but
+     * persisting this information failed
+     */
+    public Layout layoutFor(boolean readOnly,
+                            Class<? extends Storable> type, LayoutOptions options)
+        throws FetchException, PersistException
+    {
         if (options != null) {
             // Make side-effect consistently applied.
             options.readOnly();
@@ -132,7 +147,7 @@ public class LayoutFactory implements LayoutCapability {
                     txn = mRepository.enterTransaction(IsolationLevel.READ_COMMITTED);
                 }
 
-                txn.setForUpdate(true);
+                txn.setForUpdate(!readOnly);
                 try {
                     // If type represents a new generation, then a new layout needs to
                     // be inserted.
@@ -207,7 +222,7 @@ public class LayoutFactory implements LayoutCapability {
                         cursor.close();
                     }
 
-                    newLayout.insert(generation);
+                    newLayout.insert(readOnly, generation);
                     layout = newLayout;
 
                     txn.commit();
@@ -247,7 +262,7 @@ public class LayoutFactory implements LayoutCapability {
             }
         }
 
-        if (resyncCap != null) {
+        if (!readOnly && resyncCap != null) {
             // Make sure that all layout records are sync'd.
             try {
                 resyncCap.resync(StoredLayoutProperty.class, 1.0, null);

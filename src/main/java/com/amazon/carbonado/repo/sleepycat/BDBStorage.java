@@ -419,7 +419,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     {
         StorableInfo<S> info = StorableIntrospector.examine(getStorableType());
         StorableCodecFactory codecFactory = mRepository.getStorableCodecFactory();
-        final Layout layout = getLayout(codecFactory);
+        final Layout layout = getLayout(readOnly, codecFactory);
 
         // Open primary database.
         Object primaryDatabase;
@@ -766,7 +766,9 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
     }
 
-    Layout getLayout(StorableCodecFactory codecFactory) throws RepositoryException {
+    Layout getLayout(boolean readOnly, StorableCodecFactory codecFactory)
+        throws RepositoryException
+    {
         if (Unevolvable.class.isAssignableFrom(getStorableType())) {
             // Don't record generation for storables marked as unevolvable.
             return null;
@@ -782,7 +784,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         }
 
         Class<S> type = getStorableType();
-        return factory.layoutFor(type, codecFactory.getLayoutOptions(type));
+        return factory.layoutFor(readOnly, type, codecFactory.getLayoutOptions(type));
     }
 
     /**

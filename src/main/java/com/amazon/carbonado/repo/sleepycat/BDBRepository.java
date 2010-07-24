@@ -354,7 +354,7 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         throws FetchException, PersistException
     {
         try {
-            return ((BDBStorage) storageFor(type)).getLayout(mStorableCodecFactory);
+            return ((BDBStorage) storageFor(type)).getLayout(true, mStorableCodecFactory);
         } catch (PersistException e) {
             throw e;
         } catch (RepositoryException e) {
