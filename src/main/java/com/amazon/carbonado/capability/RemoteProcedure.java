@@ -32,7 +32,7 @@ import com.amazon.carbonado.RepositoryException;
  * serialized to the remote host, and possibly the class definition
  * too. Execution might have security restrictions applied.
  *
- * <p>The RemoteProcedure instance is Serializable, and so and serializable
+ * <p>The RemoteProcedure instance is Serializable, and so any serializable
  * parameters can be passed with it. Storables and extra data can be sent
  * through the {@link Request} object. Any data returned by procedure
  * implementation must be sent through the {@link Reply} object.
