@@ -32,7 +32,6 @@ import org.cojen.classfile.TypeDesc;
 import org.cojen.util.ClassInjector;
 import org.cojen.util.IntHashMap;
 import org.cojen.util.KeyFactory;
-import org.cojen.util.SoftValuedHashMap;
 import org.cojen.util.ThrowUnchecked;
 
 import com.amazon.carbonado.CorruptEncodingException;
@@ -55,6 +54,7 @@ import com.amazon.carbonado.gen.StorableGenerator;
 import com.amazon.carbonado.gen.TriggerSupport;
 
 import com.amazon.carbonado.util.QuickConstructorGenerator;
+import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
  * Generic codec that supports any kind of storable by auto-generating and
@@ -67,7 +67,7 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
     private static final String BLANK_KEY_FIELD_NAME = "blankKey$";
 
     // Maps GenericEncodingStrategy instances to Storable classes.
-    private static final Map cCache = new SoftValuedHashMap();
+    private static final SoftValuedCache cCache = SoftValuedCache.newCache(11);
 
     /**
      * Returns an instance of the codec. The Storable type itself may be an
@@ -291,10 +291,10 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
     }
 
     // Maps codec key and OrderedProperty[] keys to SearchKeyFactory instances.
-    private static final Map cCodecSearchKeyFactories = new SoftValuedHashMap();
+    private static final SoftValuedCache cCodecSearchKeyFactories = SoftValuedCache.newCache(11);
 
     // Maps codec key and layout generations to Decoders.
-    private static final Map cCodecDecoders = new SoftValuedHashMap();
+    private static final SoftValuedCache cCodecDecoders = SoftValuedCache.newCache(11);
 
     private final Object mCodecKey;
     private final GenericStorableCodecFactory mFactory;

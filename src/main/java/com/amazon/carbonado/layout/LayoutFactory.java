@@ -29,8 +29,6 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
 
-import org.cojen.util.SoftValuedHashMap;
-
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchDeadlockException;
 import com.amazon.carbonado.FetchException;
@@ -55,6 +53,8 @@ import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.info.StorablePropertyAdapter;
 import com.amazon.carbonado.info.StorablePropertyAnnotation;
 
+import com.amazon.carbonado.util.SoftValuedCache;
+
 /**
  * Factory for obtaining references to storable layouts.
  *
@@ -69,7 +69,7 @@ public class LayoutFactory implements LayoutCapability {
     final Storage<StoredLayout> mLayoutStorage;
     final Storage<StoredLayoutProperty> mPropertyStorage;
 
-    private Map<Class<? extends Storable>, Layout> mReconstructed;
+    private SoftValuedCache<Class<? extends Storable>, Layout> mReconstructed;
 
     /**
      * @throws com.amazon.carbonado.SupportException if underlying repository
@@ -339,7 +339,7 @@ public class LayoutFactory implements LayoutCapability {
         (Class<? extends Storable> reconstructed, Layout layout)
     {
         if (mReconstructed == null) {
-            mReconstructed = new SoftValuedHashMap();
+            mReconstructed = SoftValuedCache.newCache(7);
         }
         mReconstructed.put(reconstructed, layout);
     }

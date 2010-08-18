@@ -34,7 +34,6 @@ import org.cojen.classfile.Modifiers;
 import org.cojen.classfile.TypeDesc;
 
 import org.cojen.util.ClassInjector;
-import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.Storable;
 
@@ -44,6 +43,8 @@ import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.gen.CodeBuilderUtil;
+
+import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
  * 
@@ -82,10 +83,10 @@ class Key<S extends Storable> implements Comparable<Key<S>> {
         void setKeyValues(S storable, Object[] identityValues, Object rangeValue);
     }
 
-    private static final Map<Class, Assigner> mAssigners;
+    private static final SoftValuedCache<Class, Assigner> mAssigners;
 
     static {
-        mAssigners = new SoftValuedHashMap();
+        mAssigners = SoftValuedCache.newCache(11);
     }
 
     public static synchronized <S extends Storable> Assigner<S> getAssigner(Class<S> clazz) {

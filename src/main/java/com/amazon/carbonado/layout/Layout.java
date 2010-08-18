@@ -35,8 +35,6 @@ import org.joda.time.DateTime;
 
 import org.apache.commons.logging.LogFactory;
 
-import org.cojen.util.SoftValuedHashMap;
-
 import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
@@ -53,6 +51,7 @@ import com.amazon.carbonado.synthetic.SyntheticKey;
 import com.amazon.carbonado.synthetic.SyntheticProperty;
 import com.amazon.carbonado.synthetic.SyntheticStorableBuilder;
 import com.amazon.carbonado.util.AnnotationDescPrinter;
+import com.amazon.carbonado.util.SoftValuedCache;
 
 import com.amazon.carbonado.capability.ResyncCapability;
 
@@ -63,10 +62,10 @@ import com.amazon.carbonado.capability.ResyncCapability;
  * @see LayoutFactory
  */
 public class Layout {
-    private static Map<Long, Class<? extends Storable>> cReconstructed;
+    private static SoftValuedCache<Long, Class<? extends Storable>> cReconstructed;
 
     static {
-        cReconstructed = Collections.synchronizedMap(new SoftValuedHashMap());
+        cReconstructed = SoftValuedCache.newCache(7);
     }
 
     static Class<? extends Storable> reconstruct(final Layout layout, ClassLoader loader)

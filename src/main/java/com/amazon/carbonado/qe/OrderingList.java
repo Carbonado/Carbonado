@@ -31,13 +31,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.cojen.util.SoftValuedHashMap;
-
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.OrderedProperty;
 import com.amazon.carbonado.info.StorableIntrospector;
+
+import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
  * Produces unmodifiable lists of {@link OrderedProperty orderings}. Instances
@@ -53,10 +53,10 @@ public class OrderingList<S extends Storable> extends AbstractList<OrderedProper
 
     private static final OrderingList EMPTY_LIST = new OrderingList();
 
-    private static final Map<Class, OrderingList> cCache;
+    private static final SoftValuedCache<Class, OrderingList> cCache;
 
     static {
-        cCache = new SoftValuedHashMap();
+        cCache = SoftValuedCache.newCache(11);
     }
 
     /**

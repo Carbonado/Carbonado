@@ -29,11 +29,11 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.cojen.util.SoftValuedHashMap;
-
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
+
+import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
  * Basic implementation for {@link Storable#propertyMap} method.
@@ -41,8 +41,8 @@ import com.amazon.carbonado.info.StorableProperty;
  * @author Brian S O'Neill
  */
 public class StorablePropertyMap<S extends Storable> extends AbstractMap<String, Object> {
-    private static final Map<Class, Set<String>> cPropertyNamesForType =
-        new SoftValuedHashMap();
+    private static final SoftValuedCache<Class, Set<String>> cPropertyNamesForType =
+        SoftValuedCache.newCache(11);
 
     public static <S extends Storable> StorablePropertyMap<S> createMap(Class<S> type, S storable)
     {

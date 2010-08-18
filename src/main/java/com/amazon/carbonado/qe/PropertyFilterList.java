@@ -26,8 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.cojen.util.SoftValuedHashMap;
-
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.ExistsFilter;
@@ -37,6 +35,8 @@ import com.amazon.carbonado.filter.PropertyFilter;
 import com.amazon.carbonado.filter.RelOp;
 import com.amazon.carbonado.filter.Visitor;
 
+import com.amazon.carbonado.util.SoftValuedCache;
+
 /**
  * Produces unmodifable lists of PropertyFilters which were originally all
  * 'and'ed together. The filters are ordered such that all '=' operators are
@@ -45,10 +45,10 @@ import com.amazon.carbonado.filter.Visitor;
  * @author Brian S O'Neill
  */
 class PropertyFilterList<S extends Storable> extends AbstractList<PropertyFilter<S>> {
-    private static Map<Filter<?>, PropertyFilterList> cCache;
+    private static SoftValuedCache<Filter<?>, PropertyFilterList> cCache;
 
     static {
-        cCache = new SoftValuedHashMap();
+        cCache = SoftValuedCache.newCache(11);
     }
 
     /**

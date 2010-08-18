@@ -38,7 +38,6 @@ import org.cojen.classfile.Opcode;
 import org.cojen.classfile.TypeDesc;
 
 import org.cojen.util.ClassInjector;
-import org.cojen.util.SoftValuedHashMap;
 
 /**
  * General purpose type converter. Custom conversions are possible by supplying
@@ -50,7 +49,8 @@ import org.cojen.util.SoftValuedHashMap;
  * @since 1.2
  */
 public abstract class Converter {
-    private static final Map<Class, Class<? extends Converter>> cCache = new SoftValuedHashMap();
+    private static final SoftValuedCache<Class, Class<? extends Converter>> cCache =
+        SoftValuedCache.newCache(7);
 
     /**
      * @param converterType type of converter to generate

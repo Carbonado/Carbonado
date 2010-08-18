@@ -20,13 +20,14 @@ package com.amazon.carbonado.qe;
 
 import java.util.Map;
 
-import org.cojen.util.SoftValuedHashMap;
 import org.cojen.util.WeakIdentityMap;
 
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
+
+import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
  * QueryExecutors should be cached since expensive analysis is often required
@@ -38,7 +39,7 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
     private final QueryExecutorFactory<S> mFactory;
 
     // Maps filters to maps which map ordering lists (possibly with hints) to executors.
-    private final Map<Filter<S>, Map<Object, QueryExecutor<S>>> mFilterToExecutor;
+    private final Map<Filter<S>, SoftValuedCache<Object, QueryExecutor<S>>> mFilterToExecutor;
 
     public QueryExecutorCache(QueryExecutorFactory<S> factory) {
         if (factory == null) {
@@ -62,12 +63,12 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
     public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
         throws RepositoryException
     {
-        Map<Object, QueryExecutor<S>> map;
+        SoftValuedCache<Object, QueryExecutor<S>> cache;
         synchronized (mFilterToExecutor) {
-            map = mFilterToExecutor.get(filter);
-            if (map == null) {
-                map = new SoftValuedHashMap(7);
-                mFilterToExecutor.put(filter, map);
+            cache = mFilterToExecutor.get(filter);
+            if (cache == null) {
+                cache = SoftValuedCache.newCache(7);
+                mFilterToExecutor.put(filter, cache);
             }
         }
 
@@ -79,11 +80,11 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
         }
 
         QueryExecutor<S> executor;
-        synchronized (map) {
-            executor = map.get(key);
+        synchronized (cache) {
+            executor = cache.get(key);
             if (executor == null) {
                 executor = mFactory.executor(filter, ordering, hints);
-                map.put(key, executor);
+                cache.put(key, executor);
             }
         }
 

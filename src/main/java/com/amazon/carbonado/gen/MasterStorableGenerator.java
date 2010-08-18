@@ -38,7 +38,6 @@ import org.cojen.classfile.Opcode;
 import org.cojen.classfile.TypeDesc;
 import org.cojen.util.ClassInjector;
 import org.cojen.util.KeyFactory;
-import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.ConstraintException;
 import com.amazon.carbonado.IsolationLevel;
@@ -54,6 +53,8 @@ import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.sequence.SequenceValueProducer;
+
+import com.amazon.carbonado.util.SoftValuedCache;
 
 import static com.amazon.carbonado.gen.CommonMethodNames.*;
 
@@ -88,7 +89,8 @@ public final class MasterStorableGenerator<S extends Storable> {
     private static final String DELETE_OP = "Delete";
 
     // Cache of generated abstract classes.
-    private static Map<Object, Class<? extends Storable>> cCache = new SoftValuedHashMap();
+    private static SoftValuedCache<Object, Class<? extends Storable>> cCache =
+        SoftValuedCache.newCache(11);
 
     /**
      * Returns an abstract implementation of the given Storable type, which

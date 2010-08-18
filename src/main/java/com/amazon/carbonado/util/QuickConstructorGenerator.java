@@ -29,7 +29,6 @@ import org.cojen.classfile.CodeBuilder;
 import org.cojen.classfile.TypeDesc;
 import org.cojen.util.ClassInjector;
 import org.cojen.util.WeakIdentityMap;
-import org.cojen.util.SoftValuedHashMap;
 
 /**
  * Generates code to invoke constructors. This is a replacement for {@link
@@ -48,7 +47,7 @@ import org.cojen.util.SoftValuedHashMap;
 public class QuickConstructorGenerator {
     // Map<factory class, Map<object type, factory instance>>
     @SuppressWarnings("unchecked")
-    private static Map<Class<?>, Map<Class<?>, Object>> cCache = new WeakIdentityMap();
+    private static Map<Class<?>, SoftValuedCache<Class<?>, Object>> cCache = new WeakIdentityMap();
 
     /**
      * Returns a factory instance for one type of object. Each method in the
@@ -87,9 +86,9 @@ public class QuickConstructorGenerator {
      */
     @SuppressWarnings("unchecked")
     public static synchronized <F> F getInstance(Class<?> objectType, Class<F> factory) {
-        Map<Class<?>, Object> innerCache = cCache.get(factory);
+        SoftValuedCache<Class<?>, Object> innerCache = cCache.get(factory);
         if (innerCache == null) {
-            innerCache = new SoftValuedHashMap();
+            innerCache = SoftValuedCache.newCache(7);
             cCache.put(factory, innerCache);
         }
         F instance = (F) innerCache.get(objectType);

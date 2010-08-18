@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.List;
 
 import org.cojen.util.KeyFactory;
-import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
@@ -57,6 +56,8 @@ import com.amazon.carbonado.lob.Lob;
 
 import com.amazon.carbonado.sequence.SequenceValueGenerator;
 import com.amazon.carbonado.sequence.SequenceValueProducer;
+
+import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
  * Complete Lob support for repositories, although repository is responsible
@@ -88,7 +89,7 @@ public class LobEngine {
     final Storage<StoredLob.Block> mLobBlockStorage;
     final SequenceValueProducer mLocatorSequence;
 
-    private Map mTriggers;
+    private SoftValuedCache mTriggers;
 
     /**
      * @param lobRepo storage for Lobs - should not be replicated
@@ -460,7 +461,7 @@ public class LobEngine {
             }
 
             if (mTriggers == null) {
-                mTriggers = new SoftValuedHashMap();
+                mTriggers = SoftValuedCache.newCache(7);
             }
 
             mTriggers.put(key, trigger);

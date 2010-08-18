@@ -46,7 +46,6 @@ import org.apache.commons.logging.LogFactory;
 
 import org.cojen.classfile.TypeDesc;
 import org.cojen.util.KeyFactory;
-import org.cojen.util.SoftValuedHashMap;
 import org.cojen.util.ThrowUnchecked;
 
 import com.amazon.carbonado.capability.IndexInfo;
@@ -66,6 +65,8 @@ import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.info.StorablePropertyAdapter;
 import com.amazon.carbonado.info.StorablePropertyConstraint;
 
+import com.amazon.carbonado.util.SoftValuedCache;
+
 /**
  * Provides additional metadata for a {@link Storable} type needed by
  * JDBCRepository. The storable type must match to a table in an external
@@ -80,7 +81,8 @@ import com.amazon.carbonado.info.StorablePropertyConstraint;
 public class JDBCStorableIntrospector extends StorableIntrospector {
     // Maps compound keys to softly referenced JDBCStorableInfo objects.
     @SuppressWarnings("unchecked")
-    private static Map<Object, JDBCStorableInfo<?>> cCache = new SoftValuedHashMap();
+    private static SoftValuedCache<Object, JDBCStorableInfo<?>> cCache =
+        SoftValuedCache.newCache(11);
 
     /**
      * Examines the given class and returns a JDBCStorableInfo describing it. A

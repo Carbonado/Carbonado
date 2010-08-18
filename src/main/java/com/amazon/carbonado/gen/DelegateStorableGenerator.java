@@ -29,10 +29,11 @@ import org.cojen.classfile.TypeDesc;
 
 import org.cojen.util.ClassInjector;
 import org.cojen.util.KeyFactory;
-import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
+
+import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
  * Generates and caches concrete implementations of {@link Storable} types
@@ -43,10 +44,10 @@ import com.amazon.carbonado.SupportException;
  * @since 1.2
  */
 public class DelegateStorableGenerator<S extends Storable> {
-    private static final Map<Object, Class> cCache;
+    private static final SoftValuedCache<Object, Class> cCache;
 
     static {
-        cCache = new SoftValuedHashMap();
+        cCache = SoftValuedCache.newCache(11);
     }
 
     /**

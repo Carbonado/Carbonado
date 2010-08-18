@@ -43,7 +43,6 @@ import org.cojen.classfile.Opcode;
 import org.cojen.classfile.TypeDesc;
 import org.cojen.util.ClassInjector;
 import org.cojen.util.KeyFactory;
-import org.cojen.util.SoftValuedHashMap;
 
 import org.joda.time.ReadableInstant;
 
@@ -64,6 +63,8 @@ import com.amazon.carbonado.gen.MasterSupport;
 import com.amazon.carbonado.gen.StorableGenerator;
 import com.amazon.carbonado.gen.TriggerSupport;
 import static com.amazon.carbonado.gen.CommonMethodNames.*;
+
+import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
  * Generates concrete implementations of {@link Storable} types for
@@ -87,10 +88,10 @@ class JDBCStorableGenerator<S extends Storable> {
     private static final int INITIAL_VERSION = 2;
     private static final int INCREMENT_VERSION = 3;
 
-    private static final Map<Object, Class<? extends Storable>> cCache;
+    private static final SoftValuedCache<Object, Class<? extends Storable>> cCache;
 
     static {
-        cCache = new SoftValuedHashMap();
+        cCache = SoftValuedCache.newCache(11);
     }
 
     static <S extends Storable> Class<? extends S> getGeneratedClass(JDBCStorableInfo<S> info,

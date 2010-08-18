@@ -32,7 +32,6 @@ import org.cojen.classfile.Modifiers;
 import org.cojen.classfile.TypeDesc;
 
 import org.cojen.util.ClassInjector;
-import org.cojen.util.SoftValuedHashMap;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
@@ -52,6 +51,7 @@ import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.util.QuickConstructorGenerator;
+import com.amazon.carbonado.util.SoftValuedCache;
 
 import com.amazon.carbonado.gen.CodeBuilderUtil;
 
@@ -192,10 +192,10 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
     private static final String INNER_LOOP_FV_FIELD_NAME = "innerLoopFilterValues";
     private static final String ACTIVE_SOURCE_FIELD_NAME = "active";
 
-    private static final Map<StorableProperty, Class> cJoinerCursorClassCache;
+    private static final SoftValuedCache<StorableProperty, Class> cJoinerCursorClassCache;
 
     static {
-        cJoinerCursorClassCache = new SoftValuedHashMap();
+        cJoinerCursorClassCache = SoftValuedCache.newCache(11);
     }
 
     private static synchronized <S, T extends Storable> Joiner.Factory<S, T>

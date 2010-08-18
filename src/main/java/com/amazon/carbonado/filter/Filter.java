@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import org.cojen.util.SoftValuedHashMap;
 import org.cojen.util.WeakCanonicalSet;
 import org.cojen.util.WeakIdentityMap;
 
@@ -36,6 +35,7 @@ import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.StorableIntrospector;
 
 import com.amazon.carbonado.util.Appender;
+import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
  * An immutable tree structure representing a query result filter. Filters can
@@ -88,7 +88,7 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
      * @throws MalformedFilterException if filter expression is malformed
      */
     public static <S extends Storable> Filter<S> filterFor(Class<S> type, String expression) {
-        Map<Object, Filter<S>> filterCache = getFilterCache(type);
+        SoftValuedCache<Object, Filter<S>> filterCache = getFilterCache(type);
         synchronized (filterCache) {
             Filter<S> filter = filterCache.get(expression);
             if (filter == null) {
@@ -108,7 +108,7 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
      * @see OpenFilter
      */
     public static <S extends Storable> OpenFilter<S> getOpenFilter(Class<S> type) {
-        Map<Object, Filter<S>> filterCache = getFilterCache(type);
+        SoftValuedCache<Object, Filter<S>> filterCache = getFilterCache(type);
         synchronized (filterCache) {
             Filter<S> filter = filterCache.get(OPEN_KEY);
             if (filter == null) {
@@ -128,7 +128,7 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
      * @see ClosedFilter
      */
     public static <S extends Storable> ClosedFilter<S> getClosedFilter(Class<S> type) {
-        Map<Object, Filter<S>> filterCache = getFilterCache(type);
+        SoftValuedCache<Object, Filter<S>> filterCache = getFilterCache(type);
         synchronized (filterCache) {
             Filter<S> filter = filterCache.get(CLOSED_KEY);
             if (filter == null) {
@@ -140,11 +140,14 @@ public abstract class Filter<S extends Storable> implements Serializable, Append
     }
 
     @SuppressWarnings("unchecked")
-    private static <S extends Storable> Map<Object, Filter<S>> getFilterCache(Class<S> type) {
+    private static <S extends Storable> SoftValuedCache<Object, Filter<S>>
+        getFilterCache(Class<S> type)
+    {
         synchronized (cCache) {
-            Map<Object, Filter<S>> filterCache = (Map<Object, Filter<S>>) cCache.get(type);
+            SoftValuedCache<Object, Filter<S>> filterCache =
+                (SoftValuedCache<Object, Filter<S>>) cCache.get(type);
             if (filterCache == null) {
-                filterCache = new SoftValuedHashMap();
+                filterCache = SoftValuedCache.newCache(11);
                 cCache.put(type, filterCache);
             }
             return filterCache;

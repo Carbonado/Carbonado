@@ -31,6 +31,8 @@ import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 
+import com.amazon.carbonado.util.SoftValuedCache;
+
 /**
  * Builds and caches StandardQuery instances.
  *
@@ -40,7 +42,7 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
     private final Class<S> mType;
     private final boolean mLazySetExecutor;
 
-    private final Map<String, Query<S>> mStringToQuery;
+    private final SoftValuedCache<String, Query<S>> mStringToQuery;
 
     // Maps filters to maps which map ordering lists to queries.
     private final Map<Filter<S>, Map<OrderingList<S>, Query<S>>> mFilterToQuery;
@@ -59,7 +61,7 @@ public abstract class StandardQueryFactory<S extends Storable> implements QueryF
         }
         mType = type;
         mLazySetExecutor = lazySetExecutor;
-        mStringToQuery = new SoftValuedHashMap(7);
+        mStringToQuery = SoftValuedCache.newCache(7);
         mFilterToQuery = new WeakIdentityMap(7);
     }
 

@@ -36,7 +36,6 @@ import org.cojen.classfile.Modifiers;
 import org.cojen.classfile.TypeDesc;
 
 import org.cojen.util.ClassInjector;
-import org.cojen.util.SoftValuedHashMap;
 
 /**
  * Generic one-shot factory which supports late object creation. If the object
@@ -54,12 +53,12 @@ import org.cojen.util.SoftValuedHashMap;
 public abstract class BelatedCreator<T, E extends Exception> {
     private static final String REF_FIELD_NAME = "ref";
 
-    private static final Map<Class<?>, Class<?>> cWrapperCache;
+    private static final SoftValuedCache<Class<?>, Class<?>> cWrapperCache;
 
     private static final ExecutorService cThreadPool;
 
     static {
-        cWrapperCache = new SoftValuedHashMap();
+        cWrapperCache = SoftValuedCache.newCache(11);
         cThreadPool = Executors.newCachedThreadPool(new TFactory());
     }
 
