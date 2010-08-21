@@ -542,7 +542,17 @@ public class DataDecoder {
                 return srcOffset - originalOffset;
             }
 
-            char[] value = new char[valueLength];
+            char[] value;
+            try {
+                value = new char[valueLength];
+            } catch (NegativeArraySizeException e) {
+                throw new CorruptEncodingException
+                    ("Corrupt encoded string length (negative size): " + valueLength);
+            } catch (OutOfMemoryError e) {
+                throw new CorruptEncodingException
+                    ("Corrupt encoded string length (too large): " + valueLength, e);
+            }
+
             int valueOffset = 0;
 
             while (valueOffset < valueLength) {
