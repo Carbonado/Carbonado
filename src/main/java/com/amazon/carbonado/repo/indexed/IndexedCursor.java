@@ -141,7 +141,7 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
                                 }
                             }
                         });
-                    } catch (RepositoryException re) {
+                    } catch (Exception re) {
                         LogFactory.getLog(getClass()).error
                             ("Unable to inspect inconsistent index entry " +
                              indexEntry, re);
