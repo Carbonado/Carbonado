@@ -207,7 +207,18 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
 
     /** Assumes caller is in a transaction */
     boolean deleteIndexEntry(S userStorable) throws PersistException {
-        return makeIndexEntry(userStorable).tryDelete();
+        try {
+            return makeIndexEntry(userStorable).tryDelete();
+        } catch (PersistException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                // Can be caused by a corrupt master record, which is
+                // attempting do assign an illegal value to the index. There's
+                // no way to find the old index entry to delete.
+                return false;
+            }
+            throw e;
+        }
     }
 
     /** Assumes caller is in a transaction */
@@ -219,13 +230,26 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
     boolean updateIndexEntry(S userStorable, S oldUserStorable) throws PersistException {
         Storable newIndexEntry = makeIndexEntry(userStorable);
 
-        if (oldUserStorable != null) {
-            Storable oldIndexEntry = makeIndexEntry(oldUserStorable);
+        if (oldUserStorable != null) deleteOldEntry: {
+            Storable oldIndexEntry;
+            try {
+                oldIndexEntry = makeIndexEntry(oldUserStorable);
+            } catch (PersistException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof IllegalArgumentException) {
+                    // Can be caused by a corrupt master record, which is
+                    // attempting do assign an illegal value to the index. There's
+                    // no way to find the old index entry to delete.
+                    break deleteOldEntry;
+                }
+                throw e;
+            }
+
             if (oldIndexEntry.equalPrimaryKeys(newIndexEntry)) {
-                // Index entry didn't change, so nothing to do. If the
-                // index entry has a version, it will lag behind the
-                // master's version until the index entry changes, at which
-                // point the version will again match the master.
+                // Index entry didn't change, so nothing to do. If the index
+                // entry has a version, it will lag behind the master's version
+                // until the index entry changes, at which point the version
+                // will again match the master.
                 return true;
             }
 

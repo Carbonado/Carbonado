@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.repo.replicated;
 
+import java.util.Map;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -343,7 +345,28 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         // properties. Be sure not to copy nulls from old replica to new
         // replica, in case new non-nullable properties have been added. This
         // is why copyUnequalProperties is called instead of copyAllProperties.
-        replicaEntry.copyUnequalProperties(newReplicaEntry);
+        try {
+            replicaEntry.copyUnequalProperties(newReplicaEntry);
+        } catch (IllegalArgumentException e) {
+            // Some property cannot be copied, so copy one at a time and skip
+            // the broken one.
+            Map<String,Object> propertyMap = replicaEntry.propertyMap();
+            for (Map.Entry<String, Object> entry : propertyMap.entrySet()) {
+                String name = entry.getKey();
+                Object oldValue = entry.getValue();
+                try {
+                    Object newValue = newReplicaEntry.getPropertyValue(name);
+                    if (oldValue == null ? newValue != null : !oldValue.equals(newValue)) {
+                        newReplicaEntry.setPropertyValue(name, oldValue);
+                    }
+                } catch (IllegalArgumentException e2) {
+                    // Skip it.
+                } catch (UnsupportedOperationException e2) {
+                    // Skip it.
+                }
+            }
+        }
+
         // Calling copyAllProperties will skip unsupported independent
         // properties in master, thus preserving old independent property values.
         masterEntry.copyAllProperties(newReplicaEntry);
