@@ -274,11 +274,11 @@ class WhereBuilder<S extends Storable> extends Visitor<S, FetchException, Object
                 if (i > 0) {
                     mStatementBuilder.append(" AND ");
                 }
-                mStatementBuilder.append(oneToManyNode.getAlias());
+                mStatementBuilder.append(alias);
                 mStatementBuilder.append('.');
                 mStatementBuilder.append(oneToMany.getInternalJoinElement(i).getColumnName());
                 mStatementBuilder.append('=');
-                mStatementBuilder.append(alias);
+                mStatementBuilder.append(oneToManyNode.getAlias());
                 mStatementBuilder.append('.');
                 mStatementBuilder.append(oneToMany.getExternalJoinElement(i).getColumnName());
             }
