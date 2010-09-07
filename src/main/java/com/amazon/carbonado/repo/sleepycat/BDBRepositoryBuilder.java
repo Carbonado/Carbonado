@@ -74,7 +74,7 @@ import com.amazon.carbonado.ConfigurationException;
  * @author Vidya Iyer
  * @author Nicole Deflaux
  */
-public class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
+public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
 
     private static final BDBProduct DEFAULT_PRODUCT = BDBProduct.JE;
 
