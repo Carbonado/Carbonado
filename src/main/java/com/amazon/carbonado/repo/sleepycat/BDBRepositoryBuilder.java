@@ -103,6 +103,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private boolean mMultiversion;
     private boolean mLogInMemory;
     private Integer mLogFileMaxSize;
+    private boolean mInitializeLogging;
     private boolean mRunFullRecovery;
     private boolean mRunCheckpointer = true;
     private int mCheckpointInterval = DEFAULT_CHECKPOINT_INTERVAL;
@@ -649,6 +650,18 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public Integer getLogFileMaxSize() {
         return mLogFileMaxSize;
+    }
+
+    /**
+     * Ensure the transaction logging sub-system is initialized, which is
+     * usually implied.
+     */
+    public void setInitializeLogging(boolean b) {
+        mInitializeLogging = b;
+    }
+
+    public boolean getInitializeLogging() {
+        return mInitializeLogging;
     }
 
     /**
