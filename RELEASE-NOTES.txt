@@ -1,4 +1,4 @@
-Carbonado version 1.2.1
+Carbonado version 1.2.2
 -----------------------
 
 Carbonado is an extensible, high performance persistence abstraction layer for
@@ -10,6 +10,12 @@ http://carbonado.sourceforge.net/
 
 Carbonado change history
 ------------------------
+
+1.2.1 to 1.2.2
+-------------------------------
+- Added remote access support including remote procedures.
+- Minor features including new PartitionKey annotation.
+- Bug fixes and deprecations.
 
 1.2 to 1.2.1
 -------------------------------
