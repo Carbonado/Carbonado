@@ -32,6 +32,7 @@ import java.util.Map;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchDeadlockException;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.FetchInterruptedException;
 import com.amazon.carbonado.FetchNoneException;
 import com.amazon.carbonado.FetchTimeoutException;
 import com.amazon.carbonado.IsolationLevel;
@@ -113,8 +114,8 @@ public class LayoutFactory implements LayoutCapability {
      * @throws PersistException if type represents a new generation, but
      * persisting this information failed
      */
-    public Layout layoutFor(boolean readOnly,
-                            Class<? extends Storable> type, LayoutOptions options)
+    public Layout layoutFor(final boolean readOnly,
+                            final Class<? extends Storable> type, final LayoutOptions options)
         throws FetchException, PersistException
     {
         if (options != null) {
@@ -131,8 +132,62 @@ public class LayoutFactory implements LayoutCapability {
             }
         }
 
-        StorableInfo<?> info = StorableIntrospector.examine(type);
+        final StorableInfo<?> info = StorableIntrospector.examine(type);
 
+        // Launch layout request in a new separate thread to ensure that
+        // transaction is top-level.
+
+        class LayoutRequest extends Thread {
+            private boolean done;
+            private Layout layout;
+            private FetchException fetchEx;
+            private PersistException persistEx;
+
+            public synchronized void run() {
+                try {
+                    try {
+                        layout = layoutFor(readOnly, info, options);
+                    } catch (FetchException e) {
+                        fetchEx = e;
+                    } catch (PersistException e) {
+                        persistEx = e;
+                    }
+                } finally {
+                    done = true;
+                    notifyAll();
+                }
+            }
+
+            synchronized Layout getLayout()
+                throws FetchException, PersistException, InterruptedException
+            {
+                while (!done) {
+                    wait();
+                }
+                if (fetchEx != null) {
+                    throw fetchEx;
+                }
+                if (persistEx != null) {
+                    throw persistEx;
+                }
+                return layout;
+            }
+        }
+
+        LayoutRequest request = new LayoutRequest();
+        request.setDaemon(true);
+        request.start();
+
+        try {
+            return request.getLayout();
+        } catch (InterruptedException e) {
+            throw new FetchInterruptedException();
+        }
+    }
+
+    private Layout layoutFor(boolean readOnly, StorableInfo<?> info, LayoutOptions options)
+        throws FetchException, PersistException
+    {
         Layout layout;
         ResyncCapability resyncCap = null;
 
@@ -192,7 +247,7 @@ public class LayoutFactory implements LayoutCapability {
                             // extremely rare, unless there is a bug somewhere.
                             throw new FetchException
                                 ("Unable to generate unique layout identifier for " +
-                                 type.getName());
+                                 info.getName());
                         }
                     }
 
