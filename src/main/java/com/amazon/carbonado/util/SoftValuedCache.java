@@ -128,6 +128,17 @@ public abstract class SoftValuedCache<K, V> {
     private static class Impl<K, V> extends SoftValuedCache<K, V> {
         private static final float LOAD_FACTOR = 0.75f;
 
+        final static Evictor cEvictor;
+
+        static {
+            Evictor evictor = new Evictor();
+            evictor.setName("SoftValuedCache Evictor");
+            evictor.setDaemon(true);
+            evictor.setPriority(Thread.MAX_PRIORITY);
+            evictor.start();
+            cEvictor = evictor;
+        }
+
         private Entry<K, V>[] mEntries;
         private int mSize;
         private int mThreshold;
@@ -400,20 +411,9 @@ public abstract class SoftValuedCache<K, V> {
         }
     }
 
-    final static Evictor cEvictor;
-
-    static {
-        Evictor evictor = new Evictor();
-        evictor.setName("SoftValuedCache Evictor");
-        evictor.setDaemon(true);
-        evictor.setPriority(Thread.MAX_PRIORITY);
-        evictor.start();
-        cEvictor = evictor;
-    }
-
     private static abstract class Ref<T> extends SoftReference<T> {
         Ref(T referent) {
-            super(referent, cEvictor.mQueue);
+            super(referent, Impl.cEvictor.mQueue);
         }
 
         abstract void remove();
