@@ -27,13 +27,17 @@ import java.lang.ref.SoftReference;
  * thread. Cache permits null keys, but not null values.
  *
  * @author Brian S O'Neill
+ * @deprecated use Cojen {@link org.cojen.util.Cache} interface
  */
+@Deprecated
 public abstract class SoftValuedCache<K, V> {
-    // Design note: Public class is abstract to make it easy to swap out this
-    // implementation with something available in a shared collection library.
-
     public static <K, V> SoftValuedCache<K, V> newCache(int capacity) {
-        return new Impl<K, V>(capacity);
+        try {
+            return new Wrapper<K, V>(capacity);
+        } catch (NoClassDefFoundError e) {
+            // Use older implementation for compatibility.
+            return new Impl<K, V>(capacity);
+        }
     }
 
     public abstract int size();
@@ -57,6 +61,69 @@ public abstract class SoftValuedCache<K, V> {
     public abstract void clear();
 
     public abstract String toString();
+
+    private static class Wrapper<K, V> extends SoftValuedCache<K, V> {
+        private final org.cojen.util.Cache<K, V> mCache;
+
+        Wrapper(int capacity) {
+            mCache = new org.cojen.util.SoftValueCache<K, V>(capacity);
+        }
+
+        @Override
+        public int size() {
+            return mCache.size();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return mCache.isEmpty();
+        }
+
+        @Override
+        public V get(K key) {
+            return mCache.get(key);
+        }
+
+        @Override
+        public V put(K key, V value) {
+            return mCache.put(key, value);
+        }
+
+        @Override
+        public V putIfAbsent(K key, V value) {
+            return mCache.putIfAbsent(key, value);
+        }
+
+        @Override
+        public V remove(K key) {
+            return mCache.remove(key);
+        }
+
+        @Override
+        public boolean remove(K key, V value) {
+            return mCache.remove(key, value);
+        }
+
+        @Override
+        public boolean replace(K key, V oldValue, V newValue) {
+            return mCache.replace(key, oldValue, newValue);
+        }
+
+        @Override
+        public V replace(K key, V value) {
+            return mCache.replace(key, value);
+        }
+
+        @Override
+        public void clear() {
+            mCache.clear();
+        }
+
+        @Override
+        public String toString() {
+            return mCache.toString();
+        }
+    }
 
     private static class Impl<K, V> extends SoftValuedCache<K, V> {
         private static final float LOAD_FACTOR = 0.75f;

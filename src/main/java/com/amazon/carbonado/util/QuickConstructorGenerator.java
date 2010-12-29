@@ -43,7 +43,9 @@ import org.cojen.util.WeakIdentityMap;
  * but the actual object type is not.
  *
  * @author Brian S O'Neill
+ * @deprecated use {@link org.cojen.util.QuickConstructorGenerator}
  */
+@Deprecated
 public class QuickConstructorGenerator {
     // Map<factory class, Map<object type, factory instance>>
     @SuppressWarnings("unchecked")
@@ -86,6 +88,12 @@ public class QuickConstructorGenerator {
      */
     @SuppressWarnings("unchecked")
     public static synchronized <F> F getInstance(Class<?> objectType, Class<F> factory) {
+        try {
+            return org.cojen.util.QuickConstructorGenerator.getInstance(objectType, factory);
+        } catch (NoClassDefFoundError e) {
+            // Use older code instead.
+        }
+
         SoftValuedCache<Class<?>, Object> innerCache = cCache.get(factory);
         if (innerCache == null) {
             innerCache = SoftValuedCache.newCache(7);
