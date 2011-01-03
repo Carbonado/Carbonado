@@ -18,6 +18,12 @@
 
 package com.amazon.carbonado;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+
+import com.amazon.carbonado.repo.map.MapRepositoryBuilder;
+
 /**
  * A CorruptEncodingException is caused when decoding an encoded record fails.
  *
@@ -25,7 +31,7 @@ package com.amazon.carbonado;
  */
 public class CorruptEncodingException extends FetchException {
 
-    private static final long serialVersionUID = 4543503149683482362L;
+    private static final long serialVersionUID = 2L;
 
     private transient Storable mStorable;
 
@@ -66,8 +72,10 @@ public class CorruptEncodingException extends FetchException {
     }
 
     /**
-     * If the decoder was able to extract the primary key, it will be available
-     * in the returned Storable.
+     * If the decoder was able to extract the primary key, it will be available in the
+     * returned Storable. If this exception was re-constructed through serialization, then
+     * the Storable is as well. As a result, it won't be bound to any Repository and
+     * updating it will have no effect.
      *
      * @return partial Storable with primary key defined, or null if unable to
      * decode the key
@@ -85,5 +93,37 @@ public class CorruptEncodingException extends FetchException {
         }
 
         return message;
+    }
+
+    // Serialization of corrupt Storable assumes that primary key endoding of client and
+    // server is identical. Linking into the actual repository is a bit trickier.
+
+    private void writeObject(ObjectOutputStream out) throws IOException {
+        Storable s = mStorable;
+        if (s == null) {
+            out.write(0);
+        } else {
+            out.write(1);
+            out.writeObject(s.storableType());
+            try {
+                s.writeTo(out);
+            } catch (SupportException e) {
+                throw new IOException(e);
+            }
+        }
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        int h = in.read();
+        if (h == 1) {
+            try {
+                Class<? extends Storable> type = (Class) in.readObject();
+                Storable s = MapRepositoryBuilder.newRepository().storageFor(type).prepare();
+                s.readFrom(in);
+                mStorable = s;
+            } catch (RepositoryException e) {
+                throw new IOException(e);
+            }
+        }
     }
 }
