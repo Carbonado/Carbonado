@@ -29,6 +29,8 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
 
+import org.apache.commons.logging.LogFactory;
+
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchDeadlockException;
 import com.amazon.carbonado.FetchException;
@@ -165,10 +167,12 @@ public class LayoutFactory implements LayoutCapability {
                     wait();
                 }
                 if (fetchEx != null) {
-                    throw fetchEx;
+                    // Wrap to get complete stack trace.
+                    throw new FetchException(fetchEx);
                 }
                 if (persistEx != null) {
-                    throw persistEx;
+                    // Wrap to get complete stack trace.
+                    throw new PersistException(persistEx);
                 }
                 return layout;
             }
@@ -269,8 +273,9 @@ public class LayoutFactory implements LayoutCapability {
                         .orderBy("-generation")
                         .fetch();
 
+                    boolean newGen;
                     try {
-                        if (cursor.hasNext()) {
+                        if (newGen = cursor.hasNext()) {
                             generation = cursor.next().getGeneration() + 1;
                         }
                     } finally {
@@ -279,6 +284,11 @@ public class LayoutFactory implements LayoutCapability {
 
                     newLayout.insert(readOnly, generation);
                     layout = newLayout;
+
+                    if (newGen) {
+                        LogFactory.getLog(getClass())
+                            .debug("New schema layout inserted: " + layout);
+                    }
 
                     txn.commit();
                 } finally {
