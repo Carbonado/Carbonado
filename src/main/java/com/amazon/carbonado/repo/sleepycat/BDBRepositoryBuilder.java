@@ -98,6 +98,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private boolean mTxnNoSync;
     private boolean mTxnWriteNoSync;
     private Boolean mDatabasesTransactional = null;
+    private boolean mReverseSplitOff;
     private Map<Class<?>, Integer> mDatabasePageSizes;
     private boolean mPrivate;
     private boolean mMultiversion;
@@ -568,6 +569,18 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public Boolean getDatabasesTransactional() {
         return mDatabasesTransactional;
+    }
+
+    /**
+     * Pass true to disable reverse split of B-tree nodes to reduce deadlocks.
+     * This setting has no effect for BDB-JE.
+     */
+    public void setReverseSplitOff(boolean off) {
+        mReverseSplitOff = off;
+    }
+
+    public boolean isReverseSplitOff() {
+        return mReverseSplitOff;
     }
 
     /**
