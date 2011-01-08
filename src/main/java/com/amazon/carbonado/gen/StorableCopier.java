@@ -184,7 +184,23 @@ public abstract class StorableCopier<S extends Storable, T extends Storable> {
             mWrapperInfo = StorableIntrospector.examine(wrapper);
             mDelegateInfo = StorableIntrospector.examine(delegate);
 
-            mClassInjector = ClassInjector.create(wrapper.getName(), wrapper.getClassLoader());
+            ClassLoader loader = wrapper.getClassLoader();
+            try {
+                loader.loadClass(delegate.getName());
+            } catch (ClassNotFoundException e) {
+                loader = delegate.getClassLoader();
+                try {
+                    loader.loadClass(wrapper.getName());
+                } catch (ClassNotFoundException e2) {
+                    // This could be fixed by creating an intermediate class loader, but
+                    // other issues might crop up.
+                    throw new IllegalStateException
+                        ("Unable for find common class loader for source and target types: " +
+                         wrapper.getClass() + ", " + delegate.getClass());
+                }
+            }
+
+            mClassInjector = ClassInjector.create(wrapper.getName(), loader);
 
             mClassFile = CodeBuilderUtil.createStorableClassFile
                 (mClassInjector, mWrapperInfo.getStorableType(),
@@ -192,9 +208,7 @@ public abstract class StorableCopier<S extends Storable, T extends Storable> {
         }
 
         Constructor<? extends W> generate() {
-            TypeDesc wrapperType = TypeDesc.forClass(mWrapperInfo.getStorableType());
             TypeDesc delegateType = TypeDesc.forClass(mDelegateInfo.getStorableType());
-            TypeDesc classType = TypeDesc.forClass(Class.class);
 
             mClassFile.addField(Modifiers.PRIVATE.toFinal(true), "delegate", delegateType);
 
