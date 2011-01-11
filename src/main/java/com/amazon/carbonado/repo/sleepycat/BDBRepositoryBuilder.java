@@ -97,6 +97,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private double mTxnTimeout = 300.0;
     private boolean mTxnNoSync;
     private boolean mTxnWriteNoSync;
+    private Integer mTxnMaxActive;
     private Boolean mDatabasesTransactional = null;
     private boolean mReverseSplitOff;
     private Map<Class<?>, Integer> mDatabasePageSizes;
@@ -552,6 +553,22 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public boolean getTransactionWriteNoSync() {
         return mTxnWriteNoSync;
+    }
+
+    /**
+     * Set the maximum number of concurrent transactions, or pass null to use
+     * the default. This setting has no effect for BDB-JE.
+     */
+    public void setTransactionMaxActive(Integer max) {
+        mTxnMaxActive = max;
+    }
+
+    /**
+     * Returns the maximum number of concurrent transactions, or null if the
+     * default is used.
+     */
+    public Integer getTransactionMaxActive() {
+        return mTxnMaxActive;
     }
 
     /**
