@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -673,7 +674,7 @@ class JDBCStorableGenerator<S extends Storable> {
                 mInfo.getIdentityProperties().values();
 
             LocalVariable psVar = b.createLocalVariable("ps", preparedStatementType);
-            if (identityProperties.size() == 0) {
+            if (identityProperties.isEmpty()) {
                 b.invokeInterface(connectionType, "prepareStatement", preparedStatementType,
                                   new TypeDesc[] {TypeDesc.STRING});
             } else {
@@ -1388,7 +1389,7 @@ class JDBCStorableGenerator<S extends Storable> {
         // Push connection in preparation for preparing a statement.
         b.loadLocal(conVar);
 
-        if (nullableProperties.size() == 0) {
+        if (nullableProperties.isEmpty()) {
             b.loadConstant(sqlBuilder.toString());
 
             // Determine at runtime if SELECT should be " FOR UPDATE".
@@ -1493,62 +1494,66 @@ class JDBCStorableGenerator<S extends Storable> {
         b.storeLocal(psVar);
         Label tryAfterPs = b.createLabel().setLocation();
 
-        // Now set where clause parameters.
-        Label nextProperty = null;
-        LocalVariable indexVar = null;
+        // Now set where clause parameters. First pass, set non-nullable properties.
         ordinal = 0;
         for (JDBCStorableProperty property : properties) {
-            if (!property.isSelectable()) {
+            if (!property.isSelectable() || property.isNullable()) {
                 continue;
             }
+            ordinal++;
+            b.loadLocal(psVar);
+            b.loadConstant(ordinal);
+            setPreparedStatementValue(b, property, NOT_NULL, instanceVar, null, null);
+        }
 
-            if (indexVar == null) {
-                ordinal++;
+        // Now set nullable properties.
+        if (!nullableProperties.isEmpty()) {
+            ordinal++;
+            LocalVariable indexVar;
+            if (nullableProperties.size() == 1) {
+                indexVar = null;
             } else {
-                b.integerIncrement(indexVar, 1);
+                indexVar = b.createLocalVariable(null, TypeDesc.INT);
+                b.loadConstant(ordinal);
+                b.storeLocal(indexVar);
             }
 
-            if (nextProperty != null) {
-                nextProperty.setLocation();
-                nextProperty = null;
-            }
+            Iterator<JDBCStorableProperty> it = nullableProperties.iterator();
+            while (true) {
+                JDBCStorableProperty property = it.next();
 
-            nextProperty = b.createLabel();
-
-            final TypeDesc propertyType = TypeDesc.forClass(property.getType());
-
-            if (property.isNullable()) {
                 // Nullable properties are dynamically added to where clause,
                 // and are at the end of the prepared statement. If value is
                 // null, then skip to the next property, since the statement
                 // was appended earlier with "IS NULL".
 
-                // Cannot use constant parameter index anymore.
-                if (indexVar == null) {
-                    indexVar = b.createLocalVariable(null, TypeDesc.INT);
-                    b.loadConstant(ordinal);
-                    b.storeLocal(indexVar);
-                }
+                TypeDesc propertyType = TypeDesc.forClass(property.getType());
 
                 b.loadThis();
                 // FIXME: Does not consider property adapter
                 b.loadField(superType, property.getName(), propertyType);
+                Label nextProperty = b.createLabel();
                 b.ifNullBranch(nextProperty, true);
+
+                b.loadLocal(psVar);
+                if (indexVar == null) {
+                    b.loadConstant(ordinal);
+                } else {
+                    b.loadLocal(indexVar);
+                }
+
+                setPreparedStatementValue(b, property, NOT_NULL, instanceVar, null, null);
+
+                if (it.hasNext()) {
+                    if (indexVar != null) {
+                        b.integerIncrement(indexVar, 1);
+                    }
+                    nextProperty.setLocation();
+                } else {
+                    nextProperty.setLocation();
+                    break;
+                }
             }
-
-            b.loadLocal(psVar);
-            if (indexVar == null) {
-                b.loadConstant(ordinal);
-            } else {
-                b.loadLocal(indexVar);
-            }
-
-            setPreparedStatementValue(b, property, NOT_NULL, instanceVar, null, null);
-        }
-
-        if (nextProperty != null) {
-            nextProperty.setLocation();
-            nextProperty = null;
         }
 
         return tryAfterPs;
