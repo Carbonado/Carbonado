@@ -143,4 +143,20 @@ public interface Transaction {
      * @since 1.2
      */
     void attach();
+
+    /**
+     * Calling this method commits all nested child transactions, closes all
+     * scoped cursors, and locks out some interactions from other threads. The
+     * commit method must still be called to finish the commit. Most applications
+     * have no use for pre-commit and should only ever call commit.
+     *
+     * <p>The intent of this method is to complete as many operations as
+     * possible leading up to the actual commit. If pre-commit succeeds, then
+     * commit will most likely succeed as well. While in a pre-commit state, the
+     * transaction can still be used by the current thread. Calling pre-commit
+     * again ensures that child transactions and cursors are closed.
+     *
+     * @return false if transaction has exited
+     */
+    boolean preCommit() throws PersistException;
 }

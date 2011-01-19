@@ -330,6 +330,8 @@ public class TransactionScope<Txn> {
     }
 
     private static class TransactionImpl<Txn> implements Transaction {
+        private static final int READY = 0, PRE_COMMITED = 1, EXITED = 2;
+
         private final TransactionScope<Txn> mScope;
         private final TransactionImpl<Txn> mParent;
         private final boolean mTop;
@@ -340,7 +342,7 @@ public class TransactionScope<Txn> {
         private TimeUnit mTimeoutUnit;
 
         private TransactionImpl<Txn> mChild;
-        private boolean mExited;
+        private int mState;
         private Txn mTxn;
 
         // Tracks all registered cursors.
@@ -361,36 +363,77 @@ public class TransactionScope<Txn> {
             }
         }
 
+        public boolean preCommit() throws PersistException {
+            mScope.mLock.lock();
+
+            switch (mState) {
+            case EXITED:
+                mScope.mLock.unlock();
+                return false;
+
+            case PRE_COMMITED:
+                // Release extra lock, and then fallthrough to next case.
+                mScope.mLock.unlock();
+
+            case READY: default:
+                // Perform pre-commit actions and return with lock held.
+                try {
+                    if (mChild != null) {
+                        mChild.commit();
+                    }
+                    closeCursors();
+                    mState = PRE_COMMITED;
+                    return true;
+                } catch (Throwable e) {
+                    // Restore state if any exception.
+                    mState = READY;
+                    mScope.mLock.unlock();
+                    throw ExceptionTransformer.getInstance().toPersistException(e);
+                }
+            }
+        }
+
         public void commit() throws PersistException {
             TransactionScope<Txn> scope = mScope;
             scope.mLock.lock();
             try {
-                if (!mExited) {
+                switch (mState) {
+                case EXITED:
+                    return;
+
+                case PRE_COMMITED:
+                    // Restore state and release extra lock.
+                    mState = READY;
+                    scope.mLock.unlock();
+                    break;
+
+                case READY: default:
+                    // Perform pre-commit actions.
                     if (mChild != null) {
                         mChild.commit();
                     }
-
                     closeCursors();
+                    break;
+                }
 
-                    if (mTxn != null) {
-                        if (mParent == null || mParent.mTxn != mTxn) {
-                            try {
-                                if (!scope.mTxnMgr.commitTxn(mTxn)) {
-                                    mTxn = null;
-                                }
-                            } catch (Throwable e) {
-                                try {
-                                    scope.mTxnMgr.abortTxn(mTxn);
-                                } catch (Throwable e2) {
-                                    // Ignore. At least we tried to clean up.
-                                }
+                if (mTxn != null) {
+                    if (mParent == null || mParent.mTxn != mTxn) {
+                        try {
+                            if (!scope.mTxnMgr.commitTxn(mTxn)) {
                                 mTxn = null;
-                                throw ExceptionTransformer.getInstance().toPersistException(e);
                             }
-                        } else {
-                            // Indicate fake nested transaction committed.
+                        } catch (Throwable e) {
+                            try {
+                                scope.mTxnMgr.abortTxn(mTxn);
+                            } catch (Throwable e2) {
+                                // Ignore. At least we tried to clean up.
+                            }
                             mTxn = null;
+                            throw ExceptionTransformer.getInstance().toPersistException(e);
                         }
+                    } else {
+                        // Indicate fake nested transaction committed.
+                        mTxn = null;
                     }
                 }
             } finally {
@@ -402,48 +445,59 @@ public class TransactionScope<Txn> {
             TransactionScope<Txn> scope = mScope;
             scope.mLock.lock();
             try {
-                if (!mExited) {
-                    Exception exception = null;
-                    try {
-                        if (mChild != null) {
-                            try {
-                                mChild.exit();
-                            } catch (Exception e) {
-                                if (exception == null) {
-                                    exception = e;
-                                }
-                            }
-                        }
+                switch (mState) {
+                case EXITED:
+                    return;
 
+                case PRE_COMMITED:
+                    // Release extra lock.
+                    scope.mLock.unlock();
+                    break;
+
+                case READY: default:
+                    break;
+                }
+
+                Exception exception = null;
+                try {
+                    if (mChild != null) {
                         try {
-                            closeCursors();
+                            mChild.exit();
                         } catch (Exception e) {
                             if (exception == null) {
                                 exception = e;
                             }
                         }
+                    }
 
-                        if (mTxn != null) {
-                            try {
-                                if (mParent == null || mParent.mTxn != mTxn) {
-                                    try {
-                                        scope.mTxnMgr.abortTxn(mTxn);
-                                    } catch (Exception e) {
-                                        if (exception == null) {
-                                            exception = e;
-                                        }
+                    try {
+                        closeCursors();
+                    } catch (Exception e) {
+                        if (exception == null) {
+                            exception = e;
+                        }
+                    }
+
+                    if (mTxn != null) {
+                        try {
+                            if (mParent == null || mParent.mTxn != mTxn) {
+                                try {
+                                    scope.mTxnMgr.abortTxn(mTxn);
+                                } catch (Exception e) {
+                                    if (exception == null) {
+                                        exception = e;
                                     }
                                 }
-                            } finally {
-                                mTxn = null;
                             }
+                        } finally {
+                            mTxn = null;
                         }
-                    } finally {
-                        scope.mActive = mParent;
-                        mExited = true;
-                        if (exception != null) {
-                            throw ExceptionTransformer.getInstance().toPersistException(exception);
-                        }
+                    }
+                } finally {
+                    scope.mActive = mParent;
+                    mState = EXITED;
+                    if (exception != null) {
+                        throw ExceptionTransformer.getInstance().toPersistException(exception);
                     }
                 }
             } finally {

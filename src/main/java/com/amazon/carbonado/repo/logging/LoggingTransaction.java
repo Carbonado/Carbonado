@@ -97,6 +97,11 @@ class LoggingTransaction implements Transaction {
         mTxn.attach();
     }
 
+    public boolean preCommit() throws PersistException {
+        mLog.write("Transaction.preCommit() on " + idChain());
+        return mTxn.preCommit();
+    }
+
     private String idChain() {
         if (mParent == null) {
             return String.valueOf(mID);
