@@ -94,6 +94,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private Long mCacheSize;
     private Integer mCachePercent;
     private double mLockTimeout = 0.5;
+    private Integer mMaxLocks;
     private double mTxnTimeout = 300.0;
     private boolean mTxnNoSync;
     private boolean mTxnWriteNoSync;
@@ -499,6 +500,14 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public long getLockTimeoutInMicroseconds() {
         return inMicros(mLockTimeout);
+    }
+
+    public void setMaxLocks(Integer max) {
+        mMaxLocks = max;
+    }
+
+    public Integer getMaxLocks() {
+        return mMaxLocks;
     }
 
     /**
