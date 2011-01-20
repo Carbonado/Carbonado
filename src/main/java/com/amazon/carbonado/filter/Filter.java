@@ -52,7 +52,7 @@ import com.amazon.carbonado.util.SoftValuedCache;
  * AndFilter       = NotFilter { "&" NotFilter }
  * NotFilter       = [ "!" ] EntityFilter
  * EntityFilter    = PropertyFilter
- *                 = ChainedFilter
+ *                 | ChainedFilter
  *                 | "(" Filter ")"
  * PropertyFilter  = ChainedProperty RelOp "?"
  * RelOp           = "=" | "!=" | "&lt;" | "&gt;=" | "&gt;" | "&lt;="
