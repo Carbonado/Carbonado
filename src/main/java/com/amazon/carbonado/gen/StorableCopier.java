@@ -18,6 +18,8 @@
 
 package com.amazon.carbonado.gen;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Constructor;
 
 import java.util.WeakHashMap;
@@ -242,18 +244,30 @@ public abstract class StorableCopier<S extends Storable, T extends Storable> {
 
                 if (wrapperPropType.equals(delegatePropType)) {
                     // No conversion required.
-                    b = new CodeBuilder(mClassFile.addMethod(wrapperProp.getReadMethod()));
-                    b.loadThis();
-                    b.loadField("delegate", delegateType);
-                    b.invoke(delegateProp.getReadMethod());
-                    b.returnValue(wrapperPropType);
+                    Method m = canDefine(wrapperProp.getReadMethod());
+                    if (m != null) {
+                        b = new CodeBuilder(mClassFile.addMethod(m));
+                        if (delegateProp.getReadMethod() == null) {
+                            CodeBuilderUtil.blankValue(b, wrapperPropType);
+                        } else {
+                            b.loadThis();
+                            b.loadField("delegate", delegateType);
+                            b.invoke(delegateProp.getReadMethod());
+                        }
+                        b.returnValue(wrapperPropType);
+                    }
 
-                    b = new CodeBuilder(mClassFile.addMethod(wrapperProp.getWriteMethod()));
-                    b.loadThis();
-                    b.loadField("delegate", delegateType);
-                    b.loadLocal(b.getParameter(0));
-                    b.invoke(delegateProp.getWriteMethod());
-                    b.returnVoid();
+                    m = canDefine(wrapperProp.getWriteMethod());
+                    if (m != null) {
+                        b = new CodeBuilder(mClassFile.addMethod(m));
+                        if (delegateProp.getWriteMethod() != null) {
+                            b.loadThis();
+                            b.loadField("delegate", delegateType);
+                            b.loadLocal(b.getParameter(0));
+                            b.invoke(delegateProp.getWriteMethod());
+                        }
+                        b.returnVoid();
+                    }
                     
                     continue;
                 }
@@ -268,39 +282,51 @@ public abstract class StorableCopier<S extends Storable, T extends Storable> {
 
                 // Convert primitive or boxed type.
 
-                b = new CodeBuilder(mClassFile.addMethod(wrapperProp.getReadMethod()));
-                b.loadThis();
-                b.loadField("delegate", delegateType);
-                b.invoke(delegateProp.getReadMethod());
-                if (wrapperPropType.isPrimitive() && !delegatePropType.isPrimitive()) {
-                    // Check for null.
-                    b.dup();
-                    Label notNull = b.createLabel();
-                    b.ifNullBranch(notNull, false);
-                    CodeBuilderUtil.blankValue(b, wrapperPropType);
+                Method m = canDefine(wrapperProp.getReadMethod());
+                if (m != null) {
+                    b = new CodeBuilder(mClassFile.addMethod(m));
+                    if (delegateProp.getReadMethod() == null) {
+                        CodeBuilderUtil.blankValue(b, wrapperPropType);
+                    } else {
+                        b.loadThis();
+                        b.loadField("delegate", delegateType);
+                        b.invoke(delegateProp.getReadMethod());
+                        if (wrapperPropType.isPrimitive() && !delegatePropType.isPrimitive()) {
+                            // Check for null.
+                            b.dup();
+                            Label notNull = b.createLabel();
+                            b.ifNullBranch(notNull, false);
+                            CodeBuilderUtil.blankValue(b, wrapperPropType);
+                            b.returnValue(wrapperPropType);
+                            notNull.setLocation();
+                        }
+                        b.convert(delegatePropType, wrapperPropType);
+                    }
                     b.returnValue(wrapperPropType);
-                    notNull.setLocation();
                 }
-                b.convert(delegatePropType, wrapperPropType);
-                b.returnValue(wrapperPropType);
 
-                b = new CodeBuilder(mClassFile.addMethod(wrapperProp.getWriteMethod()));
-                b.loadThis();
-                b.loadField("delegate", delegateType);
-                b.loadLocal(b.getParameter(0));
-                if (!wrapperPropType.isPrimitive() && delegatePropType.isPrimitive()) {
-                    // Check for null.
-                    Label notNull = b.createLabel();
-                    b.ifNullBranch(notNull, false);
-                    CodeBuilderUtil.blankValue(b, delegatePropType);
-                    b.invoke(delegateProp.getWriteMethod());
+                m = canDefine(wrapperProp.getWriteMethod());
+                if (m != null) {
+                    b = new CodeBuilder(mClassFile.addMethod(m));
+                    if (delegateProp.getWriteMethod() != null) {
+                        b.loadThis();
+                        b.loadField("delegate", delegateType);
+                        b.loadLocal(b.getParameter(0));
+                        if (!wrapperPropType.isPrimitive() && delegatePropType.isPrimitive()) {
+                            // Check for null.
+                            Label notNull = b.createLabel();
+                            b.ifNullBranch(notNull, false);
+                            CodeBuilderUtil.blankValue(b, delegatePropType);
+                            b.invoke(delegateProp.getWriteMethod());
+                            b.returnVoid();
+                            notNull.setLocation();
+                            b.loadLocal(b.getParameter(0));
+                        }
+                        b.convert(wrapperPropType, delegatePropType);
+                        b.invoke(delegateProp.getWriteMethod());
+                    }
                     b.returnVoid();
-                    notNull.setLocation();
-                    b.loadLocal(b.getParameter(0));
                 }
-                b.convert(wrapperPropType, delegatePropType);
-                b.invoke(delegateProp.getWriteMethod());
-                b.returnVoid();
             }
 
             try {
@@ -314,12 +340,22 @@ public abstract class StorableCopier<S extends Storable, T extends Storable> {
         private void addUnmatchedProperty(StorableProperty<W> wrapperProp,
                                           TypeDesc wrapperPropType)
         {
-            CodeBuilder b = new CodeBuilder(mClassFile.addMethod(wrapperProp.getReadMethod()));
-            CodeBuilderUtil.blankValue(b, wrapperPropType);
-            b.returnValue(wrapperPropType);
+            Method m = canDefine(wrapperProp.getReadMethod());
+            if (m != null) {
+                CodeBuilder b = new CodeBuilder(mClassFile.addMethod(m));
+                CodeBuilderUtil.blankValue(b, wrapperPropType);
+                b.returnValue(wrapperPropType);
+            }
 
-            b = new CodeBuilder(mClassFile.addMethod(wrapperProp.getWriteMethod()));
-            b.returnVoid();
+            m = canDefine(wrapperProp.getWriteMethod());
+            if (m != null) {
+                CodeBuilder b = new CodeBuilder(mClassFile.addMethod(m));
+                b.returnVoid();
+            }
+        }
+
+        private static Method canDefine(Method m) {
+            return (m == null || Modifier.isFinal(m.getModifiers())) ? null : m;
         }
     }
 }
