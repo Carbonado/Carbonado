@@ -22,6 +22,7 @@ import java.lang.reflect.Constructor;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -171,6 +172,73 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
 
         rootRef.set(repo);
         return repo;
+    }
+
+    /**
+     * Opens the BDB environment, checks if it is corrupt, and then closes it.
+     * Only one process should open the environment for verification. Expect it
+     * to take a long time.
+     *
+     * @param out optional stream to capture any verfication errors
+     * @return true if environment passes verification
+     */
+    public boolean verify(PrintStream out) throws RepositoryException {
+        final StorableCodecFactory codecFactory = mStorableCodecFactory;
+        final String name = mName;
+        final boolean readOnly = mReadOnly;
+        final boolean runCheckpointer = mRunCheckpointer;
+        final boolean runDeadlockDetector = mRunDeadlockDetector;
+        final boolean isPrivate = mPrivate;
+
+        if (mName == null) {
+            // Allow a dummy name for verification.
+            mName = "BDB verification";
+        }
+
+        if (mStorableCodecFactory == null) {
+            mStorableCodecFactory = new CompressedStorableCodecFactory(mCompressionMap);
+        }
+
+        mReadOnly = true;
+        mRunCheckpointer = false;
+        mRunDeadlockDetector = false;
+
+        try {
+            assertReady();
+
+            File homeFile = getEnvironmentHomeFile();
+            if (!homeFile.exists()) {
+                throw new RepositoryException
+                    ("Environment home directory does not exist: " + homeFile);
+            }
+
+            AtomicReference<Repository> rootRef = new AtomicReference<Repository>();
+            BDBRepository repo;
+
+            try {
+                repo = getRepositoryConstructor().newInstance(rootRef, this);
+            } catch (Exception e) {
+                ThrowUnchecked.fireFirstDeclaredCause(e, RepositoryException.class);
+                // Not reached.
+                return false;
+            }
+
+            rootRef.set(repo);
+
+            try {
+                return repo.verify(out);
+            } catch (Exception e) {
+                throw repo.toRepositoryException(e);
+            } finally {
+                repo.close();
+            }
+        } finally {
+            mName = name;
+            mStorableCodecFactory = codecFactory;
+            mReadOnly = readOnly;
+            mRunCheckpointer = runCheckpointer;
+            mRunDeadlockDetector = runDeadlockDetector;
+        }
     }
 
     public String getName() {

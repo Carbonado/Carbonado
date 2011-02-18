@@ -19,6 +19,7 @@
 package com.amazon.carbonado.repo.sleepycat;
 
 import java.io.File;
+import java.io.PrintStream;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Map;
@@ -639,6 +640,8 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
 
         setAutoShutdownEnabled(true);
     }
+
+    abstract boolean verify(PrintStream out) throws Exception;
 
     abstract IsolationLevel selectIsolationLevel(Transaction parent, IsolationLevel level);
 
