@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.qe;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.cojen.util.WeakIdentityMap;
@@ -30,13 +31,33 @@ import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
- * QueryExecutors should be cached since expensive analysis is often required
- * to build them.
+ * QueryExecutors should be cached since expensive analysis is often required to build
+ * them. By default, a minimum of 1000 query executors can be cached per Storable type.
+ * The minimum can be changed with the
+ * "com.amazon.carbonado.qe.QueryExecutorCache.minCapacity" system property.
  *
  * @author Brian S O'Neill
  */
 public class QueryExecutorCache<S extends Storable> implements QueryExecutorFactory<S> {
+    final static int cMinCapacity;
+
+    static {
+        int minCapacity = 1000;
+
+        String prop = System.getProperty(QueryExecutorCache.class.getName().concat(".minCapacity"));
+        if (prop != null) {
+            try {
+                minCapacity = Integer.parseInt(prop);
+            } catch (NumberFormatException e) {
+            }
+        }
+
+        cMinCapacity = minCapacity;
+    }
+
     private final QueryExecutorFactory<S> mFactory;
+
+    private final Map<Key<S>, QueryExecutor<S>> mPrimaryCache;
 
     // Maps filters to maps which map ordering lists (possibly with hints) to executors.
     private final Map<Filter<S>, SoftValuedCache<Object, QueryExecutor<S>>> mFilterToExecutor;
@@ -46,6 +67,14 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
             throw new IllegalArgumentException();
         }
         mFactory = factory;
+
+        mPrimaryCache = new LinkedHashMap<Key<S>, QueryExecutor<S>>(17, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<Key<S>, QueryExecutor<S>> eldest) {
+                return size() > cMinCapacity;
+            }
+        };
+
         mFilterToExecutor = new WeakIdentityMap(7);
     }
 
@@ -63,6 +92,19 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
     public QueryExecutor<S> executor(Filter<S> filter, OrderingList<S> ordering, QueryHints hints)
         throws RepositoryException
     {
+        final Key<S> key = new Key<S>(filter, ordering, hints);
+
+        synchronized (mPrimaryCache) {
+            QueryExecutor<S> executor = mPrimaryCache.get(key);
+            if (executor != null) {
+                return executor;
+            }
+        }
+
+        // Fallback to second level cache, which may still have the executor because
+        // garbage collection has not reclaimed it yet. It also allows some concurrent
+        // executor creation, by using filter-specific locks.
+
         SoftValuedCache<Object, QueryExecutor<S>> cache;
         synchronized (mFilterToExecutor) {
             cache = mFilterToExecutor.get(filter);
@@ -72,37 +114,55 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
             }
         }
 
-        Object key;
+        Object subKey;
         if (hints == null || hints.isEmpty()) {
-            key = ordering;
+            subKey = ordering;
         } else {
-            key = new WithHintsKey(ordering, hints);
+            // Don't construct key with filter. It is not needed here and it would prevent
+            // garbage collection of filters.
+            subKey = new Key(null, ordering, hints);
         }
 
         QueryExecutor<S> executor;
         synchronized (cache) {
-            executor = cache.get(key);
+            executor = cache.get(subKey);
             if (executor == null) {
                 executor = mFactory.executor(filter, ordering, hints);
-                cache.put(key, executor);
+                cache.put(subKey, executor);
             }
+        }
+
+        synchronized (mPrimaryCache) {
+            mPrimaryCache.put(key, executor);
         }
 
         return executor;
     }
 
-    private static class WithHintsKey {
-        private final OrderingList mOrdering;
+    private static class Key<S extends Storable> {
+        private final Filter<S> mFilter;
+        private final OrderingList<S> mOrdering;
         private final QueryHints mHints;
 
-        WithHintsKey(OrderingList ordering, QueryHints hints) {
+        Key(Filter<S> filter, OrderingList<S> ordering, QueryHints hints) {
+            mFilter = filter;
             mOrdering = ordering;
             mHints = hints;
         }
 
         @Override
         public int hashCode() {
-            return mOrdering == null ? 0 : (mOrdering.hashCode() * 31) + mHints.hashCode();
+            Filter<S> filter = mFilter;
+            int hash = filter == null ? 0 : filter.hashCode();
+            OrderingList<S> ordering = mOrdering;
+            if (ordering != null) {
+                hash = hash * 31 + ordering.hashCode();
+            }
+            QueryHints hints = mHints;
+            if (hints != null) {
+                hash = hash * 31 + hints.hashCode();
+            }
+            return hash;
         }
 
         @Override
@@ -110,13 +170,17 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
             if (this == obj) {
                 return true;
             }
-            if (obj instanceof WithHintsKey) {
-                WithHintsKey other = (WithHintsKey) obj;
-                return (mOrdering == null ? other.mOrdering == null :
-                        mOrdering.equals(other.mOrdering)) &&
-                    mHints.equals(other.mHints);
+            if (obj instanceof Key) {
+                Key other = (Key) obj;
+                return equals(mFilter, other.mFilter)
+                    && equals(mOrdering, other.mOrdering)
+                    && equals(mHints, other.mHints);
             }
             return false;
+        }
+
+        private static boolean equals(Object a, Object b) {
+            return a == null ? b == null : a.equals(b);
         }
     }
 }
