@@ -32,7 +32,7 @@ import com.amazon.carbonado.util.SoftValuedCache;
 
 /**
  * QueryExecutors should be cached since expensive analysis is often required to build
- * them. By default, a minimum of 1000 query executors can be cached per Storable type.
+ * them. By default, a minimum of 100 query executors can be cached per Storable type.
  * The minimum can be changed with the
  * "com.amazon.carbonado.qe.QueryExecutorCache.minCapacity" system property.
  *
@@ -42,7 +42,7 @@ public class QueryExecutorCache<S extends Storable> implements QueryExecutorFact
     final static int cMinCapacity;
 
     static {
-        int minCapacity = 1000;
+        int minCapacity = 100;
 
         String prop = System.getProperty(QueryExecutorCache.class.getName().concat(".minCapacity"));
         if (prop != null) {
