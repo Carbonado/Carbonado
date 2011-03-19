@@ -90,7 +90,12 @@ public class TransactionScope<Txn> {
                 }
             }
 
-            return mActive = new TransactionImpl<Txn>(this, parent, false, actualLevel);
+            TransactionImpl<Txn> txn = new TransactionImpl<Txn>(this, parent, false, actualLevel);
+            mActive = txn;
+
+            mTxnMgr.entered(txn, parent);
+
+            return txn;
         } finally {
             mLock.unlock();
         }
@@ -113,10 +118,21 @@ public class TransactionScope<Txn> {
                     ("Desired isolation level not supported: " + level);
             }
 
-            return mActive = new TransactionImpl<Txn>(this, mActive, true, actualLevel);
+            TransactionImpl<Txn> txn = new TransactionImpl<Txn>(this, mActive, true, actualLevel);
+            mActive = txn;
+
+            mTxnMgr.entered(txn, null);
+
+            return txn;
         } finally {
             mLock.unlock();
         }
+    }
+
+    // Called by TransactionImpl with lock held.
+    void exited(TransactionImpl<Txn> txn, TransactionImpl<Txn> active) {
+        mActive = active;
+        mTxnMgr.exited(txn, active);
     }
 
     /**
@@ -494,8 +510,8 @@ public class TransactionScope<Txn> {
                         }
                     }
                 } finally {
-                    scope.mActive = mParent;
                     mState = EXITED;
+                    scope.exited(this, mParent);
                     if (exception != null) {
                         throw ExceptionTransformer.getInstance().toPersistException(exception);
                     }

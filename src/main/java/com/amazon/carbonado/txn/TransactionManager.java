@@ -39,15 +39,21 @@ public abstract class TransactionManager<Txn> {
 
     private final ThreadLocal<TransactionScope<Txn>> mLocalScope;
     private final Map<TransactionScope<Txn>, ?> mAllScopes;
+    private final TransactionMonitor mMonitor;
 
     private int mState;
 
     public TransactionManager() {
+        this(null);
+    }
+ 
+    public TransactionManager(TransactionMonitor monitor) {
         mLocalScope = new ThreadLocal<TransactionScope<Txn>>();
         mAllScopes = new WeakIdentityMap();
+        mMonitor = monitor;
     }
 
-    /**
+   /**
      * Returns the thread-local TransactionScope, creating it if needed.
      */
     public TransactionScope<Txn> localScope() {
@@ -106,6 +112,22 @@ public abstract class TransactionManager<Txn> {
             return true;
         }
         return false;
+    }
+
+    // Called by TransactionScope.
+    void entered(Transaction txn, Transaction parent) {
+        TransactionMonitor monitor = mMonitor;
+        if (monitor != null) {
+            monitor.entered(txn, parent);
+        }
+    }
+
+    // Called by TransactionScope.
+    void exited(Transaction txn, Transaction active) {
+        TransactionMonitor monitor = mMonitor;
+        if (monitor != null) {
+            monitor.exited(txn, active);
+        }
     }
 
     /**
