@@ -78,7 +78,7 @@ public class LayoutOptions {
     /**
      * @return null if empty
      */
-    synchronized byte[] encode() {
+    public synchronized byte[] encode() {
         if (mData.isEmpty()) {
             return null;
         }
@@ -107,7 +107,7 @@ public class LayoutOptions {
     /**
      * @param source can be null if empty
      */
-    synchronized void decode(byte[] source) throws IOException {
+    public synchronized void decode(byte[] source) throws IOException {
         mData.clear();
 
         if (source == null || source.length == 0) {
