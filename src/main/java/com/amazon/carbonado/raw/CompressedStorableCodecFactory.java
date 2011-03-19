@@ -66,9 +66,12 @@ public class CompressedStorableCodecFactory extends GenericStorableCodecFactory 
     {
         CompressionType compType;
         if (options == null) {
-            compType = getCompressionType(type);
+            // No options means no compression.
+            compType = CompressionType.NONE;
         } else {
-            compType = CompressionType.valueOf(options.getCompressionType());
+            String compTypeString = options.getCompressionType();
+            compType = compTypeString == null ? CompressionType.NONE
+                : CompressionType.valueOf(compTypeString);
         }
 
         return new CompressedEncodingStrategy<S>(type, pkIndex, compType);

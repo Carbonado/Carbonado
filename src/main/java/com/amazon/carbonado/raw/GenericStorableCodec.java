@@ -48,6 +48,7 @@ import com.amazon.carbonado.info.StorableIntrospector;
 import com.amazon.carbonado.info.StorableProperty;
 
 import com.amazon.carbonado.layout.Layout;
+import com.amazon.carbonado.layout.LayoutOptions;
 
 import com.amazon.carbonado.gen.CodeBuilderUtil;
 import com.amazon.carbonado.gen.StorableGenerator;
@@ -745,8 +746,17 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
         GenericEncodingStrategy<? extends Storable> altStrategy;
         try {
             Layout altLayout = mLayout.getGeneration(generation);
+
             altStorable = altLayout.reconstruct(mStorableClass.getClassLoader());
-            altStrategy = mFactory.createStrategy(altStorable, null, altLayout.getOptions());
+
+            LayoutOptions options = altLayout.getOptions();
+            if (options == null) {
+                // Explictly specify no options, to prevent the factory from
+                // trying to infer what null options means.
+                options = new LayoutOptions();
+            }
+
+            altStrategy = mFactory.createStrategy(altStorable, null, options);
         } catch (RepositoryException e) {
             throw new CorruptEncodingException(e);
         }
