@@ -94,6 +94,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private boolean mReadOnly;
     private Long mCacheSize;
     private Integer mCachePercent;
+    private Integer mLogRegionSize;
     private double mLockTimeout = 0.5;
     private Integer mMaxLocks;
     private double mTxnTimeout = 300.0;
@@ -519,6 +520,28 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public Long getCacheSize() {
         return mCacheSize;
+    }
+
+    /**
+     * Set the repository log region size, in bytes.
+     */
+    public void setLogRegionSize(int logRegionSize) {
+        mLogRegionSize = logRegionSize;
+    }
+
+    /**
+     * Set the repository log region size, in bytes.
+     */
+    public void setLogRegionSize(Integer logRegionSize) {
+        mLogRegionSize = logRegionSize;
+    }
+
+    /**
+     * Returns the repository log region size, or null if the default
+     * should be selected.
+     */
+    public Integer getLogRegionSize() {
+        return mLogRegionSize;
     }
 
     /**
