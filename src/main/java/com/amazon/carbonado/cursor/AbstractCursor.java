@@ -21,6 +21,7 @@ package com.amazon.carbonado.cursor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
@@ -39,17 +40,18 @@ public abstract class AbstractCursor<S> implements Cursor<S> {
     public int copyInto(Collection<? super S> c) throws FetchException {
         try {
             int count = 0;
-            while (hasNext()) {
-                c.add(next());
-                count++;
+            try {
+                while (hasNext()) {
+                    c.add(next());
+                    count++;
+                }
+            } catch (NoSuchElementException e) {
+                // Race condition cause by concurrent repository close.
+                silentClose();
             }
             return count;
         } catch (FetchException e) {
-            try {
-                close();
-            } catch (Exception e2) {
-                // Don't care.
-            }
+            silentClose();
             throw e;
         }
     }
@@ -57,17 +59,18 @@ public abstract class AbstractCursor<S> implements Cursor<S> {
     public int copyInto(Collection<? super S> c, int limit) throws FetchException {
         try {
             int count = 0;
-            while (--limit >= 0 && hasNext()) {
-                c.add(next());
-                count++;
+            try {
+                while (--limit >= 0 && hasNext()) {
+                    c.add(next());
+                    count++;
+                }
+            } catch (NoSuchElementException e) {
+                // Race condition cause by concurrent repository close.
+                silentClose();
             }
             return count;
         } catch (FetchException e) {
-            try {
-                close();
-            } catch (Exception e2) {
-                // Don't care.
-            }
+            silentClose();
             throw e;
         }
     }
@@ -78,11 +81,7 @@ public abstract class AbstractCursor<S> implements Cursor<S> {
             copyInto(list);
             return list;
         } catch (FetchException e) {
-            try {
-                close();
-            } catch (Exception e2) {
-                // Don't care.
-            }
+            silentClose();
             throw e;
         }
     }
@@ -93,11 +92,7 @@ public abstract class AbstractCursor<S> implements Cursor<S> {
             copyInto(list, limit);
             return list;
         } catch (FetchException e) {
-            try {
-                close();
-            } catch (Exception e2) {
-                // Don't care.
-            }
+            silentClose();
             throw e;
         }
     }
@@ -112,19 +107,27 @@ public abstract class AbstractCursor<S> implements Cursor<S> {
 
         try {
             int count = 0;
-            while (--amount >= 0 && hasNext()) {
-                next();
-                count++;
+            try {
+                while (--amount >= 0 && hasNext()) {
+                    next();
+                    count++;
+                }
+            } catch (NoSuchElementException e) {
+                // Race condition cause by concurrent repository close.
+                silentClose();
             }
-
             return count;
         } catch (FetchException e) {
-            try {
-                close();
-            } catch (Exception e2) {
-                // Don't care.
-            }
+            silentClose();
             throw e;
+        }
+    }
+
+    private void silentClose() {
+        try {
+            close();
+        } catch (Exception e2) {
+            // Don't care.
         }
     }
 }
