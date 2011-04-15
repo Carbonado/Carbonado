@@ -344,8 +344,9 @@ public final class MasterStorableGenerator<S extends Storable> {
         // Add required protected doTryInsert method.
         {
             if (mFeatures.contains(MasterFeature.PARTITIONING) ||
-                mFeatures.contains(MasterFeature.INSERT_SEQUENCES)) {
-
+                mFeatures.contains(MasterFeature.INSERT_SEQUENCES) ||
+                mFeatures.contains(MasterFeature.INSERT_NO_CHECK_PRIMARY_PK))
+            {
                 MethodInfo mi = mClassFile.addMethod
                     (Modifiers.PROTECTED,
                      StorableGenerator.CHECK_PK_FOR_INSERT_METHOD_NAME,
@@ -441,14 +442,17 @@ public final class MasterStorableGenerator<S extends Storable> {
                         ordinal++;
                     }
                     
-                    // We've tried our best to fill in missing values, now run the
-                    // original check method.
+                    // We've tried our best to fill in missing values, so now
+                    // run the original check method, if required to.
                 }
 
-                b.loadThis();
-                b.invokeSuper(mClassFile.getSuperClassName(),
-                              StorableGenerator.CHECK_PK_FOR_INSERT_METHOD_NAME,
-                              null, null);
+                if (!mFeatures.contains(MasterFeature.INSERT_NO_CHECK_PRIMARY_PK)) {
+                    b.loadThis();
+                    b.invokeSuper(mClassFile.getSuperClassName(),
+                                  StorableGenerator.CHECK_PK_FOR_INSERT_METHOD_NAME,
+                                  null, null);
+                }
+
                 b.returnVoid();
             }
 

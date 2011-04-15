@@ -49,6 +49,9 @@ public enum MasterFeature {
      */
     INSERT_CHECK_REQUIRED,
 
+    /** Insert operation never checks if primary key is filled in. */
+    INSERT_NO_CHECK_PRIMARY_PK,
+
     /** Ensure insert operation always is in a transaction. */
     INSERT_TXN,
 
