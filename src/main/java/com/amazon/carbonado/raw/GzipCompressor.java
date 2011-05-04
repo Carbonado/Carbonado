@@ -25,6 +25,7 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterOutputStream;
+import java.util.zip.ZipException;
 
 import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.SupportException;
@@ -92,6 +93,9 @@ public class GzipCompressor {
             ios.write(value, prefix, value.length - prefix);
             ios.close();
             return bos.toByteArray();
+        } catch (ZipException e) {
+            // Assume it wasn't compressed.
+            return value;
         } catch (IOException e) {
             throw new CorruptEncodingException(e);
         } finally {
