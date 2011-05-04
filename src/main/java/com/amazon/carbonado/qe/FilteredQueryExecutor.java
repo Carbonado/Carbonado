@@ -22,6 +22,7 @@ import java.io.IOException;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.cursor.FilteredCursor;
@@ -62,6 +63,12 @@ public class FilteredQueryExecutor<S extends Storable> extends AbstractQueryExec
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
         return FilteredCursor.applyFilter(mFilter, values, mExecutor.fetch(values));
+    }
+
+    public Cursor<S> fetch(FilterValues<S> values, Query.Controller controller)
+        throws FetchException
+    {
+        return FilteredCursor.applyFilter(mFilter, values, mExecutor.fetch(values, controller));
     }
 
     /**

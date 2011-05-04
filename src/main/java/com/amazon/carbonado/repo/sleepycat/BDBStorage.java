@@ -45,6 +45,7 @@ import com.amazon.carbonado.UniqueConstraintException;
 
 import com.amazon.carbonado.capability.IndexInfo;
 
+import com.amazon.carbonado.cursor.ControllerCursor;
 import com.amazon.carbonado.cursor.EmptyCursor;
 import com.amazon.carbonado.cursor.MergeSortBuffer;
 import com.amazon.carbonado.cursor.SingletonCursor;
@@ -263,22 +264,45 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         return new MergeSortBuffer<S>();
     }
 
+    public SortBuffer<S> createSortBuffer(Query.Controller controller) {
+        return new MergeSortBuffer<S>(controller);
+    }
+
     public long countAll() throws FetchException {
         // Return -1 to indicate default algorithm should be used.
         return -1;
     }
 
+    public long countAll(Query.Controller controller) throws FetchException {
+        // Return -1 to indicate default algorithm should be used.
+        return -1;
+    }
+
     public Cursor<S> fetchAll() throws FetchException {
+        return fetchAll(null);
+    }
+
+    public Cursor<S> fetchAll(Query.Controller controller) throws FetchException {
         return fetchSubset(null, null,
                            BoundaryType.OPEN, null,
                            BoundaryType.OPEN, null,
-                           false, false);
+                           false, false,
+                           controller);
     }
 
     public Cursor<S> fetchOne(StorableIndex<S> index,
                               Object[] identityValues)
         throws FetchException
     {
+        return fetchOne(index, identityValues, null);
+    }
+
+    public Cursor<S> fetchOne(StorableIndex<S> index,
+                              Object[] identityValues,
+                              Query.Controller controller)
+        throws FetchException
+    {
+        // Note: Controller is never called.
         byte[] key = mStorableCodec.encodePrimaryKey(identityValues);
         byte[] value = mRawSupport.tryLoad(null, key);
         if (value == null) {
@@ -292,6 +316,13 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
     }
 
     public Cursor<S> fetchFromIndexEntryQuery(StorableIndex<S> index, Query<?> indexEntryQuery) {
+        // This method should never be called since null was returned by indexEntryQuery.
+        throw new UnsupportedOperationException();
+    }
+
+    public Cursor<S> fetchFromIndexEntryQuery(StorableIndex<S> index, Query<?> indexEntryQuery,
+                                              Query.Controller controller)
+    {
         // This method should never be called since null was returned by indexEntryQuery.
         throw new UnsupportedOperationException();
     }
@@ -378,6 +409,7 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
                      getPrimaryDatabase());
 
                 cursor.open();
+
                 return cursor;
             } catch (Exception e) {
                 throw toFetchException(e);
@@ -385,6 +417,28 @@ abstract class BDBStorage<Txn, S extends Storable> implements Storage<S>, Storag
         } finally {
             scope.getLock().unlock();
         }
+    }
+
+    public Cursor<S> fetchSubset(StorableIndex<S> index,
+                                 Object[] identityValues,
+                                 BoundaryType rangeStartBoundary,
+                                 Object rangeStartValue,
+                                 BoundaryType rangeEndBoundary,
+                                 Object rangeEndValue,
+                                 boolean reverseRange,
+                                 boolean reverseOrder,
+                                 Query.Controller controller)
+        throws FetchException
+    {
+        return ControllerCursor.apply(fetchSubset(index,
+                                                  identityValues,
+                                                  rangeStartBoundary,
+                                                  rangeStartValue,
+                                                  rangeEndBoundary,
+                                                  rangeEndValue,
+                                                  reverseRange,
+                                                  reverseOrder),
+                                      controller);
     }
 
     private byte[] createBound(Object[] exactValues, byte[] exactKey, Object rangeValue,

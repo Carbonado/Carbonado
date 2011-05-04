@@ -24,9 +24,11 @@ import java.util.Comparator;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.cursor.ArraySortBuffer;
+import com.amazon.carbonado.cursor.ControllerCursor;
 import com.amazon.carbonado.cursor.MergeSortBuffer;
 import com.amazon.carbonado.cursor.SortBuffer;
 import com.amazon.carbonado.cursor.SortedCursor;
@@ -106,9 +108,26 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
         return new SortedCursor<S>(cursor, buffer, mHandledComparator, mFinisherComparator);
     }
 
+    public Cursor<S> fetch(FilterValues<S> values, Query.Controller controller)
+        throws FetchException
+    {
+        Cursor<S> cursor = mExecutor.fetch(values, controller);
+        SortBuffer<S> buffer = mSupport.createSortBuffer(controller);
+        // Apply the controller around the cursor to ensure timeouts are
+        // honored even when the caller is slowly iterating over the cursor.
+        return ControllerCursor.apply
+            (new SortedCursor<S>(cursor, buffer, mHandledComparator, mFinisherComparator),
+             controller);
+    }
+
     @Override
     public long count(FilterValues<S> values) throws FetchException {
         return mExecutor.count(values);
+    }
+
+    @Override
+    public long count(FilterValues<S> values, Query.Controller controller) throws FetchException {
+        return mExecutor.count(values, controller);
     }
 
     public Filter<S> getFilter() {
@@ -152,6 +171,13 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
          * Implementation must return an empty buffer for sorting.
          */
         SortBuffer<S> createSortBuffer();
+
+        /**
+         * Implementation must return an empty buffer for sorting.
+         *
+         * @param controller optional controller which can abort query operation
+         */
+        SortBuffer<S> createSortBuffer(Query.Controller controller);
     }
 
     /**
@@ -162,6 +188,14 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
          * Returns a new ArraySortBuffer.
          */
         public SortBuffer<S> createSortBuffer() {
+            return new ArraySortBuffer<S>();
+        }
+
+        /**
+         * Returns a new ArraySortBuffer.
+         */
+        public SortBuffer<S> createSortBuffer(Query.Controller controller) {
+            // Java sort utility doesn't support any kind of controller.
             return new ArraySortBuffer<S>();
         }
     }
@@ -175,6 +209,13 @@ public class SortedQueryExecutor<S extends Storable> extends AbstractQueryExecut
          */
         public SortBuffer<S> createSortBuffer() {
             return new MergeSortBuffer<S>();
+        }
+
+        /**
+         * Returns a new MergeSortBuffer.
+         */
+        public SortBuffer<S> createSortBuffer(Query.Controller controller) {
+            return new MergeSortBuffer<S>(controller);
         }
     }
 }

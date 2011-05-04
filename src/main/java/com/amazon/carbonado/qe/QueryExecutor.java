@@ -22,6 +22,7 @@ import java.io.IOException;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
@@ -46,6 +47,13 @@ public interface QueryExecutor<S extends Storable> {
     Cursor<S> fetch(FilterValues<S> values) throws FetchException;
 
     /**
+     * Returns a new cursor using the given filter values.
+     *
+     * @param controller optional controller which can abort query operation
+     */
+    Cursor<S> fetch(FilterValues<S> values, Query.Controller controller) throws FetchException;
+
+    /**
      * Returns a new cursor using the given filter values and slice.
      *
      * @since 1.2
@@ -53,9 +61,25 @@ public interface QueryExecutor<S extends Storable> {
     Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to) throws FetchException;
 
     /**
+     * Returns a new cursor using the given filter values and slice.
+     *
+     * @param controller optional controller which can abort query operation
+     * @since 1.2
+     */
+    Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to, Query.Controller controller)
+        throws FetchException;
+
+    /**
      * Counts the query results using the given filter values.
      */
     long count(FilterValues<S> values) throws FetchException;
+
+    /**
+     * Counts the query results using the given filter values.
+     *
+     * @param controller optional controller which can abort query operation
+     */
+    long count(FilterValues<S> values, Query.Controller controller) throws FetchException;
 
     /**
      * Returns the filter used by this QueryExecutor.

@@ -288,14 +288,28 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     @Override
+    public Cursor<S> fetch(Controller controller) throws FetchException {
+        try {
+            return executor().fetch(mValues, controller);
+        } catch (RepositoryException e) {
+            throw e.toFetchException();
+        }
+    }
+
+    @Override
     public Cursor<S> fetchSlice(long from, Long to) throws FetchException {
+        return fetchSlice(from, to, null);
+    }
+
+    @Override
+    public Cursor<S> fetchSlice(long from, Long to, Controller controller) throws FetchException {
         if (!checkSliceArguments(from, to)) {
-            return fetch();
+            return fetch(controller);
         }
         try {
             QueryHints hints = QueryHints.emptyHints().with(QueryHint.CONSUME_SLICE);
             return executorFactory().executor(mFilter, mOrdering, hints)
-                .fetchSlice(mValues, from, to);
+                .fetchSlice(mValues, from, to, controller);
         } catch (RepositoryException e) {
             throw e.toFetchException();
         }
@@ -303,9 +317,14 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
 
     @Override
     public boolean tryDeleteOne() throws PersistException {
+        return tryDeleteOne(null);
+    }
+
+    @Override
+    public boolean tryDeleteOne(Controller controller) throws PersistException {
         Transaction txn = enterTransaction(IsolationLevel.READ_COMMITTED);
         try {
-            Cursor<S> cursor = fetch();
+            Cursor<S> cursor = fetch(controller);
             boolean result;
             try {
                 if (cursor.hasNext()) {
@@ -335,9 +354,14 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
 
     @Override
     public void deleteAll() throws PersistException {
+        deleteAll(null);
+    }
+
+    @Override
+    public void deleteAll(Controller controller) throws PersistException {
         Transaction txn = enterTransaction(IsolationLevel.READ_COMMITTED);
         try {
-            Cursor<S> cursor = fetch();
+            Cursor<S> cursor = fetch(controller);
             try {
                 while (cursor.hasNext()) {
                     cursor.next().tryDelete();
@@ -367,8 +391,22 @@ public abstract class StandardQuery<S extends Storable> extends AbstractQuery<S>
     }
 
     @Override
+    public long count(Controller controller) throws FetchException {
+        try {
+            return executor().count(mValues, controller);
+        } catch (RepositoryException e) {
+            throw e.toFetchException();
+        }
+    }
+
+    @Override
     public boolean exists() throws FetchException {
-        Cursor<S> cursor = fetchSlice(0L, 1L);
+        return exists(null);
+    }
+
+    @Override
+    public boolean exists(Controller controller) throws FetchException {
+        Cursor<S> cursor = fetchSlice(0L, 1L, controller);
         try {
             return cursor.skipNext(1) > 0;
         } finally {

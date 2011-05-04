@@ -120,6 +120,12 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
     }
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
+        return fetch(values, null);
+    }
+
+    public Cursor<S> fetch(FilterValues<S> values, Query.Controller controller)
+        throws FetchException
+    {
         Object[] identityValues = null;
         Object rangeStartValue = null;
         Object rangeEndValue = null;
@@ -182,7 +188,8 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
                                         rangeStartBoundary, rangeStartValue,
                                         rangeEndBoundary, rangeEndValue,
                                         mReverseRange,
-                                        mReverseOrder);
+                                        mReverseOrder,
+                                        controller);
         } else {
             indexEntryQuery = indexEntryQuery.withValues(identityValues);
             if (rangeStartBoundary != BoundaryType.OPEN) {
@@ -194,7 +201,7 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
             if (mCoveringFilter != null && values != null) {
                 indexEntryQuery = indexEntryQuery.withValues(values.getValuesFor(mCoveringFilter));
             }
-            return mSupport.fetchFromIndexEntryQuery(mIndex, indexEntryQuery);
+            return mSupport.fetchFromIndexEntryQuery(mIndex, indexEntryQuery, controller);
         }
     }
 
@@ -415,6 +422,20 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
             throws FetchException;
 
         /**
+         * Fetch Storables referenced by the given index entry query. This
+         * method is only called if index supports query access.
+         *
+         * @param index index to open
+         * @param indexEntryQuery query with no blank parameters, derived from
+         * the query returned by indexEntryQuery
+         * @param controller optional controller which can abort query operation
+         * @since 1.2
+         */
+        Cursor<S> fetchFromIndexEntryQuery(StorableIndex<S> index, Query<?> indexEntryQuery,
+                                           Query.Controller controller)
+            throws FetchException;
+
+        /**
          * Perform an index scan of a subset of Storables referenced by an
          * index. The identity values are aligned with the index properties at
          * property 0. An optional range start or range end aligns with the index
@@ -444,6 +465,40 @@ public class IndexedQueryExecutor<S extends Storable> extends AbstractQueryExecu
                               Object rangeEndValue,
                               boolean reverseRange,
                               boolean reverseOrder)
+            throws FetchException;
+
+        /**
+         * Perform an index scan of a subset of Storables referenced by an
+         * index. The identity values are aligned with the index properties at
+         * property 0. An optional range start or range end aligns with the index
+         * property following the last of the identity values.
+         *
+         * <p>This method is only called if no index entry query was provided
+         * for the given index.
+         *
+         * @param index index to open, which may be a primary key index
+         * @param identityValues optional list of exactly matching values to apply to index
+         * @param rangeStartBoundary start boundary type
+         * @param rangeStartValue value to start at if boundary is not open
+         * @param rangeEndBoundary end boundary type
+         * @param rangeEndValue value to end at if boundary is not open
+         * @param reverseRange indicates that range operates on a property whose
+         * natural order is descending. Only the code that opens the physical
+         * cursor should examine this parameter. If true, then the range start and
+         * end parameter pairs need to be swapped.
+         * @param reverseOrder when true, iteration should be reversed from its
+         * natural order
+         * @param controller optional controller which can abort query operation
+         */
+        Cursor<S> fetchSubset(StorableIndex<S> index,
+                              Object[] identityValues,
+                              BoundaryType rangeStartBoundary,
+                              Object rangeStartValue,
+                              BoundaryType rangeEndBoundary,
+                              Object rangeEndValue,
+                              boolean reverseRange,
+                              boolean reverseOrder,
+                              Query.Controller controller)
             throws FetchException;
     }
 }

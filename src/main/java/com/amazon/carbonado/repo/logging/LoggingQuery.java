@@ -165,6 +165,15 @@ class LoggingQuery<S extends Storable> implements Query<S> {
     }
 
     @Override
+    public Cursor<S> fetch(Controller controller) throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.fetch(controller) on " + this + ", controller: " + controller);
+        }
+        return mQuery.fetch(controller);
+    }
+
+    @Override
     public Cursor<S> fetchSlice(long from, Long to) throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
@@ -172,6 +181,16 @@ class LoggingQuery<S extends Storable> implements Query<S> {
                       ", from: " + from + ", to: " + to);
         }
         return mQuery.fetchSlice(from, to);
+    }
+
+    @Override
+    public Cursor<S> fetchSlice(long from, Long to, Controller controller) throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.fetchSlice(start, to, controller) on " + this +
+                      ", from: " + from + ", to: " + to + ", controller: " + controller);
+        }
+        return mQuery.fetchSlice(from, to, controller);
     }
 
     @Override
@@ -184,12 +203,33 @@ class LoggingQuery<S extends Storable> implements Query<S> {
     }
 
     @Override
+    public <T extends S> Cursor<S> fetchAfter(T start, Controller controller)
+        throws FetchException
+    {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.fetchAfter(start, controller) on " + this + ", start: " + start
+                      + ", controller: " + controller);
+        }
+        return mQuery.fetchAfter(start, controller);
+    }
+
+    @Override
     public S loadOne() throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.loadOne() on " + this);
         }
         return mQuery.loadOne();
+    }
+
+    @Override
+    public S loadOne(Controller controller) throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.loadOne() on " + this + ", controller: " + controller);
+        }
+        return mQuery.loadOne(controller);
     }
 
     @Override
@@ -202,12 +242,30 @@ class LoggingQuery<S extends Storable> implements Query<S> {
     }
 
     @Override
+    public S tryLoadOne(Controller controller) throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.tryLoadOne(controller) on " + this + ", controller: " + controller);
+        }
+        return mQuery.tryLoadOne(controller);
+    }
+
+    @Override
     public void deleteOne() throws PersistException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.deleteOne() on " + this);
         }
         mQuery.deleteOne();
+    }
+
+    @Override
+    public void deleteOne(Controller controller) throws PersistException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.deleteOne(controller) on " + this + ", controller: " + controller);
+        }
+        mQuery.deleteOne(controller);
     }
 
     @Override
@@ -220,12 +278,30 @@ class LoggingQuery<S extends Storable> implements Query<S> {
     }
 
     @Override
+    public boolean tryDeleteOne(Controller controller) throws PersistException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.tryDeleteOne(controller) on " + this + ", controller: " + controller);
+        }
+        return mQuery.tryDeleteOne(controller);
+    }
+
+    @Override
     public void deleteAll() throws PersistException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.deleteAll() on " + this);
         }
         mQuery.deleteAll();
+    }
+
+    @Override
+    public void deleteAll(Controller controller) throws PersistException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.deleteAll(controller) on " + this + ", controller: " + controller);
+        }
+        mQuery.deleteAll(controller);
     }
 
     @Override
@@ -238,12 +314,30 @@ class LoggingQuery<S extends Storable> implements Query<S> {
     }
 
     @Override
+    public long count(Controller controller) throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.count(controller) on " + this + ", controller: " + controller);
+        }
+        return mQuery.count(controller);
+    }
+
+    @Override
     public boolean exists() throws FetchException {
         Log log = mStorage.mLog;
         if (log.isEnabled()) {
             log.write("Query.exists() on " + this);
         }
         return mQuery.exists();
+    }
+
+    @Override
+    public boolean exists(Controller controller) throws FetchException {
+        Log log = mStorage.mLog;
+        if (log.isEnabled()) {
+            log.write("Query.exists(controller) on " + this + ", controller: " + controller);
+        }
+        return mQuery.exists(controller);
     }
 
     @Override

@@ -28,9 +28,15 @@ import java.sql.SQLException;
  */
 class H2ExceptionTransformer extends JDBCExceptionTransformer {
     public static int DUPLICATE_KEY = 23001;
+    public static int PROCESSING_CANCELED = 90051;
 
     @Override
     public boolean isUniqueConstraintError(SQLException e) {
-        return DUPLICATE_KEY == e.getErrorCode();
+        return super.isUniqueConstraintError(e) || DUPLICATE_KEY == e.getErrorCode();
+    }
+
+    @Override
+    public boolean isTimeoutError(SQLException e) {
+        return super.isTimeoutError(e) || PROCESSING_CANCELED == e.getErrorCode();
     }
 }

@@ -61,8 +61,24 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
     }
 
     @Override
+    public <T extends S> Cursor<S> fetchAfter(T start, Controller controller)
+        throws FetchException
+    {
+        return after(start).fetch(controller);
+    }
+
+    @Override
     public S loadOne() throws FetchException {
         S obj = tryLoadOne();
+        if (obj == null) {
+            throw new FetchNoneException(toString());
+        }
+        return obj;
+    }
+
+    @Override
+    public S loadOne(Controller controller) throws FetchException {
+        S obj = tryLoadOne(controller);
         if (obj == null) {
             throw new FetchNoneException(toString());
         }
@@ -88,8 +104,33 @@ public abstract class AbstractQuery<S extends Storable> implements Query<S>, App
     }
 
     @Override
+    public S tryLoadOne(Controller controller) throws FetchException {
+        Cursor<S> cursor = fetch(controller);
+        try {
+            if (cursor.hasNext()) {
+                S obj = cursor.next();
+                if (cursor.hasNext()) {
+                    throw new FetchMultipleException(toString());
+                }
+                return obj;
+            } else {
+                return null;
+            }
+        } finally {
+            cursor.close();
+        }
+    }
+
+    @Override
     public void deleteOne() throws PersistException {
         if (!tryDeleteOne()) {
+            throw new PersistNoneException(toString());
+        }
+    }
+
+    @Override
+    public void deleteOne(Controller controller) throws PersistException {
+        if (!tryDeleteOne(controller)) {
             throw new PersistNoneException(toString());
         }
     }

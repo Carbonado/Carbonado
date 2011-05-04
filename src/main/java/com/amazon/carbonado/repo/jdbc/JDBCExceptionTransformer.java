@@ -23,9 +23,11 @@ import java.sql.SQLException;
 import com.amazon.carbonado.ConstraintException;
 import com.amazon.carbonado.FetchDeadlockException;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.FetchTimeoutException;
 import com.amazon.carbonado.PersistDeadlockException;
 import com.amazon.carbonado.PersistDeniedException;
 import com.amazon.carbonado.PersistException;
+import com.amazon.carbonado.PersistTimeoutException;
 import com.amazon.carbonado.UniqueConstraintException;
 import com.amazon.carbonado.spi.ExceptionTransformer;
 
@@ -58,6 +60,8 @@ class JDBCExceptionTransformer extends ExceptionTransformer {
      * rollback occurred"
      */
     public static String SQLSTATE_DEADLOCK_WITH_ROLLBACK = "40001";
+
+    public static String SQLSTATE_PROCESSING_CANCELED = "57014";
 
     /**
      * Examines the SQLSTATE code of the given SQL exception and determines if
@@ -103,6 +107,16 @@ class JDBCExceptionTransformer extends ExceptionTransformer {
         return false;
     }
 
+    public boolean isTimeoutError(SQLException e) {
+        if (e != null) {
+            String sqlstate = e.getSQLState();
+            if (sqlstate != null) {
+                return SQLSTATE_PROCESSING_CANCELED.equals(sqlstate);
+            }
+        }
+        return false;
+    }
+
     JDBCExceptionTransformer() {
     }
 
@@ -116,6 +130,9 @@ class JDBCExceptionTransformer extends ExceptionTransformer {
             SQLException se = (SQLException) e;
             if (isDeadlockError(se)) {
                 return new FetchDeadlockException(e);
+            }
+            if (isTimeoutError(se)) {
+                return new FetchTimeoutException(e);
             }
         }
         return null;
@@ -140,6 +157,9 @@ class JDBCExceptionTransformer extends ExceptionTransformer {
             }
             if (isDeadlockError(se)) {
                 return new PersistDeadlockException(e);
+            }
+            if (isTimeoutError(se)) {
+                return new PersistTimeoutException(e);
             }
         }
         return null;

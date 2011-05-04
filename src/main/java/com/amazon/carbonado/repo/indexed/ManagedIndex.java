@@ -173,6 +173,13 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
     Cursor<S> fetchOne(IndexedStorage storage, Object[] identityValues)
         throws FetchException
     {
+        return fetchOne(storage, identityValues, null);
+    }
+
+    Cursor<S> fetchOne(IndexedStorage storage, Object[] identityValues,
+                       Query.Controller controller)
+        throws FetchException
+    {
         Query<?> query = mSingleMatchQuery;
 
         if (query == null) {
@@ -184,13 +191,20 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             mSingleMatchQuery = query = mIndexEntryStorage.query(filter);
         }
 
-        return fetchFromIndexEntryQuery(storage, query.withValues(identityValues));
+        return fetchFromIndexEntryQuery(storage, query.withValues(identityValues), controller);
     }
 
     Cursor<S> fetchFromIndexEntryQuery(IndexedStorage storage, Query<?> indexEntryQuery)
         throws FetchException
     {
-        return new IndexedCursor<S>(indexEntryQuery.fetch(), storage, mAccessor);
+        return fetchFromIndexEntryQuery(storage, indexEntryQuery, null);
+    }
+
+    Cursor<S> fetchFromIndexEntryQuery(IndexedStorage storage, Query<?> indexEntryQuery,
+                                       Query.Controller controller)
+        throws FetchException
+    {
+        return new IndexedCursor<S>(indexEntryQuery.fetch(controller), storage, mAccessor);
     }
 
     @Override

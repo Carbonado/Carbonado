@@ -22,7 +22,6 @@ import java.util.NoSuchElementException;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.FetchInterruptedException;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
@@ -114,14 +113,12 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
             return true;
         }
         try {
-            int count = 0;
             while (mCursor.hasNext()) {
                 S next = mCursor.next();
                 if (isAllowed(next)) {
                     mNext = next;
                     return true;
                 }
-                interruptCheck(++count);
             }
         } catch (NoSuchElementException e) {
         } catch (FetchException e) {
@@ -165,10 +162,9 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
         try {
             int count = 0;
             while (--amount >= 0 && hasNext()) {
-                interruptCheck(++count);
+                ++count;
                 mNext = null;
             }
-
             return count;
         } catch (FetchException e) {
             try {
@@ -177,13 +173,6 @@ public abstract class FilteredCursor<S> extends AbstractCursor<S> {
                 // Don't care.
             }
             throw e;
-        }
-    }
-
-    private void interruptCheck(int count) throws FetchException {
-        if ((count & ~0xff) == 0 && Thread.interrupted()) {
-            close();
-            throw new FetchInterruptedException();
         }
     }
 }

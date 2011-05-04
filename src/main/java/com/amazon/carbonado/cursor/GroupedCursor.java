@@ -23,7 +23,6 @@ import java.util.NoSuchElementException;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.FetchInterruptedException;
 
 /**
  * Abstract cursor for aggregation and finding distinct data. The source cursor
@@ -124,7 +123,6 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
         }
 
         try {
-            int count = 0;
             if (mCursor.hasNext()) {
                 if (mGroupLeader == null) {
                     beginGroup(mGroupLeader = mCursor.next());
@@ -143,8 +141,6 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
                             return true;
                         }
                     }
-
-                    interruptCheck(++count);
                 }
 
                 G aggregate = finishGroup();
@@ -206,7 +202,7 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
         try {
             int count = 0;
             while (--amount >= 0 && hasNext()) {
-                interruptCheck(++count);
+                ++count;
                 mNextAggregate = null;
             }
 
@@ -218,13 +214,6 @@ public abstract class GroupedCursor<S, G> extends AbstractCursor<G> {
                 // Don't care.
             }
             throw e;
-        }
-    }
-
-    private void interruptCheck(int count) throws FetchException {
-        if ((count & ~0xff) == 0 && Thread.interrupted()) {
-            close();
-            throw new FetchInterruptedException();
         }
     }
 }

@@ -26,6 +26,7 @@ import java.util.List;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.cursor.SortedCursor;
@@ -97,9 +98,15 @@ public class UnionQueryExecutor<S extends Storable> extends AbstractQueryExecuto
     }
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
+        return fetch(values, null);
+    }
+
+    public Cursor<S> fetch(FilterValues<S> values, Query.Controller controller)
+        throws FetchException
+    {
         Cursor<S> cursor = null;
         for (QueryExecutor<S> executor : mExecutors) {
-            Cursor<S> subCursor = executor.fetch(values);
+            Cursor<S> subCursor = executor.fetch(values, controller);
             cursor = (cursor == null) ? subCursor
                 : new UnionCursor<S>(cursor, subCursor, mOrderComparator);
         }

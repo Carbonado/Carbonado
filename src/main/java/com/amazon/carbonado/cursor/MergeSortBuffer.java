@@ -38,7 +38,9 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.PriorityQueue;
 
+import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchInterruptedException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
@@ -122,6 +124,7 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
 
     private final String mTempDir;
     private final int mMaxArrayCapacity;
+    private final Query.Controller mController;
 
     private Preparer<S> mPreparer;
 
@@ -144,11 +147,29 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
     }
 
     /**
+     * @since 1.2
+     *
+     * @param controller optional controller which can abort query operation
+     */
+    public MergeSortBuffer(Query.Controller controller) {
+        this(null, TEMP_DIR, MAX_ARRAY_CAPACITY, controller);
+    }
+
+    /**
      * @param storage storage for elements; if null use first Storable to
      * prepare reloaded Storables
      */
     public MergeSortBuffer(Storage<S> storage) {
         this(storage, TEMP_DIR, MAX_ARRAY_CAPACITY);
+    }
+
+    /**
+     * @param storage storage for elements; if null use first Storable to
+     * prepare reloaded Storables
+     * @param controller optional controller which can abort query operation
+     */
+    public MergeSortBuffer(Storage<S> storage, Query.Controller controller) {
+        this(storage, TEMP_DIR, MAX_ARRAY_CAPACITY, controller);
     }
 
     /**
@@ -170,6 +191,22 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
      */
     @SuppressWarnings("unchecked")
     public MergeSortBuffer(Storage<S> storage, String tempDir, int maxArrayCapacity) {
+        this(storage, tempDir, maxArrayCapacity, null);
+    }
+
+    /**
+     * @param storage storage for elements; if null use first Storable to
+     * prepare reloaded Storables
+     * @param tempDir directory to store temp files for merging, or null for default
+     * @param maxArrayCapacity maximum amount of storables to keep in an array
+     * before serializing to a file
+     * @param controller optional controller which can abort query operation
+     * @throws IllegalArgumentException if storage is null
+     */
+    @SuppressWarnings("unchecked")
+    public MergeSortBuffer(Storage<S> storage, String tempDir, int maxArrayCapacity,
+                           Query.Controller controller)
+    {
         mTempDir = tempDir;
         mMaxArrayCapacity = maxArrayCapacity;
 
@@ -179,6 +216,10 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
 
         int cap = Math.min(MIN_ARRAY_CAPACITY, maxArrayCapacity);
         mElements = (S[]) new Storable[cap];
+
+        if ((mController = controller) != null) {
+            controller.begin();
+        }
     }
 
     public void prepare(Comparator<S> comparator) {
@@ -231,10 +272,10 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
 
                 if (mFilesInUse.size() < (MAX_OPEN_FILE_COUNT - 1)) {
                     mFilesInUse.add(raf);
-                    int count = 0;
+                    byte count = 0;
                     for (S element : mElements) {
-                        // Check every so often if interrupted.
-                        interruptCheck(++count);
+                        // Check every so often if should continue.
+                        continueCheck(++count);
                         element.writeTo(out);
                     }
                 } else {
@@ -274,11 +315,11 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
                     // as well as error out earlier, should the disk be full.
                     raf.setLength(mergedLength);
 
-                    int count = 0;
+                    byte count = 0;
                     Iterator<S> it = iterator(filesToMerge);
                     while (it.hasNext()) {
-                        // Check every so often if interrupted.
-                        interruptCheck(++count);
+                        // Check every so often if should continue.
+                        continueCheck(++count);
                         S element = it.next();
                         element.writeTo(out);
                     }
@@ -368,9 +409,16 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
     }
 
     public void close() {
-        clear();
-        if (mWorkFilePool != null) {
-            mWorkFilePool.unregisterWorkFileUser(this);
+        try {
+            clear();
+            if (mWorkFilePool != null) {
+                mWorkFilePool.unregisterWorkFileUser(this);
+            }
+        } finally {
+            Query.Controller controller = mController;
+            if (controller != null) {
+                controller.close();
+            }
         }
     }
 
@@ -386,10 +434,20 @@ public class MergeSortBuffer<S extends Storable> extends AbstractCollection<S>
         return comparator;
     }
 
-    private void interruptCheck(int count) {
-        if ((count & ~0xff) == 0 && (mStop || Thread.interrupted())) {
-            close();
-            throw new UndeclaredThrowableException(new FetchInterruptedException());
+    private void continueCheck(byte count) {
+        if (count == 0) {
+            try {
+                Query.Controller controller = mController;
+                if (controller != null) {
+                    controller.continueCheck();
+                }
+                if (mStop) {
+                    throw new FetchInterruptedException("Shutting down");
+                }
+            } catch (FetchException e) {
+                close();
+                throw new UndeclaredThrowableException(e);
+            }
         }
     }
 

@@ -27,6 +27,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.LogFactory;
 
@@ -34,6 +35,7 @@ import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.IsolationLevel;
 import com.amazon.carbonado.PersistException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
@@ -42,6 +44,7 @@ import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.capability.IndexInfo;
+import com.amazon.carbonado.cursor.ControllerCursor;
 import com.amazon.carbonado.cursor.EmptyCursor;
 import com.amazon.carbonado.cursor.LimitCursor;
 import com.amazon.carbonado.filter.AndFilter;
@@ -327,6 +330,28 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                                            QueryHints hints)
     {
         return new JDBCQuery(filter, values, ordering, hints);
+    }
+
+    static PreparedStatement prepareStatement(Connection con, String sql,
+                                              Query.Controller controller)
+        throws SQLException
+    {
+        PreparedStatement ps = con.prepareStatement(sql);
+
+        if (controller != null) {
+            long timeout = controller.getTimeout();
+            if (timeout >= 0) {
+                TimeUnit unit = controller.getTimeoutUnit();
+                if (unit != null) {
+                    long seconds = unit.toSeconds(timeout);
+                    int intSeconds = seconds <= 0 ? 1 :
+                        (seconds <= Integer.MAX_VALUE ? ((int) seconds) : 0);
+                    ps.setQueryTimeout(intSeconds);
+                }
+            }
+        }
+
+        return ps;
     }
 
     public S instantiate(ResultSet rs) throws SQLException {
@@ -668,12 +693,21 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             }
         }
 
+        @Override
         public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
+            return fetch(values, null);
+        }
+
+        @Override
+        public Cursor<S> fetch(FilterValues<S> values, Query.Controller controller)
+            throws FetchException
+        {
             TransactionScope<JDBCTransaction> scope = mRepository.localTransactionScope();
             boolean forUpdate = scope.isForUpdate();
             Connection con = getConnection();
             try {
-                PreparedStatement ps = con.prepareStatement(prepareSelect(values, forUpdate));
+                PreparedStatement ps =
+                    prepareStatement(con, prepareSelect(values, forUpdate), controller);
                 Integer fetchSize = mRepository.getFetchSize();
                 if (fetchSize != null) {
                     ps.setFetchSize(fetchSize);
@@ -681,7 +715,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
                 try {
                     setParameters(ps, values);
-                    return new JDBCCursor<S>(JDBCStorage.this, scope, con, ps);
+                    return ControllerCursor.apply
+                        (new JDBCCursor<S>(JDBCStorage.this, scope, con, ps), controller);
                 } catch (Exception e) {
                     // in case of exception, close statement
                     try {
@@ -706,6 +741,14 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         public Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to)
             throws FetchException
         {
+            return fetchSlice(values, from, to, null);
+        }
+
+        @Override
+        public Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to,
+                                    Query.Controller controller)
+            throws FetchException
+        {
             if (to != null && (to - from) <= 0) {
                 return EmptyCursor.the();
             }
@@ -716,17 +759,17 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
             switch (option) {
             case NOT_SUPPORTED: default:
-                return super.fetchSlice(values, from, to);
+                return super.fetchSlice(values, from, to, controller);
             case LIMIT_ONLY:
                 if (from > 0 || to == null) {
-                    return super.fetchSlice(values, from, to);
+                    return super.fetchSlice(values, from, to, controller);
                 }
                 select = prepareSelect(values, false);
                 select = mSupportStrategy.buildSelectWithSlice(select, false, true);
                 break;
             case OFFSET_ONLY:
                 if (from <= 0) {
-                    return super.fetchSlice(values, from, to);
+                    return super.fetchSlice(values, from, to, controller);
                 }
                 select = prepareSelect(values, false);
                 select = mSupportStrategy.buildSelectWithSlice(select, true, false);
@@ -746,7 +789,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
             Connection con = getConnection();
             try {
-                PreparedStatement ps = con.prepareStatement(select);
+                PreparedStatement ps = prepareStatement(con, select, controller);
                 Integer fetchSize = mRepository.getFetchSize();
                 if (fetchSize != null) {
                     ps.setFetchSize(fetchSize);
@@ -760,7 +803,10 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                             switch (option) {
                             case OFFSET_ONLY:
                                 ps.setLong(psOrdinal, from);
-                                Cursor<S> c = new JDBCCursor<S>(JDBCStorage.this, scope, con, ps);
+                                Cursor<S> c =
+                                    ControllerCursor.apply
+                                    (new JDBCCursor<S>(JDBCStorage.this, scope, con, ps),
+                                     controller);
                                 return new LimitCursor<S>(c, to - from);
                             case LIMIT_AND_OFFSET:
                                 ps.setLong(psOrdinal, to - from);
@@ -782,7 +828,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                         ps.setLong(psOrdinal, to);
                     }
 
-                    return new JDBCCursor<S>(JDBCStorage.this, scope, con, ps);
+                    return ControllerCursor.apply
+                        (new JDBCCursor<S>(JDBCStorage.this, scope, con, ps), controller);
                 } catch (Exception e) {
                     // in case of exception, close statement
                     try {
@@ -805,9 +852,17 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         @Override
         public long count(FilterValues<S> values) throws FetchException {
+            return count(values, null);
+        }
+
+        @Override
+        public long count(FilterValues<S> values, Query.Controller controller)
+            throws FetchException
+        {
             Connection con = getConnection();
             try {
-                PreparedStatement ps = con.prepareStatement(prepareCount(values));
+                PreparedStatement ps = prepareStatement(con, prepareCount(values), controller);
+
                 try {
                     setParameters(ps, values);
                     ResultSet rs = ps.executeQuery();
@@ -827,10 +882,12 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             }
         }
 
+        @Override
         public Filter<S> getFilter() {
             return mFilter;
         }
 
+        @Override
         public OrderingList<S> getOrdering() {
             return mOrdering;
         }
@@ -846,6 +903,7 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
             return true;
         }
 
+        @Override
         public boolean printPlan(Appendable app, int indentLevel, FilterValues<S> values)
             throws IOException
         {
@@ -862,7 +920,9 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
         /**
          * Delete operation is included in cursor factory for ease of implementation.
          */
-        int executeDelete(FilterValues<S> filterValues) throws PersistException {
+        int executeDelete(FilterValues<S> filterValues, Query.Controller controller)
+            throws PersistException
+        {
             Connection con;
             try {
                 con = getConnection();
@@ -870,7 +930,8 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
                 throw e.toPersistException();
             }
             try {
-                PreparedStatement ps = con.prepareStatement(prepareDelete(filterValues));
+                PreparedStatement ps =
+                    prepareStatement(con, prepareDelete(filterValues), controller);
                 try {
                     setParameters(ps, filterValues);
                     return ps.executeUpdate();
@@ -976,13 +1037,18 @@ class JDBCStorage<S extends Storable> extends StandardQueryFactory<S>
 
         @Override
         public void deleteAll() throws PersistException {
+            deleteAll(null);
+        }
+
+        @Override
+        public void deleteAll(Controller controller) throws PersistException {
             if (mTriggerManager.getDeleteTrigger() != null) {
                 // Super implementation loads one at time and calls
                 // delete. This allows delete trigger to be invoked on each.
-                super.deleteAll();
+                super.deleteAll(controller);
             } else {
                 try {
-                    ((Executor) executor()).executeDelete(getFilterValues());
+                    ((Executor) executor()).executeDelete(getFilterValues(), controller);
                 } catch (RepositoryException e) {
                     throw e.toPersistException();
                 }

@@ -22,6 +22,7 @@ import java.io.IOException;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
@@ -58,6 +59,15 @@ public class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExec
         return count;
     }
 
+    @Override
+    public long count(FilterValues<S> values, Query.Controller controller) throws FetchException {
+        long count = mSupport.countAll(controller);
+        if (count == -1) {
+            count = super.count(values, controller);
+        }
+        return count;
+    }
+
     /**
      * Returns an open filter.
      */
@@ -67,6 +77,12 @@ public class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExec
 
     public Cursor<S> fetch(FilterValues<S> values) throws FetchException {
         return mSupport.fetchAll();
+    }
+
+    public Cursor<S> fetch(FilterValues<S> values, Query.Controller controller)
+        throws FetchException
+    {
+        return mSupport.fetchAll(controller);
     }
 
     /**
@@ -99,8 +115,23 @@ public class FullScanQueryExecutor<S extends Storable> extends AbstractQueryExec
         long countAll() throws FetchException;
 
         /**
+         * Counts all Storables. Implementation may return -1 to indicate that
+         * default count algorithm should be used.
+         *
+         * @param controller optional controller which can abort query operation
+         */
+        long countAll(Query.Controller controller) throws FetchException;
+
+        /**
          * Perform a full scan of all Storables.
          */
         Cursor<S> fetchAll() throws FetchException;
+
+        /**
+         * Perform a full scan of all Storables.
+         *
+         * @param controller optional controller which can abort query operation
+         */
+        Cursor<S> fetchAll(Query.Controller controller) throws FetchException;
     }
 }

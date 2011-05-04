@@ -89,8 +89,9 @@ public class GenericStorableCodecFactory implements StorableCodecFactory {
                                                                     RawSupport support)
         throws SupportException
     {
+        LayoutOptions options = layout == null ? getLayoutOptions(type) : layout.getOptions();
         return GenericStorableCodec.getInstance
-            (this, createStrategy(type, pkIndex, null), isMaster, layout, support);
+            (this, createStrategy(type, pkIndex, options), isMaster, layout, support);
     }
 
     /**

@@ -36,6 +36,7 @@ import org.cojen.util.ClassInjector;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.RepositoryException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.cursor.MultiTransformedCursor;
 
@@ -190,6 +191,7 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
 
     private static final String INNER_LOOP_EX_FIELD_NAME = "innerLoopExecutor";
     private static final String INNER_LOOP_FV_FIELD_NAME = "innerLoopFilterValues";
+    private static final String INNER_LOOP_CONTROLLER_FIELD_NAME = "innerLoopController";
     private static final String ACTIVE_SOURCE_FIELD_NAME = "active";
 
     private static final SoftValuedCache<StorableProperty, Class> cJoinerCursorClassCache;
@@ -240,11 +242,14 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
         final TypeDesc cursorType = TypeDesc.forClass(Cursor.class);
         final TypeDesc queryExecutorType = TypeDesc.forClass(QueryExecutor.class);
         final TypeDesc filterValuesType = TypeDesc.forClass(FilterValues.class);
+        final TypeDesc controllerType = TypeDesc.forClass(Query.Controller.class);
 
         // Define fields for inner loop executor and filter values, which are
         // passed into the constructor.
         cf.addField(Modifiers.PRIVATE.toFinal(true), INNER_LOOP_EX_FIELD_NAME, queryExecutorType);
         cf.addField(Modifiers.PRIVATE.toFinal(true), INNER_LOOP_FV_FIELD_NAME, filterValuesType);
+        cf.addField(Modifiers.PRIVATE.toFinal(true),
+                    INNER_LOOP_CONTROLLER_FIELD_NAME, controllerType);
 
         // If target storable can set a reference to the joined source
         // storable, then stash a copy of it as we go. This way, when user of
@@ -259,7 +264,7 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
 
         // Define constructor.
         {
-            TypeDesc[] params = {cursorType, queryExecutorType, filterValuesType};
+            TypeDesc[] params = {cursorType, queryExecutorType, filterValuesType, controllerType};
 
             MethodInfo mi = cf.addConstructor(Modifiers.PUBLIC, params);
             CodeBuilder b = new CodeBuilder(mi);
@@ -275,6 +280,10 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
             b.loadThis();
             b.loadLocal(b.getParameter(2));
             b.storeField(INNER_LOOP_FV_FIELD_NAME, filterValuesType);
+
+            b.loadThis();
+            b.loadLocal(b.getParameter(3));
+            b.storeField(INNER_LOOP_CONTROLLER_FIELD_NAME, controllerType);
 
             b.returnVoid();
         }
@@ -317,9 +326,12 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
                                 new TypeDesc[] {bindType});
             }
 
+            b.loadThis();
+            b.loadField(INNER_LOOP_CONTROLLER_FIELD_NAME, controllerType);
+
             // Now fetch and return.
             b.invokeInterface(queryExecutorType, "fetch", cursorType,
-                              new TypeDesc[] {filterValuesType});
+                              new TypeDesc[] {filterValuesType, controllerType});
             b.returnValue(cursorType);
         }
 
@@ -570,6 +582,12 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
     }
 
     public Cursor<T> fetch(FilterValues<T> values) throws FetchException {
+        return fetch(values, null);
+    }
+
+    public Cursor<T> fetch(FilterValues<T> values, Query.Controller controller)
+        throws FetchException
+    {
         FilterValues<T> innerLoopFilterValues = mInnerLoopFilterValues;
 
         if (mTargetFilter != null) {
@@ -578,10 +596,14 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
                 .withValues(values.getValuesFor(mTargetFilter));
         }
 
-        Cursor<S> outerLoopCursor = mOuterLoopExecutor.fetch(transferValues(values));
+        if (controller != null) {
+            controller.begin();
+        }
+
+        Cursor<S> outerLoopCursor = mOuterLoopExecutor.fetch(transferValues(values), controller);
 
         return mJoinerFactory.newJoinedCursor
-            (outerLoopCursor, mInnerLoopExecutor, innerLoopFilterValues);
+            (outerLoopCursor, mInnerLoopExecutor, innerLoopFilterValues, controller);
     }
 
     public Filter<T> getFilter() {
@@ -628,7 +650,8 @@ public class JoinedQueryExecutor<S extends Storable, T extends Storable>
         public static interface Factory<S, T extends Storable> {
             Cursor<T> newJoinedCursor(Cursor<S> outerLoopCursor,
                                       QueryExecutor<T> innerLoopExecutor,
-                                      FilterValues<T> innerLoopFilterValues);
+                                      FilterValues<T> innerLoopFilterValues,
+                                      Query.Controller innerLoopController);
         }
     }
 }

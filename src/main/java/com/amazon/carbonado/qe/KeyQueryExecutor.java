@@ -22,6 +22,7 @@ import java.io.IOException;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
@@ -72,6 +73,12 @@ public class KeyQueryExecutor<S extends Storable> extends AbstractQueryExecutor<
         return mSupport.fetchOne(mIndex, values.getValuesFor(mKeyFilter));
     }
 
+    public Cursor<S> fetch(FilterValues<S> values, Query.Controller controller)
+        throws FetchException
+    {
+        return mSupport.fetchOne(mIndex, values.getValuesFor(mKeyFilter), controller);
+    }
+
     public Filter<S> getFilter() {
         return mKeyFilter;
     }
@@ -114,6 +121,19 @@ public class KeyQueryExecutor<S extends Storable> extends AbstractQueryExecutor<
          * @param identityValues of exactly matching values to apply to index
          */
         Cursor<S> fetchOne(StorableIndex<S> index, Object[] identityValues)
+            throws FetchException;
+
+        /**
+         * Select at most one Storable referenced by an index. The identity
+         * values fully specify all elements of the index, and the index is
+         * unique.
+         *
+         * @param controller optional controller which can abort query operation
+         * @param index index to open, which may be a primary key index
+         * @param identityValues of exactly matching values to apply to index
+         */
+        Cursor<S> fetchOne(StorableIndex<S> index, Object[] identityValues,
+                           Query.Controller controller)
             throws FetchException;
     }
 }

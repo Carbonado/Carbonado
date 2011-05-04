@@ -18,7 +18,13 @@
 
 package com.amazon.carbonado;
 
+import java.io.Closeable;
 import java.io.IOException;
+import java.io.Serializable;
+
+import java.util.concurrent.TimeUnit;
+
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
@@ -287,6 +293,20 @@ public interface Query<S extends Storable> {
     Cursor<S> fetch() throws FetchException;
 
     /**
+     * Fetches results for this query. If any updates or deletes might be
+     * performed on the results, consider enclosing the fetch in a
+     * transaction. This allows the isolation level and "for update" mode to be
+     * adjusted. Some repositories might otherwise deadlock.
+     *
+     * @param controller optional controller which can abort query operation
+     * @return fetch results
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws FetchException if storage layer throws an exception
+     * @see Repository#enterTransaction(IsolationLevel)
+     */
+    Cursor<S> fetch(Controller controller) throws FetchException;
+
+    /**
      * Fetches a slice of results for this query, as defined by a numerical
      * range. A slice can be used to limit the number of results from a
      * query. It is strongly recommended that the query be given a total {@link
@@ -302,6 +322,24 @@ public interface Query<S extends Storable> {
      * @since 1.2
      */
     Cursor<S> fetchSlice(long from, Long to) throws FetchException;
+
+    /**
+     * Fetches a slice of results for this query, as defined by a numerical
+     * range. A slice can be used to limit the number of results from a
+     * query. It is strongly recommended that the query be given a total {@link
+     * #orderBy ordering} in order for the slice results to be deterministic.
+     *
+     * @param from zero-based {@code from} record number, inclusive
+     * @param to optional zero-based {@code to} record number, exclusive
+     * @param controller optional controller which can abort query operation
+     * @return fetch results
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws IllegalArgumentException if {@code from} is negative or if
+     * {@code from} is more than {@code to}
+     * @throws FetchException if storage layer throws an exception
+     * @since 1.2
+     */
+    Cursor<S> fetchSlice(long from, Long to, Controller controller) throws FetchException;
 
     /**
      * Fetches results for this query after a given starting point, which is
@@ -326,6 +364,29 @@ public interface Query<S extends Storable> {
     <T extends S> Cursor<S> fetchAfter(T start) throws FetchException;
 
     /**
+     * Fetches results for this query after a given starting point, which is
+     * useful for re-opening a cursor. This is only effective when query has
+     * been given an explicit {@link #orderBy ordering}. If not a total
+     * ordering, then cursor may start at an earlier position.
+     *
+     * <p>Note: This method can be very expensive to call repeatedly, if the
+     * query needs to perform a sort operation. Ideally, the query ordering
+     * should match the natural ordering of an index or key.
+     *
+     * <p>Calling {@code fetchAfter(s)} is equivalent to calling {@code
+     * after(s).fetch()}.
+     *
+     * @param start storable to attempt to start after; if null, fetch all results
+     * @param controller optional controller which can abort query operation
+     * @return fetch results
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws FetchException if storage layer throws an exception
+     * @see Repository#enterTransaction(IsolationLevel)
+     * @see #after
+     */
+    <T extends S> Cursor<S> fetchAfter(T start, Controller controller) throws FetchException;
+
+    /**
      * Attempts to load exactly one matching object. If the number of matching
      * records is zero or exceeds one, then an exception is thrown instead.
      *
@@ -338,8 +399,21 @@ public interface Query<S extends Storable> {
     S loadOne() throws FetchException;
 
     /**
-     * May return null if nothing found. Throws exception if record count is
-     * more than one.
+     * Attempts to load exactly one matching object. If the number of matching
+     * records is zero or exceeds one, then an exception is thrown instead.
+     *
+     * @param controller optional controller which can abort query operation
+     * @return a single fetched object
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws FetchNoneException if no matching record found
+     * @throws FetchMultipleException if more than one matching record found
+     * @throws FetchException if storage layer throws an exception
+     */
+    S loadOne(Controller controller) throws FetchException;
+
+    /**
+     * Tries to load one record, but returns null if nothing was found. Throws
+     * exception if record count is more than one.
      *
      * @return null or a single fetched object
      * @throws IllegalStateException if any blank parameters in this query
@@ -347,6 +421,18 @@ public interface Query<S extends Storable> {
      * @throws FetchException if storage layer throws an exception
      */
     S tryLoadOne() throws FetchException;
+
+    /**
+     * Tries to load one record, but returns null if nothing was found. Throws
+     * exception if record count is more than one.
+     *
+     * @param controller optional controller which can abort query operation
+     * @return null or a single fetched object
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws FetchMultipleException if more than one matching record found
+     * @throws FetchException if storage layer throws an exception
+     */
+    S tryLoadOne(Controller controller) throws FetchException;
 
     /**
      * Deletes one matching object. If the number of matching records is zero or
@@ -360,6 +446,18 @@ public interface Query<S extends Storable> {
     void deleteOne() throws PersistException;
 
     /**
+     * Deletes one matching object. If the number of matching records is zero or
+     * exceeds one, then no delete occurs, and an exception is thrown instead.
+     *
+     * @param controller optional controller which can abort query operation
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws PersistNoneException if no matching record found
+     * @throws PersistMultipleException if more than one record matches
+     * @throws PersistException if storage layer throws an exception
+     */
+    void deleteOne(Controller controller) throws PersistException;
+
+    /**
      * Deletes zero or one matching objects. If the number of matching records
      * exceeds one, then no delete occurs, and an exception is thrown instead.
      *
@@ -371,6 +469,18 @@ public interface Query<S extends Storable> {
     boolean tryDeleteOne() throws PersistException;
 
     /**
+     * Deletes zero or one matching objects. If the number of matching records
+     * exceeds one, then no delete occurs, and an exception is thrown instead.
+     *
+     * @param controller optional controller which can abort query operation
+     * @return true if record existed and was deleted, or false if no match
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws PersistMultipleException if more than one record matches
+     * @throws PersistException if storage layer throws an exception
+     */
+    boolean tryDeleteOne(Controller controller) throws PersistException;
+
+    /**
      * Deletes zero or more matching objects. There is no guarantee that
      * deleteAll is an atomic operation. If atomic behavior is desired, wrap
      * the call in a transaction scope.
@@ -379,6 +489,17 @@ public interface Query<S extends Storable> {
      * @throws PersistException if storage layer throws an exception
      */
     void deleteAll() throws PersistException;
+
+    /**
+     * Deletes zero or more matching objects. There is no guarantee that
+     * deleteAll is an atomic operation. If atomic behavior is desired, wrap
+     * the call in a transaction scope.
+     *
+     * @param controller optional controller which can abort query operation
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws PersistException if storage layer throws an exception
+     */
+    void deleteAll(Controller controller) throws PersistException;
 
     /**
      * Returns a count of all results matched by this query. Even though no
@@ -392,6 +513,18 @@ public interface Query<S extends Storable> {
     long count() throws FetchException;
 
     /**
+     * Returns a count of all results matched by this query. Even though no
+     * results are explicitly fetched, this method may still be expensive to
+     * call. The actual performance will vary by repository and available indexes.
+     *
+     * @param controller optional controller which can abort query operation
+     * @return count of matches
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws FetchException if storage layer throws an exception
+     */
+    long count(Controller controller) throws FetchException;
+
+    /**
      * Returns true if any results are matched by this query.
      *
      * @return true if any matches
@@ -400,6 +533,17 @@ public interface Query<S extends Storable> {
      * @since 1.2
      */
     boolean exists() throws FetchException;
+
+    /**
+     * Returns true if any results are matched by this query.
+     *
+     * @param controller optional controller which can abort query operation
+     * @return true if any matches
+     * @throws IllegalStateException if any blank parameters in this query
+     * @throws FetchException if storage layer throws an exception
+     * @since 1.2
+     */
+    boolean exists(Controller controller) throws FetchException;
 
     /**
      * Print the native query to standard out, which is useful for performance
@@ -469,4 +613,166 @@ public interface Query<S extends Storable> {
      * Returns a description of the query filter and any other arguments.
      */
     String toString();
+
+    /**
+     * Controller instance can be used to abort query operations.
+     *
+     * <p>Example:<pre>
+     * Storage&lt;UserInfo&gt; users = ...
+     * long count = users.query("name = ?").count(Query.Timeout.seconds(10));
+     * </pre>
+     */
+    public static interface Controller extends Serializable, Closeable {
+        /**
+         * Returns a non-negative value if controller imposes an absolute upper
+         * bound on query execution time.
+         */
+        public long getTimeout();
+
+        /**
+         * Returns the unit for the timeout, if applicable.
+         */
+        public TimeUnit getTimeoutUnit();
+
+        /**
+         * Called by query when it begins, possibly multiple times. Implementation
+         * is required to be idempotent and ignore multiple invocations.
+         */
+        public void begin();
+ 
+        /**
+         * Periodically called by query to determine if it should continue.
+         */
+        public void continueCheck() throws FetchException;
+ 
+        /**
+         * Always called by query when finished, even when it fails. Implementation
+         * is required to be idempotent and ignore multiple invocations.
+         */
+        public void close();        
+    }
+
+    /**
+     * Timeout controller, for aborting long running queries. One instance is
+     * good for one timeout. The instance can be shared by multiple queries, if
+     * they are part of a single logical operation.
+     *
+     * <p>The timeout applies to the entire duration of fetching results, not
+     * just the time spent between individual fetches. A caller which is slowly
+     * processing results can timeout. More sophisticated timeouts can be
+     * implemented using custom Controller implementations.
+     */
+    public static final class Timeout implements Controller {
+        private static final long serialVersionUID = 1;
+
+        private static final AtomicLongFieldUpdater<Timeout> endUpdater =
+            AtomicLongFieldUpdater.newUpdater(Timeout.class, "mEndNanos");
+
+        /**
+         * Return a new Timeout in nanoseconds.
+         */
+        public static Timeout nanos(long timeout) {
+            return new Timeout(timeout, TimeUnit.NANOSECONDS);
+        }
+
+        /**
+         * Return a new Timeout in microseconds.
+         */
+        public static Timeout micros(long timeout) {
+            return new Timeout(timeout, TimeUnit.MICROSECONDS);
+        }
+
+        /**
+         * Return a new Timeout in milliseconds.
+         */
+        public static Timeout millis(long timeout) {
+            return new Timeout(timeout, TimeUnit.MILLISECONDS);
+        }
+ 
+        /**
+         * Return a new Timeout in seconds.
+         */
+        public static Timeout seconds(long timeout) {
+            return new Timeout(timeout, TimeUnit.SECONDS);
+        }
+
+        /**
+         * Return a new Timeout in minutes.
+         */
+ 
+        public static Timeout minutes(long timeout) {
+            return new Timeout(timeout, TimeUnit.MINUTES);
+        }
+
+        /**
+         * Return a new Timeout in hours.
+         */
+        public static Timeout hours(long timeout) {
+            return new Timeout(timeout, TimeUnit.HOURS);
+        }
+
+        private final long mTimeout;
+        private final TimeUnit mUnit;
+
+        private volatile transient long mEndNanos;
+
+        public Timeout(long timeout, TimeUnit unit) {
+            if (timeout < 0) {
+                throw new IllegalArgumentException("Timeout cannot be negative: " + timeout);
+            }
+            if (unit == null && timeout != 0) {
+                throw new IllegalArgumentException
+                    ("TimeUnit cannot be null if timeout is non-zero: " + timeout);
+            }
+            mTimeout = timeout;
+            mUnit = unit;
+        }
+ 
+        public long getTimeout() {
+            return mTimeout;
+        }
+
+        public TimeUnit getTimeoutUnit() {
+            return mUnit;
+        }
+
+        @Override
+        public void begin() {
+            long end = System.nanoTime() + mUnit.toNanos(mTimeout);
+            if (end == 0) {
+                // Handle rare case to ensure atomic compare and set always
+                // works the first time, supporting idempotent calls to this
+                // method.
+                end = 1;
+            }
+            endUpdater.compareAndSet(this, 0, end);
+        }
+
+        @Override
+        public void continueCheck() throws FetchTimeoutException {
+            long end = mEndNanos;
+
+            if (end == 0) {
+                // Begin was not called, in violation of how the Controller
+                // must be used. Be lenient and begin now.
+                begin();
+                end = mEndNanos;
+            }
+
+            // Subtract to support modulo comparison.
+            if ((System.nanoTime() - end) >= 0) {
+                throw new FetchTimeoutException("Timed out: " + mTimeout + ' ' + mUnit);
+            }
+        }
+ 
+        @Override
+        public void close() {
+            // Nothing to do.
+        }
+
+        @Override
+        public String toString() {
+            return "Query.Timeout {timeout=" + mTimeout + ", unit=" + mUnit + '}';
+        }
+    }
 }

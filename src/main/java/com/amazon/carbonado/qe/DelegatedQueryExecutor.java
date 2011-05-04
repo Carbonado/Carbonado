@@ -95,12 +95,29 @@ public class DelegatedQueryExecutor<S extends Storable> implements QueryExecutor
         return applyFilterValues(values).fetch();
     }
 
+    public Cursor<S> fetch(FilterValues<S> values, Query.Controller controller)
+        throws FetchException
+    {
+        return applyFilterValues(values).fetch(controller);
+    }
+
     public Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to) throws FetchException {
         return applyFilterValues(values).fetchSlice(from, to);
     }
 
+    public Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to,
+                                Query.Controller controller)
+        throws FetchException
+    {
+        return applyFilterValues(values).fetchSlice(from, to, controller);
+    }
+
     public long count(FilterValues<S> values) throws FetchException {
         return applyFilterValues(values).count();
+    }
+
+    public long count(FilterValues<S> values, Query.Controller controller) throws FetchException {
+        return applyFilterValues(values).count(controller);
     }
 
     public Filter<S> getFilter() {

@@ -32,6 +32,8 @@ class OracleExceptionTransformer extends JDBCExceptionTransformer {
 
     public static int DEADLOCK_DETECTED = 60;
 
+    public static int PROCESSING_CANCELED = 1013;
+
     @Override
     public boolean isUniqueConstraintError(SQLException e) {
         if (isConstraintError(e)) {
@@ -62,5 +64,10 @@ class OracleExceptionTransformer extends JDBCExceptionTransformer {
             return DEADLOCK_DETECTED == errorCode;
         }
         return false;
+    }
+
+    @Override
+    public boolean isTimeoutError(SQLException e) {
+        return super.isTimeoutError(e) || e != null && PROCESSING_CANCELED == e.getErrorCode();
     }
 }

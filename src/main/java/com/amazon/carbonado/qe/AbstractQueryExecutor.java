@@ -22,6 +22,7 @@ import java.io.IOException;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.cursor.LimitCursor;
@@ -57,11 +58,51 @@ public abstract class AbstractQueryExecutor<S extends Storable> implements Query
     }
 
     /**
+     * Produces a slice via skip and limit cursors. Subclasses are encouraged
+     * to override with a more efficient implementation.
+     *
+     * @since 1.2
+     */
+    public Cursor<S> fetchSlice(FilterValues<S> values, long from, Long to,
+                                Query.Controller controller)
+        throws FetchException
+    {
+        Cursor<S> cursor = fetch(values, controller);
+        if (from > 0) {
+            cursor = new SkipCursor<S>(cursor, from);
+        }
+        if (to != null) {
+            cursor = new LimitCursor<S>(cursor, to - from);
+        }
+        return cursor;
+    }
+
+    /**
      * Counts results by opening a cursor and skipping entries. Subclasses are
      * encouraged to override with a more efficient implementation.
      */
     public long count(FilterValues<S> values) throws FetchException {
         Cursor<S> cursor = fetch(values);
+        try {
+            long count = cursor.skipNext(Integer.MAX_VALUE);
+            if (count == Integer.MAX_VALUE) {
+                int amt;
+                while ((amt = cursor.skipNext(Integer.MAX_VALUE)) > 0) {
+                    count += amt;
+                }
+            }
+            return count;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    /**
+     * Counts results by opening a cursor and skipping entries. Subclasses are
+     * encouraged to override with a more efficient implementation.
+     */
+    public long count(FilterValues<S> values, Query.Controller controller) throws FetchException {
+        Cursor<S> cursor = fetch(values, controller);
         try {
             long count = cursor.skipNext(Integer.MAX_VALUE);
             if (count == Integer.MAX_VALUE) {

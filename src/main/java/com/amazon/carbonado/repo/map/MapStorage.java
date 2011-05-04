@@ -47,6 +47,7 @@ import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.capability.IndexInfo;
 
 import com.amazon.carbonado.cursor.ArraySortBuffer;
+import com.amazon.carbonado.cursor.ControllerCursor;
 import com.amazon.carbonado.cursor.EmptyCursor;
 import com.amazon.carbonado.cursor.FilteredCursor;
 import com.amazon.carbonado.cursor.SingletonCursor;
@@ -540,6 +541,10 @@ class MapStorage<S extends Storable>
     }
 
     public long countAll() throws FetchException {
+        return countAll(null);
+    }
+
+    public long countAll(Query.Controller controller) throws FetchException {
         try {
             TransactionScope<MapTransaction> scope = mRepo.localTransactionScope();
             MapTransaction txn = scope.getTxn();
@@ -578,7 +583,18 @@ class MapStorage<S extends Storable>
         }
     }
 
+    public Cursor<S> fetchAll(Query.Controller controller) throws FetchException {
+        return ControllerCursor.apply(fetchAll(), controller);
+    }
+
     public Cursor<S> fetchOne(StorableIndex<S> index, Object[] identityValues)
+        throws FetchException
+    {
+        return fetchOne(index, identityValues, null);
+    }
+
+    public Cursor<S> fetchOne(StorableIndex<S> index, Object[] identityValues,
+                              Query.Controller controller)
         throws FetchException
     {
         try {
@@ -640,6 +656,12 @@ class MapStorage<S extends Storable>
     }
 
     public Cursor<S> fetchFromIndexEntryQuery(StorableIndex<S> index, Query<?> indexEntryQuery) {
+        return null;
+    }
+
+    public Cursor<S> fetchFromIndexEntryQuery(StorableIndex<S> index, Query<?> indexEntryQuery,
+                                              Query.Controller controller)
+    {
         return null;
     }
 
@@ -770,6 +792,28 @@ class MapStorage<S extends Storable>
         return cursor;
     }
 
+    public Cursor<S> fetchSubset(StorableIndex<S> index,
+                                 Object[] identityValues,
+                                 BoundaryType rangeStartBoundary,
+                                 Object rangeStartValue,
+                                 BoundaryType rangeEndBoundary,
+                                 Object rangeEndValue,
+                                 boolean reverseRange,
+                                 boolean reverseOrder,
+                                 Query.Controller controller)
+        throws FetchException
+    {
+        return ControllerCursor.apply(fetchSubset(index,
+                                                  identityValues,
+                                                  rangeStartBoundary,
+                                                  rangeStartValue,
+                                                  rangeEndBoundary,
+                                                  rangeEndValue,
+                                                  reverseRange,
+                                                  reverseOrder),
+                                      controller);
+    }
+
     private List<OrderedProperty<S>> createPkPropList() {
         return new ArrayList<OrderedProperty<S>>(mInfo.getPrimaryKey().getProperties());
     }
@@ -803,6 +847,11 @@ class MapStorage<S extends Storable>
     }
 
     public SortBuffer<S> createSortBuffer() {
+        return new ArraySortBuffer<S>();
+    }
+
+    public SortBuffer<S> createSortBuffer(Query.Controller controller) {
+        // ArraySortBuffer doesn't support controller.
         return new ArraySortBuffer<S>();
     }
 

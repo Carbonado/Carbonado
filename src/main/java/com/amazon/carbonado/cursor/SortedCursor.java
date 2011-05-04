@@ -32,7 +32,6 @@ import org.cojen.util.BeanProperty;
 import org.cojen.classfile.TypeDesc;
 
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.FetchInterruptedException;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.Storable;
 
@@ -388,12 +387,7 @@ public class SortedCursor<S> extends AbstractCursor<S> {
             fill: {
                 if (matcher == null) {
                     // Buffer up entire results and sort.
-                    int count = 0;
                     while (cursor.hasNext()) {
-                        // Check every so often if interrupted.
-                        if ((++count & ~0xff) == 0 && Thread.interrupted()) {
-                            throw new FetchInterruptedException();
-                        }
                         buffer.add(cursor.next());
                     }
                     break fill;
@@ -413,13 +407,8 @@ public class SortedCursor<S> extends AbstractCursor<S> {
                 }
 
                 buffer.add(chunkStart);
-                int count = 1;
 
                 while (cursor.hasNext()) {
-                    // Check every so often if interrupted.
-                    if ((++count & ~0xff) == 0 && Thread.interrupted()) {
-                        throw new FetchInterruptedException();
-                    }
                     S next = cursor.next();
                     if (matcher.compare(chunkStart, next) != 0) {
                         // Save for reading next chunk later.

@@ -241,9 +241,25 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
      * Always returns an {@link EmptyCursor}.
      */
     @Override
+    public Cursor<S> fetch(Controller controller) {
+        return EmptyCursor.the();
+    }
+
+    /**
+     * Always returns an {@link EmptyCursor}.
+     */
+    @Override
     public Cursor<S> fetchSlice(long from, Long to) {
         checkSliceArguments(from, to);
         return EmptyCursor.the();
+    }
+
+    /**
+     * Always returns an {@link EmptyCursor}.
+     */
+    @Override
+    public Cursor<S> fetchSlice(long from, Long to, Controller controller) {
+        return fetchSlice(from, to);
     }
 
     /**
@@ -251,6 +267,14 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
      */
     @Override
     public void deleteOne() throws PersistNoneException {
+        throw new PersistNoneException();
+    }
+
+    /**
+     * Always throws {@link PersistNoneException}.
+     */
+    @Override
+    public void deleteOne(Controller controller) throws PersistNoneException {
         throw new PersistNoneException();
     }
 
@@ -263,10 +287,25 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     }
 
     /**
+     * Always returns false.
+     */
+    @Override
+    public boolean tryDeleteOne(Controller controller) {
+        return false;
+    }
+
+    /**
      * Does nothing.
      */
     @Override
     public void deleteAll() {
+    }
+
+    /**
+     * Does nothing.
+     */
+    @Override
+    public void deleteAll(Controller controller) {
     }
 
     /**
@@ -278,10 +317,26 @@ public final class EmptyQuery<S extends Storable> extends AbstractQuery<S> {
     }
 
     /**
+     * Always returns zero.
+     */
+    @Override
+    public long count(Controller controller) {
+        return 0;
+    }
+
+    /**
      * Always returns false.
      */
     @Override
     public boolean exists() {
+        return false;
+    }
+
+    /**
+     * Always returns false.
+     */
+    @Override
+    public boolean exists(Controller controller) {
         return false;
     }
 

@@ -22,7 +22,6 @@ import java.util.NoSuchElementException;
 
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
-import com.amazon.carbonado.FetchInterruptedException;
 
 /**
  * Abstract cursor which wraps another cursor and transforms each storable
@@ -72,7 +71,6 @@ public abstract class MultiTransformedCursor<S, T> extends AbstractCursor<T> {
                 mNextCursor.close();
                 mNextCursor = null;
             }
-            int count = 0;
             while (mCursor.hasNext()) {
                 Cursor<T> nextCursor = transform(mCursor.next());
                 if (nextCursor != null) {
@@ -82,7 +80,6 @@ public abstract class MultiTransformedCursor<S, T> extends AbstractCursor<T> {
                     }
                     nextCursor.close();
                 }
-                interruptCheck(++count);
             }
         } catch (NoSuchElementException e) {
         } catch (FetchException e) {
@@ -129,7 +126,6 @@ public abstract class MultiTransformedCursor<S, T> extends AbstractCursor<T> {
                 if ((amount -= chunk) <= 0) {
                     break;
                 }
-                interruptCheck(count);
             }
 
             return count;
@@ -140,13 +136,6 @@ public abstract class MultiTransformedCursor<S, T> extends AbstractCursor<T> {
                 // Don't care.
             }
             throw e;
-        }
-    }
-
-    private void interruptCheck(int count) throws FetchException {
-        if ((count & ~0xff) == 0 && Thread.interrupted()) {
-            close();
-            throw new FetchInterruptedException();
         }
     }
 }

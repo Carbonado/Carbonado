@@ -23,11 +23,13 @@ import java.io.IOException;
 import java.util.concurrent.locks.Lock;
 
 import com.amazon.carbonado.Cursor;
+import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.FilterValues;
 
+import com.amazon.carbonado.cursor.ControllerCursor;
 import com.amazon.carbonado.cursor.IteratorCursor;
 
 /**
@@ -74,6 +76,10 @@ public class IterableQueryExecutor<S extends Storable> extends AbstractQueryExec
 
     public Cursor<S> fetch(FilterValues<S> values) {
         return new IteratorCursor<S>(mIterable, mLock);
+    }
+
+    public Cursor<S> fetch(FilterValues<S> values, Query.Controller controller) {
+        return ControllerCursor.apply(new IteratorCursor<S>(mIterable, mLock), controller);
     }
 
     /**

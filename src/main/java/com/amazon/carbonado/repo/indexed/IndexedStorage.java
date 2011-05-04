@@ -191,12 +191,24 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         return new MergeSortBuffer<S>();
     }
 
+    public SortBuffer<S> createSortBuffer(Query.Controller controller) {
+        return new MergeSortBuffer<S>(controller);
+    }
+
     public long countAll() throws FetchException {
         return mMasterStorage.query().count();
     }
 
+    public long countAll(Query.Controller controller) throws FetchException {
+        return mMasterStorage.query().count(controller);
+    }
+
     public Cursor<S> fetchAll() throws FetchException {
         return mMasterStorage.query().fetch();
+    }
+
+    public Cursor<S> fetchAll(Query.Controller controller) throws FetchException {
+        return mMasterStorage.query().fetch(controller);
     }
 
     public Cursor<S> fetchOne(StorableIndex<S> index,
@@ -205,6 +217,15 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
     {
         ManagedIndex<S> indexInfo = (ManagedIndex<S>) mAllIndexInfoMap.get(index);
         return indexInfo.fetchOne(this, identityValues);
+    }
+
+    public Cursor<S> fetchOne(StorableIndex<S> index,
+                              Object[] identityValues,
+                              Query.Controller controller)
+        throws FetchException
+    {
+        ManagedIndex<S> indexInfo = (ManagedIndex<S>) mAllIndexInfoMap.get(index);
+        return indexInfo.fetchOne(this, identityValues, controller);
     }
 
     public Query<?> indexEntryQuery(StorableIndex<S> index)
@@ -221,6 +242,14 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         return indexInfo.fetchFromIndexEntryQuery(this, indexEntryQuery);
     }
 
+    public Cursor<S> fetchFromIndexEntryQuery(StorableIndex<S> index, Query<?> indexEntryQuery,
+                                              Query.Controller controller)
+        throws FetchException
+    {
+        ManagedIndex<S> indexInfo = (ManagedIndex<S>) mAllIndexInfoMap.get(index);
+        return indexInfo.fetchFromIndexEntryQuery(this, indexEntryQuery, controller);
+    }
+
     public Cursor<S> fetchSubset(StorableIndex<S> index,
                                  Object[] identityValues,
                                  BoundaryType rangeStartBoundary,
@@ -229,6 +258,21 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
                                  Object rangeEndValue,
                                  boolean reverseRange,
                                  boolean reverseOrder)
+        throws FetchException
+    {
+        // This method should never be called since a query was returned by indexEntryQuery.
+        throw new UnsupportedOperationException();
+    }
+
+    public Cursor<S> fetchSubset(StorableIndex<S> index,
+                                 Object[] identityValues,
+                                 BoundaryType rangeStartBoundary,
+                                 Object rangeStartValue,
+                                 BoundaryType rangeEndBoundary,
+                                 Object rangeEndValue,
+                                 boolean reverseRange,
+                                 boolean reverseOrder,
+                                 Query.Controller controller)
         throws FetchException
     {
         // This method should never be called since a query was returned by indexEntryQuery.
