@@ -294,6 +294,22 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                 .orderBy(naturalOrdering(mMasterStorage.getStorableType()));
         }
 
+        // Quick check to see if any records exist in master.
+        {
+            Transaction txn = mRepository.enterTopTransaction(IsolationLevel.READ_COMMITTED);
+            try {
+                if (!masterQuery.exists()) {
+                    if (mIndexEntryStorage.query().exists()) {
+                        txn.exit();
+                        mIndexEntryStorage.truncate();
+                    }
+                    return;
+                }
+            } finally {
+                txn.exit();
+            }
+        }
+
         // Enter top transaction with isolation level of none to make sure
         // preload operation does not run in a long nested transaction.
         Transaction txn = mRepository.enterTopTransaction(IsolationLevel.NONE);
