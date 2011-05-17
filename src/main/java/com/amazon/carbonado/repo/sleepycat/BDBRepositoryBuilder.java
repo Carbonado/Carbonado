@@ -113,7 +113,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private boolean mRunCheckpointer = true;
     private int mCheckpointInterval = DEFAULT_CHECKPOINT_INTERVAL;
     private int mCheckpointThresholdKB = 1024;
-    private int mCheckpointThresholdMinutes = 5;
+    private int mCheckpointThresholdMinutes = 1;
     private boolean mKeepOldLogFiles;
     private boolean mRunDeadlockDetector = true;
     private Boolean mChecksumEnabled;
@@ -865,7 +865,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
 
     /**
      * Set the time threshold to run checkpoints. This setting is ignored if
-     * the checkpointer is not configured to run. Default value is 5 minutes.
+     * the checkpointer is not configured to run. Default value is 1 minute.
      *
      * <p>Checkpoint threshold is only used by Carbonado's built-in
      * checkpointer, and is ignored when using BDB-JE.
