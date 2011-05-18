@@ -660,15 +660,16 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             return true;
         }
 
+        // FIXME: This code effectively does nothing and always returns false.
+
         // If index entry already exists, then index might be corrupt.
         try {
             Storable freshEntry = mIndexEntryStorage.prepare();
             mAccessor.copyFromMaster(freshEntry, userStorable);
             indexEntry.copyVersionProperty(freshEntry);
             if (freshEntry.equals(indexEntry)) {
-                // Existing entry is exactly what we expect. Return false
-                // exception if alternate key constraint, since this is
-                // user error.
+                // Existing entry is exactly what we expect. Return false if
+                // alternate key constraint, since this is user error.
                 return !isUnique();
             }
         } catch (FetchException e) {
