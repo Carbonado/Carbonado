@@ -100,7 +100,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private double mTxnTimeout = 300.0;
     private boolean mTxnNoSync;
     private boolean mTxnWriteNoSync;
-    private Integer mTxnMaxActive;
+    private Integer mTxnMaxActive = 1000;
     private Boolean mDatabasesTransactional = null;
     private boolean mReverseSplitOff;
     private Map<Class<?>, Integer> mDatabasePageSizes;
