@@ -22,6 +22,7 @@ import java.util.NoSuchElementException;
 
 import org.apache.commons.logging.LogFactory;
 
+import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
@@ -72,84 +73,91 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
                 S master = mStorage.mMasterStorage.prepare();
                 mAccessor.copyToMasterPrimaryKey(indexEntry, master);
 
-                if (!master.tryLoad()) {
-                    LogFactory.getLog(getClass()).warn
-                        ("Master is missing for index entry: " + indexEntry);
-                } else {
-                    if (mAccessor.isConsistent(indexEntry, master)) {
+                try {
+                    if (!master.tryLoad()) {
+                        LogFactory.getLog(getClass()).warn
+                            ("Master is missing for index entry: " + indexEntry);
+                        continue;
+                    }
+                } catch (CorruptEncodingException e) {
+                    LogFactory.getLog(getClass()).error
+                        ("Master record for index entry is corrupt: " + indexEntry, e);
+                    continue;
+                }
+
+                if (mAccessor.isConsistent(indexEntry, master)) {
+                    mNext = master;
+                    return true;
+                }
+
+                // This index entry is stale. Repair is needed.
+
+                // Insert a correct index entry, just to be sure.
+                try {
+                    final IndexedRepository repo = mStorage.mRepository;
+                    final Storage<?> indexEntryStorage =
+                        repo.getIndexEntryStorageFor(mAccessor.getReferenceClass());
+                    Storable newIndexEntry = indexEntryStorage.prepare();
+                    mAccessor.copyFromMaster(newIndexEntry, master);
+
+                    if (newIndexEntry.tryLoad()) {
+                        // Good, the correct index entry exists. We'll see
+                        // the master record eventually, so skip.
+                    } else {
+                        // We have no choice but to return the master, at
+                        // the risk of seeing it multiple times. This is
+                        // better than seeing it never.
+                        LogFactory.getLog(getClass()).warn
+                            ("Inconsistent index entry: " + indexEntry + ", " + master);
                         mNext = master;
-                        return true;
                     }
 
-                    // This index entry is stale. Repair is needed.
+                    // Repair the stale index entry.
+                    RepairExecutor.execute(new Runnable() {
+                        public void run() {
+                            Transaction txn = repo.enterTransaction();
+                            try {
+                                // Reload master and verify inconsistency.
+                                S master = mStorage.mMasterStorage.prepare();
+                                mAccessor.copyToMasterPrimaryKey(indexEntry, master);
 
-                    // Insert a correct index entry, just to be sure.
-                    try {
-                        final IndexedRepository repo = mStorage.mRepository;
-                        final Storage<?> indexEntryStorage =
-                            repo.getIndexEntryStorageFor(mAccessor.getReferenceClass());
-                        Storable newIndexEntry = indexEntryStorage.prepare();
-                        mAccessor.copyFromMaster(newIndexEntry, master);
+                                if (master.tryLoad()) {
+                                    Storable newIndexEntry = indexEntryStorage.prepare();
+                                    mAccessor.copyFromMaster(newIndexEntry, master);
 
-                        if (newIndexEntry.tryLoad()) {
-                            // Good, the correct index entry exists. We'll see
-                            // the master record eventually, so skip.
-                        } else {
-                            // We have no choice but to return the master, at
-                            // the risk of seeing it multiple times. This is
-                            // better than seeing it never.
-                            LogFactory.getLog(getClass()).warn
-                                ("Inconsistent index entry: " + indexEntry + ", " + master);
-                            mNext = master;
-                        }
+                                    newIndexEntry.tryInsert();
 
-                        // Repair the stale index entry.
-                        RepairExecutor.execute(new Runnable() {
-                            public void run() {
-                                Transaction txn = repo.enterTransaction();
+                                    indexEntry.tryDelete();
+                                    txn.commit();
+                                }
+                            } catch (FetchException fe) {
+                                LogFactory.getLog(IndexedCursor.class).warn
+                                    ("Unable to check if repair required for " +
+                                     "inconsistent index entry " +
+                                     indexEntry, fe);
+                            } catch (PersistException pe) {
+                                LogFactory.getLog(IndexedCursor.class).error
+                                    ("Unable to repair inconsistent index entry " +
+                                     indexEntry, pe);
+                            } finally {
                                 try {
-                                    // Reload master and verify inconsistency.
-                                    S master = mStorage.mMasterStorage.prepare();
-                                    mAccessor.copyToMasterPrimaryKey(indexEntry, master);
-
-                                    if (master.tryLoad()) {
-                                        Storable newIndexEntry = indexEntryStorage.prepare();
-                                        mAccessor.copyFromMaster(newIndexEntry, master);
-
-                                        newIndexEntry.tryInsert();
-
-                                        indexEntry.tryDelete();
-                                        txn.commit();
-                                    }
-                                } catch (FetchException fe) {
-                                    LogFactory.getLog(IndexedCursor.class).warn
-                                        ("Unable to check if repair required for " +
-                                         "inconsistent index entry " +
-                                         indexEntry, fe);
+                                    txn.exit();
                                 } catch (PersistException pe) {
                                     LogFactory.getLog(IndexedCursor.class).error
                                         ("Unable to repair inconsistent index entry " +
                                          indexEntry, pe);
-                                } finally {
-                                    try {
-                                        txn.exit();
-                                    } catch (PersistException pe) {
-                                        LogFactory.getLog(IndexedCursor.class).error
-                                            ("Unable to repair inconsistent index entry " +
-                                             indexEntry, pe);
-                                    }
                                 }
                             }
-                        });
-                    } catch (Exception re) {
-                        LogFactory.getLog(getClass()).error
-                            ("Unable to inspect inconsistent index entry " +
-                             indexEntry, re);
-                    }
+                        }
+                    });
+                } catch (Exception re) {
+                    LogFactory.getLog(getClass()).error
+                        ("Unable to inspect inconsistent index entry " +
+                         indexEntry, re);
+                }
 
-                    if (mNext != null) {
-                        return true;
-                    }
+                if (mNext != null) {
+                    return true;
                 }
             }
         } catch (NoSuchElementException e) {

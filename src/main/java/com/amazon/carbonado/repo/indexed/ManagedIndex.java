@@ -660,61 +660,20 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             return true;
         }
 
-        // FIXME: This code effectively does nothing and always returns false.
-
         // If index entry already exists, then index might be corrupt.
         try {
             Storable freshEntry = mIndexEntryStorage.prepare();
             mAccessor.copyFromMaster(freshEntry, userStorable);
+            freshEntry.load();
             indexEntry.copyVersionProperty(freshEntry);
             if (freshEntry.equals(indexEntry)) {
-                // Existing entry is exactly what we expect. Return false if
-                // alternate key constraint, since this is user error.
-                return !isUnique();
+                // Existing entry is fine.
+                return true;
             }
         } catch (FetchException e) {
             throw e.toPersistException();
         }
 
-        // Run the repair outside a transaction.
-
-        RepairExecutor.execute(new Runnable() {
-            public void run() {
-                try {
-                    // Blow it away entry and re-insert. Don't simply update
-                    // the entry, since record version number may prevent
-                    // update.
-
-                    // Since we may be running outside transaction now, user
-                    // storable may have changed. Reload to get latest data.
-
-                    S freshUserStorable = (S) userStorable.copy();
-                    if (!freshUserStorable.tryLoad()) {
-                        // Gone now, nothing we can do. Assume index entry
-                        // was properly deleted.
-                        return;
-                    }
-
-                    Storable freshEntry = mIndexEntryStorage.prepare();
-                    mAccessor.copyFromMaster(freshEntry, freshUserStorable);
-
-                    // Blow it away entry and re-insert. Don't simply update
-                    // the entry, since record version number may prevent
-                    // update.
-                    freshEntry.tryDelete();
-                    freshEntry.tryInsert();
-                } catch (FetchException fe) {
-                    LogFactory.getLog(IndexedStorage.class).warn
-                        ("Unable to check if repair is required: " +
-                         userStorable.toStringKeyOnly(), fe);
-                } catch (PersistException pe) {
-                    LogFactory.getLog(IndexedStorage.class).error
-                        ("Unable to repair index entry for " +
-                         userStorable.toStringKeyOnly(), pe);
-                }
-            }
-        });
-
-        return true;
+        return false;
     }
 }
