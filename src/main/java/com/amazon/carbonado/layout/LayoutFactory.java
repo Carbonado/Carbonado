@@ -74,6 +74,10 @@ public class LayoutFactory implements LayoutCapability {
 
     private SoftValuedCache<Class<? extends Storable>, Layout> mReconstructed;
 
+    // Added this to allow consumers of the the main Carbonado to deal which
+    // changes to how LayoutFactories are reconstructed from streams.
+    public static final int VERSION = 2;
+
     /**
      * @throws com.amazon.carbonado.SupportException if underlying repository
      * does not support the storables for persisting storable layouts
@@ -371,9 +375,17 @@ public class LayoutFactory implements LayoutCapability {
             } catch (UniqueConstraintException e) {
                 StoredLayout existing = mLayoutStorage.prepare();
                 storedLayout.copyPrimaryKeyProperties(existing);
-                if (!existing.tryLoad() || !existing.equalProperties(storedLayout)) {
+                if (!existing.tryLoad()) {
                     throw e;
                 }
+                // Only check subset of primary and alternate keys. The check
+                // of layout properties is more important.
+                if (!(existing.getLayoutID() == storedLayout.getLayoutID() &&
+                      existing.getStorableTypeName().equals(storedLayout.getStorableTypeName())))
+                {
+                    throw e;
+                }
+                storedLayout = existing;
             }
 
             int op;
