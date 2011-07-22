@@ -397,8 +397,11 @@ public class LayoutFactory implements LayoutCapability {
                 } catch (UniqueConstraintException e) {
                     StoredLayoutProperty existing = mPropertyStorage.prepare();
                     storedProperty.copyPrimaryKeyProperties(existing);
-                    existing.load();
-                    if (!existing.tryLoad() || !existing.equalProperties(storedProperty)) {
+                    if (!existing.tryLoad()) {
+                        throw e;
+                    }
+                    storedProperty.copyVersionProperty(existing);
+                    if (!existing.equalProperties(storedProperty)) {
                         throw e;
                     }
                 }
