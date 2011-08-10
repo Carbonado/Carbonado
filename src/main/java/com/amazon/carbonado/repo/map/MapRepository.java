@@ -90,6 +90,11 @@ class MapRepository extends AbstractRepository<MapTransaction>
     }
 
     @Override
+    protected void finalize() {
+        close();
+    }
+
+    @Override
     protected Log getLog() {
         return null;
     }

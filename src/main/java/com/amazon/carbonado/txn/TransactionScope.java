@@ -43,8 +43,15 @@ import com.amazon.carbonado.spi.ExceptionTransformer;
  * @see TransactionManager
  */
 public class TransactionScope<Txn> {
-    final TransactionManager<Txn> mTxnMgr;
     final Lock mLock;
+
+    // Note: Cannot be final because it needs to be replaced by close
+    // method. Access doesn't need to be synchronized, because only one thread
+    // ever accesses scope instances. The close method might be called by a
+    // separate thread, in which case the closed transaction manager reference
+    // might not be immediately visible by the thread which needs it. This is
+    // not harmful.
+    TransactionManager<Txn> mTxnMgr;
 
     TransactionImpl<Txn> mActive;
 
@@ -55,8 +62,8 @@ public class TransactionScope<Txn> {
     private boolean mDetached;
 
     TransactionScope(TransactionManager<Txn> txnMgr, boolean closed) {
-        mTxnMgr = txnMgr;
         mLock = new ReentrantLock(true);
+        mTxnMgr = txnMgr;
         if (closed) {
             mLock.lock();
             try {
@@ -332,6 +339,9 @@ public class TransactionScope<Txn> {
             }
         } finally {
             mClosed = true;
+            // Swap TransactionManager out with a dummy one, to allow the
+            // original one to get freed.
+            mTxnMgr = (TransactionManager<Txn>) TransactionManager.Closed.THE;
             mLock.unlock();
         }
     }

@@ -157,6 +157,9 @@ public abstract class TransactionManager<Txn> {
         for (TransactionScope<?> scope : mAllScopes.keySet()) {
             scope.close();
         }
+
+        mAllScopes.clear();
+        mLocalScope.remove();
     }
 
     public synchronized boolean isClosed() {
@@ -270,4 +273,32 @@ public abstract class TransactionManager<Txn> {
      * Aborts and closes the given internal transaction.
      */
     protected abstract void abortTxn(Txn txn) throws PersistException;
+
+    static class Closed extends TransactionManager<Object> {
+        static final Closed THE = new Closed();
+
+        @Override
+        protected IsolationLevel selectIsolationLevel(Transaction parent, IsolationLevel level) {
+            return IsolationLevel.SERIALIZABLE;
+        }
+
+        @Override
+        protected boolean supportsForUpdate() {
+            return true;
+        }
+
+        @Override
+        protected Object createTxn(Object parent, IsolationLevel level) throws Exception {
+            throw new IllegalStateException("Transaction manager is closed");
+        }
+
+        @Override
+        protected boolean commitTxn(Object txn) throws PersistException {
+            return false;
+        }
+
+        @Override
+        protected void abortTxn(Object txn) throws PersistException {
+        }
+    }
 }
