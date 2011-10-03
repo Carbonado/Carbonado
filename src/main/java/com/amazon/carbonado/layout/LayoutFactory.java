@@ -269,27 +269,12 @@ public class LayoutFactory implements LayoutCapability {
                     // exception, which prevents the mistake from persisting.
 
                     assert(newLayout != null);
-                    int generation = 0;
-
-                    Cursor<StoredLayout> cursor = mLayoutStorage
-                        .query("storableTypeName = ?")
-                        .with(info.getStorableType().getName())
-                        .orderBy("-generation")
-                        .fetch();
-
-                    boolean newGen;
-                    try {
-                        if (newGen = cursor.hasNext()) {
-                            generation = cursor.next().getGeneration() + 1;
-                        }
-                    } finally {
-                        cursor.close();
-                    }
+                    int generation = nextGeneration(info.getStorableType().getName());
 
                     newLayout.insert(readOnly, generation);
                     layout = newLayout;
 
-                    if (newGen) {
+                    if (generation == 0) {
                         LogFactory.getLog(getClass())
                             .debug("New schema layout inserted: " + layout);
                     }
@@ -368,6 +353,7 @@ public class LayoutFactory implements LayoutCapability {
         Transaction txn = mRepository.enterTransaction();
         try {
             txn.setForUpdate(true);
+
             StoredLayout storedLayout = mLayoutStorage.prepare();
             storedLayout.readFrom(in);
             try {
@@ -375,17 +361,20 @@ public class LayoutFactory implements LayoutCapability {
             } catch (UniqueConstraintException e) {
                 StoredLayout existing = mLayoutStorage.prepare();
                 storedLayout.copyPrimaryKeyProperties(existing);
-                if (!existing.tryLoad()) {
-                    throw e;
+                if (existing.tryLoad()) {
+                    // Only check subset of primary and alternate keys. The check
+                    // of layout properties is more important.
+                    if (!existing.getStorableTypeName().equals(storedLayout.getStorableTypeName()))
+                    {
+                        throw e;
+                    }
+                    storedLayout = existing;
+                } else {
+                    // Assume alternate key constraint, so increment the generation.
+                    storedLayout.setGeneration
+                        (nextGeneration(storedLayout.getStorableTypeName()));
+                    storedLayout.insert();
                 }
-                // Only check subset of primary and alternate keys. The check
-                // of layout properties is more important.
-                if (!(existing.getLayoutID() == storedLayout.getLayoutID() &&
-                      existing.getStorableTypeName().equals(storedLayout.getStorableTypeName())))
-                {
-                    throw e;
-                }
-                storedLayout = existing;
             }
 
             int op;
@@ -422,6 +411,21 @@ public class LayoutFactory implements LayoutCapability {
             mReconstructed = SoftValuedCache.newCache(7);
         }
         mReconstructed.put(reconstructed, layout);
+    }
+
+    private int nextGeneration(String typeName) throws FetchException {
+        Cursor<StoredLayout> cursor = mLayoutStorage
+            .query("storableTypeName = ?").with(typeName).orderBy("-generation").fetch();
+
+        try {
+            if (cursor.hasNext()) {
+                return cursor.next().getGeneration() + 1;
+            }
+        } finally {
+            cursor.close();
+        }
+
+        return 0;
     }
 
     /**
