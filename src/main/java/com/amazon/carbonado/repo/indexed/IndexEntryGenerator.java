@@ -18,11 +18,7 @@
 
 package com.amazon.carbonado.repo.indexed;
 
-import java.util.Comparator;
-import java.util.Map;
-import java.util.WeakHashMap;
-import java.lang.ref.Reference;
-import java.lang.ref.SoftReference;
+import com.amazon.carbonado.util.SoftValuedCache;
 
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.SupportException;
@@ -41,9 +37,8 @@ import com.amazon.carbonado.synthetic.SyntheticStorableReferenceBuilder;
  */
 class IndexEntryGenerator <S extends Storable> {
 
-    // cache for access classes
-    private static Map<StorableIndex, Reference<SyntheticStorableReferenceAccess>> cCache =
-        new WeakHashMap<StorableIndex, Reference<SyntheticStorableReferenceAccess>>();
+    private static final SoftValuedCache<StorableIndex, SyntheticStorableReferenceAccess> cCache =
+        SoftValuedCache.newCache(11);
 
     /**
      * Returns a new or cached index access instance. The caching of accessors
@@ -87,14 +82,13 @@ class IndexEntryGenerator <S extends Storable> {
         SyntheticStorableReferenceAccess<S> getIndexAccess(StorableIndex<S> index)
         throws SupportException
     {
+        // Strip out index property not related to its identity.
+        index = index.clustered(false);
+
         synchronized (cCache) {
-            SyntheticStorableReferenceAccess<S> access;
-            Reference<SyntheticStorableReferenceAccess> ref = cCache.get(index);
-            if (ref != null) {
-                access = ref.get();
-                if (access != null) {
-                    return access;
-                }
+            SyntheticStorableReferenceAccess<S> access = cCache.get(index);
+            if (access != null) {
+                return access;
             }
 
             // Need to try to find the base type.  This is an awkward way to do
@@ -112,7 +106,7 @@ class IndexEntryGenerator <S extends Storable> {
             builder.build();
             access = builder.getReferenceAccess();
 
-            cCache.put(index, new SoftReference<SyntheticStorableReferenceAccess>(access));
+            cCache.put(index, access);
 
             return access;
         }
