@@ -424,7 +424,7 @@ public class GenericEncodingStrategy<S extends Storable> {
         if (this == obj) {
             return true;
         }
-        if (GenericEncodingStrategy.class.equals(obj)) {
+        if (obj != null && obj.getClass() == this.getClass()) {
             GenericEncodingStrategy other = (GenericEncodingStrategy) obj;
             return mType == other.mType
                 && mKeyPrefixPadding == other.mKeyPrefixPadding
