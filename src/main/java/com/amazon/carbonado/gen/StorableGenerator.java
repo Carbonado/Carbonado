@@ -3055,6 +3055,7 @@ public final class StorableGenerator<S extends Storable> {
         b.returnValue(TypeDesc.BOOLEAN);
         notEqual.setLocation();
 
+        // FIXME: Using instanceof means that equals is not symmetric.
         // if (! target instanceof this) return false;
         TypeDesc userStorableTypeDesc = TypeDesc.forClass(mStorableType);
         b.loadLocal(b.getParameter(0));

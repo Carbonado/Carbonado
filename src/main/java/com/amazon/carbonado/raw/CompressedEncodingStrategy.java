@@ -83,7 +83,7 @@ public class CompressedEncodingStrategy<S extends Storable> extends GenericEncod
         if (this == obj) {
             return true;
         }
-        if (obj instanceof CompressedEncodingStrategy) {
+        if (CompressedEncodingStrategy.class.equals(obj)) {
             CompressedEncodingStrategy other = (CompressedEncodingStrategy) obj;
             return super.equals(obj) && mCompressionType.equals(other.mCompressionType);
         }
