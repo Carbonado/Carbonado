@@ -30,6 +30,13 @@ public enum BDBProduct {
     /** BDB Native */
     DB,
 
+    /**
+     * BDB Native, with reduced concurrency to eliminate deadlocks. Exclusive
+     * lock is held when modifications are made, and at most one open
+     * transaction is allowed at any given time.
+     */
+    DBX,
+
     /** BDB Native, High Availability */
     DB_HA,
 
@@ -38,15 +45,17 @@ public enum BDBProduct {
 
     public static BDBProduct forString(String name) {
         name = name.toLowerCase();
-	if (name.equals("db_legacy")) {
-	    return DB_Legacy;
-	} else if (name.equals("db")) {
-	    return DB;
-	} else if (name.equals("db_ha")) {
-	    return DB_HA;
-	} else if (name.equals("je")) {
-	    return JE;
-	}
+        if (name.equals("db_legacy")) {
+            return DB_Legacy;
+        } else if (name.equals("db")) {
+            return DB;
+        } else if (name.equals("dbx")) {
+            return DBX;
+        } else if (name.equals("db_ha")) {
+            return DB_HA;
+        } else if (name.equals("je")) {
+            return JE;
+        }
         throw new IllegalArgumentException("Unsupported product: " + name);
     }
 }
