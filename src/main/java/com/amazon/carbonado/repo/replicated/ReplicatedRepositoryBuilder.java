@@ -82,11 +82,8 @@ public class ReplicatedRepositoryBuilder extends AbstractRepositoryBuilder {
             mMasterRepositoryBuilder.setMaster(mIsMaster);
 
             Log log = LogFactory.getLog(ReplicatedRepositoryBuilder.class);
-            // Pass a dummy root reference, to prevent it from overriding the
-            // true root, which is a ReplicatedRepository.
-            AtomicReference<Repository> dummyRef = new AtomicReference<Repository>();
             BelatedRepositoryCreator creator = new BelatedRepositoryCreator
-                (log, mMasterRepositoryBuilder, dummyRef, DEFAULT_RETRY_MILLIS) {
+                (log, mMasterRepositoryBuilder, rootRef, DEFAULT_RETRY_MILLIS) {
 
                 @Override
                 protected void createdNotification(Repository repo) {
