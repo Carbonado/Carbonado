@@ -50,6 +50,8 @@ public class BelatedRepositoryCreator extends BelatedCreator<Repository, Support
     final RepositoryBuilder mBuilder;
     final AtomicReference<Repository> mRootRef;
 
+    private boolean mRetry;
+
     /**
      * @param log error reporting log
      * @param builder builds real Repository
@@ -80,9 +82,16 @@ public class BelatedRepositoryCreator extends BelatedCreator<Repository, Support
 
     @Override
     protected Repository createReal() throws SupportException {
+        // For first attempt, use the real root reference. For retries, it
+        // should not be used because it will destroy the root which was
+        // successfully built and is in use. Instead, pass a dummy ref.
+        AtomicReference<Repository> rootRef =
+            mRetry ? new AtomicReference<Repository>() : mRootRef;
+        mRetry = true;
+
         Exception error;
         try {
-            return mBuilder.build(mRootRef);
+            return mBuilder.build(rootRef);
         } catch (SupportException e) {
             // Cannot recover from this.
             throw e;

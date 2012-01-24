@@ -85,6 +85,9 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
 
     public Repository build(AtomicReference<Repository> rootRef) throws RepositoryException {
         assertReady();
+
+        final Repository originalRoot = rootRef.get();
+
         JDBCRepository repo = new JDBCRepository
             (rootRef, getName(), isMaster(), getTriggerFactories(),
              getDataSource(), getDataSourceCloseOnShutdown(),
@@ -94,7 +97,10 @@ public class JDBCRepositoryBuilder extends AbstractRepositoryBuilder {
              getSuppressReloadMap(),
              mSequenceSelectStatement, mForceStoredSequence, mPrimaryKeyCheckDisabled,
              mResolver);
-        rootRef.set(repo);
+
+        // Don't wipe out root when using BelatedRepositoryCreator.
+        rootRef.compareAndSet(originalRoot, repo);
+
         return repo;
     }
 
