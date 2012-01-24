@@ -1010,6 +1010,13 @@ public class StorableIntrospector {
                     ("Must define proper 'get' method for property: " + property.getName());
             }
         } else {
+            if (readMethod.getReturnType() != property.getType()) {
+                errorMessages.add
+                    ("Property type doesn't match accessor method return type: " +
+                     property.getType().getName() + " != " + readMethod.getReturnType().getName() +
+                     " for " + readMethod);
+            }
+
             nullable = readMethod.getAnnotation(Nullable.class);
             alias = readMethod.getAnnotation(Alias.class);
             version = readMethod.getAnnotation(Version.class);
@@ -1062,6 +1069,16 @@ public class StorableIntrospector {
                 }
             }
         } else {
+            Class[] writeParams = writeMethod.getParameterTypes();
+            if (writeParams == null || writeParams.length != 1) {
+                errorMessages.add("Mutator method must contain one parameter: " + writeMethod);
+            } else if (writeParams[0] != property.getType()) {
+                errorMessages.add
+                    ("Property type doesn't match mutator method parameter: " +
+                     property.getType().getName() + " != " + writeParams[0].getName() +
+                     " for " + writeMethod);
+            }
+
             if (writeMethod.getAnnotation(Nullable.class) != null) {
                 errorMessages.add
                     ("Nullable annotation not allowed on mutator: " + writeMethod);
