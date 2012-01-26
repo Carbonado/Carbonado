@@ -32,6 +32,7 @@ import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Transaction;
 
 import com.amazon.carbonado.cursor.AbstractCursor;
+import com.amazon.carbonado.cursor.FetchAheadCursor;
 
 import com.amazon.carbonado.spi.RepairExecutor;
 
@@ -44,6 +45,13 @@ import com.amazon.carbonado.synthetic.SyntheticStorableReferenceAccess;
  * @author Brian S O'Neill
  */
 class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
+    private static final int FETCH_AHEAD;
+
+    static {
+        String prefix = IndexedCursor.class.getName() + '.';
+        FETCH_AHEAD = Integer.getInteger(prefix + "fetchAhead", 0);
+    }
+
     private final Cursor<? extends Storable> mCursor;
     private final IndexedStorage<S> mStorage;
     private final SyntheticStorableReferenceAccess<S> mAccessor;
@@ -52,7 +60,11 @@ class IndexedCursor<S extends Storable> extends AbstractCursor<S> {
 
     IndexedCursor(Cursor<? extends Storable> indexEntryCursor,
                   IndexedStorage<S> storage,
-                  SyntheticStorableReferenceAccess<S> indexAccessor) {
+                  SyntheticStorableReferenceAccess<S> indexAccessor)
+    {
+        if (FETCH_AHEAD > 0) {
+            indexEntryCursor = new FetchAheadCursor(indexEntryCursor, FETCH_AHEAD);
+        }
         mCursor = indexEntryCursor;
         mStorage = storage;
         mAccessor = indexAccessor;
