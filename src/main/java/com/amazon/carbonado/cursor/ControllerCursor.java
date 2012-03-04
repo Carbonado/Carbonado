@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Amazon Technologies, Inc. or its affiliates.
+ * Copyright 2011-2012 Amazon Technologies, Inc. or its affiliates.
  * Amazon, Amazon.com and Carbonado are trademarks or registered trademarks
  * of Amazon Technologies, Inc. or its affiliates.  All rights reserved.
  *
