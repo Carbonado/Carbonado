@@ -176,6 +176,10 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         getLog().info("Opening repository \"" + getName() + '"');
     }
 
+    public ExceptionTransformer getExceptionTransformer() {
+        return mExTransformer;
+    }
+    
     public <S extends Storable> IndexInfo[] getIndexInfo(Class<S> storableType)
         throws RepositoryException
     {
@@ -1121,3 +1125,4 @@ abstract class BDBRepository<Txn> extends AbstractRepository<Txn>
         }
     }
 }
+

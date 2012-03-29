@@ -151,6 +151,11 @@
       <email>vishalparakh@users.sourceforge.net</email>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
+
+    <developer>
+      <name>Jesse Morgan</name>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
   </developers>
 
   <contributors>

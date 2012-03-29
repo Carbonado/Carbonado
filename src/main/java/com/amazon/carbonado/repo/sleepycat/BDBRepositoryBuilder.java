@@ -125,6 +125,8 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private DatabaseHook mDatabaseHook;
     private Map<String, CompressionType> mCompressionMap;
 
+    private BDBPanicHandler mPanicHandler;
+    
     public BDBRepositoryBuilder() {
     }
 
@@ -1062,7 +1064,25 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
 
         return mCompressionMap.get(type).toString();
     }
-
+    
+    /**
+     * Set the handler to call if the database panics.
+     * 
+     * @param handler
+     */
+    public void setPanicHandler(BDBPanicHandler handler) {
+        mPanicHandler = handler;
+    }
+    
+    /**
+     * Return the panic handler to call if the database panics.
+     * 
+     * @return The BDBPanicHandler or null if unset.
+     */
+    public BDBPanicHandler getPanicHandler() {
+        return mPanicHandler;
+    }
+    
     private long inMicros(double seconds) {
         if (seconds >= Long.MAX_VALUE) {
             return Long.MAX_VALUE;
@@ -1140,3 +1160,4 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
         void prepareForOpening(Object db) throws RepositoryException;
     }
 }
+
