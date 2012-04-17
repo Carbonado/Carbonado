@@ -28,6 +28,7 @@ import java.util.List;
 import com.amazon.carbonado.Storable;
 
 import com.amazon.carbonado.filter.AndFilter;
+import com.amazon.carbonado.filter.ExistsFilter;
 import com.amazon.carbonado.filter.Filter;
 import com.amazon.carbonado.filter.OrFilter;
 import com.amazon.carbonado.filter.PropertyFilter;
@@ -778,6 +779,12 @@ public class FilteringScore<S extends Storable> {
             public Boolean visit(AndFilter<S> filter, Object param) {
                 return filter.getLeftFilter().accept(this, param)
                     && filter.getRightFilter().accept(this, param);
+            }
+            
+            @Override
+            public Boolean visit(ExistsFilter<S> filter, Object param) {
+                // Assume that an ExistsFilter is not going to be indexed.
+                return false;
             }
 
             @Override
