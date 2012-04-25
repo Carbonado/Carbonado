@@ -156,6 +156,11 @@
       <name>Jesse Morgan</name>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
+
+    <developer>
+      <name>Matt Carlson</name>
+      <organization>Amazon Technologies, Inc.</organization>
+    </developer>
   </developers>
 
   <contributors>

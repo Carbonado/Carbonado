@@ -77,6 +77,7 @@ import com.amazon.carbonado.util.SoftValuedCache;
  * @author Adam D Bradley
  * @author Tobias Holgers
  * @author Archit Shivaprakash
+ * @author Matt Carlson
  */
 public class JDBCStorableIntrospector extends StorableIntrospector {
     // Maps compound keys to softly referenced JDBCStorableInfo objects.
@@ -598,6 +599,20 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
             return info;
         }
 
+        // Dynamically typed data sources (e.g. SQLite3) always report 
+        // dataType as java.sql.Types.VARCHAR.  Infer the dataType from the 
+        // dataTypeName and try again.
+        if (dataType == java.sql.Types.VARCHAR) {
+            Integer dataTypeMapping = typeNameToDataTypeMapping.get(dataTypeName.toUpperCase());
+            if (dataTypeMapping != null) {
+                info = getAccessInfo
+                    (property.getType(), dataTypeMapping, dataTypeName, columnSize, decimalDigits);
+                if (info != null) {
+                    return info;
+                }
+            }     
+        }
+
         // See if an appropriate adapter exists.
         StorablePropertyAdapter adapter = property.getAdapter();
         if (adapter != null) {
@@ -946,6 +961,39 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
 
     static String intern(String str) {
         return str == null ? null : str.intern();
+    }
+
+    private static final Map<String, Integer> typeNameToDataTypeMapping;
+    static {
+        // Mapping taken from the following:
+        // http://docs.oracle.com/javase/6/docs/technotes/guides/jdbc/getstart/mapping.html
+        Map<String, Integer> aMap = new HashMap<String, Integer>();
+        aMap.put("CHAR", java.sql.Types.CHAR);
+        aMap.put("VARCHAR", java.sql.Types.VARCHAR);
+        aMap.put("LONGVARCHAR", java.sql.Types.LONGVARCHAR);
+        aMap.put("NUMERIC", java.sql.Types.NUMERIC);
+        aMap.put("DECIMAL", java.sql.Types.DECIMAL);
+        aMap.put("BIT", java.sql.Types.BIT);
+        aMap.put("TINYINT", java.sql.Types.TINYINT);
+        aMap.put("SMALLINT", java.sql.Types.SMALLINT);
+        aMap.put("INTEGER", java.sql.Types.INTEGER);
+        aMap.put("BIGINT", java.sql.Types.BIGINT);
+        aMap.put("REAL", java.sql.Types.REAL);
+        aMap.put("FLOAT", java.sql.Types.FLOAT);
+        aMap.put("DOUBLE", java.sql.Types.DOUBLE);
+        aMap.put("BINARY", java.sql.Types.BINARY);
+        aMap.put("VARBINARY", java.sql.Types.VARBINARY);
+        aMap.put("LONGVARBINARY", java.sql.Types.LONGVARBINARY);
+        aMap.put("DATE", java.sql.Types.DATE);
+        aMap.put("TIME", java.sql.Types.TIME);
+        aMap.put("TIMESTAMP", java.sql.Types.TIMESTAMP);
+        aMap.put("CLOB", java.sql.Types.CLOB);
+        aMap.put("BLOB", java.sql.Types.BLOB);
+        aMap.put("ARRAY", java.sql.Types.ARRAY);
+        aMap.put("DISTINCT", java.sql.Types.DISTINCT);
+        aMap.put("STRUCT", java.sql.Types.STRUCT);
+        aMap.put("REF", java.sql.Types.REF);
+        typeNameToDataTypeMapping = Collections.unmodifiableMap(aMap);
     }
 
     private static class ColumnInfo {
