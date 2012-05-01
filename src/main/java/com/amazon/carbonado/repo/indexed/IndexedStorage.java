@@ -75,7 +75,7 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
     private final StorableIndexSet<S> mQueryableIndexSet;
 
     private final QueryEngine<S> mQueryEngine;
-
+    
     IndexedStorage(IndexAnalysis<S> analysis) throws RepositoryException {
         mRepository = analysis.repository;
         mMasterStorage = analysis.masterStorage;
@@ -89,14 +89,22 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
             }
         }
 
-        // Okay, now start doing some damage. First, remove unnecessary indexes.
-        for (StorableIndex<S> index : analysis.removeIndexSet) {
-            removeIndex(index);
-        }
+        try {
+            // Okay, now start doing some damage. First, remove unnecessary indexes.
+            for (StorableIndex<S> index : analysis.removeIndexSet) {
+                removeIndex(index);
+            }
 
-        // Now add new indexes.
-        for (StorableIndex<S> index : analysis.addIndexSet) {
-            registerIndex((ManagedIndex) mAllIndexInfoMap.get(index));
+            // Now add new indexes.
+            for (StorableIndex<S> index : analysis.addIndexSet) {
+                registerIndex((ManagedIndex) mAllIndexInfoMap.get(index));
+            }
+        } catch (RepositoryException e) {
+            // Something went wrong. Cleanup the trigger to avoid an exception if we try again.
+            if (analysis.indexesTrigger != null) {
+                removeTrigger(analysis.indexesTrigger);
+            }
+            throw e;
         }
 
         mQueryEngine = new QueryEngine<S>(mMasterStorage.getStorableType(), mRepository);
