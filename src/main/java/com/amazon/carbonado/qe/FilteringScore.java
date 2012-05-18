@@ -823,10 +823,21 @@ public class FilteringScore<S extends Storable> {
                 return 1;
             }
 
-            // Compare range match. (index can have at most one range match)
-            if (first.hasRangeMatch()) {
-                if (second.hasRangeMatch()) {
-                    // Both have range match, favor clustered index.
+            // Compare ranges. Favor ranges that help find the start. 
+            boolean firstPartialRange = first.hasRangeStart();
+            boolean secondPartialRange = second.hasRangeStart();
+            
+            if (first.shouldReverseRange()) {
+                firstPartialRange = first.hasRangeEnd();
+            }
+
+            if (second.shouldReverseRange()) {
+                secondPartialRange = second.hasRangeEnd();
+            }
+
+            if (firstPartialRange) {
+                if (secondPartialRange) {
+                    // Both have ranges, favor clustered index.
                     if (first.isIndexClustered()) {
                         if (!second.isIndexClustered()) {
                             return -1;
@@ -837,7 +848,8 @@ public class FilteringScore<S extends Storable> {
                 } else {
                     return -1;
                 }
-            } else if (second.hasRangeMatch()) {
+
+            } else if (secondPartialRange) {
                 return 1;
             }
 
