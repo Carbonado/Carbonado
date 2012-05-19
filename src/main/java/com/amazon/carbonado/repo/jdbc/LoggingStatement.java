@@ -232,4 +232,12 @@ class LoggingStatement implements Statement {
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }
+
+    public void closeOnCompletion() throws SQLException {
+        mStatement.closeOnCompletion();
+    }
+
+    public boolean isCloseOnCompletion() throws SQLException {
+        return mStatement.isCloseOnCompletion();
+    }
 }

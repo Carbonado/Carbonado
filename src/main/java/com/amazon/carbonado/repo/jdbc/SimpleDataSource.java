@@ -21,6 +21,7 @@ package com.amazon.carbonado.repo.jdbc;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.io.PrintWriter;
 import java.util.Properties;
 
@@ -150,5 +151,9 @@ public class SimpleDataSource implements DataSource {
      */
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         throw new UnsupportedOperationException();
+    }
+
+    public java.util.logging.Logger getParentLogger() throws SQLFeatureNotSupportedException {
+        throw new SQLFeatureNotSupportedException();
     }
 }

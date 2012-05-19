@@ -339,4 +339,26 @@ class LoggingConnection implements Connection {
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         throw new UnsupportedOperationException();
     }
+
+    public void setSchema(String schema) throws SQLException {
+        mCon.setSchema(schema);
+    }
+
+    public String getSchema() throws SQLException {
+        return mCon.getSchema();
+    }
+
+    public void abort(java.util.concurrent.Executor executor) throws SQLException {
+        mCon.abort(executor);
+    }
+
+    public void setNetworkTimeout(java.util.concurrent.Executor executor, int milliseconds)
+        throws SQLException
+    {
+        mCon.setNetworkTimeout(executor, milliseconds);
+    }
+
+    public int getNetworkTimeout() throws SQLException {
+        return mCon.getNetworkTimeout();
+    }
 }
