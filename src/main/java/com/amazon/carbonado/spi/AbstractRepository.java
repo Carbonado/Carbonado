@@ -321,6 +321,8 @@ public abstract class AbstractRepository<Txn>
                 doShutdown(repository, suspendThreads);
             } finally {
                 repository.mHasShutdown = true;
+                repository.mStoragePool.clear();
+                repository.mSequencePool.clear();
                 mRepository.clear();
                 repository.info("Closed repository \"" + repository.getName() + '"');
             }

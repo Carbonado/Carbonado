@@ -88,6 +88,10 @@ public abstract class AbstractPool<K, V, E extends Exception> {
         return mValues.values();
     }
 
+    public void clear() {
+        mValues.clear();
+    }
+
     /**
      * Return a new value instance.
      */
