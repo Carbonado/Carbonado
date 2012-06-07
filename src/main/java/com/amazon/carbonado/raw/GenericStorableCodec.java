@@ -18,6 +18,7 @@
 
 package com.amazon.carbonado.raw;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.Map;
@@ -931,15 +932,17 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
      * sharing.
      */
     private static class LayoutKey {
-        private final Layout mLayout;
+        private final WeakReference<Layout> mLayoutRef;
+        private final int mHashCode;
 
         LayoutKey(Layout layout) {
-            mLayout = layout;
+            mLayoutRef = new WeakReference<Layout>(layout);
+            mHashCode = layout.getStorableTypeName().hashCode() * 7 + layout.getGeneration();
         }
 
         @Override
         public int hashCode() {
-            return mLayout.getStorableTypeName().hashCode() * 7 + mLayout.getGeneration();
+            return mHashCode;
         }
 
         @Override
@@ -948,12 +951,20 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                 return true;
             }
             if (obj instanceof LayoutKey) {
+                Layout layout = mLayoutRef.get();
+                if (layout == null) {
+                    return false;
+                }
                 LayoutKey other = (LayoutKey) obj;
+                Layout otherLayout = other.mLayoutRef.get();
+                if (otherLayout == null) {
+                    return false;
+                }
                 try {
-                    return mLayout.getStorableTypeName()
-                        .equals(other.mLayout.getStorableTypeName()) &&
-                        mLayout.getGeneration() == other.mLayout.getGeneration() &&
-                        mLayout.equalLayouts(other.mLayout);
+                    return layout.getStorableTypeName()
+                        .equals(otherLayout.getStorableTypeName()) &&
+                        layout.getGeneration() == otherLayout.getGeneration() &&
+                        layout.equalLayouts(otherLayout);
                 } catch (FetchException e) {
                     return false;
                 }
