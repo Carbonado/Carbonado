@@ -359,7 +359,7 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                     }
 
                     if (columnInfo.nullable) {
-                        if (!mainProperty.isNullable()) {
+                        if (!mainProperty.isNullable() && !mainProperty.isIndependent()) {
                             errorMessages.add
                                 ("Property \"" + mainProperty.getName() +
                                  "\" must have a Nullable annotation");
