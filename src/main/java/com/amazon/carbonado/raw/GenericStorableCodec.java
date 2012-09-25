@@ -358,6 +358,18 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
     }
 
     /**
+     * Instantiate a Storable with no value defined yet. The default {@link
+     * RawSupport} is supplied to the instance.
+     *
+     * @throws IllegalStateException if no default support exists
+     * @since 1.2
+     */
+    @SuppressWarnings("unchecked")
+    public S instantiate(byte[] key) throws FetchException {
+        return (S) mInstanceFactory.instantiate(support(), key);
+    }
+
+    /**
      * Instantiate a Storable with a specific key and value. The default
      * {@link RawSupport} is supplied to the instance.
      *

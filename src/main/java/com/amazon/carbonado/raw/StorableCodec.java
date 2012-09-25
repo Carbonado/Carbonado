@@ -45,6 +45,15 @@ public interface StorableCodec<S extends Storable> {
     S instantiate();
 
     /**
+     * Instantiate a Storable with no value defined yet. The default {@link
+     * RawSupport} is supplied to the instance.
+     *
+     * @throws IllegalStateException if no default support exists
+     * @since 1.2
+     */
+    S instantiate(byte[] key) throws FetchException;
+
+    /**
      * Instantiate a Storable with a specific key and value. The default
      * {@link RawSupport} is supplied to the instance.
      *
