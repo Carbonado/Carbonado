@@ -319,30 +319,38 @@ public class TransactionScope<Txn> {
      */
     void close() throws RepositoryException {
         mLock.lock();
+        if (mClosed) {
+            mLock.unlock();
+            return;
+        }
+ 
+        Map<Class<?>, CursorList<TransactionImpl<Txn>>> cursors;
         try {
-            if (!mClosed) {
-                while (mActive != null) {
-                    mActive.exit();
-                }
-                if (mCursors != null) {
-                    try {
-                        for (CursorList<TransactionImpl<Txn>> cursorList : mCursors.values()) {
-                            cursorList.closeCursors();
-                        }
-                    } finally {
-                        // Ensure that map is freed promptly. Thread-local
-                        // reference to this scope otherwise keeps map and its
-                        // contents lingering around for a very long time.
-                        mCursors = null;
-                    }
-                }
+            cursors = mCursors;        
+
+            // Ensure that map is freed promptly. Thread-local reference to
+            // this scope otherwise keeps map and its contents lingering around
+            // for a very long time.
+            mCursors = null;
+
+            while (mActive != null) {
+                mActive.exit();
             }
         } finally {
-            mClosed = true;
             // Swap TransactionManager out with a dummy one, to allow the
             // original one to get freed.
             mTxnMgr = (TransactionManager<Txn>) TransactionManager.Closed.THE;
+            mClosed = true;
             mLock.unlock();
+        }
+
+        // Close cursors without lock held, to prevent deadlock. Cursor close
+        // operation might acquire its own lock, which in turn acquires a lock
+        // on this scope.
+        if (cursors != null) {
+            for (CursorList<TransactionImpl<Txn>> cursorList : cursors.values()) {
+                cursorList.closeCursors();
+            }
         }
     }
 
