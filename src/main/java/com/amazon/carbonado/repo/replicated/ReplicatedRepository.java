@@ -694,8 +694,11 @@ class ReplicatedRepository
 
         Runnable task = new Runnable() {
             public void run() {
+                // Reload deletes and updates. Don't reload inserts, because it
+                // makes a resync from an empty replica way too expensive.
+                boolean reload = masterEntry == null || replicaEntry != null;
                 try {
-                    replicationTrigger.resyncEntries(listener, replicaEntry, masterEntry);
+                    replicationTrigger.resyncEntries(listener, replicaEntry, masterEntry, reload);
                 } catch (Exception e) {
                     LogFactory.getLog(ReplicatedRepository.class).error(null, e);
                 }

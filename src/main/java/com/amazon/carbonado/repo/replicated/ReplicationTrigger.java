@@ -217,9 +217,10 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
      * @param listener optional
      * @param replicaEntry current replica entry, or null if none
      * @param masterEntry current master entry, or null if none
+     * @param reload true to reload master entry
      */
     void resyncEntries(ResyncCapability.Listener<? super S> listener,
-                       S replicaEntry, S masterEntry)
+                       S replicaEntry, S masterEntry, boolean reload)
         throws FetchException, PersistException
     {
         if (replicaEntry == null && masterEntry == null) {
@@ -232,6 +233,18 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
         try {
             Transaction txn = mRepository.enterTransaction();
             try {
+                txn.setForUpdate(true);
+
+                if (reload) {
+                    if (masterEntry == null) {
+                        masterEntry = mMasterStorage.prepare();
+                        replicaEntry.copyAllProperties(masterEntry);
+                    }
+                    if (!masterEntry.tryLoad()) {
+                        masterEntry = null;
+                    }
+                }
+
                 final S newReplicaEntry;
                 if (replicaEntry == null) {
                     newReplicaEntry = mReplicaStorage.prepare();
@@ -419,12 +432,12 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                         txn.setForUpdate(true);
                         if (finalReplica.tryLoad()) {
                             if (finalMaster.tryLoad()) {
-                                resyncEntries(null, finalReplica, finalMaster);
+                                resyncEntries(null, finalReplica, finalMaster, false);
                             } else {
-                                resyncEntries(null, finalReplica, null);
+                                resyncEntries(null, finalReplica, null, false);
                             }
                         } else if (finalMaster.tryLoad()) {
-                            resyncEntries(null, null, finalMaster);
+                            resyncEntries(null, null, finalMaster, false);
                         }
                         txn.commit();
                     } finally {
