@@ -329,6 +329,13 @@ public abstract class StorableCopier<S extends Storable, T extends Storable> {
                 }
             }
 
+            mi = mClassFile.addMethod
+                (Modifiers.PUBLIC, CommonMethodNames.IS_PROPERTY_SUPPORTED,
+                 TypeDesc.BOOLEAN, new TypeDesc[] {TypeDesc.STRING});
+            b = new CodeBuilder(mi);
+            b.loadConstant(true);
+            b.returnValue(TypeDesc.BOOLEAN);
+
             try {
                 Class<? extends W> wrapperClass = mClassInjector.defineClass(mClassFile);
                 return wrapperClass.getConstructor(mDelegateInfo.getStorableType());
