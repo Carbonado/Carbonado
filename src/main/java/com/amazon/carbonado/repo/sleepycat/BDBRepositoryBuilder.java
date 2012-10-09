@@ -116,6 +116,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
     private int mCheckpointThresholdMinutes = 1;
     private boolean mKeepOldLogFiles;
     private boolean mRunDeadlockDetector = true;
+    private boolean mLockConflictDeadlockDetect = false;
     private Boolean mChecksumEnabled;
     private Object mInitialEnvConfig = null;
     private Object mInitialDBConfig = null;
@@ -191,6 +192,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
         final boolean readOnly = mReadOnly;
         final boolean runCheckpointer = mRunCheckpointer;
         final boolean runDeadlockDetector = mRunDeadlockDetector;
+        final boolean lockConflictDeadlockDetect = mLockConflictDeadlockDetect;
         final boolean isPrivate = mPrivate;
 
         if (mName == null) {
@@ -205,6 +207,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
         mReadOnly = true;
         mRunCheckpointer = false;
         mRunDeadlockDetector = false;
+        mLockConflictDeadlockDetect = false;
 
         try {
             assertReady();
@@ -241,6 +244,7 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
             mReadOnly = readOnly;
             mRunCheckpointer = runCheckpointer;
             mRunDeadlockDetector = runDeadlockDetector;
+            mLockConflictDeadlockDetect = lockConflictDeadlockDetect;
         }
     }
 
@@ -918,6 +922,21 @@ public final class BDBRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public boolean getRunDeadlockDetector() {
         return mRunDeadlockDetector;
+    }
+
+    /**
+     * Enable deadlock detection whenever a lock conflict occurs. Default is
+     * off, and it has no effect for BDB-JE.
+     */
+    public void setLockConflictDeadlockDetectMode(boolean b) {
+        mLockConflictDeadlockDetect = b;
+    }
+
+    /**
+     * Returns true if deadlock detection is run whenever a lock conflict occurs.
+     */
+    public boolean getLockConflictDeadlockDetectMode() {
+        return mLockConflictDeadlockDetect;
     }
 
     /**
