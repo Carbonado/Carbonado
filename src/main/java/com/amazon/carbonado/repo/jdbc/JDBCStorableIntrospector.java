@@ -1027,6 +1027,8 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                     dt = TIMESTAMP;
                 } else if (dataTypeName.toUpperCase().contains("TIMESTAMP")) {
                     dt = TIMESTAMP;
+                } else if (dataTypeName.equalsIgnoreCase("INT UNSIGNED")) {
+                    dt = BIGINT;
                 }
             } else if (dt == LONGVARBINARY && "BLOB".equalsIgnoreCase(dataTypeName)) {
                 // Workaround MySQL bug.
