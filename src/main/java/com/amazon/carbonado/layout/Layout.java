@@ -43,8 +43,10 @@ import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.UniqueConstraintException;
+import com.amazon.carbonado.cursor.FilteredCursor;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableProperty;
 import com.amazon.carbonado.synthetic.SyntheticKey;
@@ -313,49 +315,92 @@ public class Layout {
      * @throws FetchNoneException if generation not found
      */
     public Layout getGeneration(int generation) throws FetchNoneException, FetchException {
-        final String filter = "storableTypeName = ? & generation = ?";
-
-        StoredLayout storedLayout;
+        StoredLayout layout;
         try {
-            storedLayout = mLayoutFactory.mLayoutStorage
-                .query(filter)
-                .with(getStorableTypeName()).with(generation)
-                .loadOne();
+            layout = getStoredLayoutByGeneration(generation);
         } catch (FetchNoneException e) {
-            // Try to resync with a master.
-            ResyncCapability cap =
-                mLayoutFactory.mRepository.getCapability(ResyncCapability.class);
-
-            if (cap == null) {
-                throw e;
-            }
-
             try {
-                cap.resync(mLayoutFactory.mLayoutStorage.getStorableType(), 1.0,
-                           filter, getStorableTypeName(), generation);
+                Storage<StoredLayoutEquivalence> equivStorage =
+                    mLayoutFactory.mRepository.storageFor(StoredLayoutEquivalence.class);
+                StoredLayoutEquivalence equiv = equivStorage.prepare();
+                equiv.setStorableTypeName(getStorableTypeName());
+                equiv.setGeneration(generation);
+                if (equiv.tryLoad()) {
+                    layout = getStoredLayoutByGeneration(equiv.getMatchedGeneration());
+                } else {
+                    throw e;
+                }
             } catch (RepositoryException e2) {
-                // Uh oh, double trouble. Log this one and throw original exception.
-                LogFactory.getLog(Layout.class).error("Unable to resync layout", e2);
-                throw e;
-            }
-
-            storedLayout = mLayoutFactory.mLayoutStorage
-                .query(filter)
-                .with(getStorableTypeName()).with(generation)
-                .loadOne();
-
-            // Make sure all the properties are re-sync'd too.
-            try {
-                cap.resync(mLayoutFactory.mPropertyStorage.getStorableType(), 1.0,
-                           "layoutID = ?", storedLayout.getLayoutID());
-            } catch (RepositoryException e2) {
-                // Uh oh, double trouble. Log this one and throw original exception.
-                LogFactory.getLog(Layout.class).error("Unable to resync layout", e2);
+                if (e2 != e) {
+                    LogFactory.getLog(Layout.class).error("Unable to determine equivalance: ", e2);
+                }
                 throw e;
             }
         }
 
-        return new Layout(mLayoutFactory, storedLayout);
+        return new Layout(mLayoutFactory, layout);
+    }
+
+    private StoredLayout getStoredLayoutByGeneration(int generation)
+        throws FetchNoneException, FetchException
+    {
+        final String filter = "storableTypeName = ? & generation = ?";
+
+        final FetchNoneException ex;
+        try {
+            return mLayoutFactory.mLayoutStorage
+                .query(filter)
+                .with(getStorableTypeName()).with(generation)
+                .loadOne();
+        } catch (FetchNoneException e) {
+            ex = e;
+        }
+
+        // Index might be inconsistent.
+        Cursor<StoredLayout> c = 
+            FilteredCursor.applyFilter(mLayoutFactory.mLayoutStorage.query().fetch(),
+                                       StoredLayout.class, filter,
+                                       getStorableTypeName(), generation);
+
+        try {
+            if (c.hasNext()) {
+                return c.next();
+            }
+        } finally {
+            c.close();
+        }
+
+        // Try to resync with a master.
+        ResyncCapability cap =
+            mLayoutFactory.mRepository.getCapability(ResyncCapability.class);
+
+        if (cap == null) {
+            throw ex;
+        }
+
+        try {
+            cap.resync(mLayoutFactory.mLayoutStorage.getStorableType(), 1.0,
+                       filter, getStorableTypeName(), generation);
+        } catch (RepositoryException e) {
+            LogFactory.getLog(Layout.class).info("Unable to resync layout: ", e);
+            throw ex;
+        }
+
+        StoredLayout storedLayout = mLayoutFactory.mLayoutStorage
+            .query(filter)
+            .with(getStorableTypeName()).with(generation)
+            .loadOne();
+
+        try {
+            // Make sure all the properties are re-sync'd too.
+            cap.resync(mLayoutFactory.mPropertyStorage.getStorableType(), 1.0,
+                       "layoutID = ?", storedLayout.getLayoutID());
+        } catch (RepositoryException e) {
+            LogFactory.getLog(Layout.class).error("Unable to resync layout properties", e);
+            throw ex;
+        }
+
+        return storedLayout;
     }
 
     /**
