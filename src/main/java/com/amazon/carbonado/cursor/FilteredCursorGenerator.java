@@ -23,6 +23,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,7 @@ import com.amazon.carbonado.filter.Visitor;
 import com.amazon.carbonado.info.ChainedProperty;
 import com.amazon.carbonado.info.StorableProperty;
 
+import com.amazon.carbonado.util.Comparators;
 import com.amazon.carbonado.util.QuickConstructorGenerator;
 
 import com.amazon.carbonado.gen.CodeBuilderUtil;
@@ -227,7 +229,10 @@ class FilteredCursorGenerator {
             default:
                 TypeDesc typeDesc = TypeDesc.forClass(chained.getType()).toObjectType();
 
-                if (!Comparable.class.isAssignableFrom(typeDesc.toClass())) {
+                if (!Comparable.class.isAssignableFrom(typeDesc.toClass()) &&
+                    (!typeDesc.isArray() ||
+                     Comparators.arrayComparator(typeDesc.toClass(), true) == null))
+                {
                     throw new UnsupportedOperationException
                         ("Property \"" + chained + "\" does not implement Comparable");
                 }
@@ -263,6 +268,7 @@ class FilteredCursorGenerator {
     private static class CodeGen<S extends Storable> extends Visitor<S, Object, Object> {
         private static final String FIELD_PREFIX = "value$";
         private static final String FILTER_FIELD_PREFIX = "filter$";
+        private static final String COMPARATOR_FIELD_PREFIX = "comparator$";
 
         private final Map<PropertyFilter, Integer> mPropertyOrdinalMap;
         private final ClassFile mClassFile;
@@ -277,6 +283,9 @@ class FilteredCursorGenerator {
         private List<Filter> mSubFilters;
         private Map<Filter, String> mGeneratedSubFilters;
         private CodeBuilder mSubFilterInitBuilder;
+
+        private Map<TypeDesc, String> mComparatorFields;
+        private CodeBuilder mStaticInitBuilder;
 
         CodeGen(Map<PropertyFilter, Integer> propertyOrdinalMap,
                 ClassFile cf,
@@ -295,6 +304,10 @@ class FilteredCursorGenerator {
         }
 
         public List<Filter> finishSubFilterInit() {
+            if (mStaticInitBuilder != null) {
+                mStaticInitBuilder.returnVoid();
+            }
+
             if (mSubFilterInitBuilder != null) {
                 mSubFilterInitBuilder.returnVoid();
             }
@@ -472,6 +485,37 @@ class FilteredCursorGenerator {
             return fieldName;
         }
 
+        private String addStaticComparatorField(TypeDesc type) {
+            if (mComparatorFields == null) {
+                mComparatorFields = new IdentityHashMap<TypeDesc, String>();
+            }
+
+            String fieldName = mComparatorFields.get(type);
+            if (fieldName != null) {
+                return fieldName;
+            }
+
+            fieldName = COMPARATOR_FIELD_PREFIX + mComparatorFields.size();
+            TypeDesc comparatorType = TypeDesc.forClass(Comparator.class);
+            mClassFile.addField(Modifiers.PRIVATE.toStatic(true).toFinal(true),
+                                fieldName, comparatorType);
+
+            if (mStaticInitBuilder == null) {
+                mStaticInitBuilder = new CodeBuilder(mClassFile.addInitializer());
+            }
+
+            mStaticInitBuilder.loadConstant(type);
+            mStaticInitBuilder.loadConstant(true);
+            mStaticInitBuilder.invokeStatic
+                (TypeDesc.forClass(Comparators.class),
+                 "arrayComparator", comparatorType,
+                 new TypeDesc[] {TypeDesc.forClass(Class.class), BOOLEAN});
+            mStaticInitBuilder.storeStaticField(fieldName, comparatorType);
+
+            mComparatorFields.put(type, fieldName);
+            return fieldName;
+        }
+
         private Scope getScope() {
             return mScopeStack.peek();
         }
@@ -603,12 +647,11 @@ class FilteredCursorGenerator {
             TypeDesc primitiveType = type.toPrimitiveType();
 
             if (primitiveType == null) {
-                b.loadThis();
-                b.loadField(fieldName, fieldType);
-
                 // Do object comparison
                 switch (relOp) {
                 case EQ: case NE: default:
+                    b.loadThis();
+                    b.loadField(fieldName, fieldType);
                     if (fieldType.isArray()) {
                         TypeDesc arraysDesc = TypeDesc.forClass(Arrays.class);
                         TypeDesc componentType = fieldType.getComponentType();
@@ -633,9 +676,22 @@ class FilteredCursorGenerator {
                     break;
 
                 case GT: case GE: case LE: case LT:
-                    // Compare method exists because it was checked for earlier
-                    b.invokeInterface(TypeDesc.forClass(Comparable.class), "compareTo",
-                                      INT, new TypeDesc[] {OBJECT});
+                    // Comparison works because it was checked for earlier.
+                    if (Comparable.class.isAssignableFrom(type.toClass())) {
+                        b.loadThis();
+                        b.loadField(fieldName, fieldType);
+                        b.invokeInterface(TypeDesc.forClass(Comparable.class), "compareTo",
+                                          INT, new TypeDesc[] {OBJECT});
+                    } else {
+                        String comparatorFieldName = addStaticComparatorField(type);
+                        TypeDesc comparatorType = TypeDesc.forClass(Comparator.class);
+                        b.loadStaticField(comparatorFieldName, comparatorType);
+                        b.swap();
+                        b.loadThis();
+                        b.loadField(fieldName, fieldType);
+                        b.invokeInterface(comparatorType, "compare", INT,
+                                          new TypeDesc[] {OBJECT, OBJECT});
+                    }
                     getScope().successIfZeroComparisonElseFail(b, relOp);
                     break;
                 }
