@@ -522,19 +522,16 @@ public class GenericStorableCodec<S extends Storable> implements StorableCodec<S
                 Decoder<S> decoder = (Decoder<S>) decoders.get(generation);
                 if (decoder == null) {
                     synchronized (cCodecDecoders) {
-                        Object key = KeyFactory.createKey(new Object[] {mCodecKey, generation});
+                        Object altLayoutKey = new LayoutKey(mLayout.getGeneration(generation));
+                        Object key = KeyFactory.createKey
+                            // Note: Generation is still required in the key
+                            // because an equivalent layout (with different generation)
+                            // might have been supplied by Layout.getGeneration.
+                            (new Object[] {mCodecKey, generation, altLayoutKey});
                         decoder = (Decoder<S>) cCodecDecoders.get(key);
                         if (decoder == null) {
                             decoder = generateDecoder(generation);
                             cCodecDecoders.put(key, decoder);
-                        } else {
-                            // Confirm that layout still exists.
-                            try {
-                                mLayout.getGeneration(generation);
-                            } catch (FetchNoneException e) {
-                                cCodecDecoders.remove(key);
-                                throw e;
-                            }
                         }
                     }
                     mDecoders.put(generation, decoder);
