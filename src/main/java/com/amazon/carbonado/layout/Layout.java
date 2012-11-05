@@ -176,19 +176,7 @@ public class Layout {
 
         storedLayout.setLayoutID(layoutID);
         storedLayout.setStorableTypeName(info.getStorableType().getName());
-        storedLayout.setCreationTimestamp(System.currentTimeMillis());
-        try {
-            storedLayout.setCreationUser(System.getProperty("user.name"));
-        } catch (SecurityException e) {
-            // Can't get user, no big deal.
-        }
-        try {
-            storedLayout.setCreationHost(InetAddress.getLocalHost().getHostName());
-        } catch (UnknownHostException e) {
-            // Can't get host, no big deal.
-        } catch (SecurityException e) {
-            // Can't get host, no big deal.
-        }
+        fillInCreationInfo(storedLayout);
 
         if (options == null) {
             mOptions = null;
@@ -211,6 +199,25 @@ public class Layout {
         }
 
         mAllProperties = Collections.unmodifiableList(list);
+    }
+
+    static void fillInCreationInfo(StoredLayout storedLayout) {
+        storedLayout.setCreationTimestamp(System.currentTimeMillis());
+        try {
+            storedLayout.setCreationUser(System.getProperty("user.name"));
+        } catch (SecurityException e) {
+            // Can't get user, no big deal.
+            storedLayout.setCreationUser(null);
+        }
+        try {
+            storedLayout.setCreationHost(InetAddress.getLocalHost().getHostName());
+        } catch (UnknownHostException e) {
+            // Can't get host, no big deal.
+            storedLayout.setCreationHost(null);
+        } catch (SecurityException e) {
+            // Can't get host, no big deal.
+            storedLayout.setCreationHost(null);
+        }
     }
 
     /**
@@ -315,30 +322,20 @@ public class Layout {
      * @throws FetchNoneException if generation not found
      */
     public Layout getGeneration(int generation) throws FetchNoneException, FetchException {
-        StoredLayout layout;
         try {
-            layout = getStoredLayoutByGeneration(generation);
-        } catch (FetchNoneException e) {
-            try {
-                Storage<StoredLayoutEquivalence> equivStorage =
-                    mLayoutFactory.mRepository.storageFor(StoredLayoutEquivalence.class);
-                StoredLayoutEquivalence equiv = equivStorage.prepare();
-                equiv.setStorableTypeName(getStorableTypeName());
-                equiv.setGeneration(generation);
-                if (equiv.tryLoad()) {
-                    layout = getStoredLayoutByGeneration(equiv.getMatchedGeneration());
-                } else {
-                    throw e;
-                }
-            } catch (RepositoryException e2) {
-                if (e2 != e) {
-                    LogFactory.getLog(Layout.class).error("Unable to determine equivalance: ", e2);
-                }
-                throw e;
+            Storage<StoredLayoutEquivalence> equivStorage =
+                mLayoutFactory.mRepository.storageFor(StoredLayoutEquivalence.class);
+            StoredLayoutEquivalence equiv = equivStorage.prepare();
+            equiv.setStorableTypeName(getStorableTypeName());
+            equiv.setGeneration(generation);
+            if (equiv.tryLoad()) {
+                generation = equiv.getMatchedGeneration();
             }
+        } catch (RepositoryException e) {
+            throw e.toFetchException();
         }
 
-        return new Layout(mLayoutFactory, layout);
+        return new Layout(mLayoutFactory, getStoredLayoutByGeneration(generation));
     }
 
     private StoredLayout getStoredLayoutByGeneration(int generation)
