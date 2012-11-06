@@ -20,6 +20,8 @@ package com.amazon.carbonado.layout;
 
 import java.util.Arrays;
 
+import org.apache.commons.logging.LogFactory;
+
 import com.amazon.carbonado.Cursor;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
@@ -121,8 +123,12 @@ public class LayoutSync {
             if (src.getGeneration() != dst.getGeneration()) {
                 // Same layouts, but with different generation. Create a new
                 // non-conflicting generation to replace both.
+                LogFactory.getLog(LayoutSync.class).error
+                    ("Unable to synchronize layouts: " + src + " != " + dst);
+                /*
                 createNewGen(src, dst);
                 doAgain = true;
+                */
             }
 
             src = null;
@@ -170,6 +176,7 @@ public class LayoutSync {
         return true;
     }
 
+    /*
     private void createNewGen(StoredLayout src, StoredLayout dst) throws RepositoryException {
         long layoutID = src.getLayoutID();
         if (layoutID != dst.getLayoutID()) {
@@ -234,7 +241,9 @@ public class LayoutSync {
             dstTxn.exit();
         }
     }
+    */
 
+    /*
     private void doCreateNewGen(long now, Repository repo, long layoutID, int oldGen, int newGen)
         throws RepositoryException
     {
@@ -277,4 +286,5 @@ public class LayoutSync {
     {
         return Layout.findLayouts(repo, storableTypeName, generation);
     }
+    */
 }
