@@ -269,7 +269,7 @@ public class LayoutFactory implements LayoutCapability {
                     // exception, which prevents the mistake from persisting.
 
                     assert(newLayout != null);
-                    int generation = nextGeneration(info.getStorableType().getName());
+                    int generation = nextGeneration(mRepository, info.getStorableType().getName());
 
                     newLayout.insert(readOnly, generation);
                     layout = newLayout;
@@ -372,7 +372,7 @@ public class LayoutFactory implements LayoutCapability {
                 } else {
                     // Assume alternate key constraint, so increment the generation.
                     storedLayout.setGeneration
-                        (nextGeneration(storedLayout.getStorableTypeName()));
+                        (nextGeneration(mRepository, storedLayout.getStorableTypeName()));
                     storedLayout.insert();
                 }
             }
@@ -413,19 +413,56 @@ public class LayoutFactory implements LayoutCapability {
         mReconstructed.put(reconstructed, layout);
     }
 
-    private int nextGeneration(String typeName) throws FetchException {
-        Cursor<StoredLayout> cursor = mLayoutStorage
-            .query("storableTypeName = ?").with(typeName).orderBy("-generation").fetch();
+    static int nextGeneration(Repository repo, String typeName) throws FetchException {
+        int highestGen = -1;
+        {
+            Cursor<StoredLayout> cursor;
+            try {
+                cursor = repo.storageFor(StoredLayout.class).query("storableTypeName = ?")
+                    .with(typeName).orderBy("-generation").fetchSlice(0, 1L);
+            } catch (RepositoryException e) {
+                throw e.toFetchException();
+            }
+
+            try {
+                if (cursor.hasNext()) {
+                    highestGen = cursor.next().getGeneration();
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+
+        Storage<StoredLayoutEquivalence> es;
+        try {
+            es = repo.storageFor(StoredLayoutEquivalence.class);
+        } catch (RepositoryException e) {
+            throw e.toFetchException();
+        }
+
+        Cursor<StoredLayoutEquivalence> cursor = es.query("storableTypeName = ?")
+            .with(typeName).orderBy("-generation").fetchSlice(0, 1L);
 
         try {
             if (cursor.hasNext()) {
-                return cursor.next().getGeneration() + 1;
+                highestGen = Math.max(highestGen, cursor.next().getGeneration());
             }
         } finally {
             cursor.close();
         }
 
-        return 0;
+        cursor = es.query("storableTypeName = ?")
+            .with(typeName).orderBy("-matchedGeneration").fetchSlice(0, 1L);
+
+        try {
+            if (cursor.hasNext()) {
+                highestGen = Math.max(highestGen, cursor.next().getMatchedGeneration());
+            }
+        } finally {
+            cursor.close();
+        }
+
+        return highestGen + 1;
     }
 
     /**

@@ -178,6 +178,7 @@ public class LayoutSync {
 
         String storableTypeName = src.getStorableTypeName();
         if (!storableTypeName.equals(dst.getStorableTypeName())) {
+            // Assume that there's never any hashcode collision.
             throw new AssertionError();
         }
 
@@ -267,31 +268,13 @@ public class LayoutSync {
     private int nextGen(Repository repo, String storableTypeName)
         throws RepositoryException
     {
-        Cursor<StoredLayout> cursor =
-            repo.storageFor(StoredLayout.class)
-            .query("storableTypeName = ?").with(storableTypeName)
-            .orderBy("-generation")
-            .fetchSlice(0, 1L);
-
-        try {
-            // Must always return a result. Otherwise, no conflict existed in
-            // the first place, indicating a bug.
-            return cursor.next().getGeneration() + 1;
-        } finally {
-            cursor.close();
-        }
-
-        // TODO: also choose from highest equivalence
+        return LayoutFactory.nextGeneration(repo, storableTypeName);
     }
 
-    private Cursor<StoredLayout> findLayouts(Repository repo,
-                                             String storableTypeName, int generation)
+    static Cursor<StoredLayout> findLayouts(Repository repo,
+                                            String storableTypeName, int generation)
         throws RepositoryException
     {
-        // Query without using the index, in case it's inconsistent.
-        return FilteredCursor.applyFilter
-            (repo.storageFor(StoredLayout.class).query().fetch(),
-             StoredLayout.class, "storableTypeName = ? & generation = ?",
-             storableTypeName, generation);
+        return Layout.findLayouts(repo, storableTypeName, generation);
     }
 }

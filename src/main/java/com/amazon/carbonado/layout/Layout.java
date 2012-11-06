@@ -41,6 +41,7 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchNoneException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Query;
+import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
 import com.amazon.carbonado.Storage;
@@ -343,29 +344,37 @@ public class Layout {
     {
         final String filter = "storableTypeName = ? & generation = ?";
 
-        final FetchNoneException ex;
         try {
-            return mLayoutFactory.mLayoutStorage
+            StoredLayoutEquivalence equiv =
+                mLayoutFactory.mRepository.storageFor(StoredLayoutEquivalence.class)
                 .query(filter)
                 .with(getStorableTypeName()).with(generation)
-                .loadOne();
-        } catch (FetchNoneException e) {
-            ex = e;
+                .tryLoadOne();
+            if (equiv != null) {
+                generation = equiv.getMatchedGeneration();
+            }
+        } catch (RepositoryException e) {
+            throw e.toFetchException();
         }
-
-        // Index might be inconsistent.
-        Cursor<StoredLayout> c = 
-            FilteredCursor.applyFilter(mLayoutFactory.mLayoutStorage.query().fetch(),
-                                       StoredLayout.class, filter,
-                                       getStorableTypeName(), generation);
 
         try {
-            if (c.hasNext()) {
-                return c.next();
+            Cursor<StoredLayout> c = findLayouts
+                (mLayoutFactory.mRepository, getStorableTypeName(), generation);
+
+            try {
+                if (c.hasNext()) {
+                    return c.next();
+                }
+            } finally {
+                c.close();
             }
-        } finally {
-            c.close();
+        } catch (RepositoryException e) {
+            throw e.toFetchException();
         }
+
+        FetchException ex = new FetchNoneException
+            ("Layout generation not found: " + getStorableTypeName() + ", " + generation);
+
 
         // Try to resync with a master.
         ResyncCapability cap =
@@ -398,6 +407,17 @@ public class Layout {
         }
 
         return storedLayout;
+    }
+
+    static Cursor<StoredLayout> findLayouts(Repository repo,
+                                            String storableTypeName, int generation)
+        throws RepositoryException
+    {
+        // Query without using the index, in case it's inconsistent.
+        return FilteredCursor.applyFilter
+            (repo.storageFor(StoredLayout.class).query().fetch(),
+             StoredLayout.class, "storableTypeName = ? & generation = ?",
+             storableTypeName, generation);
     }
 
     /**
