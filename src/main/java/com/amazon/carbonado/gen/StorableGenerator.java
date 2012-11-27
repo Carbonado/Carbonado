@@ -3294,7 +3294,6 @@ public final class StorableGenerator<S extends Storable> {
         //     txn = null;
         // } else {
         //     txn = support.getRootRepository().enterTransaction();
-        //     txn.setForUpdate(true);
         //   tryStart:
         //     if (forTry) {
         //         state = trigger.beforeTryXxx(this);
@@ -3322,11 +3321,6 @@ public final class StorableGenerator<S extends Storable> {
         b.invokeInterface(mSupportType, "getRootRepository", repositoryType, null);
         b.invokeInterface(repositoryType, ENTER_TRANSACTION_METHOD_NAME, transactionType, null);
         b.storeLocal(txnVar);
-        // txn.setForUpdate(true);
-        b.loadLocal(txnVar);
-        b.loadConstant(true);
-        b.invokeInterface(transactionType, SET_FOR_UPDATE_METHOD_NAME, null,
-                          new TypeDesc[] {TypeDesc.BOOLEAN});
 
         Label tryStart = b.createLabel().setLocation();
 
