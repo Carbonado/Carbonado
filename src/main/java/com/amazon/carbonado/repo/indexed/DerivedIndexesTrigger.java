@@ -75,7 +75,8 @@ class DerivedIndexesTrigger<S extends Storable, D extends Storable> extends Trig
     }
 
     @Override
-    public Object beforeDelete(S storable) throws PersistException {
+    public Object beforeDelete(Transaction txn, S storable) throws PersistException {
+        txn.setForUpdate(true);
         try {
             if (storable.copy().tryLoad()) {
                 return createDependentIndexEntries(storable);

@@ -63,9 +63,26 @@ public abstract class Trigger<S> {
     }
 
     /**
+     * Called before a storable is to be inserted. The default implementation
+     * simply calls {@link #beforeInsert(Object)}. Only override if access to
+     * the transaction is required.
+     *
+     * <p>Any exception thrown by this method will cause the insert operation
+     * to rollback and all remaining triggers to not run. The exception is
+     * ultimately passed to the caller of the insert method.
+     *
+     * @param txn nested transaction which trigger runs in
+     * @param storable storable before being inserted
+     * @return arbitrary state object, passed to afterInsert or failedInsert method
+     */
+    public Object beforeInsert(Transaction txn, S storable) throws PersistException {
+        return beforeInsert(storable);
+    }
+
+    /**
      * Called before a storable is to be inserted via tryInsert. The default
-     * implementation simply calls {@link #beforeInsert}. Only override if
-     * trigger needs to distinguish between different insert variants.
+     * implementation simply calls {@link #beforeInsert(Object)}. Only override
+     * if trigger needs to distinguish between different insert variants.
      *
      * <p>Any exception thrown by this method will cause the tryInsert operation
      * to rollback and all remaining triggers to not run. The exception is
@@ -77,6 +94,25 @@ public abstract class Trigger<S> {
      */
     public Object beforeTryInsert(S storable) throws PersistException {
         return beforeInsert(storable);
+    }
+
+    /**
+     * Called before a storable is to be inserted via tryInsert. The default
+     * implementation simply calls {@link #beforeTryInsert(Object)}. Only
+     * override if trigger needs access to the transaction and to distinguish
+     * between different insert variants.
+     *
+     * <p>Any exception thrown by this method will cause the tryInsert operation
+     * to rollback and all remaining triggers to not run. The exception is
+     * ultimately passed to the caller of the tryInsert method.
+     *
+     * @param txn nested transaction which trigger runs in
+     * @param storable storable before being inserted
+     * @return arbitrary state object, passed to afterTryInsert or failedInsert method
+     * @see #abortTry
+     */
+    public Object beforeTryInsert(Transaction txn, S storable) throws PersistException {
+        return beforeTryInsert(storable);
     }
 
     /**
@@ -141,9 +177,26 @@ public abstract class Trigger<S> {
     }
 
     /**
+     * Called before a storable is to be updated. The default implementation
+     * simply calls {@link #beforeUpdate(Object)}. Only override if access to
+     * the transaction is required.
+     *
+     * <p>Any exception thrown by this method will cause the update operation
+     * to rollback and all remaining triggers to not run. The exception is
+     * ultimately passed to the caller of the update method.
+     *
+     * @param txn nested transaction which trigger runs in
+     * @param storable storable before being updated
+     * @return arbitrary state object, passed to afterUpdate or failedUpdate method
+     */
+    public Object beforeUpdate(Transaction txn, S storable) throws PersistException {
+        return beforeUpdate(storable);
+    }
+
+    /**
      * Called before a storable is to be updated via tryUpdate. The default
-     * implementation simply calls {@link #beforeUpdate}. Only override if
-     * trigger needs to distinguish between different update variants.
+     * implementation simply calls {@link #beforeUpdate(Object)}. Only override
+     * if trigger needs to distinguish between different update variants.
      *
      * <p>Any exception thrown by this method will cause the tryUpdate operation
      * to rollback and all remaining triggers to not run. The exception is
@@ -155,6 +208,25 @@ public abstract class Trigger<S> {
      */
     public Object beforeTryUpdate(S storable) throws PersistException {
         return beforeUpdate(storable);
+    }
+
+    /**
+     * Called before a storable is to be updated via tryUpdate. The default
+     * implementation simply calls {@link #beforeTryUpdate(Object)}. Only
+     * override if trigger needs access to the transaction and to distinguish
+     * between different update variants.
+     *
+     * <p>Any exception thrown by this method will cause the tryUpdate operation
+     * to rollback and all remaining triggers to not run. The exception is
+     * ultimately passed to the caller of the tryUpdate method.
+     *
+     * @param txn nested transaction which trigger runs in
+     * @param storable storable before being updated
+     * @return arbitrary state object, passed to afterTryUpdate or failedUpdate method
+     * @see #abortTry
+     */
+    public Object beforeTryUpdate(Transaction txn, S storable) throws PersistException {
+        return beforeTryUpdate(storable);
     }
 
     /**
@@ -220,9 +292,26 @@ public abstract class Trigger<S> {
     }
 
     /**
+     * Called before a storable is to be deleted. The default implementation
+     * simply calls {@link #beforeDelete(Object)}. Only override if access to
+     * the transaction is required.
+     *
+     * <p>Any exception thrown by this method will cause the delete operation
+     * to rollback and all remaining triggers to not run. The exception is
+     * ultimately passed to the caller of the delete method.
+     *
+     * @param txn nested transaction which trigger runs in
+     * @param storable storable before being deleted
+     * @return arbitrary state object, passed to afterDelete or failedDelete method
+     */
+    public Object beforeDelete(Transaction txn, S storable) throws PersistException {
+        return beforeDelete(storable);
+    }
+
+    /**
      * Called before a storable is to be deleted via tryDelete. The default
-     * implementation simply calls {@link #beforeDelete}. Only override if
-     * trigger needs to distinguish between different delete variants.
+     * implementation simply calls {@link #beforeDelete(Object)}. Only override
+     * if trigger needs to distinguish between different delete variants.
      *
      * <p>Any exception thrown by this method will cause the tryDelete operation
      * to rollback and all remaining triggers to not run. The exception is
@@ -234,6 +323,25 @@ public abstract class Trigger<S> {
      */
     public Object beforeTryDelete(S storable) throws PersistException {
         return beforeDelete(storable);
+    }
+
+    /**
+     * Called before a storable is to be deleted via tryDelete. The default
+     * implementation simply calls {@link #beforeTryDelete(Object)}. Only
+     * override if trigger needs access to the transaction and to distinguish
+     * between different delete variants.
+     *
+     * <p>Any exception thrown by this method will cause the tryDelete operation
+     * to rollback and all remaining triggers to not run. The exception is
+     * ultimately passed to the caller of the tryDelete method.
+     *
+     * @param txn nested transaction which trigger runs in
+     * @param storable storable before being deleted
+     * @return arbitrary state object, passed to afterTryDelete or failedDelete method
+     * @see #abortTry
+     */
+    public Object beforeTryDelete(Transaction txn, S storable) throws PersistException {
+        return beforeTryDelete(storable);
     }
 
     /**

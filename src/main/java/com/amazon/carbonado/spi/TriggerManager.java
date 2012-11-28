@@ -30,6 +30,7 @@ import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.TriggerFactory;
 
@@ -47,52 +48,49 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     private static final int FOR_DELETE = 4;
     private static final int FOR_LOAD = 8;
 
-    private static final Method
-        BEFORE_INSERT_METHOD,
-        BEFORE_TRY_INSERT_METHOD,
-        AFTER_INSERT_METHOD,
-        AFTER_TRY_INSERT_METHOD,
-        FAILED_INSERT_METHOD,
-
-        BEFORE_UPDATE_METHOD,
-        BEFORE_TRY_UPDATE_METHOD,
-        AFTER_UPDATE_METHOD,
-        AFTER_TRY_UPDATE_METHOD,
-        FAILED_UPDATE_METHOD,
-
-        BEFORE_DELETE_METHOD,
-        BEFORE_TRY_DELETE_METHOD,
-        AFTER_DELETE_METHOD,
-        AFTER_TRY_DELETE_METHOD,
-        FAILED_DELETE_METHOD,
-
-        AFTER_LOAD_METHOD;
+    private static final Method[] INSERT_METHODS;
+    private static final Method[] UPDATE_METHODS;
+    private static final Method[] DELETE_METHODS;
+    private static final Method AFTER_LOAD_METHOD;
 
     static {
         Class<?> triggerClass = Trigger.class;
-        Class[] ONE_PARAM = {Object.class};
+        Class[] ONE_PARAM  = {Object.class};
+        Class[] TXN_PARAMS = {Transaction.class, Object.class};
         Class[] TWO_PARAMS = {Object.class, Object.class};
 
         try {
-            BEFORE_INSERT_METHOD     = triggerClass.getMethod("beforeInsert", ONE_PARAM);
-            BEFORE_TRY_INSERT_METHOD = triggerClass.getMethod("beforeTryInsert", ONE_PARAM);
-            AFTER_INSERT_METHOD      = triggerClass.getMethod("afterInsert", TWO_PARAMS);
-            AFTER_TRY_INSERT_METHOD  = triggerClass.getMethod("afterTryInsert", TWO_PARAMS);
-            FAILED_INSERT_METHOD     = triggerClass.getMethod("failedInsert", TWO_PARAMS);
+            INSERT_METHODS = new Method[] {
+                triggerClass.getMethod("beforeInsert", ONE_PARAM),
+                triggerClass.getMethod("beforeInsert", TXN_PARAMS),
+                triggerClass.getMethod("beforeTryInsert", ONE_PARAM),
+                triggerClass.getMethod("beforeTryInsert", TXN_PARAMS),
+                triggerClass.getMethod("afterInsert", TWO_PARAMS),
+                triggerClass.getMethod("afterTryInsert", TWO_PARAMS),
+                triggerClass.getMethod("failedInsert", TWO_PARAMS)
+            };
 
-            BEFORE_UPDATE_METHOD     = triggerClass.getMethod("beforeUpdate", ONE_PARAM);
-            BEFORE_TRY_UPDATE_METHOD = triggerClass.getMethod("beforeTryUpdate", ONE_PARAM);
-            AFTER_UPDATE_METHOD      = triggerClass.getMethod("afterUpdate", TWO_PARAMS);
-            AFTER_TRY_UPDATE_METHOD  = triggerClass.getMethod("afterTryUpdate", TWO_PARAMS);
-            FAILED_UPDATE_METHOD     = triggerClass.getMethod("failedUpdate", TWO_PARAMS);
+            UPDATE_METHODS = new Method[] {
+                triggerClass.getMethod("beforeUpdate", ONE_PARAM),
+                triggerClass.getMethod("beforeUpdate", TXN_PARAMS),
+                triggerClass.getMethod("beforeTryUpdate", ONE_PARAM),
+                triggerClass.getMethod("beforeTryUpdate", TXN_PARAMS),
+                triggerClass.getMethod("afterUpdate", TWO_PARAMS),
+                triggerClass.getMethod("afterTryUpdate", TWO_PARAMS),
+                triggerClass.getMethod("failedUpdate", TWO_PARAMS)
+            };
 
-            BEFORE_DELETE_METHOD     = triggerClass.getMethod("beforeDelete", ONE_PARAM);
-            BEFORE_TRY_DELETE_METHOD = triggerClass.getMethod("beforeTryDelete", ONE_PARAM);
-            AFTER_DELETE_METHOD      = triggerClass.getMethod("afterDelete", TWO_PARAMS);
-            AFTER_TRY_DELETE_METHOD  = triggerClass.getMethod("afterTryDelete", TWO_PARAMS);
-            FAILED_DELETE_METHOD     = triggerClass.getMethod("failedDelete", TWO_PARAMS);
+            DELETE_METHODS = new Method[] {
+                triggerClass.getMethod("beforeDelete", ONE_PARAM),
+                triggerClass.getMethod("beforeDelete", TXN_PARAMS),
+                triggerClass.getMethod("beforeTryDelete", ONE_PARAM),
+                triggerClass.getMethod("beforeTryDelete", TXN_PARAMS),
+                triggerClass.getMethod("afterDelete", TWO_PARAMS),
+                triggerClass.getMethod("afterTryDelete", TWO_PARAMS),
+                triggerClass.getMethod("failedDelete", TWO_PARAMS)
+            };
 
-            AFTER_LOAD_METHOD        = triggerClass.getMethod("afterLoad", ONE_PARAM);
+            AFTER_LOAD_METHOD = triggerClass.getMethod("afterLoad", ONE_PARAM);
         } catch (NoSuchMethodException e) {
             Error error = new NoSuchMethodError();
             error.initCause(e);
@@ -317,8 +315,18 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     }
 
     @Override
+    public Object beforeInsert(Transaction txn, S storable) throws PersistException {
+        return mForInsert.beforeInsert(txn, storable);
+    }
+
+    @Override
     public Object beforeTryInsert(S storable) throws PersistException {
         return mForInsert.beforeTryInsert(storable);
+    }
+
+    @Override
+    public Object beforeTryInsert(Transaction txn, S storable) throws PersistException {
+        return mForInsert.beforeTryInsert(txn, storable);
     }
 
     @Override
@@ -342,8 +350,18 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     }
 
     @Override
+    public Object beforeUpdate(Transaction txn, S storable) throws PersistException {
+        return mForUpdate.beforeUpdate(txn, storable);
+    }
+
+    @Override
     public Object beforeTryUpdate(S storable) throws PersistException {
         return mForUpdate.beforeTryUpdate(storable);
+    }
+
+    @Override
+    public Object beforeTryUpdate(Transaction txn, S storable) throws PersistException {
+        return mForUpdate.beforeTryUpdate(txn, storable);
     }
 
     @Override
@@ -367,8 +385,18 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
     }
 
     @Override
+    public Object beforeDelete(Transaction txn, S storable) throws PersistException {
+        return mForDelete.beforeDelete(txn, storable);
+    }
+
+    @Override
     public Object beforeTryDelete(S storable) throws PersistException {
         return mForDelete.beforeTryDelete(storable);
+    }
+
+    @Override
+    public Object beforeTryDelete(Transaction txn, S storable) throws PersistException {
+        return mForDelete.beforeTryDelete(txn, storable);
     }
 
     @Override
@@ -399,30 +427,15 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
 
         int types = 0;
 
-        if (overridesMethod(triggerClass, BEFORE_INSERT_METHOD) ||
-            overridesMethod(triggerClass, BEFORE_TRY_INSERT_METHOD) ||
-            overridesMethod(triggerClass, AFTER_INSERT_METHOD) ||
-            overridesMethod(triggerClass, AFTER_TRY_INSERT_METHOD) ||
-            overridesMethod(triggerClass, FAILED_INSERT_METHOD))
-        {
+        if (overridesOneMethod(triggerClass, INSERT_METHODS)) {
             types |= FOR_INSERT;
         }
 
-        if (overridesMethod(triggerClass, BEFORE_UPDATE_METHOD) ||
-            overridesMethod(triggerClass, BEFORE_TRY_UPDATE_METHOD) ||
-            overridesMethod(triggerClass, AFTER_UPDATE_METHOD) ||
-            overridesMethod(triggerClass, AFTER_TRY_UPDATE_METHOD) ||
-            overridesMethod(triggerClass, FAILED_UPDATE_METHOD))
-        {
+        if (overridesOneMethod(triggerClass, UPDATE_METHODS)) {
             types |= FOR_UPDATE;
         }
 
-        if (overridesMethod(triggerClass, BEFORE_DELETE_METHOD) ||
-            overridesMethod(triggerClass, BEFORE_TRY_DELETE_METHOD) ||
-            overridesMethod(triggerClass, AFTER_DELETE_METHOD) ||
-            overridesMethod(triggerClass, AFTER_TRY_DELETE_METHOD) ||
-            overridesMethod(triggerClass, FAILED_DELETE_METHOD))
-        {
+        if (overridesOneMethod(triggerClass, DELETE_METHODS)) {
             types |= FOR_DELETE;
         }
 
@@ -433,7 +446,18 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         return types;
     }
 
-    private boolean overridesMethod(Class<? extends Trigger> triggerClass, Method method) {
+    private static boolean overridesOneMethod(Class<? extends Trigger> triggerClass,
+                                              Method[] methods)
+    {
+        for (Method method : methods) {
+            if (overridesMethod(triggerClass, method)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean overridesMethod(Class<? extends Trigger> triggerClass, Method method) {
         try {
             return !method.equals(triggerClass.getMethod(method.getName(),
                                                          method.getParameterTypes()));
@@ -558,6 +582,28 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         }
 
         @Override
+        public Object beforeInsert(Transaction txn, S storable) throws PersistException {
+            if (isLocallyDisabled()) {
+                return null;
+            }
+
+            TriggerStates<S> triggerStates = null;
+            Trigger<? super S>[] triggers = mTriggers;
+
+            for (int i=triggers.length; --i>=0; ) {
+                Object state = triggers[i].beforeInsert(txn, storable);
+                if (state != null) {
+                    if (triggerStates == null) {
+                        triggerStates = new TriggerStates<S>(triggers);
+                    }
+                    triggerStates.mStates[i] = state;
+                }
+            }
+
+            return triggerStates == null ? triggers : triggerStates;
+        }
+
+        @Override
         public Object beforeTryInsert(S storable) throws PersistException {
             if (isLocallyDisabled()) {
                 return null;
@@ -568,6 +614,28 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
 
             for (int i=triggers.length; --i>=0; ) {
                 Object state = triggers[i].beforeTryInsert(storable);
+                if (state != null) {
+                    if (triggerStates == null) {
+                        triggerStates = new TriggerStates<S>(triggers);
+                    }
+                    triggerStates.mStates[i] = state;
+                }
+            }
+
+            return triggerStates == null ? triggers : triggerStates;
+        }
+
+        @Override
+        public Object beforeTryInsert(Transaction txn, S storable) throws PersistException {
+            if (isLocallyDisabled()) {
+                return null;
+            }
+
+            TriggerStates<S> triggerStates = null;
+            Trigger<? super S>[] triggers = mTriggers;
+
+            for (int i=triggers.length; --i>=0; ) {
+                Object state = triggers[i].beforeTryInsert(txn, storable);
                 if (state != null) {
                     if (triggerStates == null) {
                         triggerStates = new TriggerStates<S>(triggers);
@@ -713,6 +781,28 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         }
 
         @Override
+        public Object beforeUpdate(Transaction txn, S storable) throws PersistException {
+            if (isLocallyDisabled()) {
+                return null;
+            }
+
+            TriggerStates<S> triggerStates = null;
+            Trigger<? super S>[] triggers = mTriggers;
+
+            for (int i=triggers.length; --i>=0; ) {
+                Object state = triggers[i].beforeUpdate(txn, storable);
+                if (state != null) {
+                    if (triggerStates == null) {
+                        triggerStates = new TriggerStates<S>(triggers);
+                    }
+                    triggerStates.mStates[i] = state;
+                }
+            }
+
+            return triggerStates == null ? triggers : triggerStates;
+        }
+
+        @Override
         public Object beforeTryUpdate(S storable) throws PersistException {
             if (isLocallyDisabled()) {
                 return null;
@@ -723,6 +813,28 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
 
             for (int i=triggers.length; --i>=0; ) {
                 Object state = triggers[i].beforeTryUpdate(storable);
+                if (state != null) {
+                    if (triggerStates == null) {
+                        triggerStates = new TriggerStates<S>(triggers);
+                    }
+                    triggerStates.mStates[i] = state;
+                }
+            }
+
+            return triggerStates == null ? triggers : triggerStates;
+        }
+
+        @Override
+        public Object beforeTryUpdate(Transaction txn, S storable) throws PersistException {
+            if (isLocallyDisabled()) {
+                return null;
+            }
+
+            TriggerStates<S> triggerStates = null;
+            Trigger<? super S>[] triggers = mTriggers;
+
+            for (int i=triggers.length; --i>=0; ) {
+                Object state = triggers[i].beforeTryUpdate(txn, storable);
                 if (state != null) {
                     if (triggerStates == null) {
                         triggerStates = new TriggerStates<S>(triggers);
@@ -868,6 +980,29 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
         }
 
         @Override
+        public Object beforeDelete(Transaction txn, S storable) throws PersistException {
+            if (isLocallyDisabled()) {
+                return null;
+            }
+
+            TriggerStates<S> triggerStates = null;
+            Trigger<? super S>[] triggers = mTriggers;
+
+            for (int i=triggers.length; --i>=0; ) {
+                Object state = triggers[i].beforeDelete(txn, storable);
+                if (state != null) {
+                    if (triggerStates == null) {
+                        triggerStates = new TriggerStates<S>(triggers);
+                    }
+                    triggerStates.mStates[i] = state;
+                }
+            }
+
+            return triggerStates == null ? triggers : triggerStates;
+        }
+
+
+        @Override
         public Object beforeTryDelete(S storable) throws PersistException {
             if (isLocallyDisabled()) {
                 return null;
@@ -878,6 +1013,28 @@ public class TriggerManager<S extends Storable> extends Trigger<S> {
 
             for (int i=triggers.length; --i>=0; ) {
                 Object state = triggers[i].beforeTryDelete(storable);
+                if (state != null) {
+                    if (triggerStates == null) {
+                        triggerStates = new TriggerStates<S>(triggers);
+                    }
+                    triggerStates.mStates[i] = state;
+                }
+            }
+
+            return triggerStates == null ? triggers : triggerStates;
+        }
+
+        @Override
+        public Object beforeTryDelete(Transaction txn, S storable) throws PersistException {
+            if (isLocallyDisabled()) {
+                return null;
+            }
+
+            TriggerStates<S> triggerStates = null;
+            Trigger<? super S>[] triggers = mTriggers;
+
+            for (int i=triggers.length; --i>=0; ) {
+                Object state = triggers[i].beforeTryDelete(txn, storable);
                 if (state != null) {
                     if (triggerStates == null) {
                         triggerStates = new TriggerStates<S>(triggers);

@@ -3296,9 +3296,9 @@ public final class StorableGenerator<S extends Storable> {
         //     txn = support.getRootRepository().enterTransaction();
         //   tryStart:
         //     if (forTry) {
-        //         state = trigger.beforeTryXxx(this);
+        //         state = trigger.beforeTryXxx(txn, this);
         //     } else {
-        //         state = trigger.beforeXxx(this);
+        //         state = trigger.beforeXxx(txn, this);
         //     }
         // }
         b.loadLocal(triggerVar);
@@ -3325,20 +3325,23 @@ public final class StorableGenerator<S extends Storable> {
         Label tryStart = b.createLabel().setLocation();
 
         // if (forTry) {
-        //     state = trigger.beforeTryXxx(this);
+        //     state = trigger.beforeTryXxx(txn, this);
         // } else {
-        //     state = trigger.beforeXxx(this);
+        //     state = trigger.beforeXxx(txn, this);
         // }
         b.loadLocal(triggerVar);
+        b.loadLocal(txnVar);
         b.loadThis();
 
         if (forTryVar == null) {
             if (forTry) {
                 b.invokeVirtual(triggerVar.getType(), "beforeTry" + opType,
-                                TypeDesc.OBJECT, new TypeDesc[] {TypeDesc.OBJECT});
+                                TypeDesc.OBJECT,
+                                new TypeDesc[] {transactionType, TypeDesc.OBJECT});
             } else {
                 b.invokeVirtual(triggerVar.getType(), "before" + opType,
-                                TypeDesc.OBJECT, new TypeDesc[] {TypeDesc.OBJECT});
+                                TypeDesc.OBJECT,
+                                new TypeDesc[] {transactionType, TypeDesc.OBJECT});
             }
             b.storeLocal(stateVar);
         } else {
@@ -3347,13 +3350,13 @@ public final class StorableGenerator<S extends Storable> {
 
             b.ifZeroComparisonBranch(isForTry, "!=");
             b.invokeVirtual(triggerVar.getType(), "before" + opType,
-                            TypeDesc.OBJECT, new TypeDesc[] {TypeDesc.OBJECT});
+                            TypeDesc.OBJECT, new TypeDesc[] {transactionType, TypeDesc.OBJECT});
             b.storeLocal(stateVar);
             b.branch(cont);
 
             isForTry.setLocation();
             b.invokeVirtual(triggerVar.getType(), "beforeTry" + opType,
-                            TypeDesc.OBJECT, new TypeDesc[] {TypeDesc.OBJECT});
+                            TypeDesc.OBJECT, new TypeDesc[] {transactionType, TypeDesc.OBJECT});
             b.storeLocal(stateVar);
         }
 

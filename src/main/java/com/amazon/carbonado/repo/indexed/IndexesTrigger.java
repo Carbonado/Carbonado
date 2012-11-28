@@ -24,6 +24,7 @@ import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Storable;
+import com.amazon.carbonado.Transaction;
 import com.amazon.carbonado.Trigger;
 import com.amazon.carbonado.UniqueConstraintException;
 
@@ -63,7 +64,11 @@ class IndexesTrigger<S extends Storable> extends Trigger<S> {
     }
 
     @Override
-    public Object beforeUpdate(S storable) throws PersistException {
+    public Object beforeUpdate(Transaction txn, S storable) throws PersistException {
+        // Ensure old storable is loaded with an upgradable lock, allowing
+        // update to proceed without deadlock.
+        txn.setForUpdate(true);
+
         // Return old storable for afterUpdate.
         S copy = (S) storable.copy();
         try {
@@ -88,7 +93,11 @@ class IndexesTrigger<S extends Storable> extends Trigger<S> {
     }
 
     @Override
-    public Object beforeDelete(S storable) throws PersistException {
+    public Object beforeDelete(Transaction txn, S storable) throws PersistException {
+        // Ensure old storable is loaded with an upgradable lock, allowing
+        // delete to proceed without deadlock.
+        txn.setForUpdate(true);
+
         // Delete index entries referenced by existing storable.
         S copy = (S) storable.copy();
         try {

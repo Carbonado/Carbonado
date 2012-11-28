@@ -74,9 +74,9 @@ class ReplicatedStorage<S extends Storable> implements Storage<S> {
     }
 
     /**
-     * For testing only.
+     * Exposed for testing only.
      */
-    ReplicatedStorage(Repository aRepository,
+    ReplicatedStorage(ReplicatedRepository aRepository,
                       Storage<S> replicaStorage,
                       Storage<S> masterStorage)
     {

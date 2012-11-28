@@ -49,13 +49,13 @@ import com.amazon.carbonado.spi.TriggerManager;
  * @author Brian S O'Neill
  */
 class ReplicationTrigger<S extends Storable> extends Trigger<S> {
-    private final Repository mRepository;
+    private final ReplicatedRepository mRepository;
     private final Storage<S> mReplicaStorage;
     private final Storage<S> mMasterStorage;
 
     private final TriggerManager<S> mTriggerManager;
 
-    ReplicationTrigger(Repository repository,
+    ReplicationTrigger(ReplicatedRepository repository,
                        Storage<S> replicaStorage,
                        Storage<S> masterStorage)
     {
@@ -231,9 +231,11 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
 
         setReplicationDisabled();
         try {
-            Transaction txn = mRepository.enterTransaction();
+            Transaction masterTxn = mRepository.getMasterRepository().enterTransaction();
+            Transaction replicaTxn = mRepository.getReplicaRepository().enterTransaction();
+
             try {
-                txn.setForUpdate(true);
+                replicaTxn.setForUpdate(true);
 
                 if (reload) {
                     if (masterEntry == null) {
@@ -320,13 +322,18 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                         }
                     }
 
-                    txn.commit();
+                    replicaTxn.commit();
                 } catch (Throwable e) {
                     resyncFailed(listener, replicaEntry, masterEntry, newReplicaEntry, state);
                     ThrowUnchecked.fire(e);
                 }
             } finally {
-                txn.exit();
+                try {
+                    masterTxn.exit();
+                } finally {
+                    // Do second, favoring any exception thrown from it.
+                    replicaTxn.exit();
+                }
             }
         } finally {
             setReplicationEnabled();
