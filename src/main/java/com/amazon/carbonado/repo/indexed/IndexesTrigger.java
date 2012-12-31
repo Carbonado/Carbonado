@@ -64,6 +64,11 @@ class IndexesTrigger<S extends Storable> extends Trigger<S> {
     }
 
     @Override
+    public Object beforeTryUpdate(Transaction txn, S storable) throws PersistException {
+        return beforeUpdate(txn, storable);
+    }
+
+    @Override
     public Object beforeUpdate(Transaction txn, S storable) throws PersistException {
         // Ensure old storable is loaded with an upgradable lock, allowing
         // update to proceed without deadlock.
@@ -90,6 +95,11 @@ class IndexesTrigger<S extends Storable> extends Trigger<S> {
         for (ManagedIndex<S> managed : mManagedIndexes) {
             managed.updateIndexEntry(storable, oldStorable);
         }
+    }
+
+    @Override
+    public Object beforeTryDelete(Transaction txn, S storable) throws PersistException {
+        return beforeDelete(txn, storable);
     }
 
     @Override

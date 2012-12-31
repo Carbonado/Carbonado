@@ -75,6 +75,11 @@ class DerivedIndexesTrigger<S extends Storable, D extends Storable> extends Trig
     }
 
     @Override
+    public Object beforeTryDelete(Transaction txn, S storable) throws PersistException {
+        return beforeDelete(txn, storable);
+    }
+
+    @Override
     public Object beforeDelete(Transaction txn, S storable) throws PersistException {
         txn.setForUpdate(true);
         try {
