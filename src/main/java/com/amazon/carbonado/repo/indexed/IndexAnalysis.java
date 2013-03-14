@@ -140,19 +140,9 @@ class IndexAnalysis<S extends Storable> {
                     txn.exit();
                 }
             } catch (FetchException e) {
-                if (e instanceof FetchDeadlockException || e instanceof FetchTimeoutException) {
-                    // Might be caused by coarse locks. Switch to nested
-                    // transaction to share the locks.
-                    Transaction txn = repository.getWrappedRepository()
-                        .enterTransaction(IsolationLevel.READ_COMMITTED);
-                    try {
-                        storedInfos = query.fetch().toList();
-                    } finally {
-                        txn.exit();
-                    }
-                } else {
-                    throw e;
-                }
+                // Might be caused by coarse locks or isolation level
+                // swtching. Avoid the explicit isolation level.
+                storedInfos = query.fetch().toList();
             }
 
             for (StoredIndexInfo indexInfo : storedInfos) {
