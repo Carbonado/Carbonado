@@ -597,21 +597,26 @@ public class TransactionScope<Txn> {
         // Caller must hold mLock.
         Txn getTxn() throws Exception {
             TransactionScope<Txn> scope = mScope;
-            if (mTxn != null) {
-                scope.mTxnMgr.reuseTxn(mTxn);
+            Txn txn = mTxn;
+            if (txn != null) {
+                scope.mTxnMgr.reuseTxn(txn);
+                if (mForUpdate) {
+                    scope.mTxnMgr.setForUpdate(txn, true);
+                }
             } else {
                 Txn parentTxn = (mParent == null || mTop) ? null : mParent.getTxn();
                 if (mTimeoutUnit == null) {
-                    mTxn = scope.mTxnMgr.createTxn(parentTxn, mLevel);
+                    txn = scope.mTxnMgr.createTxn(parentTxn, mLevel);
                 } else {
-                    mTxn = scope.mTxnMgr.createTxn(parentTxn, mLevel,
-                                                   mDesiredLockTimeout, mTimeoutUnit);
+                    txn = scope.mTxnMgr.createTxn(parentTxn, mLevel,
+                                                  mDesiredLockTimeout, mTimeoutUnit);
+                }
+                mTxn = txn;
+                if (mForUpdate & txn != null) {
+                    scope.mTxnMgr.setForUpdate(txn, true);
                 }
             }
-            if (mForUpdate) {
-                scope.mTxnMgr.setForUpdate(mTxn, true);
-            }
-            return mTxn;
+            return txn;
         }
 
         // Caller must hold mLock.
