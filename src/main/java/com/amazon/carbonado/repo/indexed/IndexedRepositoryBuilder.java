@@ -50,6 +50,7 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
     private boolean mIndexRepairEnabled = true;
     private double mIndexThrottle = 1.0;
     private boolean mAllClustered;
+    private boolean mStrictTriggers;
 
     public IndexedRepositoryBuilder() {
     }
@@ -77,7 +78,8 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
         Repository repo = new IndexedRepository(rootRef, getName(), wrapped,
                                                 isIndexRepairEnabled(),
                                                 getIndexRepairThrottle(),
-                                                isAllClustered());
+                                                isAllClustered(),
+                                                mStrictTriggers);
         rootRef.set(repo);
         return repo;
     }
@@ -188,6 +190,14 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
      */
     public void setAllClustered(boolean clustered) {
         mAllClustered = clustered;
+    }
+
+    /**
+     * Set to true to require that index maintenance triggers use a "for update" transaction,
+     * avoiding deadlocks and lock upgrade failures.
+     */
+    public void setStrictTriggers(boolean strict) {
+        mStrictTriggers = strict;
     }
 
     @Override

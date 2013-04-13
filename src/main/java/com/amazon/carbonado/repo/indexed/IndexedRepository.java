@@ -64,6 +64,7 @@ class IndexedRepository implements Repository,
     private final boolean mIndexRepairEnabled;
     private final double mIndexThrottle;
     private final boolean mAllClustered;
+    private final boolean mStrictTriggers;
     private final StoragePool mStoragePool;
     private final IndexAnalysisPool mIndexAnalysisPool;
 
@@ -71,7 +72,8 @@ class IndexedRepository implements Repository,
                       Repository repository,
                       boolean indexRepairEnabled,
                       double indexThrottle,
-                      boolean allClustered)
+                      boolean allClustered,
+                      boolean strictTriggers)
     {
         if (repository.getCapability(IndexInfoCapability.class) == null) {
             throw new UnsupportedOperationException
@@ -85,6 +87,7 @@ class IndexedRepository implements Repository,
         mIndexRepairEnabled = indexRepairEnabled;
         mIndexThrottle = indexThrottle;
         mAllClustered = allClustered;
+        mStrictTriggers = strictTriggers;
         mIndexAnalysisPool = new IndexAnalysisPool(this);
 
         mStoragePool = new StoragePool() {
@@ -263,5 +266,9 @@ class IndexedRepository implements Repository,
 
     boolean isAllClustered() {
         return mAllClustered;
+    }
+
+    boolean isStrictTriggers() {
+        return mStrictTriggers;
     }
 }

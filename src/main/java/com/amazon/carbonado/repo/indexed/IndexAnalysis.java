@@ -278,7 +278,11 @@ class IndexAnalysis<S extends Storable> {
                 managedIndexes[i++] = managedIndex;
             }
 
-            indexesTrigger = new IndexesTrigger<S>(managedIndexes);
+            if (repository.isStrictTriggers()) {
+                indexesTrigger = new IndexesTrigger.Strict<S>(managedIndexes);
+            } else {
+                indexesTrigger = new IndexesTrigger<S>(managedIndexes);
+            }
         }
 
         derivedToDependencies = gatherDerivedToDependencies(info);

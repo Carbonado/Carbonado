@@ -112,7 +112,15 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         // Install triggers to manage derived properties in external Storables.
         if (analysis.derivedToDependencies != null) {
             for (ChainedProperty<?> derivedTo : analysis.derivedToDependencies) {
-                addTrigger(new DerivedIndexesTrigger(mRepository, getStorableType(), derivedTo));
+                Trigger<? super S> trigger;
+                if (mRepository.isStrictTriggers()) {
+                    trigger = new DerivedIndexesTrigger.Strict
+                        (mRepository, getStorableType(), derivedTo);
+                } else {
+                    trigger = new DerivedIndexesTrigger
+                        (mRepository, getStorableType(), derivedTo);
+                }
+                addTrigger(trigger);
             }
         }
     }

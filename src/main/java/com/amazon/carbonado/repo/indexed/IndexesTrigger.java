@@ -64,16 +64,7 @@ class IndexesTrigger<S extends Storable> extends Trigger<S> {
     }
 
     @Override
-    public Object beforeTryUpdate(Transaction txn, S storable) throws PersistException {
-        return beforeUpdate(txn, storable);
-    }
-
-    @Override
-    public Object beforeUpdate(Transaction txn, S storable) throws PersistException {
-        // Ensure old storable is loaded with an upgradable lock, allowing
-        // update to proceed without deadlock.
-        txn.setForUpdate(true);
-
+    public Object beforeUpdate(S storable) throws PersistException {
         // Return old storable for afterUpdate.
         S copy = (S) storable.copy();
         try {
@@ -98,16 +89,7 @@ class IndexesTrigger<S extends Storable> extends Trigger<S> {
     }
 
     @Override
-    public Object beforeTryDelete(Transaction txn, S storable) throws PersistException {
-        return beforeDelete(txn, storable);
-    }
-
-    @Override
-    public Object beforeDelete(Transaction txn, S storable) throws PersistException {
-        // Ensure old storable is loaded with an upgradable lock, allowing
-        // delete to proceed without deadlock.
-        txn.setForUpdate(true);
-
+    public Object beforeDelete(S storable) throws PersistException {
         // Delete index entries referenced by existing storable.
         S copy = (S) storable.copy();
         try {
@@ -129,5 +111,37 @@ class IndexesTrigger<S extends Storable> extends Trigger<S> {
             throw e.toPersistException();
         }
         return null;
+    }
+
+    /**
+     * Ensure old storable instance is loaded with an upgradable lock, allowing change to
+     * proceed without deadlock.
+     */
+    final static class Strict<S extends Storable> extends IndexesTrigger<S> {
+        Strict(ManagedIndex<S>[] managedIndexes) {
+            super(managedIndexes);
+        }
+
+        @Override
+        public Object beforeTryUpdate(Transaction txn, S storable) throws PersistException {
+            return beforeUpdate(txn, storable);
+        }
+
+        @Override
+        public Object beforeUpdate(Transaction txn, S storable) throws PersistException {
+            txn.setForUpdate(true);
+            return super.beforeUpdate(storable);
+        }
+
+        @Override
+        public Object beforeTryDelete(Transaction txn, S storable) throws PersistException {
+            return beforeDelete(txn, storable);
+        }
+
+        @Override
+        public Object beforeDelete(Transaction txn, S storable) throws PersistException {
+            txn.setForUpdate(true);
+            return super.beforeDelete(storable);
+        }
     }
 }

@@ -75,13 +75,7 @@ class DerivedIndexesTrigger<S extends Storable, D extends Storable> extends Trig
     }
 
     @Override
-    public Object beforeTryDelete(Transaction txn, S storable) throws PersistException {
-        return beforeDelete(txn, storable);
-    }
-
-    @Override
-    public Object beforeDelete(Transaction txn, S storable) throws PersistException {
-        txn.setForUpdate(true);
+    public Object beforeDelete(S storable) throws PersistException {
         try {
             if (storable.copy().tryLoad()) {
                 return createDependentIndexEntries(storable);
@@ -173,6 +167,32 @@ class DerivedIndexesTrigger<S extends Storable, D extends Storable> extends Trig
             }
             // Always try to insert index entry, just in case it is missing.
             newIndexEntry.tryInsert();
+        }
+    }
+
+    /**
+     * Ensure old storable instance is loaded with an upgradable lock, allowing change to
+     * proceed without deadlock.
+     */
+    final static class Strict<S extends Storable, D extends Storable>
+        extends DerivedIndexesTrigger<S, D>
+    {
+        Strict(IndexedRepository repository,
+               Class<S> sType, ChainedProperty<D> derivedTo)
+            throws RepositoryException
+        {
+            super(repository, sType, derivedTo);
+        }
+
+        @Override
+        public Object beforeTryDelete(Transaction txn, S storable) throws PersistException {
+            return beforeDelete(txn, storable);
+        }
+
+        @Override
+        public Object beforeDelete(Transaction txn, S storable) throws PersistException {
+            txn.setForUpdate(true);
+            return super.beforeDelete(storable);
         }
     }
 }
