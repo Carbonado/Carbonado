@@ -721,14 +721,26 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
 
         // If index entry already exists, then index might be corrupt.
         try {
-            Storable freshEntry = mIndexEntryStorage.prepare();
-            mAccessor.copyFromMaster(freshEntry, userStorable);
-            freshEntry.load();
-            indexEntry.copyVersionProperty(freshEntry);
-            if (freshEntry.equals(indexEntry)) {
+            Storable freshIndexEntry = mIndexEntryStorage.prepare();
+            mAccessor.copyFromMaster(freshIndexEntry, userStorable);
+            freshIndexEntry.load();
+            indexEntry.copyVersionProperty(freshIndexEntry);
+            if (freshIndexEntry.equals(indexEntry)) {
                 // Existing entry is fine.
                 return true;
+
+            } else {
+                S freshMasterEntry = mMasterStorage.prepare();
+                mAccessor.copyToMasterPrimaryKey(freshIndexEntry, freshMasterEntry);
+                
+                if (!freshMasterEntry.tryLoad()) {
+                    // Existing entry for alternate key is bogus. Delete it.
+                    freshIndexEntry.delete();
+                    indexEntry.insert();
+                    return true;
+                }
             }
+
         } catch (FetchException e) {
             throw e.toPersistException();
         }
