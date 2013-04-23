@@ -63,6 +63,8 @@ class IndexedRepository implements Repository,
     private final String mName;
     private final boolean mIndexRepairEnabled;
     private final double mIndexThrottle;
+    private final boolean mIndexDiscardDuplicates;
+    private final boolean mIndexRepairVerifyOnly;
     private final boolean mAllClustered;
     private final boolean mStrictTriggers;
     private final StoragePool mStoragePool;
@@ -72,6 +74,8 @@ class IndexedRepository implements Repository,
                       Repository repository,
                       boolean indexRepairEnabled,
                       double indexThrottle,
+                      boolean indexDiscardDuplicates,
+                      boolean indexRepairVerifyOnly,
                       boolean allClustered,
                       boolean strictTriggers)
     {
@@ -86,6 +90,8 @@ class IndexedRepository implements Repository,
         mName = name;
         mIndexRepairEnabled = indexRepairEnabled;
         mIndexThrottle = indexThrottle;
+        mIndexDiscardDuplicates = indexDiscardDuplicates;
+        mIndexRepairVerifyOnly = indexRepairVerifyOnly;
         mAllClustered = allClustered;
         mStrictTriggers = strictTriggers;
         mIndexAnalysisPool = new IndexAnalysisPool(this);
@@ -262,6 +268,14 @@ class IndexedRepository implements Repository,
 
     double getIndexRepairThrottle() {
         return mIndexThrottle;
+    }
+
+    boolean getIndexDiscardDuplicates() {
+        return mIndexDiscardDuplicates;
+    }
+
+    boolean getIndexRepairVerifyOnly() {
+        return mIndexRepairVerifyOnly;
     }
 
     boolean isAllClustered() {

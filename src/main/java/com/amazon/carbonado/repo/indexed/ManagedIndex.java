@@ -179,7 +179,9 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
 
     // Required by IndexEntryAccessor interface.
     public void repair(double desiredSpeed) throws RepositoryException {
-        buildIndex(desiredSpeed);
+        buildIndex(desiredSpeed,
+                   mRepository.getIndexDiscardDuplicates(),
+                   mRepository.getIndexRepairVerifyOnly());
     }
 
     // Required by IndexEntryAccessor interface.
@@ -295,7 +297,9 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
      *
      * @param repo used to enter transactions
      */
-    void buildIndex(double desiredSpeed) throws RepositoryException {
+    void buildIndex(double desiredSpeed, boolean discardDuplicates, boolean verifyOnly)
+        throws RepositoryException
+    {
         final MergeSortBuffer buffer;
         final Comparator c;
 
@@ -408,14 +412,15 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
             // _before_ inserting index entries. If there are duplicates,
             // fail, since unique index cannot be built.
 
-            if (log.isInfoEnabled()) {
-                log.info("Verifying index");
-            }
+            log.info("Verifying index");
 
             Object last = null;
             for (Object obj : buffer) {
-                if (last != null) {
-                    if (c.compare(last, obj) == 0) {
+                if (last != null && c.compare(last, obj) == 0) {
+                    if (discardDuplicates) {
+                        log.warn("Unique index contains duplicates; skipping: "
+                                 + this + ", " + last + " == " + obj);
+                    } else {
                         buffer.close();
                         throw new UniqueConstraintException
                             ("Cannot build unique index because duplicates exist: "
@@ -424,6 +429,12 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                 }
                 last = obj;
             }
+        }
+
+        if (verifyOnly) {
+            log.info("Verification complete");
+            buffer.close();
+            return;
         }
 
         final int bufferSize = buffer.size();
@@ -479,7 +490,7 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                     if (indexEntry != null) {
                         if (indexEntry.tryInsert()) {
                             totalInserted++;
-                        } else {
+                        } else if (!discardDuplicates) {
                             // Couldn't insert because an index entry already exists.
                             Storable existing = indexEntry.copy();
                             boolean doUpdate = false;

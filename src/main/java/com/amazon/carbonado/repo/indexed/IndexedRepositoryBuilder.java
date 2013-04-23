@@ -49,6 +49,8 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
     private RepositoryBuilder mRepoBuilder;
     private boolean mIndexRepairEnabled = true;
     private double mIndexThrottle = 1.0;
+    private boolean mIndexDiscardDuplicates;
+    private boolean mIndexRepairVerifyOnly;
     private boolean mAllClustered;
     private boolean mStrictTriggers;
 
@@ -78,6 +80,8 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
         Repository repo = new IndexedRepository(rootRef, getName(), wrapped,
                                                 isIndexRepairEnabled(),
                                                 getIndexRepairThrottle(),
+                                                mIndexDiscardDuplicates,
+                                                mIndexRepairVerifyOnly,
                                                 isAllClustered(),
                                                 mStrictTriggers);
         rootRef.set(repo);
@@ -169,6 +173,21 @@ public class IndexedRepositoryBuilder extends AbstractRepositoryBuilder {
             desiredSpeed = 1.0;
         }
         mIndexThrottle = desiredSpeed;
+    }
+
+    /**
+     * Set true to skip collisions during index repair, logging each as a
+     * warning.
+     */
+    public void setIndexRepairDiscardDuplicates(boolean discardDuplicates) {
+        mIndexDiscardDuplicates = discardDuplicates;
+    }
+
+    /**
+     * Set true to build and verify indexes, but don't apply any changes.
+     */
+    public void setIndexRepairVerifyOnly(boolean verifyOnly) {
+        mIndexRepairVerifyOnly = verifyOnly;
     }
 
     /**

@@ -338,7 +338,10 @@ class IndexedStorage<S extends Storable> implements Storage<S>, StorageAccess<S>
         }
 
         // New index, so build it.
-        managedIndex.buildIndex(mRepository.getIndexRepairThrottle());
+
+        managedIndex.buildIndex(mRepository.getIndexRepairThrottle(),
+                                mRepository.getIndexDiscardDuplicates(),
+                                false); // verifyOnly = false
 
         boolean top = true;
         while (true) {
