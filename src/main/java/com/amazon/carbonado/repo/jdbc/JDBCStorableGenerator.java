@@ -126,15 +126,19 @@ class JDBCStorableGenerator<S extends Storable> {
 
     private final Versioning mVersioning;
 
-    private final boolean mSuppressReload;
+    private static final int RELOAD_ALWAYS = 1, RELOAD_SOMETIMES = 2, RELOAD_NEVER = 3;
+    private final int mReload;
+
     private final Map<String, ? extends JDBCStorableProperty<S>> mAllProperties;
 
     private final ClassLoader mParentClassLoader;
     private final ClassInjector mClassInjector;
     private final ClassFile mClassFile;
 
-    private JDBCStorableGenerator(JDBCStorableInfo<S> info,
-                                  boolean isMaster, boolean autoVersioning, boolean suppressReload)
+    private JDBCStorableGenerator(final JDBCStorableInfo<S> info,
+                                  final boolean isMaster,
+                                  final boolean autoVersioning,
+                                  final boolean suppressReload)
         throws SupportException
     {
         mStorableType = info.getStorableType();
@@ -161,7 +165,11 @@ class JDBCStorableGenerator<S extends Storable> {
             }
         }
 
+        int reload = RELOAD_ALWAYS;
+
         if (suppressReload) {
+            reload = RELOAD_NEVER;
+
             // No need to be in a transaction if reload never happens.
             honorSuppression: {
                 Map<String, JDBCStorableProperty<S>> identityProperties =
@@ -171,27 +179,35 @@ class JDBCStorableGenerator<S extends Storable> {
                     if (!prop.isSelectable()) {
                         continue;
                     }
+
                     if (prop.isAutomatic() && !identityProperties.containsKey(prop.getName())) {
                         // Might still need to reload. This could be determined
                         // dynamically, but this is an optimization that can be
                         // implemented later.
-                        // TODO: leave suppressReload alone and perform dynamic check
-                        suppressReload = false;
+                        // TODO: perform dynamic check with RELOAD_SOMETIMES
+                        reload = RELOAD_ALWAYS;
                         break honorSuppression;
                     }
+
                     if (prop.isVersion() && mVersioning == Versioning.EXTERNAL) {
                         // Always need to reload for version.
-                        suppressReload = false;
+                        reload = RELOAD_ALWAYS;
                         break honorSuppression;
+                    }
+
+                    if (isLobType(prop)) {
+                        reload = RELOAD_SOMETIMES;
                     }
                 }
 
-                features.remove(MasterFeature.INSERT_TXN);
-                features.remove(MasterFeature.UPDATE_TXN);
+                if (reload == RELOAD_NEVER) {
+                    features.remove(MasterFeature.INSERT_TXN);
+                    features.remove(MasterFeature.UPDATE_TXN);
+                }
             }
         }
 
-        mSuppressReload = suppressReload;
+        mReload = reload;
 
         final Class<? extends S> abstractClass =
             MasterStorableGenerator.getAbstractClass(mStorableType, features);
@@ -781,7 +797,23 @@ class JDBCStorableGenerator<S extends Storable> {
 
             closeStatement(b, psVar, tryAfterPs);
 
-            if (!mSuppressReload) {
+            if (mReload != RELOAD_NEVER) {
+                Label reloaded = b.createLabel();
+
+                if (lobArrayVar != null && mReload == RELOAD_SOMETIMES) {
+                    // Dynamically determine if reload should be performed, because a Lob is
+                    // too large and needs to be updated.
+                    Label doReload = b.createLabel();
+                    for (int i=0; i<lobIndexMap.size(); i++) {
+                        b.loadLocal(lobArrayVar);
+                        b.loadConstant(i);
+                        b.loadFromArray(TypeDesc.OBJECT);
+                        b.ifNullBranch(doReload, false);
+                    }
+                    b.branch(reloaded);
+                    doReload.setLocation();
+                }
+
                 // Immediately reload object, to ensure that any database supplied
                 // default values are properly retrieved. Since INSERT_TXN is
                 // enabled, superclass ensures that transaction is still in
@@ -798,7 +830,6 @@ class JDBCStorableGenerator<S extends Storable> {
                 b.invokeVirtual(MasterStorableGenerator.DO_TRY_LOAD_MASTER_METHOD_NAME,
                                 TypeDesc.BOOLEAN,
                                 new TypeDesc[] {jdbcSupportType, connectionType, lobArrayType});
-                Label reloaded = b.createLabel();
                 b.ifZeroComparisonBranch(reloaded, "!=");
 
                 String message = "Reload after insert failed, " +
@@ -1167,7 +1198,21 @@ class JDBCStorableGenerator<S extends Storable> {
             }
 
             doReload.setLocation();
-            if (!mSuppressReload) {
+            if (mReload != RELOAD_NEVER) {
+                if (lobArrayVar != null && mReload == RELOAD_SOMETIMES) {
+                    // Dynamically determine if reload should be performed, because a Lob is
+                    // too large and needs to be updated.
+                    Label reallyDoReload = b.createLabel();
+                    for (int i=0; i<lobIndexMap.size(); i++) {
+                        b.loadLocal(lobArrayVar);
+                        b.loadConstant(i);
+                        b.loadFromArray(TypeDesc.OBJECT);
+                        b.ifNullBranch(reallyDoReload, false);
+                    }
+                    b.branch(skipReload);
+                    reallyDoReload.setLocation();
+                }
+
                 // Immediately reload object, to ensure that any database supplied
                 // default values are properly retrieved. Since UPDATE_TXN is
                 // enabled, superclass ensures that transaction is still in
@@ -1256,28 +1301,34 @@ class JDBCStorableGenerator<S extends Storable> {
      * Finds all Lob properties and maps them to a zero-based index. This
      * information is used to update large Lobs after an insert or update.
      */
-    private Map<JDBCStorableProperty<S>, Integer>findLobs() {
+    private Map<JDBCStorableProperty<S>, Integer> findLobs() {
         Map<JDBCStorableProperty<S>, Integer> lobIndexMap =
             new IdentityHashMap<JDBCStorableProperty<S>, Integer>();
 
         int lobIndex = 0;
 
         for (JDBCStorableProperty<S> property : mAllProperties.values()) {
-            if (!property.isSelectable() || property.isVersion()) {
-                continue;
-            }
-
-            Class psClass = property.getPreparedStatementSetMethod().getParameterTypes()[1];
-
-            if (Lob.class.isAssignableFrom(property.getType()) ||
-                java.sql.Blob.class.isAssignableFrom(psClass) ||
-                java.sql.Clob.class.isAssignableFrom(psClass)) {
-
+            if (isLobType(property)) {
                 lobIndexMap.put(property, lobIndex++);
             }
         }
 
         return lobIndexMap;
+    }
+
+    private static boolean isLobType(JDBCStorableProperty property) {
+        if (!property.isSelectable() || property.isVersion()) {
+            return false;
+        }
+
+        if (Lob.class.isAssignableFrom(property.getType())) {
+            return true;
+        }
+
+        Class psClass = property.getPreparedStatementSetMethod().getParameterTypes()[1];
+
+        return java.sql.Blob.class.isAssignableFrom(psClass)
+            || java.sql.Clob.class.isAssignableFrom(psClass);
     }
 
     /**
