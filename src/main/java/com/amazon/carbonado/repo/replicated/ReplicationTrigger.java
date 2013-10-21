@@ -306,6 +306,23 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
                     // Insert new entry.
                     if (masterEntry != null && newReplicaEntry != null) {
                         if (!newReplicaEntry.tryInsert()) {
+                            /*
+                            log.warn("Unable to insert: " + newReplicaEntry);
+                            Storable copy = newReplicaEntry.copy();
+                            if (copy.tryLoad()) {
+                                log.warn("Blocked by: " + copy);
+                            } else {
+                                log.warn("Nothing loaded");
+                                try {
+                                    newReplicaEntry.insert();
+                                } catch (Exception e) {
+                                    log.warn("Still cannot insert", e);
+                                    return;
+                                }
+                            }
+                            */
+
+                            // FIXME: can be caused by alt key constraint
                             // Try to correct bizarre corruption.
                             newReplicaEntry.tryDelete();
                             newReplicaEntry.tryInsert();
