@@ -19,6 +19,7 @@ package com.amazon.carbonado.repo.replicated;
 
 import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.logging.Log;
@@ -49,9 +50,19 @@ import com.amazon.carbonado.capability.StorableInfoCapability;
 
 import com.amazon.carbonado.cursor.SortedCursor;
 
+import com.amazon.carbonado.filter.Filter;
+
 import com.amazon.carbonado.info.Direction;
+import com.amazon.carbonado.info.StorableIndex;
 import com.amazon.carbonado.info.StorableInfo;
 import com.amazon.carbonado.info.StorableIntrospector;
+
+import com.amazon.carbonado.qe.IndexedQueryAnalyzer;
+import com.amazon.carbonado.qe.OrderingList;
+import com.amazon.carbonado.qe.QueryHint;
+import com.amazon.carbonado.qe.QueryHints;
+import com.amazon.carbonado.qe.RepositoryAccess;
+import com.amazon.carbonado.qe.UnionQueryAnalyzer;
 
 import com.amazon.carbonado.repo.indexed.IndexEntryAccessCapability;
 
@@ -82,15 +93,40 @@ class ReplicatedRepository
     private static final int RESYNC_WATERMARK = 100;
 
     /**
-     * Utility method to select the natural ordering of a storage, by looking
-     * for a clustered index on the primary key. Returns null if no clustered
-     * index was found.
-     *
-     * TODO: Try to incorporate this into standard storage interface somehow.
+     * Utility method to select the natural ordering of a storage, by looking for a clustered
+     * index on the primary key. Returns null if no clustered index was found. If a filter is
+     * provided, the ordering which utilizes the best index is used.
      */
-    private static String[] selectNaturalOrder(Repository repo, Class<? extends Storable> type)
+    private static <S extends Storable> String[] selectNaturalOrder(Repository repo,
+                                                                    Class<S> type,
+                                                                    Filter<S> filter)
         throws RepositoryException
     {
+        if (!filter.isOpen() && repo instanceof RepositoryAccess) {
+            UnionQueryAnalyzer.Result result =
+                new UnionQueryAnalyzer(type, (RepositoryAccess) repo)
+                .analyze(filter, null, QueryHints.emptyHints().with(QueryHint.CONSUME_SLICE));
+            OrderingList<S> ordering = result.getTotalOrdering();
+
+            if (ordering == null) {
+                List<IndexedQueryAnalyzer.Result> list = result.getSubResults();
+                if (!list.isEmpty()) {
+                    StorableIndex<S> index = list.get(0).getLocalIndex();
+                    if (index != null) {
+                        ordering = OrderingList.get(index.getOrderedProperties());
+                    }
+                }
+            }
+
+            if (ordering != null) {
+                String[] props = new String[ordering.size()];
+                for (int i=0; i<props.length; i++) {
+                    props[i] = ordering.get(i).toString();
+                }
+                return props;
+            }
+        }
+
         IndexInfoCapability capability = repo.getCapability(IndexInfoCapability.class);
         if (capability == null) {
             return null;
@@ -418,9 +454,9 @@ class ReplicatedRepository
         // Order both queries the same so that they can be run in parallel.
         // Favor natural order of replica, since cursors may be opened and
         // re-opened on it.
-        String[] orderBy = selectNaturalOrder(mReplicaRepository, type);
+        String[] orderBy = selectNaturalOrder(mReplicaRepository, type, replicaQuery.getFilter());
         if (orderBy == null) {
-            orderBy = selectNaturalOrder(mMasterRepository, type);
+            orderBy = selectNaturalOrder(mMasterRepository, type, masterQuery.getFilter());
             if (orderBy == null) {
                 Set<String> pkSet =
                     StorableIntrospector.examine(type).getPrimaryKeyProperties().keySet();
