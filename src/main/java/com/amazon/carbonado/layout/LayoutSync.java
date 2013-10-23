@@ -18,19 +18,15 @@
 
 package com.amazon.carbonado.layout;
 
-import java.util.Arrays;
-
 import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.Cursor;
-import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
 import com.amazon.carbonado.Storage;
 import com.amazon.carbonado.Transaction;
 
 import com.amazon.carbonado.cursor.FetchAheadCursor;
-import com.amazon.carbonado.cursor.FilteredCursor;
 
 /**
  * Synchronizes layout metadata between two repositories. Both source and
@@ -121,10 +117,11 @@ public class LayoutSync {
             }
 
             if (src.getGeneration() != dst.getGeneration()) {
-                // Same layouts, but with different generation. Create a new
-                // non-conflicting generation to replace both.
                 LogFactory.getLog(LayoutSync.class).error
                     ("Unable to synchronize layouts: " + src + " != " + dst);
+                throw new RepositoryException("Unable to synchronize layouts: " + src + " != " + dst);
+                // Same layouts, but with different generation. Create a new
+                // non-conflicting generation to replace both.
                 /*
                 createNewGen(src, dst);
                 doAgain = true;
