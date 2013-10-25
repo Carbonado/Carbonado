@@ -33,6 +33,7 @@ import com.amazon.carbonado.Transaction;
 
 import com.amazon.carbonado.capability.Capability;
 
+import com.amazon.carbonado.util.BelatedCreationException;
 import com.amazon.carbonado.util.BelatedCreator;
 
 /**
@@ -158,8 +159,8 @@ public class BelatedRepositoryCreator extends BelatedCreator<Repository, Support
             return false;
         }
 
-        private IllegalStateException error() {
-            return new IllegalStateException
+        private BelatedCreationException error() {
+            return new BelatedCreationException
                 ("Creation of Repository \"" + mBuilder.getName() + "\" is delayed");
         }
     }

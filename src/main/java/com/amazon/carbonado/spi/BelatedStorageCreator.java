@@ -29,6 +29,7 @@ import com.amazon.carbonado.SupportException;
 import com.amazon.carbonado.Trigger;
 
 import com.amazon.carbonado.filter.Filter;
+import com.amazon.carbonado.util.BelatedCreationException;
 import com.amazon.carbonado.util.BelatedCreator;
 
 /**
@@ -135,8 +136,8 @@ public class BelatedStorageCreator<S extends Storable>
             throw error();
         }
 
-        private IllegalStateException error() {
-            return new IllegalStateException
+        private BelatedCreationException error() {
+            return new BelatedCreationException
                 ("Creation of Storage for type \"" + mStorableType.getName() + "\" is delayed");
         }
     }

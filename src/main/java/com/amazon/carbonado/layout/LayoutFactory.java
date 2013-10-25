@@ -148,6 +148,7 @@ public class LayoutFactory implements LayoutCapability {
             private Layout layout;
             private FetchException fetchEx;
             private PersistException persistEx;
+            private RuntimeException runtimeEx;
 
             public synchronized void run() {
                 try {
@@ -157,6 +158,11 @@ public class LayoutFactory implements LayoutCapability {
                         fetchEx = e;
                     } catch (PersistException e) {
                         persistEx = e;
+                    } catch (RuntimeException e) {
+                        // This is a catchall for any other exception which
+                        // might happen so that it doesn't get absorbed by
+                        // this thread.
+                        runtimeEx = e;
                     }
                 } finally {
                     done = true;
@@ -177,6 +183,10 @@ public class LayoutFactory implements LayoutCapability {
                 if (persistEx != null) {
                     // Wrap to get complete stack trace.
                     throw new PersistException(persistEx);
+                }
+                if (runtimeEx != null) {
+                    // Wrap to get complete stack trace.
+                    throw new RuntimeException(runtimeEx);
                 }
                 return layout;
             }
@@ -303,7 +313,7 @@ public class LayoutFactory implements LayoutCapability {
                 }
                 throw e;
             } catch (PersistException e) {
-                if (e instanceof PersistDeadlockException || e instanceof PersistTimeoutException){
+                if (e instanceof PersistDeadlockException || e instanceof PersistTimeoutException) {
                     // Might be caused by coarse locks. Switch to nested
                     // transaction to share the locks.
                     if (top) {

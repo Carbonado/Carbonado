@@ -70,6 +70,7 @@ import com.amazon.carbonado.spi.StoragePool;
 
 import com.amazon.carbonado.txn.TransactionPair;
 
+import com.amazon.carbonado.util.BelatedCreationException;
 import com.amazon.carbonado.util.Throttle;
 
 /**
@@ -243,18 +244,36 @@ class ReplicatedRepository
     }
 
     public Transaction enterTransaction() {
-        return new TransactionPair(mMasterRepository.enterTransaction(),
-                                   mReplicaRepository.enterTransaction());
+        Transaction master;
+        try {
+            master = mMasterRepository.enterTransaction();
+        } catch (BelatedCreationException e) {
+            return new ReadOnlyTransaction(mReplicaRepository.enterTransaction());
+        }
+
+        return new TransactionPair(master, mReplicaRepository.enterTransaction());
     }
 
     public Transaction enterTransaction(IsolationLevel level) {
-        return new TransactionPair(mMasterRepository.enterTransaction(level),
-                                   mReplicaRepository.enterTransaction(level));
+        Transaction master;
+        try {
+            master = mMasterRepository.enterTransaction(level);
+        } catch (BelatedCreationException e) {
+            return new ReadOnlyTransaction(mReplicaRepository.enterTransaction(level));
+        }
+
+        return new TransactionPair(master, mReplicaRepository.enterTransaction(level));
     }
 
     public Transaction enterTopTransaction(IsolationLevel level) {
-        return new TransactionPair(mMasterRepository.enterTopTransaction(level),
-                                   mReplicaRepository.enterTopTransaction(level));
+        Transaction master;
+        try {
+            master = mMasterRepository.enterTopTransaction(level);
+        } catch (BelatedCreationException e) {
+            return new ReadOnlyTransaction(mReplicaRepository.enterTopTransaction(level));
+        }
+
+        return new TransactionPair(master, mReplicaRepository.enterTopTransaction(level));
     }
 
     public IsolationLevel getTransactionIsolationLevel() {

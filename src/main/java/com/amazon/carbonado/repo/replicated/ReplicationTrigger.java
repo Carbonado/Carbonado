@@ -83,99 +83,133 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
 
     @Override
     public Object beforeInsert(S replica) throws PersistException {
-        return beforeInsert(replica, false);
+        return beforeInsert(null, replica, false);
     }
 
     @Override
     public Object beforeTryInsert(S replica) throws PersistException {
-        return beforeInsert(replica, true);
+        return beforeInsert(null, replica, true);
     }
 
-    private Object beforeInsert(S replica, boolean forTry) throws PersistException {
-        final S master = mMasterStorage.prepare();
-        replica.copyAllProperties(master);
+    @Override
+    public Object beforeInsert(Transaction txn, S replica) throws PersistException {
+        return beforeInsert(txn, replica, false);
+    }
 
-        try {
-            if (forTry) {
-                if (!master.tryInsert()) {
-                    throw abortTry();
-                }
-            } else {
-                master.insert();
+    @Override
+    public Object beforeTryInsert(Transaction txn, S replica) throws PersistException {
+        return beforeInsert(txn, replica, true);
+    }
+
+    private Object beforeInsert(Transaction txn, S replica, boolean forTry) throws PersistException {
+        if (txn instanceof ReadOnlyTransaction) {
+            // This operation was intended to take place in a transaction, but
+            // the master repository was unavailable when the transaction was
+            // entered.
+                throw new PersistException("Current transaction is read-only.");
             }
-        } catch (UniqueConstraintException e) {
-            // This may be caused by an inconsistency between replica and
-            // master. Here's one scenerio: user called tryLoad and saw the
-            // entry does not exist. So instead of calling update, he/she calls
-            // insert. If the master entry exists, then there is an
-            // inconsistency. The code below checks for this specific kind of
-            // error and repairs it by inserting a record in the replica.
 
-            // Here's another scenerio: Unique constraint was caused by an
-            // inconsistency with the values of the alternate keys. User
-            // expected alternate keys to have unique values, as indicated by
-            // replica.
+            final S master = mMasterStorage.prepare();
+            replica.copyAllProperties(master);
 
-            repair(replica);
+            try {
+                if (forTry) {
+                    if (!master.tryInsert()) {
+                        throw abortTry();
+                    }
+                } else {
+                    master.insert();
+                }
+            } catch (UniqueConstraintException e) {
+                // This may be caused by an inconsistency between replica and
+                // master. Here's one scenerio: user called tryLoad and saw the
+                // entry does not exist. So instead of calling update, he/she calls
+                // insert. If the master entry exists, then there is an
+                // inconsistency. The code below checks for this specific kind of
+                // error and repairs it by inserting a record in the replica.
 
-            // Throw exception since we don't know what the user's intentions
-            // really are.
-            throw e;
+                // Here's another scenerio: Unique constraint was caused by an
+                // inconsistency with the values of the alternate keys. User
+                // expected alternate keys to have unique values, as indicated by
+                // replica.
+
+                repair(replica);
+
+                // Throw exception since we don't know what the user's intentions
+                // really are.
+                throw e;
+            }
+
+            // Master may have applied sequences to unitialized primary keys, so
+            // copy primary keys to replica. Mark properties as dirty to allow
+            // primary key to be changed.
+            replica.markPropertiesDirty();
+
+            // Copy all properties in order to trigger constraints that
+            // master should have resolved.
+            master.copyAllProperties(replica);
+
+            return null;
         }
 
-        // Master may have applied sequences to unitialized primary keys, so
-        // copy primary keys to replica. Mark properties as dirty to allow
-        // primary key to be changed.
-        replica.markPropertiesDirty();
+        @Override
+        public Object beforeUpdate(S replica) throws PersistException {
+            return beforeUpdate(null, replica, false);
+        }
 
-        // Copy all properties in order to trigger constraints that
-        // master should have resolved.
-        master.copyAllProperties(replica);
+        @Override
+        public Object beforeTryUpdate(S replica) throws PersistException {
+            return beforeUpdate(null, replica, true);
+        }
 
-        return null;
-    }
+        @Override
+        public Object beforeUpdate(Transaction txn, S replica) throws PersistException {
+            return beforeUpdate(txn, replica, false);
+        }
 
-    @Override
-    public Object beforeUpdate(S replica) throws PersistException {
-        return beforeUpdate(replica, false);
-    }
+        @Override
+        public Object beforeTryUpdate(Transaction txn, S replica) throws PersistException {
+            return beforeUpdate(txn, replica, true);
+        }
 
-    @Override
-    public Object beforeTryUpdate(S replica) throws PersistException {
-        return beforeUpdate(replica, true);
-    }
+        private Object beforeUpdate(Transaction txn, S replica, boolean forTry) throws PersistException {
+            if (txn instanceof ReadOnlyTransaction) {
+                // This operation was intended to take place in a transaction, but
+                // the master repository was unavailable when the transaction was
+                // entered.
+                throw new PersistException("Current transaction is read-only.");
+            }
 
-    private Object beforeUpdate(S replica, boolean forTry) throws PersistException {
-        final S master = mMasterStorage.prepare();
-        replica.copyPrimaryKeyProperties(master);
-        replica.copyVersionProperty(master);
-        replica.copyDirtyProperties(master);
+            final S master = mMasterStorage.prepare();
+            replica.copyPrimaryKeyProperties(master);
+            replica.copyVersionProperty(master);
+            replica.copyDirtyProperties(master);
 
-        try {
-            if (forTry) {
-                if (!master.tryUpdate()) {
-                    // Master record does not exist. To ensure consistency,
-                    // delete record from replica.
-                    if (tryDeleteReplica(replica)) {
-                        // Replica was inconsistent, but caller might be in a
-                        // transaction and rollback the repair. Run repair
-                        // again in separate thread to ensure it sticks.
-                        repair(replica);
+            try {
+                if (forTry) {
+                    if (!master.tryUpdate()) {
+                        // Master record does not exist. To ensure consistency,
+                        // delete record from replica.
+                        if (tryDeleteReplica(replica)) {
+                            // Replica was inconsistent, but caller might be in a
+                            // transaction and rollback the repair. Run repair
+                            // again in separate thread to ensure it sticks.
+                            repair(replica);
+                        }
+                        throw abortTry();
                     }
-                    throw abortTry();
-                }
-            } else {
-                try {
-                    master.update();
-                } catch (PersistNoneException e) {
-                    // Master record does not exist. To ensure consistency,
-                    // delete record from replica.
-                    if (tryDeleteReplica(replica)) {
-                        // Replica was inconsistent, but caller might be in a
-                        // transaction and rollback the repair. Run repair
-                        // again in separate thread to ensure it sticks.
-                        repair(replica);
-                    }
+                } else {
+                    try {
+                        master.update();
+                    } catch (PersistNoneException e) {
+                        // Master record does not exist. To ensure consistency,
+                        // delete record from replica.
+                        if (tryDeleteReplica(replica)) {
+                            // Replica was inconsistent, but caller might be in a
+                            // transaction and rollback the repair. Run repair
+                            // again in separate thread to ensure it sticks.
+                            repair(replica);
+                        }
                     throw e;
                 }
             }
@@ -199,6 +233,18 @@ class ReplicationTrigger<S extends Storable> extends Trigger<S> {
 
     @Override
     public Object beforeDelete(S replica) throws PersistException {
+        return beforeDelete(null, replica);
+    }
+
+    @Override
+    public Object beforeDelete(Transaction txn, S replica) throws PersistException {
+        if (txn instanceof ReadOnlyTransaction) {
+            // This operation was intended to take place in a transaction, but
+            // the master repository was unavailable when the transaction was
+            // entered.
+            throw new PersistException("Current transaction is read-only.");
+        }
+
         S master = mMasterStorage.prepare();
         replica.copyPrimaryKeyProperties(master);
 
