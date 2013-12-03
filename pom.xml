@@ -9,12 +9,12 @@
   <description>
     Extensible, high performance persistence abstraction layer for Java applications with a relational view to the underlying persistence technology.
   </description>
-  <url>http://carbonado.sourceforge.net/</url>
+  <url>https://github.com/Carbonado/Carbonado/</url>
   <inceptionYear>2006</inceptionYear>
 
   <organization>
     <name>Amazon Technologies, Inc.</name>
-    <url>http://sourceforge.net/projects/carbonado/</url>
+    <url>https://github.com/Carbonado/Carbonado</url>
   </organization>
 
   <licenses>
@@ -25,13 +25,12 @@
   </licenses>
 
   <scm>
-    <connection>scm:svn:https://carbonado.svn.sourceforge.net/svnroot/carbonado/trunk/Carbonado</connection>
-    <developerConnection>scm:svn:https://carbonado.svn.sourceforge.net/svnroot/carbonado/trunk/Carbonado</developerConnection>
-    <url>http://carbonado.svn.sourceforge.net/viewvc/carbonado/trunk/Carbonado/</url>
+    <connection>scm:git:https://github.com/Carbonado/Carbonado.git</connection>
+    <url>https://github.com/Carbonado/Carbonado/</url>
   </scm>
 
   <issueManagement>
-    <url>http://sourceforge.net/tracker/?group_id=171277</url>
+    <url>https://github.com/Carbonado/Carbonado/issues</url>
   </issueManagement>
 
   <mailingLists>
@@ -48,122 +47,109 @@
       <id>broneill</id>
       <email>broneill@users.sourceforge.net</email>
       <organization>Amazon Technologies, Inc.</organization>
-      <roles>
-        <role>Project Lead</role>
-      </roles>
-    </developer>
-
-    <developer>
-      <name>Don Schneider</name>
-      <id>dondo_seattle</id>
-      <email>dondo_seattle@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Vidya Iyer</name>
-      <id>vidyaiyer</id>
-      <email>vidyaiyer@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Nicole Deflaux</name>
-      <id>deflaux</id>
-      <email>deflaux@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>James Willeford</name>
-      <id>jameswil</id>
-      <email>jameswil@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Justin Rudd</name>
-      <id>justrudd</id>
-      <email>justrudd@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Doug Treder</name>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-    	<name>Tom Keller</name>
-    	<organization>Amazon Technologies, Inc.</organization>
-    	<id>keller_tl</id>
-    	<email>keller_tl@users.sourceforge.net</email>
-    </developer>
-
-    <developer>
-      <name>Bryan Castillo</name>
-      <id>bcastill</id>
-      <email>bcastill@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Fang Chen</name>
-      <id>fangchen</id>
-      <email>fangchen@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Adam D Bradley</name>
-      <id>artdodge</id>
-      <email>artdodge@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Peter Carbon</name>
-      <id>peter_carbon</id>
-      <email>peter_carbon@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Tobias Holgers</name>
-      <id>tholgers</id>
-      <email>tholgers@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Olga Kuznetsova</name>
-      <email>okuznetsova@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Archit Shivaprakash</name>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Vishal Parakh</name>
-      <email>vishalparakh@users.sourceforge.net</email>
-      <organization>Amazon Technologies, Inc.</organization>
     </developer>
 
     <developer>
       <name>Jesse Morgan</name>
-      <organization>Amazon Technologies, Inc.</organization>
-    </developer>
-
-    <developer>
-      <name>Matt Carlson</name>
+      <email>morganjm@amazon.com</email>
       <organization>Amazon Technologies, Inc.</organization>
     </developer>
   </developers>
 
   <contributors>
+    <contributor>
+      <name>Don Schneider</name>
+      <email>dondo_seattle@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Vidya Iyer</name>
+      <email>vidyaiyer@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Nicole Deflaux</name>
+      <email>deflaux@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>James Willeford</name>
+      <email>jameswil@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Justin Rudd</name>
+      <email>justrudd@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Doug Treder</name>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Tom Keller</name>
+      <organization>Amazon Technologies, Inc.</organization>
+      <email>keller_tl@users.sourceforge.net</email>
+    </contributor>
+
+    <contributor>
+      <name>Bryan Castillo</name>
+      <email>bcastill@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Fang Chen</name>
+      <email>fangchen@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Adam D Bradley</name>
+      <email>artdodge@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Peter Carbon</name>
+      <email>peter_carbon@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Tobias Holgers</name>
+      <email>tholgers@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Olga Kuznetsova</name>
+      <email>okuznetsova@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Archit Shivaprakash</name>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Vishal Parakh</name>
+      <email>vishalparakh@users.sourceforge.net</email>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
+    <contributor>
+      <name>Matt Carlson</name>
+      <organization>Amazon Technologies, Inc.</organization>
+    </contributor>
+
     <contributor>
       <name>Matt Tucker</name>
     </contributor>
@@ -280,11 +266,11 @@
           <reportSet>
             <reports>
               <report>project-team</report>
-	      <report>mailing-list</report>
+              <report>mailing-list</report>
               <report>issue-tracking</report>
               <report>scm</report>
               <report>license</report>
-	    </reports>
+            </reports>
           </reportSet>
         </reportSets>
       </plugin>
