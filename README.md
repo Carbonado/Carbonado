@@ -15,28 +15,28 @@ Carbonado is able to achieve high performance by imposing very low overhead when
 Version 1.2
 ------------
 
-Carbonado 1.2 adds many new features, which are summarized here and in the [release notes](../blob/master/RELEASE-NOTES.txt).
+Carbonado 1.2 adds many new features, which are summarized here and in the [release notes](RELEASE-NOTES.txt).
 
 * General features 
-  * Loads and queries can invoke [triggers](http://carbonado.github.io/apidocs/com/amazon/carbonado/Trigger.html#afterLoad%28S%29).
-  * Added support for [derived](http://carbonado.github.io/apidocs/com/amazon/carbonado/Derived.html) properties.
-  * Storable property values can be accessed by [name](http://carbonado.github.io/apidocs/com/amazon/carbonado/Storable.html#getPropertyValue%28java.lang.String%29) in addition to the direct method.
+  * Loads and queries can invoke [triggers](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Trigger.html#afterLoad%28S%29).
+  * Added support for [derived](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Derived.html) properties.
+  * Storable property values can be accessed by [name](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Storable.html#getPropertyValue%28java.lang.String%29) in addition to the direct method.
 
 * Repositories 
-  * New [volatile repository](http://carbonado.github.io/apidocs/com/amazon/carbonado/repo/map/MapRepositoryBuilder.html) provided, backed by a [ConcurrentSkipListMap](http://java.sun.com/javase/6/docs/api/java/util/concurrent/ConcurrentSkipListMap.html}ConcurrentSkipListMap).
-  * Replicated repository resync operation allows a [listener](http://carbonado.github.io/apidocs/com/amazon/carbonado/capability/ResyncCapability.html#resync%28java.lang.Class,%20com.amazon.carbonado.capability.ResyncCapability.Listener,%20double,%20java.lang.String,%20java.lang.Object...%29) to be installed which can monitor progress or make changes.
+  * New [volatile repository](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/repo/map/MapRepositoryBuilder.html) provided, backed by a [ConcurrentSkipListMap](http://java.sun.com/javase/6/docs/api/java/util/concurrent/ConcurrentSkipListMap.html}ConcurrentSkipListMap).
+  * Replicated repository resync operation allows a [listener](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/capability/ResyncCapability.html#resync%28java.lang.Class,%20com.amazon.carbonado.capability.ResyncCapability.Listener,%20double,%20java.lang.String,%20java.lang.Object...%29) to be installed which can monitor progress or make changes.
   * Berkeley DB repositories add support for BigInteger and BigDecimal property types. 
 * JDBC features 
-  * Created [@Automatic](http://carbonado.github.io/apidocs/com/amazon/carbonado/Automatic.html) annotation, which enables MySQL auto-increment columns. 
-  * Added [sequence support](http://carbonado.github.io/apidocs/com/amazon/carbonado/sequence/StoredSequence.html) for SQL databases that don't natively support sequences.
-  * Support for [automatic version management](http://carbonado.github.io/apidocs/com/amazon/carbonado/repo/jdbc/JDBCRepositoryBuilder.html#setAutoVersioningEnabled%28boolean,%20java.lang.String%29) eliminating the requirement that triggers be installed on the database.
+  * Created [@Automatic](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Automatic.html) annotation, which enables MySQL auto-increment columns. 
+  * Added [sequence support](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/sequence/StoredSequence.html) for SQL databases that don't natively support sequences.
+  * Support for [automatic version management](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/repo/jdbc/JDBCRepositoryBuilder.html#setAutoVersioningEnabled%28boolean,%20java.lang.String%29) eliminating the requirement that triggers be installed on the database.
   * More lenient with respect to column mappings: numbers and dates can represented by Strings; character data type supported; non-null column can be marked as @Nullable if also @Independent. 
 
 * Query engine features 
-  * Added [Query.fetchSlice](http://carbonado.github.io/apidocs/com/amazon/carbonado/Query.html#fetchSlice%28long,%20java.lang.Long%29) method for supporting limits and offsets.
+  * Added [Query.fetchSlice](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Query.html#fetchSlice%28long,%20java.lang.Long%29) method for supporting limits and offsets.
   * Derived properties can be indexed, allowing function and join indexes to be defined.
-  * Added support for "where exists" and outer joins in queries via new syntax. This is explained in the "Queries with joins" section of the [User Guide](http://carbonado.github.io/docs/CarbonadoGuide.pdf).
-  * Added convenience method, [Query.exists](apidocs/com/amazon/carbonado/Query.html#exists%28%29).
+  * Added support for "where exists" and outer joins in queries via new syntax. This is explained in the "Queries with joins" section of the [User Guide](http://carbonado.github.io/Carbonado/docs/CarbonadoGuide.pdf).
+  * Added convenience method, [Query.exists](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Query.html#exists%28%29).
   * Optimizations for covering indexes when using Berkeley DB.
 
 
@@ -49,10 +49,10 @@ Carbonado is broken down into several package bundles for better dependency mana
   Core Carbonado code, depends on [Apache Commons Logging](http://jakarta.apache.org/commons/logging/), [Joda-Time](http://joda-time.sourceforge.net/), and [Cojen](http://github.com/Cojen/Cojen).
 
 * [CarbonadoSleepycatJE](https://github.com/Carbonado/CarbonadoSleepycatJE)
-  Contains repository for supporting Sleepycat/Oracle, [Berkeley DB Java Edition](http://www.oracle.com/database/berkeley-db/je/index.html). Berkeley DB JE code must be downloaded and installed separately.
+  Contains repository for supporting Sleepycat/Oracle, [Berkeley DB Java Edition](http://www.oracle.com/us/products/database/berkeley-db/je/overview/index.html). Berkeley DB JE code must be downloaded and installed separately.
 
 * [CarbonadoSleepycatDB](https://github.com/Carbonado/CarbonadoSleepycatDB)
-  Contains repository for supporting Sleepycat/Oracle [Berkeley DB](http://www.oracle.com/database/berkeley-db/db/index.html). Berkeley DB code must be downloaded and installed separately.
+  Contains repository for supporting Sleepycat/Oracle [Berkeley DB](http://www.oracle.com/us/products/database/berkeley-db/overview/index.html). Berkeley DB code must be downloaded and installed separately.
 
 
 Terminology
@@ -103,3 +103,12 @@ Additional features which are nice to have, but not strictly required:
 * ACID transactions
 * Storable type segregation (eliminates need to define key prefixes)
 * Truncation by storable type, if segregated 
+
+
+See Also
+----------
+
+* [Carbonado User Guide](http://carbonado.github.io/Carbonado/docs/CarbonadoGuide.pdf)
+* [Javadoc](http://carbonado.github.io/Carbonado/apidocs/overview-summary.html)
+* [Trademark Policy][TRADEMARK.md]
+
