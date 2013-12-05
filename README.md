@@ -110,5 +110,5 @@ See Also
 
 * [Carbonado User Guide](http://carbonado.github.io/Carbonado/docs/CarbonadoGuide.pdf)
 * [Javadoc](http://carbonado.github.io/Carbonado/apidocs/overview-summary.html)
-* [Trademark Policy][TRADEMARK.md]
+* [Trademark Policy](TRADEMARK.md)
 
