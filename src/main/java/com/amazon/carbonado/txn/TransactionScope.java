@@ -216,7 +216,7 @@ public class TransactionScope<Txn> {
             mLock.unlock();
         }
     }
-    
+
     /**
      * Returns the implementation for the active transaction, only if it exists.
      * (does not create a transaction like getTxn()
@@ -323,10 +323,10 @@ public class TransactionScope<Txn> {
             mLock.unlock();
             return;
         }
- 
+
         Map<Class<?>, CursorList<TransactionImpl<Txn>>> cursors;
         try {
-            cursors = mCursors;        
+            cursors = mCursors;
 
             // Ensure that map is freed promptly. Thread-local reference to
             // this scope otherwise keeps map and its contents lingering around
@@ -425,6 +425,11 @@ public class TransactionScope<Txn> {
                     throw ExceptionTransformer.getInstance().toPersistException(e);
                 }
             }
+        }
+
+        @Override
+        public void close() throws PersistException {
+            exit();
         }
 
         public void commit() throws PersistException {

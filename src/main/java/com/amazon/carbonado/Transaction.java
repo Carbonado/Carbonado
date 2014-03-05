@@ -61,7 +61,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author Brian S O'Neill
  */
-public interface Transaction {
+public interface Transaction extends AutoCloseable {
     /**
      * If currently in a transaction, commits all changes to the storage layer
      * since the last commit within the transaction.
@@ -159,4 +159,10 @@ public interface Transaction {
      * @return false if transaction has exited
      */
     boolean preCommit() throws PersistException;
+
+    /**
+     * Calls exit(), for compatibility with AutoCloseable.
+     * @throws PersistException
+     */
+    void close() throws PersistException;
 }

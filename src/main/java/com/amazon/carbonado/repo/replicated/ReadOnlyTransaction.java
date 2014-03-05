@@ -25,7 +25,7 @@ import com.amazon.carbonado.PersistException;
 import com.amazon.carbonado.Transaction;
 
 /**
- * ReadOnlyTransaction wraps an another transaction. It's only function is to
+ * ReadOnlyTransaction wraps an another transaction. Its only function is to
  * serve as a marker for the ReplicatedStorage triggers that no write
  * operations are allowed.
  *
@@ -86,6 +86,11 @@ class ReadOnlyTransaction implements Transaction {
     @Override
     public String toString() {
         return "ReadOnlyTransaction wrapping { " + mTxn.toString() + " }";
+    }
+
+    @Override
+    public void close() throws PersistException {
+        exit();
     }
 }
 

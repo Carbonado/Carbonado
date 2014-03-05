@@ -102,6 +102,11 @@ class LoggingTransaction implements Transaction {
         return mTxn.preCommit();
     }
 
+    @Override
+    public void close() throws PersistException {
+        exit();
+    }
+
     private String idChain() {
         if (mParent == null) {
             return String.valueOf(mID);

@@ -48,11 +48,12 @@ import java.util.NoSuchElementException;
  * @author Brian S O'Neill
  * @author Don Schneider
  */
-public interface Cursor<S> {
+public interface Cursor<S> extends AutoCloseable {
     /**
      * Call close to release any resources being held by this cursor. Further
      * operations on this cursor will behave as if there are no results.
      */
+    @Override
     void close() throws FetchException;
 
     /**

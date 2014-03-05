@@ -110,4 +110,9 @@ public class TransactionPair implements Transaction {
     public boolean preCommit() throws PersistException {
         return mPrimaryTransaction.preCommit() ? mSecondaryTransaction.preCommit() : false;
     }
+
+    @Override
+    public void close() throws PersistException {
+        exit();
+    }
 }
