@@ -161,7 +161,7 @@ public interface Transaction extends AutoCloseable {
     boolean preCommit() throws PersistException;
 
     /**
-     * Calls exit(), for compatibility with AutoCloseable.
+     * Calls {@link #exit exit}, for compatibility with AutoCloseable.
      * @throws PersistException
      */
     void close() throws PersistException;
