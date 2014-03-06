@@ -11,35 +11,6 @@ On the surface, it may appear that Carbonado types are defined like POJOs.  The 
 
 Carbonado is able to achieve high performance by imposing very low overhead when accessing the actual storage. Low overhead is achieved in part by auto generating performance critical code, via the Cojen library.
 
-
-Version 1.2
-------------
-
-Carbonado 1.2 adds many new features, which are summarized here and in the [release notes](RELEASE-NOTES.txt).
-
-* General features 
-  * Loads and queries can invoke [triggers](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Trigger.html#afterLoad%28S%29).
-  * Added support for [derived](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Derived.html) properties.
-  * Storable property values can be accessed by [name](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Storable.html#getPropertyValue%28java.lang.String%29) in addition to the direct method.
-
-* Repositories 
-  * New [volatile repository](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/repo/map/MapRepositoryBuilder.html) provided, backed by a [ConcurrentSkipListMap](http://java.sun.com/javase/6/docs/api/java/util/concurrent/ConcurrentSkipListMap.html}ConcurrentSkipListMap).
-  * Replicated repository resync operation allows a [listener](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/capability/ResyncCapability.html#resync%28java.lang.Class,%20com.amazon.carbonado.capability.ResyncCapability.Listener,%20double,%20java.lang.String,%20java.lang.Object...%29) to be installed which can monitor progress or make changes.
-  * Berkeley DB repositories add support for BigInteger and BigDecimal property types. 
-* JDBC features 
-  * Created [@Automatic](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Automatic.html) annotation, which enables MySQL auto-increment columns. 
-  * Added [sequence support](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/sequence/StoredSequence.html) for SQL databases that don't natively support sequences.
-  * Support for [automatic version management](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/repo/jdbc/JDBCRepositoryBuilder.html#setAutoVersioningEnabled%28boolean,%20java.lang.String%29) eliminating the requirement that triggers be installed on the database.
-  * More lenient with respect to column mappings: numbers and dates can represented by Strings; character data type supported; non-null column can be marked as @Nullable if also @Independent. 
-
-* Query engine features 
-  * Added [Query.fetchSlice](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Query.html#fetchSlice%28long,%20java.lang.Long%29) method for supporting limits and offsets.
-  * Derived properties can be indexed, allowing function and join indexes to be defined.
-  * Added support for "where exists" and outer joins in queries via new syntax. This is explained in the "Queries with joins" section of the [User Guide](http://carbonado.github.io/Carbonado/docs/CarbonadoGuide.pdf).
-  * Added convenience method, [Query.exists](http://carbonado.github.io/Carbonado/apidocs/com/amazon/carbonado/Query.html#exists%28%29).
-  * Optimizations for covering indexes when using Berkeley DB.
-
-
 Packages
 ---------
 

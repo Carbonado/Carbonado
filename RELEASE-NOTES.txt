@@ -1,5 +1,5 @@
-Carbonado version 1.2.2
------------------------
+Carbonado version 1.3
+---------------------
 
 Carbonado is an extensible, high performance persistence abstraction layer for
 Java applications with a relational view to the underlying persistence
@@ -10,6 +10,11 @@ https://github.com/Carbonado/Carbonado/
 
 Carbonado change history
 ------------------------
+
+1.3
+-------------------------------
+- Depends on Java 7.
+- Added AutoCloseable support for Cursor and Transaction.
 
 1.2.1 to 1.2.2
 -------------------------------
