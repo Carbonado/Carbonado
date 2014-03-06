@@ -422,12 +422,7 @@ public class SyntheticStorableBuilder
     }
 
     /**
-     * @param annotator
-     *            source of annotation (eg, makeAnnotation and makeMemberValue)
-     * @param indexes
-     * @param position
-     * @param annotationClass TODO
-     * @return
+     * @param annotator source of annotation (eg, makeAnnotation and makeMemberValue)
      */
     private Annotation addIndex(Annotation annotator,
                                 Annotation.MemberValue[] indexes,

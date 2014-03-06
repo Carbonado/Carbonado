@@ -9,7 +9,7 @@ package com.amazon.carbonado.util;
  * Exception throw when attempting to perform an unavailable operation on an
  * object undergoing belated creation.
  *
- * @see com.amazon.carbonado.util.BelatedCreator;
+ * @see BelatedCreator
  *
  * @author Jesse Morgan (morganjm)
  */
