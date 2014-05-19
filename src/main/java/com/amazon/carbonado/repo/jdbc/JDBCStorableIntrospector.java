@@ -754,14 +754,14 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
         case NUMERIC:
         case DECIMAL:
             if (desiredClass == int.class) {
-                if (decimalDigits == 0) {
+                if (decimalDigits <= 0) {
                     actualClass = int.class;
                     suffix = "Int";
                 } else {
                     return null;
                 }
             } else if (desiredClass == long.class) {
-                if (decimalDigits == 0) {
+                if (decimalDigits <= 0) {
                     actualClass = long.class;
                     suffix = "Long";
                 } else {
@@ -774,14 +774,14 @@ public class JDBCStorableIntrospector extends StorableIntrospector {
                 actualClass = BigDecimal.class;
                 suffix = "BigDecimal";
             } else if (desiredClass == short.class) {
-                if (decimalDigits == 0) {
+                if (decimalDigits <= 0) {
                     actualClass = short.class;
                     suffix = "Short";
                 } else {
                     return null;
                 }
             } else if (desiredClass == byte.class) {
-                if (decimalDigits == 0) {
+                if (decimalDigits <= 0) {
                     actualClass = byte.class;
                     suffix = "Byte";
                 } else {
