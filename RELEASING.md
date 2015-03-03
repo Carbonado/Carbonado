@@ -7,11 +7,11 @@ Prerequisites
 -------------
 
 * You will need the Carbonado GPG key and passphrase to continue.  Contact
-  @jesterpm or @broneill to obtain them.
+  @jesterpm or @pranaydalmia to obtain them.
 
 * You will need an account with Sonatype Nexus. You can create that
   [here](https://issues.sonatype.org/secure/Signup!default.jspa). Contact
-  @jesterpm or @broneill for access to the Cojen repository.
+  @jesterpm or @pranaydalmia for access to the Carbonado repository.
 
 Process
 -------
