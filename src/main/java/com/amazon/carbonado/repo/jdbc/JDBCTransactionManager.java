@@ -97,18 +97,30 @@ class JDBCTransactionManager extends TransactionManager<JDBCTransaction> {
 
     @Override
     protected void abortTxn(JDBCTransaction txn) throws PersistException {
+        PersistException ex = null;
+
         try {
-            Connection con;
-            if ((con = txn.abort()) != null) {
-                JDBCRepository repo = mRepositoryRef.get();
-                if (repo == null) {
-                    con.close();
-                } else {
-                    repo.closeConnection(con);
+            txn.abort();
+        } catch (Throwable e) {
+            ex = mExTransformer.toPersistException(e);
+            throw ex;
+        } finally {
+            try {
+                if (txn.shouldCloseConnection()) {
+                    Connection con = txn.getConnection();
+                    JDBCRepository repo = mRepositoryRef.get();
+                    if (repo == null) {
+                        con.close();
+                    } else {
+                        repo.closeConnection(con);
+                    }
+                }
+            } catch (Throwable e) {
+                // Don't lose the original exception.
+                if (ex == null) {
+                    throw mExTransformer.toPersistException(e);
                 }
             }
-        } catch (Throwable e) {
-            throw mExTransformer.toPersistException(e);
         }
     }
 }

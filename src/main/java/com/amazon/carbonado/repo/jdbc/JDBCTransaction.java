@@ -106,10 +106,17 @@ class JDBCTransaction {
     }
 
     /**
-     * @return connection to close, or null if not ready to because this was a
-     * nested transaction
+     * @return true if the connection should be closed after the transaction is aborted.
      */
-    Connection abort() throws SQLException {
+    boolean shouldCloseConnection() {
+        return !mIsNested;
+    }
+
+    /**
+     * Note: The caller should close the connection after aborting if
+     * shouldCloseConnection() returns true.
+     */
+    void abort() throws SQLException {
         if (mRegisteredLobs != null) {
             for (JDBCLob lob : mRegisteredLobs) {
                 lob.close();
@@ -134,13 +141,11 @@ class JDBCTransaction {
                 }
             }
 
-            return null;
         } else {
             if (mReady) {
                 mConnection.rollback();
                 mReady = false;
             }
-            return mConnection;
         }
     }
 
