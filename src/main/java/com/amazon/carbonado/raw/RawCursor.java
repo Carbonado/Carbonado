@@ -111,8 +111,8 @@ public abstract class RawCursor<S> extends AbstractCursor<S> {
     }
 
     public boolean hasNext() throws FetchException {
-        mLock.lock();
         try {
+            mLock.lock();
             try {
                 switch (mState) {
                 case UNINITIALIZED:
@@ -137,47 +137,47 @@ public abstract class RawCursor<S> extends AbstractCursor<S> {
                 case HAS_NEXT:
                     return true;
                 }
-            } catch (FetchException e) {
-                // Auto-close in response to FetchException.
-                try {
-                    close();
-                } catch (FetchException e2) {
-                    // Ignore.
-                }
-                throw e;
+            } finally {
+                mLock.unlock();
             }
-
-            // Reached the end naturally, so close.
-            close();
-        } finally {
-            mLock.unlock();
+        } catch (FetchException e) {
+            // Auto-close in response to FetchException.
+            try {
+                close();
+            } catch (FetchException e2) {
+                // Ignore.
+            }
+            throw e;
         }
+
+        // Reached the end naturally, so close.
+        close();
 
         return false;
     }
 
     public S next() throws FetchException, NoSuchElementException {
-        mLock.lock();
         try {
-            if (!hasNext()) {
-                handleNoSuchElement();
-                throw new NoSuchElementException();
-            }
+            mLock.lock();
             try {
+                if (!hasNext()) {
+                    handleNoSuchElement();
+                    throw new NoSuchElementException();
+                }
                 S obj = instantiateCurrent();
                 mState = TRY_NEXT;
                 return obj;
-            } catch (FetchException e) {
-                // Auto-close in response to FetchException.
-                try {
-                    close();
-                } catch (FetchException e2) {
-                    // Ignore.
-                }
-                throw e;
+            } finally {
+                mLock.unlock();
             }
-        } finally {
-            mLock.unlock();
+        } catch (FetchException e) {
+            // Auto-close in response to FetchException.
+            try {
+                close();
+            } catch (FetchException e2) {
+                // Ignore.
+            }
+            throw e;
         }
     }
 
@@ -190,38 +190,38 @@ public abstract class RawCursor<S> extends AbstractCursor<S> {
             return 0;
         }
 
-        mLock.lock();
         try {
             int actual = 0;
 
-            if (hasNext()) {
-                try {
+            mLock.lock();
+            try {
+                if (hasNext()) {
                     actual += mReverse ? toBoundedPrevious(amount) : toBoundedNext(amount);
-                } catch (FetchException e) {
-                    // Auto-close in response to FetchException.
-                    try {
-                        close();
-                    } catch (FetchException e2) {
-                        // Ignore.
-                    }
-                    throw e;
-                }
 
-                if (actual >= amount) {
-                    return actual;
+                    if (actual >= amount) {
+                        return actual;
+                    }
+                    mState = TRY_NEXT;
+                    // Since state was HAS_NEXT and is forced into TRY_NEXT, actual
+                    // amount skipped is effectively one more.
+                    actual++;
                 }
-                mState = TRY_NEXT;
-                // Since state was HAS_NEXT and is forced into TRY_NEXT, actual
-                // amount skipped is effectively one more.
-                actual++;
+            } finally {
+                mLock.unlock();
             }
 
             // Reached the end naturally, so close.
             close();
 
             return actual;
-        } finally {
-            mLock.unlock();
+        } catch (FetchException e) {
+            // Auto-close in response to FetchException.
+            try {
+                close();
+            } catch (FetchException e2) {
+                // Ignore.
+            }
+            throw e;
         }
     }
 
