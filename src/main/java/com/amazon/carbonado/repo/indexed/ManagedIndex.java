@@ -30,11 +30,13 @@ import org.apache.commons.logging.LogFactory;
 
 import com.amazon.carbonado.CorruptEncodingException;
 import com.amazon.carbonado.Cursor;
+import com.amazon.carbonado.FetchDeadlockException;
 import com.amazon.carbonado.FetchException;
 import com.amazon.carbonado.FetchTimeoutException;
 import com.amazon.carbonado.IsolationLevel;
-import com.amazon.carbonado.PersistTimeoutException;
+import com.amazon.carbonado.PersistDeadlockException;
 import com.amazon.carbonado.PersistException;
+import com.amazon.carbonado.PersistTimeoutException;
 import com.amazon.carbonado.Query;
 import com.amazon.carbonado.Repository;
 import com.amazon.carbonado.RepositoryException;
@@ -584,7 +586,9 @@ class ManagedIndex<S extends Storable> implements IndexEntryAccessor<S> {
                     retry = false;
                 } catch (RepositoryException e) {
                     if (e instanceof FetchTimeoutException ||
-                        e instanceof PersistTimeoutException)
+                        e instanceof FetchDeadlockException ||
+                        e instanceof PersistTimeoutException ||
+                        e instanceof PersistDeadlockException)
                     {
                         log.warn("Lock conflict during index repair; will retry: " +
                                  indexEntry + ", " + e);
