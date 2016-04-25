@@ -1239,6 +1239,7 @@ class JDBCStorableGenerator<S extends Storable> {
             yieldConAndHandleException(b, supportVar, tryBeforeCon, conVar, tryAfterCon, true);
 
             b.loadLocal(updateCount);
+            b.convert(TypeDesc.INT, TypeDesc.BOOLEAN);
             b.returnValue(TypeDesc.BOOLEAN);
         }
 
@@ -1277,6 +1278,7 @@ class JDBCStorableGenerator<S extends Storable> {
             yieldConAndHandleException(b, supportVar, tryBeforeCon, conVar, tryAfterCon, true);
 
             b.loadLocal(resultVar);
+            b.convert(TypeDesc.INT, TypeDesc.BOOLEAN);
             b.returnValue(TypeDesc.BOOLEAN);
         }
 
