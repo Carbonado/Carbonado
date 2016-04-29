@@ -1818,6 +1818,7 @@ public final class StorableGenerator<S extends Storable> {
                 b.loadConstant(PROPERTY_STATE_MASK << ((versionOrdinal & 0xf) * 2));
                 b.math(Opcode.IAND);
                 // zero == false, not zero == true
+                b.convert(TypeDesc.INT, TypeDesc.BOOLEAN);
                 b.returnValue(TypeDesc.BOOLEAN);
             }
         }
@@ -2481,6 +2482,7 @@ public final class StorableGenerator<S extends Storable> {
             b.loadConstant(PROPERTY_STATE_MASK << ((ordinal & 0xf) * 2));
             b.math(Opcode.IAND);
             // zero == false, not zero == true
+            b.convert(TypeDesc.INT, TypeDesc.BOOLEAN);
             b.returnValue(TypeDesc.BOOLEAN);
             return;
         }
