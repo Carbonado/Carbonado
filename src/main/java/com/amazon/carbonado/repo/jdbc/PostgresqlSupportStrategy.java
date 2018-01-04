@@ -25,10 +25,15 @@ package com.amazon.carbonado.repo.jdbc;
  * @since 1.2
  */
 class PostgresqlSupportStrategy extends JDBCSupportStrategy {
+
     private static final String TRUNCATE_STATEMENT = "TRUNCATE TABLE %s";
+
+    private static final String DEFAULT_SEQUENCE_SELECT_STATEMENT = "SELECT NEXTVAL('%s')";
 
     protected PostgresqlSupportStrategy(JDBCRepository repo) {
         super(repo);
+
+        setSequenceSelectStatement(DEFAULT_SEQUENCE_SELECT_STATEMENT);
 
         setTruncateTableStatement(TRUNCATE_STATEMENT);
     }
