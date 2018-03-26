@@ -114,11 +114,17 @@ public final class StorableGenerator<S extends Storable> {
 
     /**
      * Name of protected method in generated storable that returns false if any
-     * primary keys are uninitialized.
+     * required primary keys are uninitialized.
+     */
+    public static final String IS_REQUIRED_PK_INITIALIZED_METHOD_NAME = "isRequiredPkInitialized$";
+
+    /**
+     * Name of protected method in generated storable that returns false if any
+     * required or optional (e.g. Automatic) primary keys are uninitialized.
      */
     public static final String IS_PK_INITIALIZED_METHOD_NAME = "isPkInitialized$";
 
-   /**
+    /**
      * Name of protected method in generated storable that returns false if any
      * partition keys are uninitialized.
      */
@@ -1748,6 +1754,10 @@ public final class StorableGenerator<S extends Storable> {
         }
 
         {
+            // Define protected isRequiredPkInitialized method.
+            addIsRequiredInitializedMethod
+                (IS_REQUIRED_PK_INITIALIZED_METHOD_NAME, mInfo.getPrimaryKeyProperties());
+
             // Define protected isPkInitialized method.
             addIsInitializedMethod
                 (IS_PK_INITIALIZED_METHOD_NAME, mInfo.getPrimaryKeyProperties());
@@ -1761,9 +1771,9 @@ public final class StorableGenerator<S extends Storable> {
                         partitionProperties.put(property.getName(), property);
                     }
                 }
-                
+
                 // Add methods to check that the partition key is defined 
-                addIsInitializedMethod(IS_PARTITION_KEY_INITIALIZED_METHOD_NAME, partitionProperties);
+                addIsRequiredInitializedMethod(IS_PARTITION_KEY_INITIALIZED_METHOD_NAME, partitionProperties);
             }
 
             // Define protected methods to check if alternate key is initialized.
@@ -1802,7 +1812,7 @@ public final class StorableGenerator<S extends Storable> {
                     }
                 }
 
-                addIsInitializedMethod
+                addIsRequiredInitializedMethod
                     (IS_REQUIRED_DATA_INITIALIZED_METHOD_NAME, requiredProperties);
             }
 
@@ -2447,14 +2457,27 @@ public final class StorableGenerator<S extends Storable> {
         }
     }
 
+    private void addIsRequiredInitializedMethod
+        (String name, Map<String, ? extends StorableProperty<S>> properties)
+    {
+        addIsInitializedMethod(name, properties, true);
+    }
+
     private void addIsInitializedMethod
         (String name, Map<String, ? extends StorableProperty<S>> properties)
+    {
+        addIsInitializedMethod(name, properties, false);
+    }
+
+    private void addIsInitializedMethod
+        (String name, Map<String, ? extends StorableProperty<S>> properties, boolean ignoreAutomatic)
     {
         // Don't check Automatic, Independent, or Version properties.
         {
             boolean cloned = false;
             for (StorableProperty<S> prop : properties.values()) {
-                if (prop.isAutomatic() || prop.isIndependent() || prop.isVersion()) {
+                if ((ignoreAutomatic && prop.isAutomatic()) ||
+                        prop.isIndependent() || prop.isVersion()) {
                     if (!cloned) {
                         properties = new LinkedHashMap<String, StorableProperty<S>>(properties);
                         cloned = true;
@@ -2559,7 +2582,7 @@ public final class StorableGenerator<S extends Storable> {
         // Now define new method, discarding original builder object.
         b = new CodeBuilder(mClassFile.addMethod(Modifiers.PROTECTED, methodName, null, null));
         b.loadThis();
-        b.invokeVirtual(IS_PK_INITIALIZED_METHOD_NAME, TypeDesc.BOOLEAN, null);
+        b.invokeVirtual(IS_REQUIRED_PK_INITIALIZED_METHOD_NAME, TypeDesc.BOOLEAN, null);
         Label pkInitialized = b.createLabel();
         b.ifZeroComparisonBranch(pkInitialized, "!=");
         CodeBuilderUtil.throwException
