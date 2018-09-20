@@ -53,7 +53,7 @@ class H2SupportStrategy extends JDBCSupportStrategy {
                 return select.concat(" LIMIT ?");
             }
         } else if (from) {
-            return select.concat(" LIMIT 2147483647 OFFSET ?");
+            return select.concat(" OFFSET ?");
         } else {
             return select;
         }
